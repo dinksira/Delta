@@ -1,0 +1,12 @@
+# Node
+/deltalabs-frontend/node_modules
+
+# Python
+/deltalabs-backend/.venv
+/deltalabs-backend/.venv/
+__pycache__/
+*.pyc
+
+# Next.js
+/deltalabs-frontend/.next
+
