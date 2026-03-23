@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { AppShell } from "@/components/navigation/AppShell";
+
 export default function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
-  return <div className="flex min-h-full flex-col">{children}</div>;
+  return <AppShell>{children}</AppShell>;
 }

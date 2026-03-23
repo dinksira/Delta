@@ -1,5 +1,7 @@
 export { Button } from "@/components/theme/Button";
 export type { ButtonProps } from "@/components/theme/Button";
+export { ButtonLink } from "@/components/theme/ButtonLink";
+export type { ButtonLinkProps } from "@/components/theme/ButtonLink";
 export {
   Card,
   CardContent,
