@@ -1,1 +1,92 @@
-:root {}
+:root {
+  --dl-color-primary-50: #eef2ff;
+  --dl-color-primary-100: #e0e7ff;
+  --dl-color-primary-200: #c7d2fe;
+  --dl-color-primary-300: #a5b4fc;
+  --dl-color-primary-400: #818cf8;
+  --dl-color-primary-500: #6366f1;
+  --dl-color-primary-600: #4f46e5;
+  --dl-color-primary-700: #4338ca;
+  --dl-color-primary-800: #3730a3;
+  --dl-color-primary-900: #312e81;
+
+  --dl-color-secondary-500: #0ea5e9;
+  --dl-color-success-500: #22c55e;
+  --dl-color-warning-500: #f59e0b;
+  --dl-color-error-500: #ef4444;
+
+  --dl-color-surface-canvas: #f8fafc;
+  --dl-color-surface-default: #ffffff;
+  --dl-color-surface-elevated: #ffffff;
+  --dl-color-border-default: #e2e8f0;
+
+  --dl-color-text-primary: #0f172a;
+  --dl-color-text-secondary: #475569;
+  --dl-color-text-inverse: #f8fafc;
+
+  --dl-radius-sm: 0.375rem;
+  --dl-radius-md: 0.5rem;
+  --dl-radius-lg: 0.75rem;
+
+  --dl-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --dl-shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.1);
+}
+
+.dark {
+  --dl-color-surface-canvas: #020617;
+  --dl-color-surface-default: #0f172a;
+  --dl-color-surface-elevated: #1e293b;
+  --dl-color-border-default: #334155;
+  --dl-color-text-primary: #e2e8f0;
+  --dl-color-text-secondary: #94a3b8;
+  --dl-color-text-inverse: #020617;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --dl-color-surface-canvas: #020617;
+    --dl-color-surface-default: #0f172a;
+    --dl-color-surface-elevated: #1e293b;
+    --dl-color-border-default: #334155;
+    --dl-color-text-primary: #e2e8f0;
+    --dl-color-text-secondary: #94a3b8;
+    --dl-color-text-inverse: #020617;
+  }
+}
+
+@theme inline {
+  --color-primary-50: var(--dl-color-primary-50);
+  --color-primary-100: var(--dl-color-primary-100);
+  --color-primary-200: var(--dl-color-primary-200);
+  --color-primary-300: var(--dl-color-primary-300);
+  --color-primary-400: var(--dl-color-primary-400);
+  --color-primary-500: var(--dl-color-primary-500);
+  --color-primary-600: var(--dl-color-primary-600);
+  --color-primary-700: var(--dl-color-primary-700);
+  --color-primary-800: var(--dl-color-primary-800);
+  --color-primary-900: var(--dl-color-primary-900);
+
+  --color-secondary-500: var(--dl-color-secondary-500);
+  --color-success-500: var(--dl-color-success-500);
+  --color-warning-500: var(--dl-color-warning-500);
+  --color-error-500: var(--dl-color-error-500);
+
+  --color-surface-canvas: var(--dl-color-surface-canvas);
+  --color-surface-default: var(--dl-color-surface-default);
+  --color-surface-elevated: var(--dl-color-surface-elevated);
+  --color-border-default: var(--dl-color-border-default);
+
+  --color-text-primary: var(--dl-color-text-primary);
+  --color-text-secondary: var(--dl-color-text-secondary);
+  --color-text-inverse: var(--dl-color-text-inverse);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: var(--dl-radius-sm);
+  --radius-md: var(--dl-radius-md);
+  --radius-lg: var(--dl-radius-lg);
+
+  --shadow-sm: var(--dl-shadow-sm);
+  --shadow-md: var(--dl-shadow-md);
+}
