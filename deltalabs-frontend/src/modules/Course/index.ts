@@ -1,1 +1,5 @@
-export { EnrolledCoursesPageView } from "@/modules/Course/views/EnrolledCoursesPageView";
+/**
+ * Course module — enrollments, learning content, and course-scoped UI.
+ * Layout: views, context, features, api, hooks, routing, types, utils per Delta Labs standards.
+ */
+export * from "@/modules/Course/views";

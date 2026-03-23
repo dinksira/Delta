@@ -1,2 +1,5 @@
-export { DashboardPageView } from "./views/DashboardPageView";
-export { LandingPageView } from "./views/LandingPageView";
+/**
+ * Feed module — landing, marketing placeholders, and dashboard shell entrypoints.
+ * Layout: views, context, features, api, hooks, routing, types, utils per Delta Labs standards.
+ */
+export * from "@/modules/Feed/views";
