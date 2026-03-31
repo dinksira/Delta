@@ -1,4 +1,16 @@
+.env
 .venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+
+# Markdown (planning/docs local); keep root README for PyPI / clone instructions
+*.md
+!README.md
 
