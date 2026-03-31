@@ -1,10 +1,11 @@
 import Link from "next/link";
 
+import { ModeSwitchRect } from "@/components/navigation/ModeSwitchRect";
 import { ThemeToggle } from "@/components/navigation/ThemeToggle";
 import { ButtonLink, Typography } from "@/components/theme";
 
 /** Marketing/public site header with auth entry points. */
-export function PublicHeader() {
+export function PublicHeader({ isAuthenticated }: Readonly<{ isAuthenticated: boolean }>) {
   return (
     <header className="sticky top-0 z-50 border-b border-border-default bg-surface-default/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
@@ -22,13 +23,22 @@ export function PublicHeader() {
           </Link>
         </nav>
         <div className="flex items-center gap-2 sm:gap-3">
+          <ModeSwitchRect isAuthenticated={isAuthenticated} />
           <ThemeToggle />
-          <ButtonLink href="/login" variant="secondary" size="sm">
-            Log in
-          </ButtonLink>
-          <ButtonLink href="/signup" variant="primary" size="sm">
-            Sign up
-          </ButtonLink>
+          {isAuthenticated ? (
+            <ButtonLink href="/dashboard" variant="secondary" size="sm">
+              Dashboard
+            </ButtonLink>
+          ) : (
+            <>
+              <ButtonLink href="/login" variant="secondary" size="sm">
+                Log in
+              </ButtonLink>
+              <ButtonLink href="/signup" variant="primary" size="sm">
+                Sign up
+              </ButtonLink>
+            </>
+          )}
         </div>
       </div>
     </header>

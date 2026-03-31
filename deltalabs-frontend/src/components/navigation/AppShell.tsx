@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { ModeSwitchRect } from "@/components/navigation/ModeSwitchRect";
 import { Typography } from "@/components/theme";
 import { ThemeToggle } from "@/components/navigation/ThemeToggle";
 
@@ -32,7 +33,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               Enrolled courses
             </Link>
           </nav>
-          <ThemeToggle />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ModeSwitchRect isAuthenticated />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6">{children}</main>
