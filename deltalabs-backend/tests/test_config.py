@@ -15,7 +15,10 @@ def test_default_settings() -> None:
     s = Settings()
     assert s.mongodb_uri.startswith("mongodb://")
     assert s.mongodb_db_name == "deltalabs"
+    assert s.mongodb_max_pool_size == 100
     assert s.redis_url.startswith("redis://")
+    assert s.redis_max_connections == 50
+    assert s.http_timeout_seconds == 30.0
     assert s.api_v1_prefix == "/v1"
     assert s.env == "local"
     assert s.cors_origin_list() == ["http://localhost:3000"]

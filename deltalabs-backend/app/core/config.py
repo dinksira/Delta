@@ -26,11 +26,38 @@ class Settings(BaseSettings):
         description="MongoDB connection URI",
     )
     mongodb_db_name: str = Field(default="deltalabs", description="MongoDB database name")
+    mongodb_max_pool_size: int = Field(
+        default=100,
+        ge=1,
+        description="Motor / PyMongo max connection pool size",
+    )
+    mongodb_min_pool_size: int = Field(
+        default=0,
+        ge=0,
+        description="Motor / PyMongo min pool size",
+    )
+    mongodb_server_selection_timeout_ms: int = Field(
+        default=5000,
+        ge=1,
+        description="Server selection timeout (ms)",
+    )
 
     redis_url: str = Field(
         default="redis://localhost:6379/0",
         description="Redis connection URL",
     )
+    redis_max_connections: int = Field(
+        default=50,
+        ge=1,
+        description="Max connections in the Redis asyncio pool",
+    )
+
+    http_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        description="Default timeout for the shared httpx AsyncClient (seconds)",
+    )
+    log_level: str = Field(default="INFO", description="Application log level")
 
     jwt_secret: str = Field(
         default="dev-only-replace-in-production",
@@ -41,6 +68,15 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, ge=1)
 
     api_v1_prefix: str = Field(default="/v1", description="Mounted API version prefix")
+    idempotency_header_name: str = Field(
+        default="Idempotency-Key",
+        description="Header used to carry idempotency keys",
+    )
+    idempotency_ttl_seconds: int = Field(
+        default=24 * 60 * 60,
+        ge=1,
+        description="Planned Redis TTL for idempotency records",
+    )
 
     cors_origins: str = Field(
         default="http://localhost:3000",
