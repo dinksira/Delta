@@ -46,6 +46,9 @@ export interface DesignTokens {
       borderError: string;
       placeholder: string;
     };
+    authLink: {
+      secondary: string;
+    };
     switchMode: {
       trackBg: string;
       trackBorder: string;
@@ -184,6 +187,9 @@ export const designTokens: Readonly<DesignTokens> = {
       borderFocus: "var(--dl-auth-input-border-focus)",
       borderError: "var(--dl-auth-input-border-error)",
       placeholder: "var(--dl-auth-input-placeholder)",
+    },
+    authLink: {
+      secondary: "var(--dl-auth-link-secondary)",
     },
     switchMode: {
       trackBg: "var(--dl-switch-mode-track-bg)",

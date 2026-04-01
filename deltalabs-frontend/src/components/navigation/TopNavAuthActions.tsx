@@ -16,31 +16,25 @@ export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
   next.set("auth", "signup");
   const signupHref = `${pathname}?${next.toString()}`;
 
+  const pillClass =
+    "inline-flex h-10 min-w-[5.5rem] items-center justify-center rounded-full border border-white bg-transparent px-5 text-[15px] font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:min-w-[5.75rem] sm:px-6 sm:text-base";
+
   if (isAuthenticated) {
     return (
-      <Link
-        href="/dashboard"
-        className="inline-flex h-9 items-center justify-center rounded-full border border-white/70 px-5 text-sm font-semibold text-white hover:bg-white/10"
-      >
+      <Link href="/dashboard" className={pillClass}>
         Dashboard
       </Link>
     );
   }
 
   return (
-    <>
-      <Link
-        href={loginHref}
-        className="inline-flex h-9 items-center justify-center rounded-full border border-white/70 px-5 text-sm font-semibold text-white hover:bg-white/10"
-      >
+    <div className="flex items-center gap-2">
+      <Link href={loginHref} className={pillClass}>
         Login
       </Link>
-      <Link
-        href={signupHref}
-        className="inline-flex h-9 items-center justify-center rounded-full border border-white/70 px-5 text-sm font-semibold text-white hover:bg-white/10"
-      >
+      <Link href={signupHref} className={pillClass}>
         Sign up
       </Link>
-    </>
+    </div>
   );
 }
