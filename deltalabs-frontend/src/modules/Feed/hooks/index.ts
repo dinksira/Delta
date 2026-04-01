@@ -1,2 +1,7 @@
 /** Data and UI hooks. */
-export {};
+export {
+  useLoginMutation,
+  useRecoverRequestMutation,
+  useResetPasswordMutation,
+  useSignupMutation,
+} from "@/modules/Feed/hooks/useAuthMutations";

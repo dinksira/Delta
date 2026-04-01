@@ -16,7 +16,7 @@ export function FeaturesPageView() {
   return (
     <div className="flex flex-col gap-8 py-4">
       <div className="flex items-center justify-between">
-        <div className="inline-flex rounded-xl border border-border-default bg-surface-muted px-5 py-2">
+        <div className="inline-flex rounded-xl border border-features-card-border bg-features-card-icon-bg px-5 py-2">
           <Typography as="span" variant="label">
             Features
           </Typography>
@@ -35,7 +35,10 @@ export function FeaturesPageView() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {featureCards.map((card) => (
-          <Card key={card.title} className="h-full">
+          <Card
+            key={card.title}
+            className="h-full border-features-card-border bg-features-card-surface transition-colors hover:border-features-card-hover-border"
+          >
             <CardHeader>
               <CardTitle>{card.title}</CardTitle>
               <CardDescription>{card.description}</CardDescription>

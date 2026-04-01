@@ -19,7 +19,7 @@ export function ModeSwitchRect({ isAuthenticated }: ModeSwitchRectProps) {
 
   return (
     <div
-      className="inline-flex items-center rounded-full border border-border-default bg-surface-muted p-1"
+      className="inline-flex items-center rounded-full border border-switch-mode-track-border bg-switch-mode-track-bg p-1"
       aria-label="Screen mode switch"
     >
       <Link
@@ -27,8 +27,8 @@ export function ModeSwitchRect({ isAuthenticated }: ModeSwitchRectProps) {
         className={[
           "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
           isLandingActive
-            ? "bg-surface-default text-text-primary shadow-sm"
-            : "text-text-secondary hover:text-text-primary",
+            ? "bg-switch-mode-pill-active-bg text-switch-mode-pill-active-text shadow-sm"
+            : "text-switch-mode-pill-inactive-text hover:text-switch-mode-pill-active-text",
         ].join(" ")}
       >
         Landing
@@ -38,8 +38,8 @@ export function ModeSwitchRect({ isAuthenticated }: ModeSwitchRectProps) {
         className={[
           "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
           isFeaturesActive
-            ? "bg-surface-default text-text-primary shadow-sm"
-            : "text-text-secondary hover:text-text-primary",
+            ? "bg-switch-mode-pill-active-bg text-switch-mode-pill-active-text shadow-sm"
+            : "text-switch-mode-pill-inactive-text hover:text-switch-mode-pill-active-text",
         ].join(" ")}
       >
         Features

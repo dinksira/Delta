@@ -18,7 +18,9 @@
   --dl-color-surface-canvas: #f8fafc;
   --dl-color-surface-default: #ffffff;
   --dl-color-surface-elevated: #ffffff;
+  --dl-color-surface-muted: #f1f5f9;
   --dl-color-border-default: #e2e8f0;
+  --dl-color-border-subtle: #e2e8f0;
 
   --dl-color-text-primary: #0f172a;
   --dl-color-text-secondary: #475569;
@@ -30,16 +32,67 @@
 
   --dl-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
   --dl-shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.1);
+
+  /* auth.modal.* */
+  --dl-auth-modal-surface: var(--dl-color-surface-default);
+  --dl-auth-modal-border: var(--dl-color-border-default);
+  --dl-auth-modal-header-border: var(--dl-color-border-subtle);
+  --dl-auth-modal-shadow: var(--dl-shadow-sm);
+
+  /* auth.banner.* */
+  --dl-auth-banner-success-bg: #ecfdf5;
+  --dl-auth-banner-success-text: #047857;
+  --dl-auth-banner-error-bg: #fff1f2;
+  --dl-auth-banner-error-text: #be123c;
+  --dl-auth-banner-info-bg: #f0f9ff;
+  --dl-auth-banner-info-text: #0369a1;
+
+  /* auth.input.* */
+  --dl-auth-input-bg: var(--dl-color-surface-default);
+  --dl-auth-input-border: var(--dl-color-border-default);
+  --dl-auth-input-border-focus: var(--dl-color-primary-400);
+  --dl-auth-input-border-error: var(--dl-color-error-500);
+  --dl-auth-input-placeholder: var(--dl-color-text-secondary);
+
+  /* switch.mode.* */
+  --dl-switch-mode-track-bg: var(--dl-color-surface-muted);
+  --dl-switch-mode-track-border: var(--dl-color-border-default);
+  --dl-switch-mode-pill-active-bg: var(--dl-color-surface-default);
+  --dl-switch-mode-pill-active-text: var(--dl-color-text-primary);
+  --dl-switch-mode-pill-inactive-text: var(--dl-color-text-secondary);
+
+  /* features.card.* */
+  --dl-features-card-surface: var(--dl-color-surface-default);
+  --dl-features-card-border: var(--dl-color-border-default);
+  --dl-features-card-hover-border: var(--dl-color-primary-300);
+  --dl-features-card-icon-bg: var(--dl-color-primary-50);
+
+  /* feed.action.* */
+  --dl-feed-action-rail-bg: var(--dl-color-surface-muted);
+  --dl-feed-action-icon-default: var(--dl-color-text-secondary);
+  --dl-feed-action-icon-active: var(--dl-color-primary-600);
 }
 
 .dark {
   --dl-color-surface-canvas: #020617;
   --dl-color-surface-default: #0f172a;
   --dl-color-surface-elevated: #1e293b;
+  --dl-color-surface-muted: #1e293b;
   --dl-color-border-default: #334155;
+  --dl-color-border-subtle: #334155;
   --dl-color-text-primary: #e2e8f0;
   --dl-color-text-secondary: #94a3b8;
   --dl-color-text-inverse: #020617;
+
+  --dl-auth-banner-success-bg: rgb(6 78 59 / 0.35);
+  --dl-auth-banner-success-text: #6ee7b7;
+  --dl-auth-banner-error-bg: rgb(136 19 55 / 0.35);
+  --dl-auth-banner-error-text: #fda4af;
+  --dl-auth-banner-info-bg: rgb(12 74 110 / 0.35);
+  --dl-auth-banner-info-text: #7dd3fc;
+
+  --dl-features-card-icon-bg: rgb(49 46 129 / 0.45);
+  --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -47,10 +100,22 @@
     --dl-color-surface-canvas: #020617;
     --dl-color-surface-default: #0f172a;
     --dl-color-surface-elevated: #1e293b;
+    --dl-color-surface-muted: #1e293b;
     --dl-color-border-default: #334155;
+    --dl-color-border-subtle: #334155;
     --dl-color-text-primary: #e2e8f0;
     --dl-color-text-secondary: #94a3b8;
     --dl-color-text-inverse: #020617;
+
+    --dl-auth-banner-success-bg: rgb(6 78 59 / 0.35);
+    --dl-auth-banner-success-text: #6ee7b7;
+    --dl-auth-banner-error-bg: rgb(136 19 55 / 0.35);
+    --dl-auth-banner-error-text: #fda4af;
+    --dl-auth-banner-info-bg: rgb(12 74 110 / 0.35);
+    --dl-auth-banner-info-text: #7dd3fc;
+
+    --dl-features-card-icon-bg: rgb(49 46 129 / 0.45);
+    --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
   }
 }
 
@@ -74,11 +139,46 @@
   --color-surface-canvas: var(--dl-color-surface-canvas);
   --color-surface-default: var(--dl-color-surface-default);
   --color-surface-elevated: var(--dl-color-surface-elevated);
+  --color-surface-muted: var(--dl-color-surface-muted);
   --color-border-default: var(--dl-color-border-default);
+  --color-border-subtle: var(--dl-color-border-subtle);
 
   --color-text-primary: var(--dl-color-text-primary);
   --color-text-secondary: var(--dl-color-text-secondary);
   --color-text-inverse: var(--dl-color-text-inverse);
+
+  --color-auth-modal-surface: var(--dl-auth-modal-surface);
+  --color-auth-modal-border: var(--dl-auth-modal-border);
+  --color-auth-modal-header-border: var(--dl-auth-modal-header-border);
+  --shadow-auth-modal: var(--dl-auth-modal-shadow);
+
+  --color-auth-banner-success-bg: var(--dl-auth-banner-success-bg);
+  --color-auth-banner-success-text: var(--dl-auth-banner-success-text);
+  --color-auth-banner-error-bg: var(--dl-auth-banner-error-bg);
+  --color-auth-banner-error-text: var(--dl-auth-banner-error-text);
+  --color-auth-banner-info-bg: var(--dl-auth-banner-info-bg);
+  --color-auth-banner-info-text: var(--dl-auth-banner-info-text);
+
+  --color-auth-input-bg: var(--dl-auth-input-bg);
+  --color-auth-input-border: var(--dl-auth-input-border);
+  --color-auth-input-border-focus: var(--dl-auth-input-border-focus);
+  --color-auth-input-border-error: var(--dl-auth-input-border-error);
+  --color-auth-input-placeholder: var(--dl-auth-input-placeholder);
+
+  --color-switch-mode-track-bg: var(--dl-switch-mode-track-bg);
+  --color-switch-mode-track-border: var(--dl-switch-mode-track-border);
+  --color-switch-mode-pill-active-bg: var(--dl-switch-mode-pill-active-bg);
+  --color-switch-mode-pill-active-text: var(--dl-switch-mode-pill-active-text);
+  --color-switch-mode-pill-inactive-text: var(--dl-switch-mode-pill-inactive-text);
+
+  --color-features-card-surface: var(--dl-features-card-surface);
+  --color-features-card-border: var(--dl-features-card-border);
+  --color-features-card-hover-border: var(--dl-features-card-hover-border);
+  --color-features-card-icon-bg: var(--dl-features-card-icon-bg);
+
+  --color-feed-action-rail-bg: var(--dl-feed-action-rail-bg);
+  --color-feed-action-icon-default: var(--dl-feed-action-icon-default);
+  --color-feed-action-icon-active: var(--dl-feed-action-icon-active);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

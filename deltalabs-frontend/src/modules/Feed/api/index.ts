@@ -1,2 +1,2 @@
 /** HTTP wrappers calling shared apiClient. */
-export {};
+export { authApi } from "@/modules/Feed/api/authApi";

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 
 import { PublicFooter } from "@/components/navigation/PublicFooter";
+import { AuthModalGateway } from "@/components/features/auth/AuthModalGateway";
 import { PublicHeader } from "@/components/navigation/PublicHeader";
 import { AUTH_SESSION_COOKIE, isAuthenticatedFromCookieValue } from "@/lib/authSession";
 
@@ -14,6 +15,7 @@ export default async function PublicLayout({ children }: Readonly<{ children: Re
   return (
     <div className="flex min-h-full flex-col bg-surface-canvas">
       <PublicHeader isAuthenticated={isAuthenticated} />
+      <AuthModalGateway enabled={!isAuthenticated} />
       <div className="flex flex-1 flex-col">{children}</div>
       <PublicFooter />
     </div>

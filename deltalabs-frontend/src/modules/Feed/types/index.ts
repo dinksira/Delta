@@ -1,2 +1,9 @@
 /** Module TypeScript types. */
-export {};
+export type {
+  AuthBannerType,
+  AuthResult,
+  LoginInput,
+  RecoverRequestInput,
+  ResetPasswordInput,
+  SignupInput,
+} from "@/modules/Feed/types/auth";
