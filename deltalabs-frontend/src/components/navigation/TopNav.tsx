@@ -15,6 +15,8 @@ import { TopNavUtilityActions } from "@/components/navigation/TopNavUtilityActio
 export type TopNavVariant =
   | "landing_unauthorized"
   | "landing_authorized"
+  /** Session not yet read from storage — neutral right rail (no Login flash on refresh). */
+  | "landing_pending"
   | "features_authorized";
 
 type TopNavProps = Readonly<{
@@ -22,7 +24,26 @@ type TopNavProps = Readonly<{
   isAuthenticated: boolean;
   /** Shown in the utility avatar when signed in (e.g. from session). */
   profileInitials?: string;
+  /** App shell: session not hydrated yet (same placeholder as landing_pending, right rail only). */
+  sessionPending?: boolean;
 }>;
+
+function TopNavRightPlaceholder({ wide }: Readonly<{ wide?: boolean }>) {
+  return (
+    <div
+      className="flex h-10 items-center"
+      aria-busy="true"
+      aria-label="Loading account"
+    >
+      <div
+        className={[
+          "h-10 animate-pulse rounded-full bg-white/15",
+          wide ? "w-44 sm:w-52" : "w-[11rem] sm:w-[12rem]",
+        ].join(" ")}
+      />
+    </div>
+  );
+}
 
 /** Landing (guest or signed-in): same category row as product spec. */
 const LANDING_CATEGORY_ITEMS: readonly TopNavCategoryItem[] = [
@@ -64,9 +85,11 @@ function BrandMarkCube() {
   );
 }
 
-export function TopNav({ variant, isAuthenticated, profileInitials }: TopNavProps) {
+export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
   const showAuthActions = variant === "landing_unauthorized";
   const showFeatureBrowserTabs = variant === "features_authorized";
+  const showRightPlaceholder =
+    variant === "landing_pending" || Boolean(sessionPending);
 
   return (
     <header className="sticky top-0 z-50 bg-primary-600 text-white">
@@ -98,7 +121,9 @@ export function TopNav({ variant, isAuthenticated, profileInitials }: TopNavProp
         )}
 
         <div className="flex min-w-0 shrink-0 items-center">
-          {showAuthActions ? (
+          {showRightPlaceholder ? (
+            <TopNavRightPlaceholder wide={showFeatureBrowserTabs} />
+          ) : showAuthActions ? (
             <TopNavAuthActions isAuthenticated={isAuthenticated} />
           ) : (
             <TopNavUtilityActions profileInitials={profileInitials} />

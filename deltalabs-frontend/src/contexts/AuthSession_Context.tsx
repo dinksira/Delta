@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -50,12 +51,14 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
   const [session, setSession] = useState<AuthSessionPayload | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  /* Client-only localStorage hydrate (no storage during SSR). */
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hydrate from storage */
+  /**
+   * Hydrate from localStorage before the browser paints so we do not flash logged-out chrome
+   * (useEffect runs after paint; useLayoutEffect does not).
+   */
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync hydrate before paint; useEffect flashes logged-out UI
     setSession(readStoredSession());
     setIsReady(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   useEffect(() => {

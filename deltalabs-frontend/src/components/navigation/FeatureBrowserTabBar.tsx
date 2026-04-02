@@ -6,12 +6,10 @@ import { useEffect } from "react";
 
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 
-/** Active / light tab surface — matches product mock (~#dde6ee). */
-const TAB_ACTIVE_BG = "bg-[#dde6ee]";
-/** Inactive sibling tab — slightly cooler gray so active reads as “front”. */
-const TAB_IDLE_BG = "bg-[#c5d4de]";
-const TAB_BORDER = "border-[#b9c9d6]";
-const TAB_TEXT = "text-[#121a24]";
+const TAB_ACTIVE_BG = "bg-[color:var(--color-features-tab-active-bg)]";
+const TAB_IDLE_BG = "bg-[color:var(--color-features-tab-idle-bg)]";
+const TAB_BORDER = "border-[color:var(--color-features-tab-border)]";
+const TAB_TEXT = "text-[color:var(--color-features-tab-text)]";
 
 function TabCloseButton({
   label,
@@ -23,7 +21,7 @@ function TabCloseButton({
   return (
     <button
       type="button"
-      className="ml-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#475569] transition-colors hover:bg-[#b9c9d6]/90 hover:text-[#121a24] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#64748b]/50"
+      className="ml-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-[color:var(--color-features-tab-close-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
       aria-label={`Close ${label} tab`}
       onClick={(e) => {
         e.preventDefault();
@@ -57,7 +55,7 @@ function BrowserTab({ href, label, active, pinned, onClose }: BrowserTabProps) {
   ].join(" ");
 
   return (
-    <div className={shell}>
+    <div className={shell} role="tab" aria-selected={active}>
       <Link
         href={href}
         prefetch
@@ -66,6 +64,7 @@ function BrowserTab({ href, label, active, pinned, onClose }: BrowserTabProps) {
           pinned ? "sm:px-6" : "sm:px-3.5",
           TAB_TEXT,
           active ? "font-bold tracking-tight" : "font-semibold tracking-tight",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
         ].join(" ")}
         aria-current={active ? "page" : undefined}
       >
@@ -107,6 +106,7 @@ export function FeatureBrowserTabBar() {
 
   return (
     <nav
+      role="tablist"
       className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overscroll-x-contain pl-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-1.5 sm:pl-3 [&::-webkit-scrollbar]:hidden"
       aria-label="Feature workspaces"
     >

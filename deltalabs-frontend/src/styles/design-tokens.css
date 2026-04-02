@@ -76,6 +76,31 @@
   --dl-features-card-hover-border: var(--dl-color-primary-300);
   --dl-features-card-icon-bg: var(--dl-color-primary-50);
 
+  /* features.tabs.* (browser-like workspaces) */
+  --dl-features-tab-active-bg: #dde6ee;
+  --dl-features-tab-idle-bg: #c5d4de;
+  --dl-features-tab-border: #b9c9d6;
+  --dl-features-tab-text: #121a24;
+  --dl-features-tab-close-hover-bg: #b9c9d6;
+
+  /* features.card.chips.* (icon circle tones) */
+  --dl-features-chip-slate-bg: #f1f5f9;
+  --dl-features-chip-slate-fg: #334155;
+  --dl-features-chip-orange-bg: #ffedd5;
+  --dl-features-chip-orange-fg: #ea580c;
+  --dl-features-chip-indigo-bg: #e0e7ff;
+  --dl-features-chip-indigo-fg: #6366f1;
+  --dl-features-chip-emerald-bg: #d1fae5;
+  --dl-features-chip-emerald-fg: #059669;
+  --dl-features-chip-amber-bg: #fffbeb;
+  --dl-features-chip-amber-fg: #b45309;
+  --dl-features-chip-rose-bg: #ffe4e6;
+  --dl-features-chip-rose-fg: #e11d48;
+  --dl-features-chip-cyan-bg: #ecfeff;
+  --dl-features-chip-cyan-fg: #0e7490;
+  --dl-features-chip-teal-bg: #f0fdfa;
+  --dl-features-chip-teal-fg: #0f766e;
+
   /* feed.action.* */
   --dl-feed-action-rail-bg: var(--dl-color-surface-muted);
   --dl-feed-action-icon-default: var(--dl-color-text-secondary);
@@ -101,6 +126,27 @@
   --dl-auth-banner-info-text: #7dd3fc;
 
   --dl-features-card-icon-bg: rgb(23 74 95 / 0.35);
+  --dl-features-tab-active-bg: rgb(226 232 240 / 0.18);
+  --dl-features-tab-idle-bg: rgb(148 163 184 / 0.18);
+  --dl-features-tab-border: rgb(148 163 184 / 0.28);
+  --dl-features-tab-text: var(--dl-color-text-primary);
+  --dl-features-tab-close-hover-bg: rgb(148 163 184 / 0.22);
+  --dl-features-chip-slate-bg: rgb(226 232 240 / 0.14);
+  --dl-features-chip-slate-fg: var(--dl-color-text-primary);
+  --dl-features-chip-orange-bg: rgb(234 88 12 / 0.16);
+  --dl-features-chip-orange-fg: #fdba74;
+  --dl-features-chip-indigo-bg: rgb(99 102 241 / 0.16);
+  --dl-features-chip-indigo-fg: #c7d2fe;
+  --dl-features-chip-emerald-bg: rgb(5 150 105 / 0.16);
+  --dl-features-chip-emerald-fg: #6ee7b7;
+  --dl-features-chip-amber-bg: rgb(180 83 9 / 0.16);
+  --dl-features-chip-amber-fg: #fcd34d;
+  --dl-features-chip-rose-bg: rgb(225 29 72 / 0.16);
+  --dl-features-chip-rose-fg: #fda4af;
+  --dl-features-chip-cyan-bg: rgb(14 116 144 / 0.16);
+  --dl-features-chip-cyan-fg: #67e8f9;
+  --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
+  --dl-features-chip-teal-fg: #5eead4;
   --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
   --dl-auth-input-placeholder: #64748b;
   --dl-auth-feedback-success-text: #34d399;
@@ -128,6 +174,27 @@
     --dl-auth-banner-info-text: #7dd3fc;
 
     --dl-features-card-icon-bg: rgb(23 74 95 / 0.35);
+    --dl-features-tab-active-bg: rgb(226 232 240 / 0.18);
+    --dl-features-tab-idle-bg: rgb(148 163 184 / 0.18);
+    --dl-features-tab-border: rgb(148 163 184 / 0.28);
+    --dl-features-tab-text: var(--dl-color-text-primary);
+    --dl-features-tab-close-hover-bg: rgb(148 163 184 / 0.22);
+    --dl-features-chip-slate-bg: rgb(226 232 240 / 0.14);
+    --dl-features-chip-slate-fg: var(--dl-color-text-primary);
+    --dl-features-chip-orange-bg: rgb(234 88 12 / 0.16);
+    --dl-features-chip-orange-fg: #fdba74;
+    --dl-features-chip-indigo-bg: rgb(99 102 241 / 0.16);
+    --dl-features-chip-indigo-fg: #c7d2fe;
+    --dl-features-chip-emerald-bg: rgb(5 150 105 / 0.16);
+    --dl-features-chip-emerald-fg: #6ee7b7;
+    --dl-features-chip-amber-bg: rgb(180 83 9 / 0.16);
+    --dl-features-chip-amber-fg: #fcd34d;
+    --dl-features-chip-rose-bg: rgb(225 29 72 / 0.16);
+    --dl-features-chip-rose-fg: #fda4af;
+    --dl-features-chip-cyan-bg: rgb(14 116 144 / 0.16);
+    --dl-features-chip-cyan-fg: #67e8f9;
+    --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
+    --dl-features-chip-teal-fg: #5eead4;
     --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
     --dl-auth-input-placeholder: #64748b;
     --dl-auth-feedback-success-text: #34d399;
@@ -197,6 +264,29 @@
   --color-features-card-border: var(--dl-features-card-border);
   --color-features-card-hover-border: var(--dl-features-card-hover-border);
   --color-features-card-icon-bg: var(--dl-features-card-icon-bg);
+
+  --color-features-tab-active-bg: var(--dl-features-tab-active-bg);
+  --color-features-tab-idle-bg: var(--dl-features-tab-idle-bg);
+  --color-features-tab-border: var(--dl-features-tab-border);
+  --color-features-tab-text: var(--dl-features-tab-text);
+  --color-features-tab-close-hover-bg: var(--dl-features-tab-close-hover-bg);
+
+  --color-features-chip-slate-bg: var(--dl-features-chip-slate-bg);
+  --color-features-chip-slate-fg: var(--dl-features-chip-slate-fg);
+  --color-features-chip-orange-bg: var(--dl-features-chip-orange-bg);
+  --color-features-chip-orange-fg: var(--dl-features-chip-orange-fg);
+  --color-features-chip-indigo-bg: var(--dl-features-chip-indigo-bg);
+  --color-features-chip-indigo-fg: var(--dl-features-chip-indigo-fg);
+  --color-features-chip-emerald-bg: var(--dl-features-chip-emerald-bg);
+  --color-features-chip-emerald-fg: var(--dl-features-chip-emerald-fg);
+  --color-features-chip-amber-bg: var(--dl-features-chip-amber-bg);
+  --color-features-chip-amber-fg: var(--dl-features-chip-amber-fg);
+  --color-features-chip-rose-bg: var(--dl-features-chip-rose-bg);
+  --color-features-chip-rose-fg: var(--dl-features-chip-rose-fg);
+  --color-features-chip-cyan-bg: var(--dl-features-chip-cyan-bg);
+  --color-features-chip-cyan-fg: var(--dl-features-chip-cyan-fg);
+  --color-features-chip-teal-bg: var(--dl-features-chip-teal-bg);
+  --color-features-chip-teal-fg: var(--dl-features-chip-teal-fg);
 
   --color-feed-action-rail-bg: var(--dl-feed-action-rail-bg);
   --color-feed-action-icon-default: var(--dl-feed-action-icon-default);
