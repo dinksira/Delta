@@ -73,6 +73,7 @@ export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
             closeHref={closeHref}
             forgotHref={recoverHref}
             switchSignupHref={signupHref}
+            redirectAfterLoginHref={closeHref}
           />
         ) : null}
         {mode === "signup" ? (
@@ -81,6 +82,7 @@ export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
             backHref={loginHref}
             closeHref={closeHref}
             switchSigninHref={loginHref}
+            redirectAfterSignupHref={closeHref}
           />
         ) : null}
         {mode === "recover" ? (

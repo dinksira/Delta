@@ -2,19 +2,22 @@
 
 import { useCallback, useId, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
 
+import { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClasses";
 import { getAuthInputClassName } from "@/components/features/auth/authInputStyles";
-import { Typography } from "@/components/theme";
 
 const CELL_COUNT = 6;
 
 type AuthOtpFieldProps = Readonly<{
   label: string;
   error?: boolean;
+  errorMessage?: string;
   name?: string;
 }>;
 
-export function AuthOtpField({ label, error, name = "otp" }: AuthOtpFieldProps) {
+export function AuthOtpField({ label, error, errorMessage, name = "otp" }: AuthOtpFieldProps) {
   const baseId = useId();
+  const invalid = !!(error || errorMessage);
+  const errorId = errorMessage ? `${baseId}-otp-error` : undefined;
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const focusAt = useCallback((index: number) => {
@@ -67,11 +70,16 @@ export function AuthOtpField({ label, error, name = "otp" }: AuthOtpFieldProps) 
   );
 
   return (
-    <fieldset className="flex flex-col gap-2 border-0 p-0">
-      <legend>
-        <Typography as="span" variant="label" className="text-text-primary">
-          {label}
-        </Typography>
+    <fieldset className="flex flex-col gap-1.5 border-0 p-0" aria-describedby={errorId}>
+      <legend className="w-full px-0">
+        <div className="flex items-center justify-between gap-3">
+          <span className={AUTH_FIELD_LABEL_CLASS}>{label}</span>
+          {errorMessage ? (
+            <span id={errorId} role="alert" className="shrink-0 text-right text-sm font-normal text-error-500">
+              {errorMessage}
+            </span>
+          ) : null}
+        </div>
       </legend>
       <div className="flex justify-center gap-2 sm:gap-3" role="group" aria-label={label}>
         {Array.from({ length: CELL_COUNT }, (_, index) => (
@@ -87,7 +95,8 @@ export function AuthOtpField({ label, error, name = "otp" }: AuthOtpFieldProps) 
             maxLength={1}
             autoComplete={index === 0 ? "one-time-code" : "off"}
             aria-label={`Digit ${index + 1} of ${CELL_COUNT}`}
-            className={getAuthInputClassName({ error, className: "w-10 text-center sm:w-11" })}
+            aria-invalid={invalid}
+            className={getAuthInputClassName({ error: invalid, className: "w-10 text-center sm:w-11" })}
             onChange={(e) => handleChange(index, e.target.value)}
             onKeyDown={(e) => handleKeyDown(index, e)}
             onPaste={index === 0 ? handlePaste : undefined}

@@ -1,1 +1,1 @@
-export {};
+export * from "@/components/features/feed";

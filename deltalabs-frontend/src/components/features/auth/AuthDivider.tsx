@@ -7,11 +7,11 @@ type AuthDividerProps = Readonly<{
 export function AuthDivider({ text = "Or Sign in with" }: AuthDividerProps) {
   return (
     <div className="flex items-center gap-3">
-      <div className="h-px flex-1 bg-border-subtle" />
-      <Typography variant="small" className="text-text-secondary">
+      <hr className="min-w-0 flex-1 border-0 border-t border-dashed border-border-default" />
+      <Typography variant="small" className="shrink-0 text-xs font-normal text-text-secondary">
         {text}
       </Typography>
-      <div className="h-px flex-1 bg-border-subtle" />
+      <hr className="min-w-0 flex-1 border-0 border-t border-dashed border-border-default" />
     </div>
   );
 }

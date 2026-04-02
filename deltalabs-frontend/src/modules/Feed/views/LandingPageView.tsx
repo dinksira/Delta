@@ -1,73 +1,166 @@
+"use client";
+
+import { useRef, useState } from "react";
+
 import {
-  ButtonLink,
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Typography,
-} from "@/components/theme";
+  CreatorIdentity,
+  FeedActionRail,
+  FeedCaption,
+  FeedFilterPanel,
+  FeedHashtagList,
+  FeedResourceLink,
+  FeedSearchInput,
+  FeedSnapScrollControls,
+  FeedViewport,
+  type FeedActionItem,
+} from "@/components/features/feed";
 
-const platformFeatures = [
+const actionRailTemplate = [
   {
-    title: "Modular learning",
-    description: "Organize schools, courses, and specializations in one cohesive platform.",
+    key: "goToCourse",
+    actionLabel: "Go to Course",
+    metaLabel: "Go to\nCourse",
   },
-  {
-    title: "Progress and planning",
-    description: "Track enrollments, certifications, and planner workflows as they roll out.",
-  },
-  {
-    title: "Built for scale",
-    description: "Module-first architecture and a shared design system keep UX consistent.",
-  },
-] as const;
+  { key: "like", actionLabel: "Like", metaLabel: "42.8K" },
+  { key: "comment", actionLabel: "Comment", metaLabel: "1,204" },
+  { key: "bookmark", actionLabel: "Bookmark", metaLabel: "8.4K" },
+  { key: "share", actionLabel: "Share", metaLabel: "Share" },
+  { key: "profile", actionLabel: "Profile", metaLabel: "", profileInitials: "EV" },
+] as const satisfies readonly FeedActionItem[];
 
-/** Public marketing landing: hero and platform feature highlights. */
-export function LandingPageView() {
+type LandingClip = Readonly<{
+  id: string;
+  mediaTone: number;
+  caption: string;
+  hashtags: readonly string[];
+  pdfLabel: string;
+  /** Optional per-clip like count label */
+  likeCount?: string;
+}>;
+
+const LANDING_CLIPS: readonly LandingClip[] = [
+  {
+    id: "c1",
+    mediaTone: 0,
+    caption: "Analyzing the neural pathways of synthetically grown bio-neural chips.",
+    hashtags: ["NeuroTech", "FutureTech", "DeltaLabs"],
+    pdfLabel: "Access Full Research Paper (PDF)",
+  },
+  {
+    id: "c2",
+    mediaTone: 1,
+    caption: "Lab notes: closed-loop stimulation protocols on organoid arrays.",
+    hashtags: ["BioEng", "Research", "DeltaLabs"],
+    pdfLabel: "View lab summary (PDF)",
+    likeCount: "38.2K",
+  },
+  {
+    id: "c3",
+    mediaTone: 2,
+    caption: "Dataset walkthrough — multimodal sensing fusion for edge devices.",
+    hashtags: ["EdgeAI", "Sensors", "DeltaLabs"],
+    pdfLabel: "Download dataset card (PDF)",
+    likeCount: "51.1K",
+  },
+  {
+    id: "c4",
+    mediaTone: 3,
+    caption: "Simulation run #482: failure modes in redundant actuator meshes.",
+    hashtags: ["Simulation", "Robotics", "DeltaLabs"],
+    pdfLabel: "Open simulation report (PDF)",
+    likeCount: "19.4K",
+  },
+  {
+    id: "c5",
+    mediaTone: 4,
+    caption: "Short brief on ethics review for autonomous lab assistants.",
+    hashtags: ["Policy", "AI", "DeltaLabs"],
+    pdfLabel: "Read ethics brief (PDF)",
+    likeCount: "8.9K",
+  },
+  {
+    id: "c6",
+    mediaTone: 5,
+    caption: "Field test highlights — low-latency streaming from remote sites.",
+    hashtags: ["Streaming", "FieldTest", "DeltaLabs"],
+    pdfLabel: "Field test appendix (PDF)",
+    likeCount: "27.8K",
+  },
+];
+
+function buildRailForClip(clip: LandingClip): readonly FeedActionItem[] {
+  return actionRailTemplate.map((item) =>
+    item.key === "like" && clip.likeCount
+      ? { ...item, metaLabel: clip.likeCount }
+      : { ...item },
+  );
+}
+
+function LandingClipSlide({ clip }: Readonly<{ clip: LandingClip }>) {
+  const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
+  const railItems = buildRailForClip(clip);
+
   return (
-    <div className="flex flex-col">
-      <section className="border-b border-border-default bg-surface-default px-4 py-16 sm:px-6 sm:py-24">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 text-center">
-          <Typography as="h1" variant="h1" className="max-w-3xl">
-            Learning infrastructure for schools and builders
-          </Typography>
-          <Typography variant="body" className="max-w-2xl text-text-secondary">
-            Delta Labs connects courses, feed, labs, and support in a single module-first experience.
-          </Typography>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <ButtonLink href="/signup" variant="primary" size="lg">
-              Get started
-            </ButtonLink>
-            <ButtonLink href="/login" variant="secondary" size="lg">
-              Log in
-            </ButtonLink>
+    <div
+      className="flex min-h-full w-full shrink-0 snap-start snap-always items-center justify-center py-4"
+      data-feed-slide=""
+    >
+      <div className="flex w-full max-w-full flex-col items-center gap-4 sm:w-auto sm:flex-row sm:items-end sm:gap-1.5">
+        <div className="w-full max-w-[420px] shrink-0 sm:w-[420px]">
+          <FeedViewport mediaTone={clip.mediaTone}>
+            <CreatorIdentity initials="EV" name="Dr. Elena Vance" handle="@elena_v_labs" />
+            <FeedCaption text={clip.caption} />
+            <FeedHashtagList hashtags={[...clip.hashtags]} />
+            <FeedResourceLink text={clip.pdfLabel} />
+          </FeedViewport>
+        </div>
+
+        <FeedActionRail
+          items={railItems}
+          activeActionKey={activeActionKey}
+          onActionToggle={(key) => setActiveActionKey((prev) => (prev === key ? null : key))}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Public landing feed-style layout aligned to design parity target. */
+export function LandingPageView() {
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterPanelId = "landing-feed-filter-panel";
+  const feedScrollRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2 md:px-3">
+      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[1fr_auto_1fr] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-4">
+        <aside className="w-full max-w-[280px] justify-self-start pt-5 lg:sticky lg:top-0 lg:z-10 lg:self-start">
+          <FeedSearchInput
+            filterControlsId={filterPanelId}
+            isFilterOpen={isFilterOpen}
+            onFilterToggle={() => setIsFilterOpen((value) => !value)}
+          />
+          <FeedFilterPanel id={filterPanelId} isOpen={isFilterOpen} />
+        </aside>
+
+        <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden lg:w-auto lg:justify-self-center">
+          <div
+            ref={feedScrollRef}
+            role="feed"
+            aria-label="Video feed"
+            tabIndex={0}
+            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] snap-y snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {LANDING_CLIPS.map((clip) => (
+              <LandingClipSlide key={clip.id} clip={clip} />
+            ))}
           </div>
         </div>
-      </section>
 
-      <section
-        id="features"
-        className="scroll-mt-20 border-b border-border-default px-4 py-16 sm:px-6 sm:py-20"
-        aria-labelledby="features-heading"
-      >
-        <div className="mx-auto max-w-6xl">
-          <Typography as="h2" variant="h2" id="features-heading" className="mb-10 text-center">
-            Platform features
-          </Typography>
-          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {platformFeatures.map((feature) => (
-              <li key={feature.title}>
-                <Card className="h-full">
-                  <CardHeader>
-                    <CardTitle>{feature.title}</CardTitle>
-                    <CardDescription>{feature.description}</CardDescription>
-                  </CardHeader>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </div>
+        <div className="hidden min-w-0 lg:block" aria-hidden />
+      </div>
+
+      <FeedSnapScrollControls scrollContainerRef={feedScrollRef} />
+    </section>
   );
 }

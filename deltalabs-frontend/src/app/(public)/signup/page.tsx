@@ -1,5 +1,9 @@
 import { SignupPageView } from "@/modules/Feed/views/SignupPageView";
 
 export default function SignupPage() {
-  return <SignupPageView />;
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+      <SignupPageView />
+    </div>
+  );
 }

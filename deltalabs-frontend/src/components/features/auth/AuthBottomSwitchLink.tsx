@@ -15,11 +15,11 @@ export function AuthBottomSwitchLink({ mode, href }: AuthBottomSwitchLinkProps) 
 
   return (
     <div className="text-center">
-      <Typography variant="body" className="text-text-secondary">
+      <Typography variant="small" className="text-sm text-text-secondary">
         {prefix}{" "}
         <Link
           href={targetHref}
-          className="font-semibold text-primary-700 hover:text-primary-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 rounded-sm"
+          className="font-bold text-primary-600 hover:text-primary-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
         >
           {action}
         </Link>

@@ -2,6 +2,8 @@
 export type {
   AuthBannerType,
   AuthResult,
+  AuthSessionPayload,
+  AuthenticatedUser,
   LoginInput,
   RecoverRequestInput,
   ResetPasswordInput,
