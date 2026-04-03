@@ -4,7 +4,7 @@ import {
   assertRecoverRequestInput,
   assertResetPasswordInput,
   assertSignupInput,
-} from "@/modules/Feed/api/authValidation";
+} from "@/modules/Auth/api/authValidation";
 import {
   consumeRecoveryOtp,
   createUserFromSignup,
@@ -18,7 +18,7 @@ import {
   toPublicUser,
   updateUserPassword,
   type MockUserRecord,
-} from "@/modules/Feed/api/mockAuthStore";
+} from "@/modules/Auth/api/mockAuthStore";
 import type {
   AuthResult,
   AuthSessionPayload,
@@ -26,8 +26,8 @@ import type {
   RecoverRequestInput,
   ResetPasswordInput,
   SignupInput,
-} from "@/modules/Feed/types/auth";
-import { AUTH_ERROR_CODES } from "@/modules/Feed/types/auth";
+} from "@/modules/Auth/types/auth";
+import { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

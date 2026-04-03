@@ -17,7 +17,7 @@ import { authErrorMessage } from "@/lib/authErrors";
 import {
   useRecoverRequestMutation,
   useResetPasswordMutation,
-} from "@/modules/Feed/hooks";
+} from "@/modules/Auth/hooks";
 
 function readOtpFromForm(form: HTMLFormElement, namePrefix: string): string {
   let out = "";

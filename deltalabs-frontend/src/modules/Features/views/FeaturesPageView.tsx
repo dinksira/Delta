@@ -2,15 +2,17 @@
 
 import { useSearchParams } from "next/navigation";
 
-import { Button, Card, CardFooter, Typography } from "@/components/theme";
+import { Card, Typography } from "@/components/theme";
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import {
   CalendarDays,
+  CalendarClock,
   Boxes,
   Dna,
   UserRound,
   Layers,
   FlaskConical,
+  GraduationCap,
 } from "lucide-react";
 
 const featureCards = [
@@ -62,6 +64,18 @@ const featureCards = [
     icon: Boxes,
     chipClass: "bg-[color:var(--color-features-chip-teal-bg)] text-[color:var(--color-features-chip-teal-fg)]",
   },
+  {
+    title: "Planner",
+    linkLabel: "Enter Planner",
+    icon: CalendarClock,
+    chipClass: "bg-[color:var(--color-features-chip-violet-bg)] text-[color:var(--color-features-chip-violet-fg)]",
+  },
+  {
+    title: "Specialization",
+    linkLabel: "Enter Specialization",
+    icon: GraduationCap,
+    chipClass: "bg-[color:var(--color-features-chip-fuchsia-bg)] text-[color:var(--color-features-chip-fuchsia-fg)]",
+  },
 ] as const;
 
 /** Authorized-only features screen: grid opens browser-style workspace tabs in the top nav. */
@@ -105,6 +119,7 @@ export function FeaturesPageView() {
             key={card.title}
             role="button"
             tabIndex={0}
+            aria-label={card.linkLabel}
             className="min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             onClick={() => openWorkspaceTab(card.title)}
             onKeyDown={(e) => {
@@ -123,19 +138,14 @@ export function FeaturesPageView() {
             <Typography className="line-clamp-2 text-xs leading-[1.35] text-text-secondary">
               Studio-quality text-to-speech with emotional nuance and support for over 140+ languages.
             </Typography>
-            <CardFooter className="mt-auto border-t border-border-default pt-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-auto px-0 py-0 text-xs font-medium text-secondary-500 hover:bg-transparent hover:underline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openWorkspaceTab(card.title);
-                }}
-              >
-                {card.linkLabel}
-              </Button>
-            </CardFooter>
+            <Typography
+              as="p"
+              variant="small"
+              className="mt-auto pt-2 text-xs font-medium text-secondary-500"
+              aria-hidden
+            >
+              {card.linkLabel}
+            </Typography>
           </Card>
         ))}
       </section>

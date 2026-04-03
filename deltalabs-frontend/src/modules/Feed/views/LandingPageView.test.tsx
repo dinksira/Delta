@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LandingPageView } from "@/modules/Feed/views/LandingPageView";
+import { renderWithAppProviders } from "@/test/renderWithAppProviders";
 
 afterEach(() => {
   cleanup();
@@ -9,7 +10,7 @@ afterEach(() => {
 
 describe("LandingPageView", () => {
   it("toggles filter panel from trigger", () => {
-    render(<LandingPageView />);
+    renderWithAppProviders(<LandingPageView />);
 
     expect(screen.queryByLabelText("Feed filters")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
@@ -19,7 +20,7 @@ describe("LandingPageView", () => {
   });
 
   it("renders metadata and hashtags", () => {
-    render(<LandingPageView />);
+    renderWithAppProviders(<LandingPageView />);
 
     expect(screen.getAllByText("Dr. Elena Vance").length).toBeGreaterThan(0);
     expect(screen.getByText("#NeuroTech")).toBeInTheDocument();
@@ -27,7 +28,7 @@ describe("LandingPageView", () => {
   });
 
   it("toggles action rail button pressed state", () => {
-    render(<LandingPageView />);
+    renderWithAppProviders(<LandingPageView />);
 
     const likeButton = screen.getAllByRole("button", { name: "Like" })[0];
     expect(likeButton).toHaveAttribute("aria-pressed", "false");

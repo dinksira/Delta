@@ -2,8 +2,8 @@
  * Server-shaped validation for mock auth API (mirror future backend rules).
  */
 import { ApiError } from "@/lib/apiClient";
-import type { LoginInput, ResetPasswordInput, SignupInput } from "@/modules/Feed/types/auth";
-import { AUTH_ERROR_CODES } from "@/modules/Feed/types/auth";
+import type { LoginInput, ResetPasswordInput, SignupInput } from "@/modules/Auth/types/auth";
+import { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
 
 const EMAIL_LIKE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_LIKE = /^\+?[0-9]{9,15}$/;

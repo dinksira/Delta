@@ -90,16 +90,22 @@ export function FeatureBrowserTabBar() {
   const { openTabs, removeWorkspaceTab, ensureTabForParam } = useFeatureTabs();
 
   const tabParam = pathname.startsWith("/features") ? searchParams.get("tab") : null;
-  const featuresHomeActive = pathname.startsWith("/features") && !tabParam;
+  const featuresHomeActive = pathname === "/features";
+  const schoolPathActive = pathname.startsWith("/features/school");
 
   useEffect(() => {
+    if (schoolPathActive) {
+      ensureTabForParam("school", "School");
+      return;
+    }
     if (!pathname.startsWith("/features") || !tabParam) return;
     ensureTabForParam(tabParam);
-  }, [pathname, tabParam, ensureTabForParam]);
+  }, [pathname, tabParam, schoolPathActive, ensureTabForParam]);
 
   const onCloseDynamic = (param: string) => {
     removeWorkspaceTab(param);
-    if (tabParam === param) {
+    const leavingSchool = param === "school" && schoolPathActive;
+    if (tabParam === param || leavingSchool) {
       router.push("/features");
     }
   };
@@ -107,20 +113,32 @@ export function FeatureBrowserTabBar() {
   return (
     <nav
       role="tablist"
-      className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overscroll-x-contain pl-2 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-1.5 sm:pl-3 [&::-webkit-scrollbar]:hidden"
+      className="flex w-full min-w-0 flex-1 items-end justify-start gap-1 overflow-x-auto overscroll-x-contain pl-0 [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-1.5 [&::-webkit-scrollbar]:hidden"
       aria-label="Feature workspaces"
     >
       <BrowserTab href="/features" label="Features" active={featuresHomeActive} pinned />
 
-      {openTabs.map((t) => (
-        <BrowserTab
-          key={t.param}
-          href={`/features?tab=${encodeURIComponent(t.param)}`}
-          label={t.label}
-          active={tabParam === t.param}
-          onClose={() => onCloseDynamic(t.param)}
-        />
-      ))}
+      {openTabs.map((t) => {
+        const href =
+          t.href ??
+          (t.param === "school"
+            ? "/features/school"
+            : `/features?tab=${encodeURIComponent(t.param)}`);
+        const active = t.param === "school"
+          ? pathname === "/features/school" || pathname.startsWith("/features/school/")
+          : t.href
+            ? pathname === t.href || pathname.startsWith(`${t.href}/`)
+            : tabParam === t.param;
+        return (
+          <BrowserTab
+            key={t.param}
+            href={href}
+            label={t.label}
+            active={active}
+            onClose={() => onCloseDynamic(t.param)}
+          />
+        );
+      })}
     </nav>
   );
 }

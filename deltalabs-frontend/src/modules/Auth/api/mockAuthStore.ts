@@ -2,7 +2,7 @@
  * Persistent mock user + recovery store (localStorage).
  * Replace with real API calls later; session is handled separately in AuthSession_Context.
  */
-import type { AuthenticatedUser, SignupInput } from "@/modules/Feed/types/auth";
+import type { AuthenticatedUser, SignupInput } from "@/modules/Auth/types/auth";
 
 const USERS_KEY = "dl.mock.auth.users.v1";
 const RECOVERY_KEY = "dl.mock.auth.recovery.v1";

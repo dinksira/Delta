@@ -2,6 +2,7 @@ export { CreatorIdentity } from "@/components/features/feed/CreatorIdentity";
 export { FeedActionRail } from "@/components/features/feed/FeedActionRail";
 export type { FeedActionItem } from "@/components/features/feed/FeedActionRail";
 export { FeedCard } from "@/components/features/feed/FeedCard";
+export { FeedCommentPanel } from "@/components/features/feed/FeedCommentPanel";
 export { FeedCaption } from "@/components/features/feed/FeedCaption";
 export { FeedFilterPanel } from "@/components/features/feed/FeedFilterPanel";
 export { FeedFilterTrigger } from "@/components/features/feed/FeedFilterTrigger";

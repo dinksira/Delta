@@ -1,19 +1,29 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   CreatorIdentity,
   FeedActionRail,
   FeedCaption,
-  FeedFilterPanel,
+  FeedCommentPanel,
   FeedHashtagList,
   FeedResourceLink,
-  FeedSearchInput,
   FeedSnapScrollControls,
   FeedViewport,
   type FeedActionItem,
 } from "@/components/features/feed";
+import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
+import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
+import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
+import { useFeedClips } from "@/modules/Feed/hooks";
+import {
+  selectCommentPanelOpen,
+  setCommentPanelOpen,
+  useAppDispatch,
+  useAppSelector,
+} from "@/store";
 
 const actionRailTemplate = [
   {
@@ -25,70 +35,15 @@ const actionRailTemplate = [
   { key: "comment", actionLabel: "Comment", metaLabel: "1,204" },
   { key: "bookmark", actionLabel: "Bookmark", metaLabel: "8.4K" },
   { key: "share", actionLabel: "Share", metaLabel: "Share" },
-  { key: "profile", actionLabel: "Profile", metaLabel: "", profileInitials: "EV" },
+  {
+    key: "profile",
+    actionLabel: "Profile",
+    metaLabel: "",
+    profileInitials: LANDING_FEED_PRESENTER.initials,
+  },
 ] as const satisfies readonly FeedActionItem[];
 
-type LandingClip = Readonly<{
-  id: string;
-  mediaTone: number;
-  caption: string;
-  hashtags: readonly string[];
-  pdfLabel: string;
-  /** Optional per-clip like count label */
-  likeCount?: string;
-}>;
-
-const LANDING_CLIPS: readonly LandingClip[] = [
-  {
-    id: "c1",
-    mediaTone: 0,
-    caption: "Analyzing the neural pathways of synthetically grown bio-neural chips.",
-    hashtags: ["NeuroTech", "FutureTech", "DeltaLabs"],
-    pdfLabel: "Access Full Research Paper (PDF)",
-  },
-  {
-    id: "c2",
-    mediaTone: 1,
-    caption: "Lab notes: closed-loop stimulation protocols on organoid arrays.",
-    hashtags: ["BioEng", "Research", "DeltaLabs"],
-    pdfLabel: "View lab summary (PDF)",
-    likeCount: "38.2K",
-  },
-  {
-    id: "c3",
-    mediaTone: 2,
-    caption: "Dataset walkthrough — multimodal sensing fusion for edge devices.",
-    hashtags: ["EdgeAI", "Sensors", "DeltaLabs"],
-    pdfLabel: "Download dataset card (PDF)",
-    likeCount: "51.1K",
-  },
-  {
-    id: "c4",
-    mediaTone: 3,
-    caption: "Simulation run #482: failure modes in redundant actuator meshes.",
-    hashtags: ["Simulation", "Robotics", "DeltaLabs"],
-    pdfLabel: "Open simulation report (PDF)",
-    likeCount: "19.4K",
-  },
-  {
-    id: "c5",
-    mediaTone: 4,
-    caption: "Short brief on ethics review for autonomous lab assistants.",
-    hashtags: ["Policy", "AI", "DeltaLabs"],
-    pdfLabel: "Read ethics brief (PDF)",
-    likeCount: "8.9K",
-  },
-  {
-    id: "c6",
-    mediaTone: 5,
-    caption: "Field test highlights — low-latency streaming from remote sites.",
-    hashtags: ["Streaming", "FieldTest", "DeltaLabs"],
-    pdfLabel: "Field test appendix (PDF)",
-    likeCount: "27.8K",
-  },
-];
-
-function buildRailForClip(clip: LandingClip): readonly FeedActionItem[] {
+function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
   return actionRailTemplate.map((item) =>
     item.key === "like" && clip.likeCount
       ? { ...item, metaLabel: clip.likeCount }
@@ -96,30 +51,68 @@ function buildRailForClip(clip: LandingClip): readonly FeedActionItem[] {
   );
 }
 
-function LandingClipSlide({ clip }: Readonly<{ clip: LandingClip }>) {
-  const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
+function LandingClipSlide({
+  clip,
+  isActive,
+  isMuted,
+  onToggleMute,
+  commentsOpen,
+  onCommentModeChange,
+}: Readonly<{
+  clip: LandingVideoClip;
+  isActive: boolean;
+  isMuted: boolean;
+  onToggleMute: () => void;
+  commentsOpen: boolean;
+  onCommentModeChange: (open: boolean) => void;
+}>) {
+  const [localActionKey, setLocalActionKey] = useState<string | null>(null);
   const railItems = buildRailForClip(clip);
+
+  const railActiveKey =
+    !isActive ? null : commentsOpen ? "comment" : localActionKey === "comment" ? null : localActionKey;
+
+  const handleRailToggle = (key: string) => {
+    if (key === "comment") {
+      if (commentsOpen) {
+        onCommentModeChange(false);
+        setLocalActionKey(null);
+      } else {
+        onCommentModeChange(true);
+        setLocalActionKey("comment");
+      }
+      return;
+    }
+    setLocalActionKey((prev) => (prev === key ? null : key));
+  };
 
   return (
     <div
-      className="flex min-h-full w-full shrink-0 snap-start snap-always items-center justify-center py-4"
+      className="flex min-h-full w-full shrink-0 snap-start snap-always items-center justify-center py-2 sm:py-3 lg:py-4"
       data-feed-slide=""
+      data-clip-id={clip.id}
     >
-      <div className="flex w-full max-w-full flex-col items-center gap-4 sm:w-auto sm:flex-row sm:items-end sm:gap-1.5">
-        <div className="w-full max-w-[420px] shrink-0 sm:w-[420px]">
-          <FeedViewport mediaTone={clip.mediaTone}>
-            <CreatorIdentity initials="EV" name="Dr. Elena Vance" handle="@elena_v_labs" />
+      <div className="mx-auto flex w-full max-w-full flex-row items-end justify-center gap-1 px-1 sm:gap-1.5 sm:px-0">
+        <div className="min-w-0 flex-1 basis-0 max-w-[380px] sm:w-[420px] sm:max-w-[420px] sm:flex-none sm:shrink-0 sm:basis-auto">
+          <FeedViewport
+            mediaTone={clip.mediaTone}
+            videoSrc={clip.videoSrc}
+            isActive={isActive}
+            isMuted={isMuted}
+            onToggleMute={onToggleMute}
+          >
+            <CreatorIdentity
+              initials={LANDING_FEED_PRESENTER.initials}
+              name={LANDING_FEED_PRESENTER.name}
+              handle={LANDING_FEED_PRESENTER.handle}
+            />
             <FeedCaption text={clip.caption} />
             <FeedHashtagList hashtags={[...clip.hashtags]} />
             <FeedResourceLink text={clip.pdfLabel} />
           </FeedViewport>
         </div>
 
-        <FeedActionRail
-          items={railItems}
-          activeActionKey={activeActionKey}
-          onActionToggle={(key) => setActiveActionKey((prev) => (prev === key ? null : key))}
-        />
+        <FeedActionRail items={railItems} activeActionKey={railActiveKey} onActionToggle={handleRailToggle} />
       </div>
     </div>
   );
@@ -127,40 +120,135 @@ function LandingClipSlide({ clip }: Readonly<{ clip: LandingClip }>) {
 
 /** Public landing feed-style layout aligned to design parity target. */
 export function LandingPageView() {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const filterPanelId = "landing-feed-filter-panel";
+  const dispatch = useAppDispatch();
+  const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
+  const { data: clipsData } = useFeedClips();
+  const clips = clipsData ?? MOCK_VIDEO_FEED;
+
+  const [isFeedMuted, setIsFeedMuted] = useState(true);
+  const [activeClipId, setActiveClipId] = useState<string>(MOCK_VIDEO_FEED[0]?.id ?? "");
   const feedScrollRef = useRef<HTMLDivElement>(null);
+  const activeClipIndex = useMemo(
+    () => clips.findIndex((clip) => clip.id === activeClipId),
+    [clips, activeClipId],
+  );
+  const activeClip = useMemo(
+    () => clips.find((c) => c.id === activeClipId) ?? clips[0],
+    [clips, activeClipId],
+  );
+
+  useEffect(() => {
+    const container = feedScrollRef.current;
+    if (!container) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-feed-slide]"));
+    if (slides.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        const top = visible[0];
+        if (!top) return;
+        const id = (top.target as HTMLElement).dataset.clipId;
+        if (!id) return;
+        setActiveClipId((prev) => (prev === id ? prev : id));
+      },
+      {
+        root: container,
+        threshold: [0.25, 0.5, 0.75, 0.9],
+      },
+    );
+
+    for (const slide of slides) observer.observe(slide);
+    return () => observer.disconnect();
+  }, [clips]);
+
+  const scrollToClipByIndex = (index: number) => {
+    const container = feedScrollRef.current;
+    if (!container) return;
+    const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-feed-slide]"));
+    if (index < 0 || index >= slides.length) return;
+    slides[index]?.scrollIntoView({ block: "start", behavior: "smooth" });
+  };
+
+  const setCommentsOpen = (open: boolean) => {
+    dispatch(setCommentPanelOpen(open));
+  };
 
   return (
-    <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2 md:px-3">
-      <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[1fr_auto_1fr] lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-4">
-        <aside className="w-full max-w-[280px] justify-self-start pt-5 lg:sticky lg:top-0 lg:z-10 lg:self-start">
-          <FeedSearchInput
-            filterControlsId={filterPanelId}
-            isFilterOpen={isFilterOpen}
-            onFilterToggle={() => setIsFilterOpen((value) => !value)}
+    <>
+      <FeedExplorerShell
+        afterGrid={
+          <FeedSnapScrollControls
+            scrollContainerRef={feedScrollRef}
+            commentSidebarOpen={commentPanelOpen}
           />
-          <FeedFilterPanel id={filterPanelId} isOpen={isFilterOpen} />
-        </aside>
-
-        <div className="flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden lg:w-auto lg:justify-self-center">
+        }
+        center={
           <div
             ref={feedScrollRef}
             role="feed"
             aria-label="Video feed"
             tabIndex={0}
             className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] snap-y snap-mandatory [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                const next = activeClipIndex + 1;
+                if (next < clips.length) scrollToClipByIndex(next);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                const prev = activeClipIndex - 1;
+                if (prev >= 0) scrollToClipByIndex(prev);
+              }
+            }}
           >
-            {LANDING_CLIPS.map((clip) => (
-              <LandingClipSlide key={clip.id} clip={clip} />
+            {clips.map((clip) => (
+              <LandingClipSlide
+                key={clip.id}
+                clip={clip}
+                isActive={clip.id === activeClipId}
+                isMuted={isFeedMuted}
+                onToggleMute={() => setIsFeedMuted((prev) => !prev)}
+                commentsOpen={commentPanelOpen && clip.id === activeClipId}
+                onCommentModeChange={setCommentsOpen}
+              />
             ))}
           </div>
-        </div>
+        }
+      />
+      <LandingCommentSidebarPortal
+        open={commentPanelOpen}
+        clip={activeClip}
+        onClose={() => dispatch(setCommentPanelOpen(false))}
+      />
+    </>
+  );
+}
 
-        <div className="hidden min-w-0 lg:block" aria-hidden />
-      </div>
+/** Renders the comment column on `document.body` so it is not clipped by feed layout; `top-16` matches `TopNav` `h-16`. */
+function LandingCommentSidebarPortal({
+  open,
+  clip,
+  onClose,
+}: Readonly<{
+  open: boolean;
+  clip: LandingVideoClip | undefined;
+  onClose: () => void;
+}>) {
+  if (typeof document === "undefined" || !open || !clip) {
+    return null;
+  }
 
-      <FeedSnapScrollControls scrollContainerRef={feedScrollRef} />
-    </section>
+  return createPortal(
+    <aside
+      className="fixed right-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-full max-w-md min-w-0 flex-col border-l border-border-default bg-surface-default shadow-sm"
+      aria-label="Comments"
+    >
+      <FeedCommentPanel clip={clip} onClose={onClose} />
+    </aside>,
+    document.body,
   );
 }

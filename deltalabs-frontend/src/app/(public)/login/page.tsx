@@ -1,4 +1,4 @@
-import { LoginPageView } from "@/modules/Feed/views/LoginPageView";
+import { LoginPageView } from "@/modules/Auth/views/LoginPageView";
 
 export default function LoginPage() {
   return (

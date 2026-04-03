@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { usePathname } from "next/navigation";
+import { Suspense, useMemo } from "react";
 
 import { Typography } from "@/components/theme";
 import { FeatureBrowserTabBar } from "@/components/navigation/FeatureBrowserTabBar";
@@ -45,14 +46,23 @@ function TopNavRightPlaceholder({ wide }: Readonly<{ wide?: boolean }>) {
   );
 }
 
-/** Landing (guest or signed-in): same category row as product spec. */
-const LANDING_CATEGORY_ITEMS: readonly TopNavCategoryItem[] = [
-  { label: "Video", href: "/#features", active: true },
-  { label: "Audio", href: "/#features" },
-  { label: "AI", href: "/#features" },
-  { label: "Simulation", href: "/#features" },
-  { label: "All", href: "/#features" },
-];
+const LANDING_CATEGORY_PATHS = [
+  { label: "Video", href: "/" },
+  { label: "Audio", href: "/audio" },
+  { label: "AI", href: "/ai" },
+  { label: "Simulation", href: "/simulation" },
+  { label: "All", href: "/explore" },
+] as const;
+
+function landingCategoryItems(pathname: string): readonly TopNavCategoryItem[] {
+  return LANDING_CATEGORY_PATHS.map((item) => {
+    const active =
+      item.href === "/"
+        ? pathname === "/"
+        : pathname === item.href || pathname.startsWith(`${item.href}/`);
+    return { label: item.label, href: item.href, active };
+  });
+}
 
 /** Isometric cube mark — gray/silver faces per unauthorized landing spec. */
 function BrandMarkCube() {
@@ -86,17 +96,36 @@ function BrandMarkCube() {
 }
 
 export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
+  const pathname = usePathname();
+  const landingTabs = useMemo(() => landingCategoryItems(pathname ?? ""), [pathname]);
   const showAuthActions = variant === "landing_unauthorized";
   const showFeatureBrowserTabs = variant === "features_authorized";
   const showRightPlaceholder =
     variant === "landing_pending" || Boolean(sessionPending);
 
   return (
-    <header className="sticky top-0 z-50 bg-primary-600 text-white">
-      <div className="flex h-16 w-full items-center justify-between gap-2 px-2 md:gap-4 md:px-3">
+    <header className="sticky top-0 z-50 shrink-0 bg-primary-600 text-white">
+      <div
+        className={[
+          "h-16 w-full items-center px-2 md:px-3",
+          showFeatureBrowserTabs
+            ? "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 md:gap-5 lg:grid-cols-[auto_minmax(0,1fr)_minmax(14rem,18rem)] lg:gap-6"
+            : [
+                /* <sm: category tabs hidden — flex avoids an empty 1fr “dead” column */
+                "flex justify-between gap-2 md:gap-4",
+                "sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-2 md:gap-4",
+                "lg:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)_minmax(14rem,18rem)] lg:gap-4",
+              ].join(" "),
+        ].join(" ")}
+      >
         <Link
           href="/"
-          className="flex min-w-0 shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+          className={[
+            "flex min-w-0 shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+            showFeatureBrowserTabs ? "" : "lg:w-full lg:max-w-[280px] lg:justify-self-start",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
           <BrandMarkCube />
           <Typography
@@ -109,18 +138,18 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
         </Link>
 
         {showFeatureBrowserTabs ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-end self-stretch pt-1">
+          <div className="flex min-h-0 w-full min-w-0 flex-col justify-end justify-self-stretch self-stretch pt-1">
             <Suspense
-              fallback={<div className="min-h-[2.4rem] flex-1 sm:min-h-[2.5rem]" aria-hidden />}
+              fallback={<div className="min-h-[2.4rem] w-full flex-1 sm:min-h-[2.5rem]" aria-hidden />}
             >
               <FeatureBrowserTabBar />
             </Suspense>
           </div>
         ) : (
-          <TopNavCategoryTabs items={LANDING_CATEGORY_ITEMS} />
+          <TopNavCategoryTabs items={landingTabs} />
         )}
 
-        <div className="flex min-w-0 shrink-0 items-center">
+        <div className="flex min-w-0 shrink-0 items-center lg:w-full lg:max-w-[280px] lg:justify-self-end lg:justify-end">
           {showRightPlaceholder ? (
             <TopNavRightPlaceholder wide={showFeatureBrowserTabs} />
           ) : showAuthActions ? (

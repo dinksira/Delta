@@ -2,9 +2,9 @@ import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithAppProviders } from "@/test/renderWithAppProviders";
-import { LoginPageView } from "@/modules/Feed/views/LoginPageView";
-import { RecoverPageView } from "@/modules/Feed/views/RecoverPageView";
-import { SignupPageView } from "@/modules/Feed/views/SignupPageView";
+import { LoginPageView } from "@/modules/Auth/views/LoginPageView";
+import { RecoverPageView } from "@/modules/Auth/views/RecoverPageView";
+import { SignupPageView } from "@/modules/Auth/views/SignupPageView";
 
 const pushMock = vi.fn();
 const replaceMock = vi.fn();

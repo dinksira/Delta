@@ -12,7 +12,7 @@ import {
 } from "react";
 
 import { setApiAccessTokenGetter } from "@/lib/apiClient";
-import type { AuthSessionPayload } from "@/modules/Feed/types/auth";
+import type { AuthSessionPayload } from "@/modules/Auth/types/auth";
 
 const SESSION_KEY = "dl.auth.session.v1";
 

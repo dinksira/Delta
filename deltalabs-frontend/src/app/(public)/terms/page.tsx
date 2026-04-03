@@ -1,4 +1,4 @@
-import { TermsPageView } from "@/modules/Feed/views/TermsPageView";
+import { TermsPageView } from "@/modules/Marketing/views/TermsPageView";
 
 export default function TermsPage() {
   return <TermsPageView />;

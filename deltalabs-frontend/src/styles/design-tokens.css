@@ -100,6 +100,10 @@
   --dl-features-chip-cyan-fg: #0e7490;
   --dl-features-chip-teal-bg: #f0fdfa;
   --dl-features-chip-teal-fg: #0f766e;
+  --dl-features-chip-violet-bg: #ede9fe;
+  --dl-features-chip-violet-fg: #7c3aed;
+  --dl-features-chip-fuchsia-bg: #fae8ff;
+  --dl-features-chip-fuchsia-fg: #c026d3;
 
   /* feed.action.* */
   --dl-feed-action-rail-bg: var(--dl-color-surface-muted);
@@ -147,6 +151,10 @@
   --dl-features-chip-cyan-fg: #67e8f9;
   --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
   --dl-features-chip-teal-fg: #5eead4;
+  --dl-features-chip-violet-bg: rgb(124 58 237 / 0.16);
+  --dl-features-chip-violet-fg: #c4b5fd;
+  --dl-features-chip-fuchsia-bg: rgb(192 38 211 / 0.16);
+  --dl-features-chip-fuchsia-fg: #f0abfc;
   --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
   --dl-auth-input-placeholder: #64748b;
   --dl-auth-feedback-success-text: #34d399;
@@ -195,6 +203,10 @@
     --dl-features-chip-cyan-fg: #67e8f9;
     --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
     --dl-features-chip-teal-fg: #5eead4;
+    --dl-features-chip-violet-bg: rgb(124 58 237 / 0.16);
+    --dl-features-chip-violet-fg: #c4b5fd;
+    --dl-features-chip-fuchsia-bg: rgb(192 38 211 / 0.16);
+    --dl-features-chip-fuchsia-fg: #f0abfc;
     --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
     --dl-auth-input-placeholder: #64748b;
     --dl-auth-feedback-success-text: #34d399;
@@ -287,6 +299,10 @@
   --color-features-chip-cyan-fg: var(--dl-features-chip-cyan-fg);
   --color-features-chip-teal-bg: var(--dl-features-chip-teal-bg);
   --color-features-chip-teal-fg: var(--dl-features-chip-teal-fg);
+  --color-features-chip-violet-bg: var(--dl-features-chip-violet-bg);
+  --color-features-chip-violet-fg: var(--dl-features-chip-violet-fg);
+  --color-features-chip-fuchsia-bg: var(--dl-features-chip-fuchsia-bg);
+  --color-features-chip-fuchsia-fg: var(--dl-features-chip-fuchsia-fg);
 
   --color-feed-action-rail-bg: var(--dl-feed-action-rail-bg);
   --color-feed-action-icon-default: var(--dl-feed-action-icon-default);

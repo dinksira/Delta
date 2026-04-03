@@ -18,6 +18,8 @@ export type FeatureWorkspaceTab = Readonly<{
   label: string;
   /** Value for `?tab=` (slug). */
   param: string;
+  /** When set, the tab links to this path instead of `?tab=` (e.g. `/features/school`). */
+  href?: string;
 }>;
 
 function slugFromLabel(label: string): string {
@@ -53,7 +55,8 @@ function readStoredTabs(): FeatureWorkspaceTab[] {
         x !== null &&
         typeof (x as FeatureWorkspaceTab).id === "string" &&
         typeof (x as FeatureWorkspaceTab).label === "string" &&
-        typeof (x as FeatureWorkspaceTab).param === "string",
+        typeof (x as FeatureWorkspaceTab).param === "string" &&
+        ((x as FeatureWorkspaceTab).href === undefined || typeof (x as FeatureWorkspaceTab).href === "string"),
     );
   } catch {
     return [];
@@ -83,11 +86,13 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
       const param = slugFromLabel(label);
       if (!param) return;
       const id = param;
+      const href = label.trim().toLowerCase() === "school" ? "/features/school" : undefined;
+      const destination = href ?? `/features?tab=${encodeURIComponent(param)}`;
       setOpenTabs((prev) => {
         if (prev.some((t) => t.param === param)) return prev;
-        return [...prev, { id, label, param }];
+        return [...prev, { id, label, param, ...(href ? { href } : {}) }];
       });
-      router.push(`/features?tab=${encodeURIComponent(param)}`);
+      router.push(destination);
     },
     [router],
   );
@@ -107,7 +112,8 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
           .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
           .join(" ") || param;
       const label = labelHint ?? derived;
-      return [...prev, { id: param, label, param }];
+      const href = param === "school" ? "/features/school" : undefined;
+      return [...prev, { id: param, label, param, ...(href ? { href } : {}) }];
     });
   }, []);
 

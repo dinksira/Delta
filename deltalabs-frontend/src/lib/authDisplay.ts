@@ -1,4 +1,4 @@
-import type { AuthenticatedUser } from "@/modules/Feed/types/auth";
+import type { AuthenticatedUser } from "@/modules/Auth/types/auth";
 
 /** Two-letter avatar label from profile fields. */
 export function profileInitialsFromUser(user: AuthenticatedUser): string {

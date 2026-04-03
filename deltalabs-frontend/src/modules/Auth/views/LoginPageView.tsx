@@ -17,7 +17,7 @@ import {
   useAuthResponseBanner,
 } from "@/components/features/auth";
 import { authErrorMessage } from "@/lib/authErrors";
-import { useLoginMutation } from "@/modules/Feed/hooks";
+import { useLoginMutation } from "@/modules/Auth/hooks";
 
 type LoginPageViewProps = Readonly<{
   showBack?: boolean;

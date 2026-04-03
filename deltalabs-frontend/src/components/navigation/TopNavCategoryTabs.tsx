@@ -19,15 +19,15 @@ type TopNavCategoryTabsProps = Readonly<{
 export function TopNavCategoryTabs({ items }: TopNavCategoryTabsProps) {
   return (
     <nav
-      className="hidden min-w-0 flex-1 justify-center sm:flex"
+      className="hidden min-w-0 items-center justify-center sm:flex lg:-translate-x-4 xl:-translate-x-5"
       aria-label="Top navigation categories"
     >
-      <ul className="flex max-w-full flex-wrap items-center justify-center gap-y-1">
+      <ul className="flex max-w-full flex-nowrap items-center justify-center overflow-hidden">
         {items.map((item, index) => (
           <li key={item.label} className="flex items-center">
             {index > 0 ? (
               <span
-                className="select-none px-3 text-[17px] font-extralight text-white/50 sm:px-3.5 sm:text-[19px]"
+                className="select-none px-2 text-[15px] font-extralight text-white/50 lg:px-3 lg:text-[17px] xl:px-3.5 xl:text-[19px]"
                 aria-hidden
               >
                 |
@@ -36,7 +36,7 @@ export function TopNavCategoryTabs({ items }: TopNavCategoryTabsProps) {
             <Link
               href={item.href}
               className={[
-                "whitespace-nowrap px-0.5 text-[17px] leading-snug transition-colors sm:text-[19px]",
+                "whitespace-nowrap px-0.5 text-[15px] leading-snug transition-colors lg:text-[17px] xl:text-[19px]",
                 item.active
                   ? "font-bold text-white"
                   : "font-normal text-white/75 hover:text-white/95",

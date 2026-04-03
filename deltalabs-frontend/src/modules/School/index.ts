@@ -1,5 +1,5 @@
 /**
  * School module — school structure and administration domain.
- * Standard folders: views, context, features, api, hooks, routing, types, utils.
+ * Workspace UI: `components/*`; routes under `app/(app)/features/school/`.
  */
-export {};
+export { SchoolManagementShell } from "@/modules/School/components/SchoolManagementShell";

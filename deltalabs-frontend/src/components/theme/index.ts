@@ -12,6 +12,10 @@ export {
 } from "@/components/theme/Card";
 export { Input } from "@/components/theme/Input";
 export type { InputProps } from "@/components/theme/Input";
+export { SearchInput } from "@/components/theme/SearchInput";
+export type { SearchInputProps } from "@/components/theme/SearchInput";
+export { Textarea } from "@/components/theme/Textarea";
+export type { TextareaProps } from "@/components/theme/Textarea";
 export { Field } from "@/components/theme/Field";
 export { Select } from "@/components/theme/Select";
 export type { SelectProps } from "@/components/theme/Select";

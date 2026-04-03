@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
+import { Provider } from "react-redux";
 
 import { AuthSessionProvider } from "@/contexts/AuthSession_Context";
+import { store } from "@/store";
 
 type Options = Omit<RenderOptions, "wrapper"> & Readonly<{ queryClient?: QueryClient }>;
 
@@ -19,9 +21,11 @@ export function renderWithAppProviders(ui: ReactElement, options?: Options) {
 
   function Wrapper({ children }: Readonly<{ children: ReactNode }>) {
     return (
-      <QueryClientProvider client={client}>
-        <AuthSessionProvider>{children}</AuthSessionProvider>
-      </QueryClientProvider>
+      <Provider store={store}>
+        <QueryClientProvider client={client}>
+          <AuthSessionProvider>{children}</AuthSessionProvider>
+        </QueryClientProvider>
+      </Provider>
     );
   }
 

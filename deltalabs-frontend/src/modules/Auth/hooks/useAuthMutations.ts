@@ -1,14 +1,14 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { authApi } from "@/modules/Feed/api/authApi";
-import { authMutationKeys } from "@/modules/Feed/hooks/authMutationKeys";
+import { authApi } from "@/modules/Auth/api/authApi";
+import { authMutationKeys } from "@/modules/Auth/hooks/authMutationKeys";
 import type {
   LoginInput,
   RecoverRequestInput,
   ResetPasswordInput,
   SignupInput,
-} from "@/modules/Feed/types/auth";
+} from "@/modules/Auth/types/auth";
 
 export function useLoginMutation() {
   const { establishSession } = useAuthSession();

@@ -8,8 +8,8 @@ type CreatorIdentityProps = Readonly<{
 
 export function CreatorIdentity({ initials, name, handle }: CreatorIdentityProps) {
   return (
-    <div className="mb-3 flex items-center gap-3">
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/20 text-xs font-semibold">
+    <div className="mb-2.5 flex items-center gap-2.5 sm:mb-3 sm:gap-3">
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/60 bg-white/20 text-xs font-semibold sm:h-10 sm:w-10">
         {initials}
       </span>
       <div>
@@ -22,7 +22,7 @@ export function CreatorIdentity({ initials, name, handle }: CreatorIdentityProps
       </div>
       <button
         type="button"
-        className="ml-auto inline-flex h-8 items-center justify-center rounded-full bg-white px-4 text-xs font-semibold text-slate-700"
+        className="ml-auto inline-flex h-7 items-center justify-center rounded-full bg-white px-3.5 text-[11px] font-semibold text-slate-700 sm:h-8 sm:px-4 sm:text-xs"
       >
         Follow
       </button>

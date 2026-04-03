@@ -4,9 +4,11 @@ title: Delta Labs Frontend Standards
 
 # Delta Labs Frontend Standards (Next.js + TypeScript)
 
-> **Version**: 1.0.0  
+> **Version**: 1.1.0  
 > **Status**: Official — All frontend code MUST follow this document  
 > **Scope**: Next.js App Router, TypeScript, Tailwind, design system  
+
+> **Companion:** `docs/frontend-architecture.md` — concrete module map, routing groups, and state split (React Query vs Redux vs Context). Keep it in sync when structure changes.
 
 ---
 
@@ -14,11 +16,13 @@ title: Delta Labs Frontend Standards
 
 ### 1.1 Stack
 
-- Next.js (App Router) + React 18.
+- Next.js (App Router) + React (current LTS on the project).
 - TypeScript (strict).
 - Next.js build/runtime (no standalone Vite app for core frontend).
 - Tailwind CSS with a **design-token** layer.
 - Lucide React icons.
+- **TanStack React Query** — server/async cache and mutations.
+- **Redux Toolkit** + **react-redux** — shared **client** UI state that crosses routes or many components (add slices in `src/store/`; do not duplicate server cache here).
 
 ### 1.2 Principles
 
@@ -68,9 +72,14 @@ src/
 │   ├── theme/                  # UI primitives (Button, Card, Input, etc.)
 │   ├── navigation/             # Nav bars, sidebars, breadcrumbs
 │   └── features/               # Cross-module composites (e.g., CourseList)
-├── contexts/                   # Global app contexts (Auth, Theme, Tab)
+├── contexts/                   # Global app contexts (e.g. Auth session, Theme, Feature tabs)
+├── store/                      # Redux Toolkit store, slices, typed hooks (`src/store/`)
 ├── modules/
-│   ├── Feed/
+│   ├── Auth/                   # Sign-in, sign-up, recovery; mock/real auth API + types
+│   ├── Marketing/              # Legal / static marketing views (e.g. terms, privacy)
+│   ├── Features/               # Authenticated features hub (e.g. workspace grid)
+│   ├── Dashboard/              # App dashboard shell until domain dashboards land
+│   ├── Feed/                   # Public explorer: video feed + module hubs (`/audio`, `/ai`, …); not auth/legal
 │   ├── School/
 │   ├── Course/
 │   ├── Planner/
@@ -95,6 +104,9 @@ src/
     ├── apiClient.ts
     ├── queryClient.ts
     └── config.ts
+
+docs/
+└── frontend-architecture.md    # Module ownership + state conventions (non-normative detail)
 ```
 
 ---
@@ -103,13 +115,13 @@ src/
 
 ### 3.1 Standard Module Layout
 
-Example for `Feed` (all modules follow the same pattern):
+Example for **`Feed`** (public stream — auth, legal, and app hub live in **`Auth`**, **`Marketing`**, **`Features`**, **`Dashboard`**, not inside `Feed`). All modules follow the same folder idea:
 
 ```text
 src/modules/Feed/
 ├── views/
-│   ├── FeedPage.tsx
-│   └── FeedSettingsPage.tsx
+│   ├── LandingPageView.tsx     # Implemented: public landing feed
+│   └── FeedSettingsPage.tsx    # Example only when needed
 ├── context/
 │   ├── Feed_Context.tsx
 │   └── FeedContext.types.ts
@@ -221,14 +233,20 @@ All tokens live in `theme/designTokens.ts` and `styles/design-tokens.css`. They 
 
 ### 5.1 Global Contexts (`src/contexts/`)
 
-- `Auth_Context`:
-  - User ID, roles, access/refresh tokens (if stored on client).
-- `Theme_Context`:
+- **`AuthSessionProvider`** (`AuthSession_Context`):
+  - Client session payload, `establishSession` / `clearSession`, storage hydration.
+- **`Theme_Context`**:
   - Theme mode (light/dark/system).
-- `Tab_Context` (optional):
-  - Global tab navigation.
+- **`FeatureTabs_Context`** (optional):
+  - Feature browser / workspace tab UI where used.
 
-### 5.2 Module Contexts (`modules/[Module]/context/`)
+### 5.2 Redux Toolkit (`src/store/`)
+
+- Use for **client** state shared across the app (e.g. feed UI chrome, layout prefs).
+- Prefer **`createSlice`** + **`configureStore`**; export typed **`useAppDispatch`** / **`useAppSelector`** from `src/store/hooks.ts`.
+- **Do not** mirror React Query cache in Redux; server data stays in Query.
+
+### 5.3 Module Contexts (`modules/[Module]/context/`)
 
 - Hold module-specific **UI state** and derived data.
 - Implemented with `useReducer` and `React.createContext`.
@@ -258,11 +276,12 @@ function feedReducer(state: FeedState, action: FeedAction): FeedState {
 }
 ```
 
-### 5.3 Server State (Data Fetching)
+### 5.4 Server State (Data Fetching)
 
-- Use React Query for all API calls.
-- Each module has its own **data hooks** (`useCourses`, `useEnrollments`, `useInfiniteFeed`).
-- Cache keys must be stable and namespaced (`["feed", "stream", filters]`).
+- Use **TanStack React Query** for API-backed data and mutations.
+- Each module has its own **data hooks** (`useCourses`, `useEnrollments`, `useFeedClips`, `useFeedComments`, …).
+- Cache keys must be stable and namespaced (e.g. `feedQueryKeys.clips()`, `["auth","login"]`).
+- While APIs are missing, **mock `queryFn`s** are acceptable behind the same hook names so views do not churn twice.
 
 ---
 
@@ -280,7 +299,8 @@ function feedReducer(state: FeedState, action: FeedAction): FeedState {
 ### 6.2 Module API Layer
 
 - Each module defines its API wrapper functions:
-  - `src/modules/Feed/api/feedApi.ts`
+  - `src/modules/Feed/api/feedApi.ts` (add when the stream API exists)
+  - `src/modules/Auth/api/authApi.ts` (mock today; swap internals for real HTTP later)
   - `src/modules/Course/api/courseApi.ts`
 
 Example:
@@ -359,6 +379,7 @@ export async function fetchFeedPage(
 ## 11. Summary
 
 This document defines **how** we build the frontend: structure, patterns, and hard rules.  
+For **where** implemented modules live and how **Query vs Redux vs Context** are split day-to-day, see **`docs/frontend-architecture.md`**.  
 For backend architecture and code standards, see `Delta Labs Backend Standards`.  
 For cross-cutting topics (security, devops, AI), see the global engineering standards.
 

@@ -1,4 +1,4 @@
-import { SignupPageView } from "@/modules/Feed/views/SignupPageView";
+import { SignupPageView } from "@/modules/Auth/views/SignupPageView";
 
 export default function SignupPage() {
   return (

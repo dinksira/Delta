@@ -1,2 +1,3 @@
-/** HTTP wrappers calling shared apiClient. */
-export { authApi } from "@/modules/Feed/api/authApi";
+/**
+ * Feed HTTP layer — add `feedApi.ts` + typed DTOs when the stream API is available.
+ */

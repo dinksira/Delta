@@ -2,7 +2,7 @@
 
 import { useIsMutating } from "@tanstack/react-query";
 
-import { authMutationKeys } from "@/modules/Feed/hooks/authMutationKeys";
+import { authMutationKeys } from "@/modules/Auth/hooks/authMutationKeys";
 
 /**
  * Non-blocking global indicator while auth mutations run (mock or real API).
