@@ -305,6 +305,24 @@ export function LandingPageView() {
 
   return (
     <>
+      {clips.length === 0 ? (
+        <FeedExplorerShell
+          center={
+            <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
+              <div className="w-full max-w-lg rounded-2xl border border-border-default bg-surface-default p-6 text-center">
+                <Typography as="h2" variant="title" className="text-text-primary">
+                  No videos yet
+                </Typography>
+                <Typography as="p" variant="body" className="mt-2 text-text-secondary">
+                  The feed is ready. Once schools and creators publish videos, personalized FYP
+                  ranking will activate automatically.
+                </Typography>
+              </div>
+            </div>
+          }
+        />
+      ) : null}
+      {clips.length > 0 ? (
       <FeedExplorerShell
         afterGrid={
           <FeedSnapScrollControls
@@ -358,6 +376,7 @@ export function LandingPageView() {
           </div>
         }
       />
+      ) : null}
       <LandingCommentSidebarPortal
         open={commentPanelOpen}
         clip={activeClip}

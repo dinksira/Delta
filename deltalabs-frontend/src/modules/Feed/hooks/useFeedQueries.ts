@@ -21,9 +21,7 @@ import { feedQueryKeys } from "@/modules/Feed/hooks/feedQueryKeys";
 async function fetchFeedClips(): Promise<readonly LandingVideoClip[]> {
   try {
     const response = await fetchFeedPage({ limit: 24, contentType: "video" });
-    if (response.items.length > 0) {
-      return response.items;
-    }
+    return response.items;
   } catch {
     // Keep landing feed usable when backend is down in local/frontend-only flows.
   }
