@@ -20,6 +20,19 @@ export type FeedEventRequestDto = Readonly<{
   watch_ms?: number;
   position_ms?: number;
 }>;
+
+export type FeedEngagementResponseDto = Readonly<{
+  ok: boolean;
+  action: string;
+  count: number;
+  active: boolean;
+}>;
+
+export type FeedShareResponseDto = Readonly<{
+  ok: boolean;
+  action: string;
+  count: number;
+}>;
 /** ################################ /TYPES ############################# */
 
 /** ################################ COMPONENT ############################# */
@@ -43,5 +56,23 @@ export async function postFeedEvent(
   payload: FeedEventRequestDto,
 ): Promise<Readonly<{ ok: boolean; action: string; event: FeedEventType }>> {
   return apiClient.post(`/v1/feed/${itemId}/event`, { json: payload });
+}
+
+export async function postFeedLike(itemId: string): Promise<FeedEngagementResponseDto> {
+  return apiClient.post<FeedEngagementResponseDto>(`/v1/feed/${itemId}/like`, {
+    headers: { "Idempotency-Key": `like-${itemId}-${Date.now()}` },
+  });
+}
+
+export async function postFeedSave(itemId: string): Promise<FeedEngagementResponseDto> {
+  return apiClient.post<FeedEngagementResponseDto>(`/v1/feed/${itemId}/save`, {
+    headers: { "Idempotency-Key": `save-${itemId}-${Date.now()}` },
+  });
+}
+
+export async function postFeedShare(itemId: string): Promise<FeedShareResponseDto> {
+  return apiClient.post<FeedShareResponseDto>(`/v1/feed/${itemId}/share`, {
+    headers: { "Idempotency-Key": `share-${itemId}-${Date.now()}` },
+  });
 }
 /** ################################ /COMPONENT ############################# */

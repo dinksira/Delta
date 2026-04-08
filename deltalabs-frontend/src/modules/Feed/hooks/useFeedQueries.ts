@@ -2,7 +2,14 @@
 /** Imports used by this file. */
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { fetchFeedPage, postFeedEvent, type FeedEventRequestDto } from "@/modules/Feed/api";
+import {
+  fetchFeedPage,
+  postFeedEvent,
+  postFeedLike,
+  postFeedSave,
+  postFeedShare,
+  type FeedEventRequestDto,
+} from "@/modules/Feed/api";
 import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import { fetchMockCommentsForClip } from "@/modules/Feed/data/mockComments";
 import { feedQueryKeys } from "@/modules/Feed/hooks/feedQueryKeys";
@@ -46,6 +53,24 @@ export function useFeedEventMutation() {
   return useMutation({
     mutationFn: async (input: Readonly<{ itemId: string; payload: FeedEventRequestDto }>) =>
       postFeedEvent(input.itemId, input.payload),
+  });
+}
+
+export function useFeedLikeMutation() {
+  return useMutation({
+    mutationFn: async (itemId: string) => postFeedLike(itemId),
+  });
+}
+
+export function useFeedSaveMutation() {
+  return useMutation({
+    mutationFn: async (itemId: string) => postFeedSave(itemId),
+  });
+}
+
+export function useFeedShareMutation() {
+  return useMutation({
+    mutationFn: async (itemId: string) => postFeedShare(itemId),
   });
 }
 /** ################################ /COMPONENT ############################# */

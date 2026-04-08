@@ -19,7 +19,13 @@ import {
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
 import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
-import { useFeedClips, useFeedEventMutation } from "@/modules/Feed/hooks";
+import {
+  useFeedClips,
+  useFeedEventMutation,
+  useFeedLikeMutation,
+  useFeedSaveMutation,
+  useFeedShareMutation,
+} from "@/modules/Feed/hooks";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import {
   selectCommentPanelOpen,
@@ -60,6 +66,12 @@ function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
   );
 }
 
+function formatCompactCount(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return `${value}`;
+}
+
 /** ################################ /HELPERS ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
@@ -72,6 +84,9 @@ function LandingClipSlide({
   onCommentModeChange,
   onFeedEvent,
   preloadStrategy,
+  onFeedAction,
+  likeMetaLabel,
+  bookmarkMetaLabel,
 }: Readonly<{
   clip: LandingVideoClip;
   isActive: boolean;
@@ -85,9 +100,21 @@ function LandingClipSlide({
     payload?: { watchMs?: number; positionMs?: number },
   ) => void;
   preloadStrategy: "auto" | "metadata" | "none";
+  onFeedAction: (clipId: string, action: "like" | "bookmark" | "share") => void;
+  likeMetaLabel?: string;
+  bookmarkMetaLabel?: string;
 }>) {
   const [localActionKey, setLocalActionKey] = useState<string | null>(null);
   const railItems = buildRailForClip(clip);
+  const resolvedRailItems = railItems.map((item) => {
+    if (item.key === "like" && likeMetaLabel) {
+      return { ...item, metaLabel: likeMetaLabel };
+    }
+    if (item.key === "bookmark" && bookmarkMetaLabel) {
+      return { ...item, metaLabel: bookmarkMetaLabel };
+    }
+    return item;
+  });
 
   const railActiveKey =
     !isActive ? null : commentsOpen ? "comment" : localActionKey === "comment" ? null : localActionKey;
@@ -102,6 +129,9 @@ function LandingClipSlide({
         setLocalActionKey("comment");
       }
       return;
+    }
+    if (key === "like" || key === "bookmark" || key === "share") {
+      onFeedAction(clip.id, key);
     }
     setLocalActionKey((prev) => (prev === key ? null : key));
   };
@@ -135,7 +165,11 @@ function LandingClipSlide({
           </FeedViewport>
         </div>
 
-        <FeedActionRail items={railItems} activeActionKey={railActiveKey} onActionToggle={handleRailToggle} />
+        <FeedActionRail
+          items={resolvedRailItems}
+          activeActionKey={railActiveKey}
+          onActionToggle={handleRailToggle}
+        />
       </div>
     </div>
   );
@@ -150,7 +184,12 @@ export function LandingPageView() {
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
   const { data: clipsData } = useFeedClips();
   const feedEventMutation = useFeedEventMutation();
+  const feedLikeMutation = useFeedLikeMutation();
+  const feedSaveMutation = useFeedSaveMutation();
+  const feedShareMutation = useFeedShareMutation();
   const [hiddenClipIds, setHiddenClipIds] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
   const clips = useMemo(() => {
     const source = clipsData ?? MOCK_VIDEO_FEED;
     if (hiddenClipIds.size === 0) {
@@ -235,6 +274,27 @@ export function LandingPageView() {
     });
   };
 
+  const handleFeedAction = (clipId: string, action: "like" | "bookmark" | "share") => {
+    if (!isAuthenticated) return;
+    if (action === "like") {
+      feedLikeMutation.mutate(clipId, {
+        onSuccess: (result) => {
+          setLikeCounts((prev) => ({ ...prev, [clipId]: result.count }));
+        },
+      });
+      return;
+    }
+    if (action === "bookmark") {
+      feedSaveMutation.mutate(clipId, {
+        onSuccess: (result) => {
+          setSaveCounts((prev) => ({ ...prev, [clipId]: result.count }));
+        },
+      });
+      return;
+    }
+    feedShareMutation.mutate(clipId);
+  };
+
   useEffect(() => {
     if (!activeClipId || clips.length === 0) return;
     const stillVisible = clips.some((clip) => clip.id === activeClipId);
@@ -282,6 +342,17 @@ export function LandingPageView() {
                 onCommentModeChange={setCommentsOpen}
                 onFeedEvent={handleFeedEvent}
                 preloadStrategy={Math.abs(activeClipIndex - index) <= 4 ? "auto" : "metadata"}
+                onFeedAction={handleFeedAction}
+                likeMetaLabel={
+                  likeCounts[clip.id] !== undefined
+                    ? formatCompactCount(likeCounts[clip.id] ?? 0)
+                    : clip.likeCount
+                }
+                bookmarkMetaLabel={
+                  saveCounts[clip.id] !== undefined
+                    ? formatCompactCount(saveCounts[clip.id] ?? 0)
+                    : undefined
+                }
               />
             ))}
           </div>
