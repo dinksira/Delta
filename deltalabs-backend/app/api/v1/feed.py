@@ -14,6 +14,8 @@ from app.domain.engagement.schemas import (
     CommentCreateResponse,
     EngagementWriteResponse,
     EnrollPlaceholderResponse,
+    FeedEventCreateRequest,
+    FeedEventCreateResponse,
     ShareCreateResponse,
 )
 from app.domain.engagement.service import Service as EngagementService
@@ -153,6 +155,28 @@ async def feed_enroll(
     await service.bootstrap_indexes()
     data = await service.enroll_placeholder(content_id=item_id)
     return EnrollPlaceholderResponse.model_validate(data)
+
+
+@router.post("/{item_id}/event", response_model=FeedEventCreateResponse)
+async def feed_event(
+    item_id: str,
+    payload: FeedEventCreateRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+    redis: RedisDep = Depends(get_redis),  # noqa: B008
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> FeedEventCreateResponse:
+    """Record feed telemetry events used for ranking helpers."""
+    service = _engagement_service(db)
+    await service.bootstrap_indexes()
+    data = await service.feed_event(
+        content_id=item_id,
+        user_id=user.user_id,
+        payload=payload,
+        redis=redis,
+        idempotency_key=idempotency_key,
+    )
+    return FeedEventCreateResponse.model_validate(data)
 
 
 @router.get("/{item_id}", response_model=FeedItemPublic)

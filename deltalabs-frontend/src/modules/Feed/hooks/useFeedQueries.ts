@@ -1,8 +1,8 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { fetchFeedPage } from "@/modules/Feed/api";
+import { fetchFeedPage, postFeedEvent, type FeedEventRequestDto } from "@/modules/Feed/api";
 import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import { fetchMockCommentsForClip } from "@/modules/Feed/data/mockComments";
 import { feedQueryKeys } from "@/modules/Feed/hooks/feedQueryKeys";
@@ -39,6 +39,13 @@ export function useFeedComments(clipId: string | undefined) {
     queryFn: () => fetchMockCommentsForClip(clipId!),
     enabled: Boolean(clipId),
     staleTime: 60_000,
+  });
+}
+
+export function useFeedEventMutation() {
+  return useMutation({
+    mutationFn: async (input: Readonly<{ itemId: string; payload: FeedEventRequestDto }>) =>
+      postFeedEvent(input.itemId, input.payload),
   });
 }
 /** ################################ /COMPONENT ############################# */

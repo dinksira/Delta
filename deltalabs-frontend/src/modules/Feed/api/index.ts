@@ -12,6 +12,14 @@ export type FeedPaginatedResponseDto = Readonly<{
   next_cursor: string | null;
   has_more: boolean;
 }>;
+
+export type FeedEventType = "view_start" | "view_complete" | "skip" | "hide";
+
+export type FeedEventRequestDto = Readonly<{
+  event: FeedEventType;
+  watch_ms?: number;
+  position_ms?: number;
+}>;
 /** ################################ /TYPES ############################# */
 
 /** ################################ COMPONENT ############################# */
@@ -28,5 +36,12 @@ export async function fetchFeedPage(params?: {
       content_type: params?.contentType ?? "video",
     },
   });
+}
+
+export async function postFeedEvent(
+  itemId: string,
+  payload: FeedEventRequestDto,
+): Promise<Readonly<{ ok: boolean; action: string; event: FeedEventType }>> {
+  return apiClient.post(`/v1/feed/${itemId}/event`, { json: payload });
 }
 /** ################################ /COMPONENT ############################# */

@@ -12,6 +12,7 @@ EnvironmentName = Literal["local", "staging", "production"]
 class Settings(BaseSettings):
     """Runtime configuration; no secrets committed — use env / deployment secrets."""
 
+    # ################################ CONFIG ################################
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -68,6 +69,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=60, ge=1)
 
     api_v1_prefix: str = Field(default="/v1", description="Mounted API version prefix")
+    authz_default_org_slug: str = Field(
+        default="delta-labs",
+        min_length=2,
+        description="Default org slug used for compatibility wrappers and local bootstrap",
+    )
+    authz_default_org_name: str = Field(
+        default="Delta Labs",
+        min_length=2,
+        description="Default org display name used during authz bootstrap",
+    )
     idempotency_header_name: str = Field(
         default="Idempotency-Key",
         description="Header used to carry idempotency keys",
@@ -76,6 +87,59 @@ class Settings(BaseSettings):
         default=24 * 60 * 60,
         ge=1,
         description="Planned Redis TTL for idempotency records",
+    )
+
+    rate_limit_auth_posts_per_minute: int = Field(
+        default=120,
+        ge=0,
+        description="Max POST /v1/auth/* requests per IP per minute (0 disables)",
+    )
+    trust_x_forwarded_for: bool = Field(
+        default=False,
+        description="If true, use first X-Forwarded-For hop as client IP for rate limits",
+    )
+    media_storage_provider: str = Field(
+        default="s3",
+        description="Object storage provider identifier (e.g. s3, r2, gcs)",
+    )
+    media_storage_bucket: str = Field(
+        default="delta-labs-media",
+        description="Object storage bucket/container for uploaded media",
+    )
+    media_upload_base_url: str = Field(
+        default="https://upload.example.com",
+        description="Base URL used to mint direct-upload intent URLs",
+    )
+    media_aws_region: str = Field(
+        default="us-east-1",
+        description="AWS region for S3-compatible signing",
+    )
+    media_s3_endpoint_url: str | None = Field(
+        default=None,
+        description="Optional S3-compatible endpoint URL (use for R2/MinIO)",
+    )
+    media_s3_access_key_id: str | None = Field(
+        default=None,
+        description="Access key used for S3-compatible direct-upload signing",
+    )
+    media_s3_secret_access_key: str | None = Field(
+        default=None,
+        description="Secret key used for S3-compatible direct-upload signing",
+    )
+    media_upload_intent_ttl_seconds: int = Field(
+        default=900,
+        ge=60,
+        le=3600,
+        description="TTL for presigned upload URLs",
+    )
+    media_cdn_base_url: str = Field(
+        default="https://cdn.example.com",
+        description="CDN base URL used for playback URLs",
+    )
+    media_ingest_shared_secret: str = Field(
+        default="replace-media-ingest-secret",
+        min_length=8,
+        description="Shared secret expected in X-Ingest-Secret for ingest callbacks",
     )
 
     cors_origins: str = Field(
@@ -102,3 +166,6 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return process-wide settings (cached)."""
     return Settings()
+
+
+# ################################ /CONFIG ################################

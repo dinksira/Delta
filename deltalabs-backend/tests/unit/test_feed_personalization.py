@@ -22,6 +22,7 @@ class _Repo:
         limit: int,
         cursor: tuple[datetime, str] | None,
         content_type: str | None,
+        exclude_content_ids: set[str] | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         base = datetime(2026, 1, 1, tzinfo=UTC)
         docs: list[dict[str, Any]] = []
@@ -38,6 +39,8 @@ class _Repo:
                     "like_count": "0",
                 }
             )
+        if exclude_content_ids:
+            docs = [doc for doc in docs if str(doc.get("_id", "")) not in exclude_content_ids]
         return docs[:limit], False
 
     async def count_public_items(self, *, content_type: str | None) -> int:
@@ -58,6 +61,17 @@ class _Repo:
         for item_id in item_ids:
             rows.append({"_id": item_id, "hashtags": ["ai"]})
         return rows
+
+    async def list_recent_user_events(
+        self, *, user_id: str, limit: int = 300
+    ) -> list[dict[str, Any]]:
+        if user_id == "u-ai":
+            return [
+                {"content_id": "c1", "event": "view_complete", "watch_ms": 38_000},
+                {"content_id": "c3", "event": "view_complete", "watch_ms": 42_000},
+                {"content_id": "c2", "event": "skip", "watch_ms": 1_000},
+            ]
+        return []
 
 
 async def test_feed_personalization_changes_order_for_engaged_user() -> None:
@@ -86,3 +100,33 @@ async def test_feed_cold_start_personalization_is_deterministic() -> None:
         user_id="u-cold",
     )
     assert [item.id for item in first.items] == [item.id for item in second.items]
+
+
+async def test_feed_hidden_event_excludes_item() -> None:
+    class _RepoWithHide(_Repo):
+        async def list_recent_user_events(
+            self, *, user_id: str, limit: int = 300
+        ) -> list[dict[str, Any]]:
+            return [{"content_id": "c1", "event": "hide", "watch_ms": 0}]
+
+    service = Service(_RepoWithHide())  # type: ignore[arg-type]
+    result = await service.list_feed(
+        limit=6, cursor_token=None, content_type="video", user_id="u-hide"
+    )
+    ids = [item.id for item in result.items]
+    assert "c1" not in ids
+
+
+async def test_feed_watched_items_are_deprioritized_or_excluded() -> None:
+    class _RepoWithWatched(_Repo):
+        async def list_recent_user_events(
+            self, *, user_id: str, limit: int = 300
+        ) -> list[dict[str, Any]]:
+            return [{"content_id": "c1", "event": "view_complete", "watch_ms": 33_000}]
+
+    service = Service(_RepoWithWatched())  # type: ignore[arg-type]
+    result = await service.list_feed(
+        limit=6, cursor_token=None, content_type="video", user_id="u-watch"
+    )
+    ids = [item.id for item in result.items]
+    assert "c1" not in ids

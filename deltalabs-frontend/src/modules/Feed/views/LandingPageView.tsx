@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -17,7 +19,8 @@ import {
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
 import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
-import { useFeedClips } from "@/modules/Feed/hooks";
+import { useFeedClips, useFeedEventMutation } from "@/modules/Feed/hooks";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import {
   selectCommentPanelOpen,
   setCommentPanelOpen,
@@ -25,6 +28,9 @@ import {
   useAppSelector,
 } from "@/store";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const actionRailTemplate = [
   {
     key: "goToCourse",
@@ -43,6 +49,9 @@ const actionRailTemplate = [
   },
 ] as const satisfies readonly FeedActionItem[];
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ HELPERS ############################# */
+/** Helper utilities used by this file. */
 function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
   return actionRailTemplate.map((item) =>
     item.key === "like" && clip.likeCount
@@ -51,6 +60,9 @@ function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
   );
 }
 
+/** ################################ /HELPERS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function LandingClipSlide({
   clip,
   isActive,
@@ -58,6 +70,8 @@ function LandingClipSlide({
   onToggleMute,
   commentsOpen,
   onCommentModeChange,
+  onFeedEvent,
+  preloadStrategy,
 }: Readonly<{
   clip: LandingVideoClip;
   isActive: boolean;
@@ -65,6 +79,12 @@ function LandingClipSlide({
   onToggleMute: () => void;
   commentsOpen: boolean;
   onCommentModeChange: (open: boolean) => void;
+  onFeedEvent: (
+    clipId: string,
+    event: "view_start" | "view_complete" | "skip" | "hide",
+    payload?: { watchMs?: number; positionMs?: number },
+  ) => void;
+  preloadStrategy: "auto" | "metadata" | "none";
 }>) {
   const [localActionKey, setLocalActionKey] = useState<string | null>(null);
   const railItems = buildRailForClip(clip);
@@ -95,11 +115,14 @@ function LandingClipSlide({
       <div className="mx-auto flex w-full max-w-full flex-row items-end justify-center gap-1 px-1 sm:gap-1.5 sm:px-0">
         <div className="min-w-0 flex-1 basis-0 max-w-[380px] sm:w-[420px] sm:max-w-[420px] sm:flex-none sm:shrink-0 sm:basis-auto">
           <FeedViewport
+            clipId={clip.id}
             mediaTone={clip.mediaTone}
             videoSrc={clip.videoSrc}
             isActive={isActive}
             isMuted={isMuted}
             onToggleMute={onToggleMute}
+            onFeedEvent={(event, payload) => onFeedEvent(clip.id, event, payload)}
+            preloadStrategy={preloadStrategy}
           >
             <CreatorIdentity
               initials={LANDING_FEED_PRESENTER.initials}
@@ -118,12 +141,24 @@ function LandingClipSlide({
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Public landing feed-style layout aligned to design parity target. */
 export function LandingPageView() {
   const dispatch = useAppDispatch();
+  const { isAuthenticated } = useAuthSession();
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
   const { data: clipsData } = useFeedClips();
-  const clips = clipsData ?? MOCK_VIDEO_FEED;
+  const feedEventMutation = useFeedEventMutation();
+  const [hiddenClipIds, setHiddenClipIds] = useState<Set<string>>(new Set());
+  const clips = useMemo(() => {
+    const source = clipsData ?? MOCK_VIDEO_FEED;
+    if (hiddenClipIds.size === 0) {
+      return source;
+    }
+    const filtered = source.filter((clip) => !hiddenClipIds.has(clip.id));
+    return filtered.length > 0 ? filtered : source;
+  }, [clipsData, hiddenClipIds]);
 
   const [isFeedMuted, setIsFeedMuted] = useState(true);
   const [activeClipId, setActiveClipId] = useState<string>(MOCK_VIDEO_FEED[0]?.id ?? "");
@@ -177,6 +212,37 @@ export function LandingPageView() {
     dispatch(setCommentPanelOpen(open));
   };
 
+  const handleFeedEvent = (
+    clipId: string,
+    event: "view_start" | "view_complete" | "skip" | "hide",
+    payload?: { watchMs?: number; positionMs?: number },
+  ) => {
+    if (event === "hide") {
+      setHiddenClipIds((prev) => {
+        const next = new Set(prev);
+        next.add(clipId);
+        return next;
+      });
+    }
+    if (!isAuthenticated) return;
+    feedEventMutation.mutate({
+      itemId: clipId,
+      payload: {
+        event,
+        watch_ms: payload?.watchMs,
+        position_ms: payload?.positionMs,
+      },
+    });
+  };
+
+  useEffect(() => {
+    if (!activeClipId || clips.length === 0) return;
+    const stillVisible = clips.some((clip) => clip.id === activeClipId);
+    if (!stillVisible) {
+      setActiveClipId(clips[0]?.id ?? "");
+    }
+  }, [activeClipId, clips]);
+
   return (
     <>
       <FeedExplorerShell
@@ -205,7 +271,7 @@ export function LandingPageView() {
               }
             }}
           >
-            {clips.map((clip) => (
+            {clips.map((clip, index) => (
               <LandingClipSlide
                 key={clip.id}
                 clip={clip}
@@ -214,6 +280,8 @@ export function LandingPageView() {
                 onToggleMute={() => setIsFeedMuted((prev) => !prev)}
                 commentsOpen={commentPanelOpen && clip.id === activeClipId}
                 onCommentModeChange={setCommentsOpen}
+                onFeedEvent={handleFeedEvent}
+                preloadStrategy={Math.abs(activeClipIndex - index) <= 4 ? "auto" : "metadata"}
               />
             ))}
           </div>
@@ -228,6 +296,8 @@ export function LandingPageView() {
   );
 }
 
+/** ################################ /COMPONENT ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
 /** Renders the comment column on `document.body` so it is not clipped by feed layout; `top-16` matches `TopNav` `h-16`. */
 function LandingCommentSidebarPortal({
   open,
@@ -252,3 +322,4 @@ function LandingCommentSidebarPortal({
     document.body,
   );
 }
+/** ################################ /SUBCOMPONENTS ############################# */

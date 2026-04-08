@@ -68,21 +68,30 @@ class Repository:
         limit: int,
         cursor: tuple[datetime, str] | None,
         content_type: str | None,
+        exclude_content_ids: set[str] | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         """Return up to `limit` items; bool indicates more rows exist."""
         query: dict[str, Any] = {"visibility": "public"}
         if content_type:
             query["content_type"] = content_type
+        if exclude_content_ids:
+            query["_id"] = {"$nin": sorted(exclude_content_ids)}
 
         if cursor is not None:
             cursor_dt, cursor_id = cursor
-            query["$or"] = [
-                {"created_at": {"$lt": cursor_dt}},
-                {
-                    "created_at": cursor_dt,
-                    "_id": {"$lt": cursor_id},
-                },
-            ]
+            cursor_clause: dict[str, Any] = {
+                "$or": [
+                    {"created_at": {"$lt": cursor_dt}},
+                    {
+                        "created_at": cursor_dt,
+                        "_id": {"$lt": cursor_id},
+                    },
+                ]
+            }
+            if exclude_content_ids:
+                query = {"$and": [query, cursor_clause]}
+            else:
+                query.update(cursor_clause)
 
         cursor_mongo = (
             self._db["content_items"]
@@ -143,6 +152,21 @@ class Repository:
                 {"hashtags": 1},
             )
             .to_list(length=len(item_ids))
+        )
+
+    async def list_recent_user_events(
+        self, *, user_id: str, limit: int = 300
+    ) -> list[dict[str, Any]]:
+        """Load recent telemetry events for a user used in ranking helpers."""
+        return (
+            await self._db["content_events"]
+            .find(
+                {"user_id": user_id},
+                {"content_id": 1, "event": 1, "watch_ms": 1, "created_at": 1},
+            )
+            .sort([("created_at", DESCENDING)])
+            .limit(limit)
+            .to_list(length=limit)
         )
 
     async def insert_demo_items_if_empty(self) -> None:

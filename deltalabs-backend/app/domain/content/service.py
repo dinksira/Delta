@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import random
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC
 from typing import Any
 
@@ -12,6 +13,14 @@ from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.domain.content.repository import Repository, decode_feed_cursor, encode_feed_cursor
 from app.domain.content.schemas import FeedItemPublic, FeedPaginatedResponse
+
+
+@dataclass(slots=True)
+class _SignalProfile:
+    hashtag_weights: dict[str, float]
+    event_boosts: dict[str, float]
+    hidden_ids: set[str]
+    watched_ids: set[str]
 
 
 class Service:
@@ -48,16 +57,30 @@ class Service:
                 raise ValidationError("Invalid feed cursor.", code="feed_cursor_invalid")
             cursor_tuple = decoded
 
+        profile = await self._build_signal_profile(user_id=user_id) if user_id else None
+        exclude_content_ids = None
+        if profile is not None:
+            exclude_content_ids = profile.hidden_ids | profile.watched_ids
+
         docs, has_more = await self._repository.list_public_items(
             limit=limit,
             cursor=cursor_tuple,
             content_type=content_type,
+            exclude_content_ids=exclude_content_ids,
         )
+        if not docs and exclude_content_ids:
+            docs, has_more = await self._repository.list_public_items(
+                limit=limit,
+                cursor=cursor_tuple,
+                content_type=content_type,
+                exclude_content_ids=None,
+            )
         docs = await self._personalize_docs(
             docs=docs,
             user_id=user_id,
             content_type=content_type,
             cursor_token=cursor_token,
+            profile=profile,
         )
         items = [Repository.doc_to_feed_item(doc) for doc in docs]
         next_cursor = None
@@ -93,33 +116,42 @@ class Service:
         user_id: str | None,
         content_type: str | None,
         cursor_token: str | None,
+        profile: _SignalProfile | None,
     ) -> list[dict[str, Any]]:
         """Per-user rerank helper for FYP-style variance without changing feed contract."""
         if not docs or not user_id:
             return docs
 
-        engaged_ids = await self._repository.list_recent_user_engaged_item_ids(user_id=user_id)
-        if not engaged_ids:
-            return self._stable_user_shuffle(docs=docs, user_id=user_id, cursor_token=cursor_token)
-
-        hashtag_weights = await self._build_hashtag_weights(engaged_ids=engaged_ids)
-        if not hashtag_weights:
+        if profile is None:
+            profile = await self._build_signal_profile(user_id=user_id)
+        if not profile.hashtag_weights and not profile.event_boosts:
             return self._stable_user_shuffle(docs=docs, user_id=user_id, cursor_token=cursor_token)
 
         scoped_type = content_type or "all"
         scored: list[tuple[float, dict[str, Any]]] = []
         total = max(len(docs), 1)
         for idx, doc in enumerate(docs):
+            item_id = str(doc.get("_id", ""))
+            if item_id in profile.hidden_ids:
+                continue
             recency_score = (total - idx) / total
             hashtag_score = 0.0
             for tag in doc.get("hashtags", []):
-                hashtag_score += hashtag_weights.get(str(tag).lower(), 0.0)
+                hashtag_score += profile.hashtag_weights.get(str(tag).lower(), 0.0)
+            event_score = profile.event_boosts.get(item_id, 0.0)
             jitter = _seeded_unit_interval(
                 f"{user_id}:{scoped_type}:{cursor_token or 'first'}:{doc.get('_id', '')}",
             )
-            score = (0.65 * recency_score) + (0.3 * hashtag_score) + (0.05 * jitter)
+            score = (
+                (0.50 * recency_score)
+                + (0.28 * hashtag_score)
+                + (0.17 * event_score)
+                + (0.05 * jitter)
+            )
             scored.append((score, doc))
 
+        if not scored:
+            return self._stable_user_shuffle(docs=docs, user_id=user_id, cursor_token=cursor_token)
         scored.sort(
             key=lambda pair: (
                 pair[0],
@@ -128,7 +160,24 @@ class Service:
             ),
             reverse=True,
         )
-        return [doc for _, doc in scored]
+        ranked = [doc for _, doc in scored]
+        if len(ranked) >= max(3, len(docs) // 2):
+            return ranked
+        return self._stable_user_shuffle(docs=docs, user_id=user_id, cursor_token=cursor_token)
+
+    async def _build_signal_profile(self, *, user_id: str) -> _SignalProfile:
+        engaged_ids = await self._repository.list_recent_user_engaged_item_ids(user_id=user_id)
+        hashtag_weights: dict[str, float] = {}
+        if engaged_ids:
+            hashtag_weights = await self._build_hashtag_weights(engaged_ids=engaged_ids)
+        events = await self._repository.list_recent_user_events(user_id=user_id)
+        event_boosts, hidden_ids, watched_ids = self._event_boosts_hidden_and_watched(events)
+        return _SignalProfile(
+            hashtag_weights=hashtag_weights,
+            event_boosts=event_boosts,
+            hidden_ids=hidden_ids,
+            watched_ids=watched_ids,
+        )
 
     async def _build_hashtag_weights(self, *, engaged_ids: list[str]) -> dict[str, float]:
         """Build normalized hashtag preference weights from recent user engagement."""
@@ -145,6 +194,36 @@ class Service:
             return {}
         max_count = max(counts.values())
         return {tag: value / max_count for tag, value in counts.items()}
+
+    def _event_boosts_hidden_and_watched(
+        self, events: list[dict[str, Any]]
+    ) -> tuple[dict[str, float], set[str], set[str]]:
+        """Map recent event rows into boosts, hidden exclusions, and watched exclusions."""
+        boosts: dict[str, float] = {}
+        hidden_ids: set[str] = set()
+        watched_ids: set[str] = set()
+        for row in events:
+            item_id = str(row.get("content_id", ""))
+            if not item_id:
+                continue
+            event = str(row.get("event", ""))
+            if event == "hide":
+                hidden_ids.add(item_id)
+                boosts[item_id] = -1.0
+                continue
+            if event == "view_complete":
+                boosts[item_id] = boosts.get(item_id, 0.0) + 0.35
+                watched_ids.add(item_id)
+            elif event == "view_start":
+                boosts[item_id] = boosts.get(item_id, 0.0) + 0.07
+            elif event == "skip":
+                boosts[item_id] = boosts.get(item_id, 0.0) - 0.22
+            watch_ms = row.get("watch_ms")
+            if isinstance(watch_ms, int) and watch_ms > 0:
+                boosts[item_id] = boosts.get(item_id, 0.0) + min(watch_ms / 60_000.0, 0.15)
+                if watch_ms >= 25_000:
+                    watched_ids.add(item_id)
+        return boosts, hidden_ids, watched_ids
 
     def _stable_user_shuffle(
         self,
