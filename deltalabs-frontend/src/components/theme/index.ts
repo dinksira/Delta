@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export { Button } from "@/components/theme/Button";
 export type { ButtonProps } from "@/components/theme/Button";
 export { ButtonLink } from "@/components/theme/ButtonLink";
@@ -10,6 +12,8 @@ export {
   CardHeader,
   CardTitle,
 } from "@/components/theme/Card";
+export { Checkbox } from "@/components/theme/Checkbox";
+export type { CheckboxProps } from "@/components/theme/Checkbox";
 export { Input } from "@/components/theme/Input";
 export type { InputProps } from "@/components/theme/Input";
 export { SearchInput } from "@/components/theme/SearchInput";
@@ -25,3 +29,4 @@ export { StatusBanner } from "@/components/theme/StatusBanner";
 export type { StatusBannerProps, StatusBannerType } from "@/components/theme/StatusBanner";
 export { Typography } from "@/components/theme/Typography";
 export type { TypographyProps } from "@/components/theme/Typography";
+/** ################################ /COMPONENT ############################# */

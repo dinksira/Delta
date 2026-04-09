@@ -1,6 +1,6 @@
 """Tests for global error mapping and response shape."""
 
-from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.core.exceptions import ConflictError, NotFoundError, RateLimitError, ValidationError
 from app.main import app
 from fastapi import APIRouter, Query
 from fastapi.testclient import TestClient
@@ -25,6 +25,10 @@ def _ensure_test_error_routes() -> None:
     async def raise_validation() -> None:
         raise ValidationError("Invalid enrollment state.", details={"field": "status"})
 
+    @router.get("/rate-limit")
+    async def raise_rate_limit() -> None:
+        raise RateLimitError("Slow down.")
+
     @router.get("/request-validation")
     async def request_validation(limit: int = Query(..., ge=1)) -> dict[str, int]:
         return {"limit": limit}
@@ -42,6 +46,7 @@ def test_domain_error_shape_and_statuses() -> None:
         response_404 = client.get("/test-errors/not-found", headers={"X-Request-Id": "r1"})
         response_409 = client.get("/test-errors/conflict", headers={"X-Request-Id": "r2"})
         response_400 = client.get("/test-errors/validation", headers={"X-Request-Id": "r3"})
+        response_429 = client.get("/test-errors/rate-limit", headers={"X-Request-Id": "r4"})
 
     assert response_404.status_code == 404
     assert response_404.json()["code"] == "not_found"
@@ -55,6 +60,10 @@ def test_domain_error_shape_and_statuses() -> None:
     assert response_400.json()["code"] == "validation_error"
     assert response_400.json()["details"] == {"field": "status"}
     assert response_400.json()["requestId"] == "r3"
+
+    assert response_429.status_code == 429
+    assert response_429.json()["code"] == "rate_limited"
+    assert response_429.json()["requestId"] == "r4"
 
 
 def test_request_validation_handler_shape() -> None:
@@ -80,3 +89,7 @@ def test_unexpected_handler_shape() -> None:
     assert body["code"] == "internal_server_error"
     assert body["requestId"] == "r500"
     assert "message" in body
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

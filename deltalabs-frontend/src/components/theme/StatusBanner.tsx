@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Typography } from "@/components/theme/Typography";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type StatusBannerType = "success" | "error" | "info";
 
 export type StatusBannerProps = Readonly<{
@@ -35,3 +41,4 @@ export function StatusBanner({
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

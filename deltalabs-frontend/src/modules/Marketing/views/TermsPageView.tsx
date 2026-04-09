@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Placeholder terms of use until legal content is provided. */
 export function TermsPageView() {
   return (
@@ -15,3 +21,4 @@ export function TermsPageView() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

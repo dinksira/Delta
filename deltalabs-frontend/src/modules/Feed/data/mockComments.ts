@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Mock thread rows until comments API exists; same shape expected from backend. */
 
 export type FeedCommentPreview = Readonly<{
@@ -45,3 +47,4 @@ export async function fetchMockCommentsForClip(clipId: string): Promise<readonly
 export function getMockCommentCount(): number {
   return MOCK_COMMENTS.length;
 }
+/** ################################ /COMPONENT ############################# */

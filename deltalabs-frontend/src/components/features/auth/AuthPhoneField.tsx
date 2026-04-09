@@ -1,9 +1,14 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { InputHTMLAttributes } from "react";
 
 import { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClasses";
 import { getAuthInputClassName } from "@/components/features/auth/authInputStyles";
 import { Field, Input } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type AuthPhoneFieldProps = Readonly<{
   id: string;
   label: string;
@@ -13,6 +18,9 @@ type AuthPhoneFieldProps = Readonly<{
   inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "inputMode" | "autoComplete" | "className">;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthPhoneField({ id, label, placeholder, error, errorMessage, inputProps }: AuthPhoneFieldProps) {
   const invalid = !!(error || errorMessage);
   return (
@@ -31,3 +39,4 @@ export function AuthPhoneField({ id, label, placeholder, error, errorMessage, in
     </Field>
   );
 }
+/** ################################ /COMPONENT ############################# */

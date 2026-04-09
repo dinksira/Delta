@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type DesignTokenScale = Readonly<Record<string, string>>;
 
 export interface DesignTokens {
@@ -272,3 +274,4 @@ export const designTokens: Readonly<DesignTokens> = {
     toast: 1400,
   },
 } as const;
+/** ################################ /COMPONENT ############################# */

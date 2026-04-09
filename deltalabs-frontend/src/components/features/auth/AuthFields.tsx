@@ -1,9 +1,14 @@
+/** ################################ IMPORT ############################# */
+/** React input types and auth field dependencies. */
 import type { InputHTMLAttributes } from "react";
 
 import { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClasses";
 import { getAuthInputClassName } from "@/components/features/auth/authInputStyles";
 import { Field, Input, Typography } from "@/components/theme";
+/** ################################ /IMPORT ############################# */
 
+/** ################################ TYPES ############################# */
+/** Props for reusable auth text field component. */
 type AuthTextFieldProps = Readonly<{
   id: string;
   label: string;
@@ -13,7 +18,10 @@ type AuthTextFieldProps = Readonly<{
   errorMessage?: string;
   inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "placeholder" | "className">;
 }>;
+/** ################################ /TYPES ############################# */
 
+/** ################################ COMPONENT ############################# */
+/** Reusable auth text field built from shared theme primitives. */
 export function AuthTextField({
   id,
   label,
@@ -39,6 +47,7 @@ export function AuthTextField({
   );
 }
 
+/** Reusable auth checkbox field for remember-me and similar toggles. */
 export function AuthCheckboxField({
   id,
   label,
@@ -65,3 +74,4 @@ export function AuthCheckboxField({
     </label>
   );
 }
+/** ################################ /COMPONENT ############################# */

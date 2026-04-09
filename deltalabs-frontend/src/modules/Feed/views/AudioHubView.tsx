@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Headphones, Home, Library } from "lucide-react";
@@ -7,6 +9,9 @@ import { Headphones, Home, Library } from "lucide-react";
 import { Card, Typography } from "@/components/theme";
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const listenItems = [
   { title: "Quantum Mechanics", tone: "from-slate-400 to-slate-600" },
   { title: "Bio-Technology", tone: "from-emerald-400 to-teal-700" },
@@ -30,6 +35,9 @@ const focusRowB = [
   { title: "Ambient Labs", sub: "Generative beds", tone: "from-indigo-400 to-slate-800" },
 ] as const;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function SectionHeader({
   title,
   href,
@@ -62,6 +70,8 @@ function SectionHeader({
 const hubScrollClass =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain py-2 sm:py-3";
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Audio hub — same explorer shell as video landing (design-only body). */
 export function AudioHubView() {
   return (
@@ -155,3 +165,4 @@ export function AudioHubView() {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

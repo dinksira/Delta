@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared input primitive for Delta Labs UI. */
 import type { InputHTMLAttributes } from "react";
 
@@ -17,3 +19,4 @@ export function Input({ className, type = "text", ...props }: Readonly<InputProp
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

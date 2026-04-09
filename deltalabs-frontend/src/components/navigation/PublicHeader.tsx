@@ -1,5 +1,9 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { TopNav } from "@/components/navigation/TopNav";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ COMPONENT ############################# */
 /** Marketing/public site header with auth entry points. */
 export function PublicHeader({
   isAuthenticated,
@@ -20,3 +24,4 @@ export function PublicHeader({
     <TopNav variant={variant} isAuthenticated={isAuthenticated} profileInitials={profileInitials} />
   );
 }
+/** ################################ /COMPONENT ############################# */

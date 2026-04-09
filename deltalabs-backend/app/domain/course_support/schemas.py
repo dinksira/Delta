@@ -6,4 +6,8 @@ from pydantic import BaseModel
 class DomainEntity(BaseModel):
     """Placeholder entity model for the course_support domain."""
 
+    # ################################ TYPES ################################
     id: str
+
+
+# ################################ /TYPES ################################

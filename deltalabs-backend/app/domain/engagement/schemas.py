@@ -71,4 +71,35 @@ class FeedEventCreateResponse(BaseModel):
     event: str
 
 
+class FeedCommentPublic(BaseModel):
+    """Public feed comment row."""
+
+    id: str
+    user_id: str = Field(serialization_alias="userId")
+    body: str
+    created_at: str = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class FeedCommentListResponse(BaseModel):
+    """List response for feed comments."""
+
+    items: list[FeedCommentPublic]
+    count: int
+
+
+class FeedTelemetrySummaryResponse(BaseModel):
+    """Compact feed telemetry observability snapshot."""
+
+    event_counts: dict[str, int] = Field(serialization_alias="eventCounts")
+    total_events: int = Field(serialization_alias="totalEvents")
+    unique_users: int = Field(serialization_alias="uniqueUsers")
+    average_watch_ms: int = Field(serialization_alias="averageWatchMs")
+    hide_rate: float = Field(serialization_alias="hideRate")
+    completion_rate: float = Field(serialization_alias="completionRate")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 # ################################ /TYPES ################################

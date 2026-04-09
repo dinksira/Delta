@@ -12,9 +12,20 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from app.api.v1 import api_router
+from app.core import metrics as http_metrics
 from app.core.config import get_settings
-from app.core.exceptions import ConflictError, DeltaLabsBaseError, NotFoundError, ValidationError
+from app.core.exceptions import (
+    # ################################ APPLICATION ################################
+    ConflictError,
+    DeltaLabsBaseError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+    ValidationError,
+)
 from app.core.logging import configure_logging
+from app.core.rate_limit import enforce_auth_post_rate_limit
+from app.core.readiness import run_readiness_checks
 from app.infra.database import connect_mongodb, disconnect_mongodb
 from app.infra.http_client import connect_http_client, disconnect_http_client
 from app.infra.redis_client import connect_redis, disconnect_redis
@@ -105,12 +116,31 @@ async def idempotency_middleware(
 
 
 @app.middleware("http")
+async def auth_rate_limit_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    try:
+        await enforce_auth_post_rate_limit(request)
+    except RateLimitError as exc:
+        payload = _error_payload(
+            code=exc.code,
+            message=exc.message,
+            request_id=_request_id(request),
+            details=exc.details,
+        )
+        return JSONResponse(status_code=429, content=payload)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def request_logging_middleware(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
     start = perf_counter()
     response = await call_next(request)
+    http_metrics.record_request(status_code=response.status_code)
     duration_ms = int((perf_counter() - start) * 1000)
     logger.info(
         "request.complete",
@@ -132,6 +162,10 @@ async def handle_domain_error(request: Request, exc: DeltaLabsBaseError) -> JSON
         status_code = 404
     elif isinstance(exc, ConflictError):
         status_code = 409
+    elif isinstance(exc, PermissionDeniedError):
+        status_code = 403
+    elif isinstance(exc, RateLimitError):
+        status_code = 429
     elif isinstance(exc, ValidationError):
         status_code = 400
 
@@ -174,7 +208,17 @@ async def handle_unexpected_error(request: Request, exc: Exception) -> JSONRespo
 
 @app.get("/health")
 async def health() -> JSONResponse:
+    """Liveness: process is up (no dependency checks)."""
     return JSONResponse({"status": "ok"})
 
 
+@app.get("/ready")
+async def ready() -> JSONResponse:
+    """Readiness: MongoDB and Redis must respond."""
+    ok, detail = await run_readiness_checks()
+    body = {"status": "ready" if ok else "not_ready", "checks": detail}
+    return JSONResponse(status_code=200 if ok else 503, content=body)
+
+
 app.include_router(api_router, prefix=_settings.api_v1_prefix)
+# ################################ /APPLICATION ################################

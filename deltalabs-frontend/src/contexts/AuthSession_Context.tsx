@@ -1,6 +1,12 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import {
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
   createContext,
   useCallback,
   useContext,
@@ -109,3 +115,4 @@ const fallbackValue: AuthSessionContextValue = {
 export function useAuthSession(): AuthSessionContextValue {
   return useContext(AuthSessionContext) ?? fallbackValue;
 }
+/** ################################ /COMPONENT ############################# */

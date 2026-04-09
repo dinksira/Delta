@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Placeholder privacy policy until legal content is provided. */
 export function PrivacyPageView() {
   return (
@@ -15,3 +21,4 @@ export function PrivacyPageView() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

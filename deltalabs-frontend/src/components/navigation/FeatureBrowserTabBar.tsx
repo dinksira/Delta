@@ -1,16 +1,24 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const TAB_ACTIVE_BG = "bg-[color:var(--color-features-tab-active-bg)]";
 const TAB_IDLE_BG = "bg-[color:var(--color-features-tab-idle-bg)]";
 const TAB_BORDER = "border-[color:var(--color-features-tab-border)]";
 const TAB_TEXT = "text-[color:var(--color-features-tab-text)]";
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function TabCloseButton({
   label,
   onClose,
@@ -79,6 +87,8 @@ function BrowserTab({ href, label, active, pinned, onClose }: BrowserTabProps) {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /**
  * Browser-style tab strip for `/features`: pinned Features + dynamic workspace tabs.
  * Compact browser tabs for h-16 header; colors still match the light-tab mock.
@@ -142,3 +152,4 @@ export function FeatureBrowserTabBar() {
     </nav>
   );
 }
+/** ################################ /COMPONENT ############################# */

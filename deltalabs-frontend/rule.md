@@ -179,6 +179,16 @@ src/modules/Feed/
 | Constant     | `UPPER_SNAKE_CASE`    | `MAX_PAGE_SIZE`                |
 | Type         | `PascalCase`          | `CourseSummary`, `FeedItem`    |
 
+### 3.3 Feature Master Components (Mandatory)
+
+- Feature-level large composites MUST be placed in `src/components/features/[feature]/master/`.
+- A component qualifies as **master** when it is a full surface/shell/panel/table that composes multiple smaller components and may orchestrate local UI behavior.
+- Small/leaf components (single field, icon, label, chip, helper visual) MUST remain outside `master/`.
+- Each feature MUST keep imports discoverable:
+  - `master/` for composed surfaces.
+  - feature root for leaf components and helpers (`*.ts` style maps, small hooks).
+- New features MUST follow this structure from the first implementation to avoid later refactors.
+
 ---
 
 ## 4. Component Standards
@@ -190,6 +200,35 @@ src/modules/Feed/
 - Types and variant maps outside the component.
 - Component definition with well-typed props.
 - Named or default export (consistent per module).
+
+### 4.1.1 Section Comment Wrappers (Mandatory)
+
+All TypeScript files under `src/` MUST use explicit section wrappers with opening and closing markers.
+
+Required wrapper format:
+
+```ts
+/** ################################ SECTION ############################# */
+/** Short description of what this section contains. */
+// section content
+/** ################################ /SECTION ############################# */
+```
+
+Allowed section names:
+
+- `IMPORT`
+- `TYPES`
+- `CONSTANTS`
+- `HELPERS`
+- `SUBCOMPONENTS`
+- `HOOKS`
+- `COMPONENT`
+
+Rules:
+
+- Every opened section MUST have a matching closed section (for example, `IMPORT` and `/IMPORT`).
+- Each section MUST include a one-line description directly under the opening marker.
+- Use only the allowed section names unless a new section name is approved in this document.
 
 ### 4.2 Component Single Source of Truth (Strict)
 

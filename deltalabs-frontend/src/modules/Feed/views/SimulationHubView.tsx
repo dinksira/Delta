@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Box, Cpu, Home, PlayCircle, Rows3 } from "lucide-react";
@@ -7,6 +9,9 @@ import { Box, Cpu, Home, PlayCircle, Rows3 } from "lucide-react";
 import { Card, Typography } from "@/components/theme";
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const scenarios = [
   { title: "Wind tunnel A", tone: "from-sky-500 to-blue-900" },
   { title: "Traffic mesh", tone: "from-emerald-500 to-teal-900" },
@@ -30,6 +35,9 @@ const batchRow = [
   { title: "Replay bundle", sub: "Deterministic seeds", tone: "from-pink-400 to-rose-800" },
 ] as const;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function SectionHeader({
   title,
   href,
@@ -62,6 +70,8 @@ function SectionHeader({
 const hubScrollClass =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain py-2 sm:py-3";
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Simulation hub — shared feed explorer shell (design-only body). */
 export function SimulationHubView() {
   return (
@@ -163,3 +173,4 @@ export function SimulationHubView() {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

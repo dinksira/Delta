@@ -1,7 +1,12 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 export type TopNavCategoryItem = Readonly<{
   label: string;
   href: string;
@@ -12,6 +17,8 @@ type TopNavCategoryTabsProps = Readonly<{
   items: readonly TopNavCategoryItem[];
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
 /**
  * Unauthorized landing center row: generous breathing room around labels and `|` dividers
  * (Figma / TikTok-style category strip).
@@ -50,3 +57,4 @@ export function TopNavCategoryTabs({ items }: TopNavCategoryTabsProps) {
     </nav>
   );
 }
+/** ################################ /COMPONENT ############################# */

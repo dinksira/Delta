@@ -1,9 +1,15 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { LandingPageView } from "@/modules/Feed/views/LandingPageView";
 import { renderWithAppProviders } from "@/test/renderWithAppProviders";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 afterEach(() => {
   cleanup();
 });
@@ -37,4 +43,13 @@ describe("LandingPageView", () => {
     fireEvent.click(likeButton);
     expect(likeButton).toHaveAttribute("aria-pressed", "false");
   });
+
+  it("uses tuned preload strategy around active clip", () => {
+    const { container } = renderWithAppProviders(<LandingPageView />);
+    const videos = Array.from(container.querySelectorAll("video"));
+    expect(videos.length).toBeGreaterThan(6);
+    expect(videos[0]).toHaveAttribute("preload", "auto");
+    expect(videos[6]).toHaveAttribute("preload", "metadata");
+  });
 });
+/** ################################ /COMPONENT ############################# */

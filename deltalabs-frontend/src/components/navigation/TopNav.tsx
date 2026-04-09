@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useMemo } from "react";
@@ -13,6 +15,9 @@ import {
 } from "@/components/navigation/TopNavCategoryTabs";
 import { TopNavUtilityActions } from "@/components/navigation/TopNavUtilityActions";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 export type TopNavVariant =
   | "landing_unauthorized"
   | "landing_authorized"
@@ -29,6 +34,9 @@ type TopNavProps = Readonly<{
   sessionPending?: boolean;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function TopNavRightPlaceholder({ wide }: Readonly<{ wide?: boolean }>) {
   return (
     <div
@@ -46,6 +54,9 @@ function TopNavRightPlaceholder({ wide }: Readonly<{ wide?: boolean }>) {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const LANDING_CATEGORY_PATHS = [
   { label: "Video", href: "/" },
   { label: "Audio", href: "/audio" },
@@ -54,6 +65,9 @@ const LANDING_CATEGORY_PATHS = [
   { label: "All", href: "/explore" },
 ] as const;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ HELPERS ############################# */
+/** Helper utilities used by this file. */
 function landingCategoryItems(pathname: string): readonly TopNavCategoryItem[] {
   return LANDING_CATEGORY_PATHS.map((item) => {
     const active =
@@ -95,6 +109,9 @@ function BrandMarkCube() {
   );
 }
 
+/** ################################ /HELPERS ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
   const pathname = usePathname();
   const landingTabs = useMemo(() => landingCategoryItems(pathname ?? ""), [pathname]);
@@ -162,3 +179,4 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
     </header>
   );
 }
+/** ################################ /COMPONENT ############################# */

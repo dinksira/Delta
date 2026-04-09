@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 type FeedUiState = Readonly<{
   commentPanelOpen: boolean;
 }>;
@@ -20,3 +26,4 @@ const feedUiSlice = createSlice({
 
 export const { setCommentPanelOpen } = feedUiSlice.actions;
 export const feedUiReducer = feedUiSlice.reducer;
+/** ################################ /COMPONENT ############################# */

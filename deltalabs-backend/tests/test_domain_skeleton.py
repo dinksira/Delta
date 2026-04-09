@@ -32,3 +32,7 @@ def test_domain_modules_import_and_expose_expected_symbols() -> None:
         assert hasattr(schemas, "DomainEntity")
         assert hasattr(repository, "Repository")
         assert hasattr(service, "Service")
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

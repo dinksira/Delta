@@ -1,7 +1,13 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { ReactNode } from "react";
 
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 type FieldProps = Readonly<{
   id: string;
   label: string;
@@ -38,3 +44,4 @@ export function Field({ id, label, labelClassName, errorMessage, className, chil
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

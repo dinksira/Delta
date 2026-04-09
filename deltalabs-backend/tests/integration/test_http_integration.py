@@ -13,3 +13,7 @@ def test_health_and_v1_integration() -> None:
     assert health.json() == {"status": "ok"}
     assert v1.status_code == 200
     assert v1.json() == {"status": "ok"}
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

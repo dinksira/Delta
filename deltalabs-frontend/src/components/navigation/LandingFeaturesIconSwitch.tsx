@@ -1,10 +1,17 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const STROKE = 1.65;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Square outline with inner bar — click switches between landing and features (design spec). */
 export function LandingFeaturesIconSwitch() {
   const pathname = usePathname();
@@ -44,3 +51,4 @@ export function LandingFeaturesIconSwitch() {
     </Link>
   );
 }
+/** ################################ /COMPONENT ############################# */

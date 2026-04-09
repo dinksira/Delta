@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Placeholder for enrolled courses; will be guarded by auth later. */
 export function EnrolledCoursesPageView() {
   return (
@@ -23,3 +29,4 @@ export function EnrolledCoursesPageView() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

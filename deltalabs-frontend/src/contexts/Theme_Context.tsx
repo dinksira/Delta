@@ -1,7 +1,13 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 type ThemeMode = "light" | "dark" | "system";
 
 interface ThemeContextValue {
@@ -74,3 +80,4 @@ export function useThemeContext(): ThemeContextValue {
   }
   return value;
 }
+/** ################################ /COMPONENT ############################# */

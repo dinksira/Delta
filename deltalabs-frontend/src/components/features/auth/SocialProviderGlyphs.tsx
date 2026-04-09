@@ -1,5 +1,5 @@
+/** ################################ COMPONENT ############################# */
 /** Brand-style glyphs for OAuth rows (decorative; wire real OAuth separately). */
-
 export function SocialIconGoogle() {
   return (
     <svg width={22} height={22} viewBox="0 0 24 24" aria-hidden>
@@ -23,6 +23,9 @@ export function SocialIconGoogle() {
   );
 }
 
+/** ################################ /COMPONENT ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function SocialIconApple() {
   return (
     <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -31,6 +34,9 @@ export function SocialIconApple() {
   );
 }
 
+/** ################################ /COMPONENT ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function SocialIconGitHub() {
   return (
     <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -43,6 +49,9 @@ export function SocialIconGitHub() {
   );
 }
 
+/** ################################ /COMPONENT ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function SocialIconFacebook() {
   return (
     <svg width={22} height={22} viewBox="0 0 24 24" aria-hidden>
@@ -54,3 +63,4 @@ export function SocialIconFacebook() {
     </svg>
   );
 }
+/** ################################ /COMPONENT ############################# */

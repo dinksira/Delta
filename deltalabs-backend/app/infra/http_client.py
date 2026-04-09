@@ -11,6 +11,7 @@ _client: httpx.AsyncClient | None = None
 
 async def connect_http_client() -> None:
     """Create the shared ``httpx.AsyncClient`` (idempotent)."""
+    # ################################ INFRA ################################
     global _client
     if _client is not None:
         return
@@ -38,3 +39,6 @@ def get_async_http_client() -> httpx.AsyncClient:
 async def get_http_client_dep() -> AsyncGenerator[httpx.AsyncClient, None]:
     """FastAPI dependency: yield the shared client."""
     yield get_async_http_client()
+
+
+# ################################ /INFRA ################################

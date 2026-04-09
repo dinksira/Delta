@@ -1,9 +1,15 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useMutation } from "@tanstack/react-query";
 
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { authApi } from "@/modules/Auth/api/authApi";
 import { authMutationKeys } from "@/modules/Auth/hooks/authMutationKeys";
 import type {
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
   LoginInput,
   RecoverRequestInput,
   ResetPasswordInput,
@@ -47,3 +53,4 @@ export function useResetPasswordMutation() {
     mutationFn: (input: ResetPasswordInput) => authApi.resetPassword(input),
   });
 }
+/** ################################ /COMPONENT ############################# */

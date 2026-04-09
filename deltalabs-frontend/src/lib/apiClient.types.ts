@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Normalized API failure for consistent error handling across modules. */
 export interface ApiErrorPayload {
   readonly status: number;
@@ -30,3 +32,4 @@ export interface ApiRequestInit extends Omit<RequestInit, "body"> {
   /** Query parameters appended to the URL. */
   readonly searchParams?: Record<string, string | number | boolean | undefined | null>;
 }
+/** ################################ /COMPONENT ############################# */

@@ -1,9 +1,14 @@
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type FeedFilterTriggerProps = Readonly<{
   isOpen: boolean;
   onToggle: () => void;
   controlsId: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function FeedFilterTrigger({ isOpen, onToggle, controlsId }: FeedFilterTriggerProps) {
   return (
     <button
@@ -18,3 +23,4 @@ export function FeedFilterTrigger({ isOpen, onToggle, controlsId }: FeedFilterTr
     </button>
   );
 }
+/** ################################ /COMPONENT ############################# */

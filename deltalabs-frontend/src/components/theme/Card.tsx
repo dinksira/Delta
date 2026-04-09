@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared card primitives for Delta Labs UI. */
 import type { HTMLAttributes } from "react";
 
@@ -46,3 +48,4 @@ export type CardFooterProps = HTMLAttributes<HTMLDivElement>;
 export function CardFooter({ className, ...props }: Readonly<CardFooterProps>) {
   return <div className={cx("flex items-center gap-3 pt-1", className)} {...props} />;
 }
+/** ################################ /COMPONENT ############################# */

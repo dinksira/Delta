@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Authenticated dashboard placeholder until module dashboards are composed here. */
 export function DashboardPageView() {
   return (
@@ -13,3 +19,4 @@ export function DashboardPageView() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

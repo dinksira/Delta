@@ -130,3 +130,38 @@ async def test_feed_watched_items_are_deprioritized_or_excluded() -> None:
     )
     ids = [item.id for item in result.items]
     assert "c1" not in ids
+
+
+async def test_event_signal_thresholds_mark_watched_items() -> None:
+    service = Service(_Repo())  # type: ignore[arg-type]
+    boosts, hidden_ids, watched_ids = service._event_boosts_hidden_and_watched(  # noqa: SLF001
+        [
+            {"content_id": "c9", "event": "view_start", "watch_ms": 1_000},
+            {"content_id": "c10", "event": "skip", "watch_ms": 2_000},
+            {"content_id": "c11", "event": "view_complete", "watch_ms": 8_000},
+            {"content_id": "c12", "event": "view_start", "watch_ms": 25_000},
+            {"content_id": "c13", "event": "hide", "watch_ms": 0},
+        ]
+    )
+
+    assert "c13" in hidden_ids
+    assert watched_ids == {"c11", "c12"}
+    assert boosts["c10"] < 0
+    assert boosts["c11"] > boosts["c9"]
+
+
+async def test_feed_falls_back_when_exclusions_would_empty_page() -> None:
+    class _RepoAllExcluded(_Repo):
+        async def list_recent_user_events(
+            self, *, user_id: str, limit: int = 300
+        ) -> list[dict[str, Any]]:
+            return [{"content_id": f"c{idx + 1}", "event": "view_complete"} for idx in range(8)]
+
+    service = Service(_RepoAllExcluded())  # type: ignore[arg-type]
+    result = await service.list_feed(
+        limit=6,
+        cursor_token=None,
+        content_type="video",
+        user_id="u-all-excluded",
+    )
+    assert len(result.items) > 0

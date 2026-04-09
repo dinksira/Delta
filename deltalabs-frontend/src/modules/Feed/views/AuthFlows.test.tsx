@@ -1,3 +1,5 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +8,10 @@ import { LoginPageView } from "@/modules/Auth/views/LoginPageView";
 import { RecoverPageView } from "@/modules/Auth/views/RecoverPageView";
 import { SignupPageView } from "@/modules/Auth/views/SignupPageView";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 const pushMock = vi.fn();
 const replaceMock = vi.fn();
 
@@ -159,3 +165,4 @@ describe("Auth flow views", () => {
     expect(screen.getByText("Recover your account")).toBeInTheDocument();
   });
 });
+/** ################################ /COMPONENT ############################# */

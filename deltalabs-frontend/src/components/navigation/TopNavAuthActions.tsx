@@ -1,12 +1,20 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type TopNavAuthActionsProps = Readonly<{
   isAuthenticated: boolean;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,3 +46,4 @@ export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

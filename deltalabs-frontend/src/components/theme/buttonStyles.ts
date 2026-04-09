@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared Tailwind class maps for button-styled controls (button and link). */
 import { cx } from "@/components/theme/utils";
 
@@ -34,3 +36,4 @@ export function getButtonClassName(
     className,
   );
 }
+/** ################################ /COMPONENT ############################# */

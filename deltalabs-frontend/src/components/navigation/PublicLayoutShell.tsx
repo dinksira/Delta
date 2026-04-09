@@ -1,18 +1,26 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** React, auth session, and public navigation dependencies. */
 import type { ReactNode } from "react";
 
-import { AuthModalGateway } from "@/components/features/auth/AuthModalGateway";
+import { AuthModalGateway } from "@/components/features/auth";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { PublicHeader } from "@/components/navigation/PublicHeader";
 import { profileInitialsFromUser } from "@/lib/authDisplay";
+/** ################################ /IMPORT ############################# */
 
+/** ################################ TYPES ############################# */
+/** Props for wrapping all public pages with shared chrome. */
 type PublicLayoutShellProps = Readonly<{
   children: ReactNode;
   /** Server-visible session (e.g. httpOnly cookie). Merged with client mock/real session. */
   serverAuthenticated: boolean;
 }>;
+/** ################################ /TYPES ############################# */
 
+/** ################################ COMPONENT ############################# */
+/** Public layout shell that coordinates header state and auth modal visibility. */
 /**
  * Public routes: header + auth modal respect both server cookies and client session
  * (localStorage mock or future client-hydrated tokens).
@@ -38,3 +46,4 @@ export function PublicLayoutShell({ children, serverAuthenticated }: PublicLayou
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

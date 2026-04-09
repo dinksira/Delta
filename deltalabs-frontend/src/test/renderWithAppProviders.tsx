@@ -1,3 +1,5 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
@@ -6,6 +8,10 @@ import { Provider } from "react-redux";
 import { AuthSessionProvider } from "@/contexts/AuthSession_Context";
 import { store } from "@/store";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 type Options = Omit<RenderOptions, "wrapper"> & Readonly<{ queryClient?: QueryClient }>;
 
 export function renderWithAppProviders(ui: ReactElement, options?: Options) {
@@ -31,3 +37,4 @@ export function renderWithAppProviders(ui: ReactElement, options?: Options) {
 
   return { ...render(ui, { wrapper: Wrapper, ...rest }), queryClient: client };
 }
+/** ################################ /COMPONENT ############################# */

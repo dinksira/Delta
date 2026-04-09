@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -19,6 +21,9 @@ import {
   useResetPasswordMutation,
 } from "@/modules/Auth/hooks";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ HELPERS ############################# */
+/** Helper utilities used by this file. */
 function readOtpFromForm(form: HTMLFormElement, namePrefix: string): string {
   let out = "";
   for (let i = 0; i < 6; i++) {
@@ -28,6 +33,9 @@ function readOtpFromForm(form: HTMLFormElement, namePrefix: string): string {
   return out;
 }
 
+/** ################################ /HELPERS ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type RecoverPageViewProps = Readonly<{
   showBack?: boolean;
   backHref?: string;
@@ -35,6 +43,9 @@ type RecoverPageViewProps = Readonly<{
   switchSignupHref?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function RecoverPageView({
   showBack = true,
   backHref = "/login",
@@ -187,3 +198,4 @@ export function RecoverPageView({
     </AuthModalShell>
   );
 }
+/** ################################ /COMPONENT ############################# */

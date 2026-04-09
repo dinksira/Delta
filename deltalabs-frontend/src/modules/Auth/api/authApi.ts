@@ -1,24 +1,12 @@
-import { ApiError } from "@/lib/apiClient";
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
+import { ApiError, apiClient } from "@/lib/apiClient";
 import {
   assertLoginInput,
   assertRecoverRequestInput,
   assertResetPasswordInput,
   assertSignupInput,
 } from "@/modules/Auth/api/authValidation";
-import {
-  consumeRecoveryOtp,
-  createUserFromSignup,
-  findUserByEmail,
-  findUserByIdentifier,
-  findUserByUserName,
-  MOCK_RECOVERY_OTP_DEMO,
-  normalizeEmail,
-  normalizePhone,
-  setRecoveryOtp,
-  toPublicUser,
-  updateUserPassword,
-  type MockUserRecord,
-} from "@/modules/Auth/api/mockAuthStore";
 import type {
   AuthResult,
   AuthSessionPayload,
@@ -28,124 +16,238 @@ import type {
   SignupInput,
 } from "@/modules/Auth/types/auth";
 import { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
+/** ################################ /IMPORT ############################# */
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/** ################################ TYPES ############################# */
+type AuthIssuedResponseDto = Readonly<{
+  access_token: string;
+  session: {
+    session_id: string;
+    user_id: string;
+    expires_at: string;
+  };
+  user: {
+    user_id: string;
+    username: string;
+    email: string | null;
+    phone_e164: string | null;
+    is_verified: boolean;
+  };
+}>;
+
+type RecoverRequestResponseDto = Readonly<{
+  status: string;
+  message: string;
+  recover_id?: string | null;
+  debug_code?: string | null;
+}>;
+
+type RecoverVerifyResponseDto = Readonly<{
+  status: string;
+  reset_token?: string | null;
+}>;
+
+type SignupFlowStateResponseDto = Readonly<{
+  flow_id: string;
+  current_step: string;
+  completed_steps: readonly string[];
+  username?: string | null;
+  email?: string | null;
+  phone_e164?: string | null;
+  date_of_birth?: string | null;
+}>;
+
+type VerificationSendResponseDto = Readonly<{
+  verification_id: string;
+  status: string;
+  debug_code?: string | null;
+}>;
+
+type VerificationVerifyResponseDto = Readonly<{
+  verification_id: string;
+  verified: boolean;
+  status: string;
+}>;
+/** ################################ /TYPES ############################# */
+
+/** ################################ HELPERS ############################# */
+const recoverIdByIdentifier = new Map<string, string>();
+
+function normalizePhoneE164Like(value: string): string {
+  return value.replace(/\s+/g, "");
 }
 
-/** Simulated network latency (bounded). */
-async function latency(): Promise<void> {
-  const ms = 320 + Math.floor(Math.random() * 380);
-  await delay(ms);
+function toDateOfBirthIso(input: SignupInput): string {
+  const year = input.year.padStart(4, "0");
+  const month = input.month.padStart(2, "0");
+  const day = input.day.padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function buildSession(user: MockUserRecord, rememberMe?: boolean): AuthSessionPayload {
-  const ttlMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+function mapIssuedResponseToSession(dto: AuthIssuedResponseDto): AuthSessionPayload {
   return {
-    accessToken: `mock.${user.id}.${Date.now()}`,
-    expiresAt: Date.now() + ttlMs,
-    user: toPublicUser(user),
+    accessToken: dto.access_token,
+    expiresAt: Date.parse(dto.session.expires_at) || Date.now() + 24 * 60 * 60 * 1000,
+    user: {
+      id: dto.user.user_id,
+      email: dto.user.email ?? "",
+      phone: dto.user.phone_e164 ?? "",
+      userName: dto.user.username,
+      firstName: dto.user.username,
+      lastName: "",
+    },
   };
 }
+/** ################################ /HELPERS ############################# */
 
-function issueSixDigitOtp(): string {
-  return String(Math.floor(100_000 + Math.random() * 900_000));
-}
-
-/**
- * Mock auth API — validates like a real backend, persists users/recovery in localStorage.
- * Swap this module’s internals for `apiClient.post('/auth/...')` when the API is ready.
- */
+/** ################################ COMPONENT ############################# */
+/** Real backend auth API integration. */
 export const authApi = {
   async login(input: LoginInput): Promise<AuthResult> {
-    await latency();
     assertLoginInput(input);
-    const user = findUserByIdentifier(input.identifier);
-    if (!user || user.password !== input.password) {
-      throw new ApiError("Invalid email, phone, or password.", {
-        status: 401,
-        code: AUTH_ERROR_CODES.INVALID_CREDENTIALS,
-      });
-    }
+    const data = await apiClient.post<AuthIssuedResponseDto>("/v1/auth/login", {
+      json: { identity: input.identifier, password: input.password },
+    });
     return {
       ok: true,
       message: "Signed in successfully.",
-      session: buildSession(user, input.rememberMe),
+      session: mapIssuedResponseToSession(data),
+    };
+  },
+
+  async sendSignupVerification(input: Pick<SignupInput, "email" | "phone">): Promise<{
+    verificationId: string;
+    debugCode?: string;
+  }> {
+    const destination = input.email.trim() || normalizePhoneE164Like(input.phone.trim());
+    const channel = input.email.trim() ? "email" : "sms";
+    const data = await apiClient.post<VerificationSendResponseDto>("/v1/auth/verification/send", {
+      json: {
+        channel,
+        destination,
+        purpose: "signup",
+      },
+    });
+    return {
+      verificationId: data.verification_id,
+      debugCode: data.debug_code ?? undefined,
     };
   },
 
   async signup(input: SignupInput): Promise<AuthResult> {
-    await latency();
     assertSignupInput(input);
-    const email = normalizeEmail(input.email);
-    const phone = normalizePhone(input.phone);
-    if (findUserByEmail(email)) {
-      throw new ApiError("An account with this email already exists.", {
-        status: 409,
-        code: AUTH_ERROR_CODES.USER_EXISTS,
-        details: { field: "email" },
+
+    const identity = await apiClient.post<SignupFlowStateResponseDto>("/v1/auth/signup/step/identity", {
+      json: {
+        username: input.userName,
+      },
+    });
+
+    const contact = await apiClient.post<SignupFlowStateResponseDto>("/v1/auth/signup/step/contact", {
+      json: {
+        flow_id: identity.flow_id,
+        email: input.email.trim() || null,
+        phone_e164: normalizePhoneE164Like(input.phone.trim()) || null,
+      },
+    });
+
+    const verificationId =
+      input.verificationId ??
+      (
+        await authApi.sendSignupVerification({
+          email: input.email,
+          phone: input.phone,
+        })
+      ).verificationId;
+
+    const verification = await apiClient.post<VerificationVerifyResponseDto>(
+      "/v1/auth/verification/verify",
+      {
+        json: {
+          verification_id: verificationId,
+          code: input.otp.trim(),
+        },
+      },
+    );
+    if (!verification.verified) {
+      throw new ApiError("Verification failed. Please request a new code.", {
+        status: 400,
+        code: AUTH_ERROR_CODES.INVALID_OTP,
       });
     }
-    if (findUserByUserName(input.userName)) {
-      throw new ApiError("This username is already taken.", {
-        status: 409,
-        code: AUTH_ERROR_CODES.USER_EXISTS,
-        details: { field: "userName" },
-      });
-    }
-    const byPhone = findUserByIdentifier(phone);
-    if (byPhone) {
-      throw new ApiError("An account with this phone number already exists.", {
-        status: 409,
-        code: AUTH_ERROR_CODES.USER_EXISTS,
-        details: { field: "phone" },
-      });
-    }
-    const user = createUserFromSignup(input);
+
+    await apiClient.post<SignupFlowStateResponseDto>("/v1/auth/signup/step/verification", {
+      json: {
+        flow_id: contact.flow_id,
+        verification_id: verification.verification_id,
+      },
+    });
+
+    await apiClient.post<SignupFlowStateResponseDto>("/v1/auth/signup/step/dob", {
+      json: {
+        flow_id: contact.flow_id,
+        date_of_birth: toDateOfBirthIso(input),
+      },
+    });
+
+    const data = await apiClient.post<AuthIssuedResponseDto>("/v1/auth/signup/complete", {
+      json: {
+        flow_id: contact.flow_id,
+        password: input.password,
+      },
+    });
     return {
       ok: true,
       message: "Account created. You are now signed in.",
-      session: buildSession(user, true),
+      session: mapIssuedResponseToSession(data),
     };
   },
 
   async requestRecover(input: RecoverRequestInput): Promise<AuthResult> {
-    await latency();
     assertRecoverRequestInput(input.identifier);
-    const user = findUserByIdentifier(input.identifier);
-    if (user) {
-      const otp = issueSixDigitOtp();
-      setRecoveryOtp(input.identifier, otp, 15 * 60 * 1000);
+    const data = await apiClient.post<RecoverRequestResponseDto>("/v1/auth/recover/request", {
+      json: { identity: input.identifier },
+    });
+    if (data.recover_id) {
+      recoverIdByIdentifier.set(input.identifier.trim().toLowerCase(), data.recover_id);
     }
     return {
       ok: true,
-      message: "If an account exists for this email or phone, a verification code was sent.",
+      message: data.message || "If an account exists, recovery instructions were sent.",
     };
   },
 
   async resetPassword(input: ResetPasswordInput): Promise<AuthResult> {
-    await latency();
     assertResetPasswordInput(input);
-    const user = findUserByIdentifier(input.identifier);
-    if (!user) {
-      throw new ApiError("Unable to reset password. Request a new code and try again.", {
+    const key = input.identifier.trim().toLowerCase();
+    const recoverId = recoverIdByIdentifier.get(key);
+    if (!recoverId) {
+      throw new ApiError("Start recovery first to receive a verification code.", {
         status: 400,
-        code: AUTH_ERROR_CODES.USER_NOT_FOUND,
+        code: AUTH_ERROR_CODES.VALIDATION_FAILED,
       });
     }
-    const otpOk =
-      consumeRecoveryOtp(input.identifier, input.otp) ||
-      (input.otp.trim() === MOCK_RECOVERY_OTP_DEMO && !!user);
-    if (!otpOk) {
+    const verify = await apiClient.post<RecoverVerifyResponseDto>("/v1/auth/recover/verify", {
+      json: { recover_id: recoverId, code: input.otp },
+    });
+    if (!verify.reset_token) {
       throw new ApiError("Invalid or expired verification code.", {
         status: 400,
         code: AUTH_ERROR_CODES.INVALID_OTP,
       });
     }
-    updateUserPassword(user.id, input.newPassword);
+    await apiClient.post<{ status: string }>("/v1/auth/recover/reset", {
+      json: {
+        recover_id: recoverId,
+        reset_token: verify.reset_token,
+        new_password: input.newPassword,
+      },
+    });
+    recoverIdByIdentifier.delete(key);
     return {
       ok: true,
       message: "Password updated. You can sign in with your new password.",
     };
   },
 } as const;
+/** ################################ /COMPONENT ############################# */

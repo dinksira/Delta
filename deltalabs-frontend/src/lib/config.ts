@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
  * Runtime configuration derived from public environment variables.
  * Server and client bundles both read `NEXT_PUBLIC_*` values inlined at build time.
@@ -16,3 +18,4 @@ export function getPublicApiBaseUrl(): string {
 export const publicConfig = {
   apiBaseUrl: getPublicApiBaseUrl(),
 } as const;
+/** ################################ /COMPONENT ############################# */

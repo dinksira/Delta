@@ -1,5 +1,8 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
- * School module — school structure and administration domain.
- * Workspace UI: `components/*`; routes under `app/(app)/features/school/`.
+ * School domain module — routes compose `views/`; shared School UI lives in `components/features/school/`.
  */
-export { SchoolManagementShell } from "@/modules/School/components/SchoolManagementShell";
+export * from "@/modules/School/types";
+export * from "@/modules/School/views";
+/** ################################ /COMPONENT ############################# */

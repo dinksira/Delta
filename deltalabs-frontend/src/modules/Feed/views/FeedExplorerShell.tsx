@@ -1,11 +1,16 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** React and local dependencies for the feed explorer shell. */
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
 
 import { FeedFilterPanel, FeedSearchInput } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
+/** ################################ /IMPORT ############################# */
 
+/** ################################ TYPES ############################# */
+/** Props used by the shared feed explorer layout wrapper. */
 type FeedExplorerShellProps = Readonly<{
   /** Main column (e.g. feed scroll region or hub content). */
   center: ReactNode;
@@ -21,7 +26,10 @@ type FeedExplorerShellProps = Readonly<{
    */
   expandMainToFullWidth?: boolean;
 }>;
+/** ################################ /TYPES ############################# */
 
+/** ################################ COMPONENT ############################# */
+/** Three-column shell with left controls, center content, and optional right rail. */
 /**
  * Three-column shell shared by the video landing and module hub routes:
  * left `FeedSearchInput` + `FeedFilterPanel`, center content, optional right rail.
@@ -89,3 +97,4 @@ export function FeedExplorerShell({
     </section>
   );
 }
+/** ################################ /COMPONENT ############################# */

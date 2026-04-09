@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -16,9 +18,13 @@ import {
   SocialProvidersRow,
   useAuthResponseBanner,
 } from "@/components/features/auth";
+import { authApi } from "@/modules/Auth/api/authApi";
 import { authErrorMessage } from "@/lib/authErrors";
 import { useSignupMutation } from "@/modules/Auth/hooks";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type SignupPageViewProps = Readonly<{
   showBack?: boolean;
   backHref?: string;
@@ -28,8 +34,14 @@ type SignupPageViewProps = Readonly<{
   redirectAfterSignupHref?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const emailValid = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function SignupPageView({
   showBack = true,
   backHref = "/",
@@ -41,7 +53,9 @@ export function SignupPageView({
   const [step, setStep] = useState(0);
   const [banner, setBanner] = useAuthResponseBanner();
   const signupMutation = useSignupMutation();
-  const isSubmitting = signupMutation.isPending;
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [verificationId, setVerificationId] = useState<string | null>(null);
+  const isSubmitting = signupMutation.isPending || isSendingVerification;
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
@@ -183,8 +197,8 @@ export function SignupPageView({
     if (step === 4) {
       const passwordRaw = readForm("signup-password");
       const confirmRaw = readForm("signup-confirm-password");
-      if (passwordRaw.trim().length < 8) {
-        nextFieldErrors.password = "At least 8 characters";
+      if (passwordRaw.trim().length < 10) {
+        nextFieldErrors.password = "At least 10 characters";
       } else if (!/[a-z]/.test(passwordRaw)) {
         nextFieldErrors.password = "Include a lowercase letter";
       } else if (!/[A-Z]/.test(passwordRaw)) {
@@ -212,10 +226,35 @@ export function SignupPageView({
     setBanner(null);
 
     if (!isLastStep) {
-      setStep((value) => value + 1);
       if (step === 2) {
-        setBanner({ type: "success", message: "Code is sent to your phone via SMS" });
-      } else if (step === 3) {
+        try {
+          setIsSendingVerification(true);
+          const issued = await authApi.sendSignupVerification({
+            email: values.email,
+            phone: values.phone,
+          });
+          setVerificationId(issued.verificationId);
+          setStep((value) => value + 1);
+          if (issued.debugCode) {
+            setBanner({
+              type: "info",
+              message: `Verification code sent. Dev OTP: ${issued.debugCode}`,
+            });
+          } else {
+            setBanner({ type: "success", message: "Verification code sent. Check your inbox." });
+          }
+        } catch (error) {
+          setBanner({
+            type: "error",
+            message: authErrorMessage(error, "Could not send verification code. Please try again."),
+          });
+        } finally {
+          setIsSendingVerification(false);
+        }
+        return;
+      }
+      setStep((value) => value + 1);
+      if (step === 3) {
         setBanner({ type: "success", message: "Contact verified. Continue to the next step." });
       }
       return;
@@ -233,6 +272,7 @@ export function SignupPageView({
         month: values.month,
         year: values.year,
         password: readForm("signup-password"),
+        verificationId: verificationId ?? undefined,
       });
       router.replace(redirectAfterSignupHref);
     } catch (error) {
@@ -337,7 +377,10 @@ export function SignupPageView({
               inputProps={{
                 name: "signup-phone",
                 value: values.phone,
-                onChange: (e) => setValues((prev) => ({ ...prev, phone: e.target.value })),
+                onChange: (e) => {
+                  setVerificationId(null);
+                  setValues((prev) => ({ ...prev, phone: e.target.value }));
+                },
               }}
             />
             <AuthTextField
@@ -350,7 +393,10 @@ export function SignupPageView({
                 name: "signup-email",
                 autoComplete: "email",
                 value: values.email,
-                onChange: (e) => setValues((prev) => ({ ...prev, email: e.target.value })),
+                onChange: (e) => {
+                  setVerificationId(null);
+                  setValues((prev) => ({ ...prev, email: e.target.value }));
+                },
               }}
             />
           </>
@@ -415,3 +461,4 @@ export function SignupPageView({
     </AuthModalShell>
   );
 }
+/** ################################ /COMPONENT ############################# */

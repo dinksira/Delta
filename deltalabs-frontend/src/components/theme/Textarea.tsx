@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared multiline input primitive for Delta Labs UI (matches Input tokens). */
 import type { TextareaHTMLAttributes } from "react";
 
@@ -16,3 +18,4 @@ export function Textarea({ className, ...props }: Readonly<TextareaProps>) {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

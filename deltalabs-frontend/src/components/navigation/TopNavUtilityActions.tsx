@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HelpCircle, LogOut, Settings, UserRound } from "lucide-react";
@@ -9,13 +11,20 @@ import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { AUTH_SESSION_COOKIE } from "@/lib/authSession";
 import { DialogHeader, DialogOverlay, DialogPanel, DialogSection } from "@/components/theme/Dialog";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type TopNavUtilityActionsProps = Readonly<{
   profileInitials?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ CONSTANTS ############################# */
 /** Shared stroke for utility-row icons (matches globe / square switch). */
 const ICON_STROKE = 1.65;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
 /** Robot + speech bubble — entry point for assistant chat (matches utility stroke weight). */
 function NavRobotAssistantIcon({ className }: Readonly<{ className?: string }>) {
   return (
@@ -203,6 +212,8 @@ function ProfileMenuModal({ initials, onClose, onLogout }: ProfileMenuModalProps
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Signed-in header: assistant entry, language, avatar, square switch — aligned 32px glyphs. */
 export function TopNavUtilityActions({ profileInitials }: TopNavUtilityActionsProps) {
   const router = useRouter();
@@ -276,3 +287,4 @@ export function TopNavUtilityActions({ profileInitials }: TopNavUtilityActionsPr
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

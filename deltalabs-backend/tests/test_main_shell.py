@@ -37,3 +37,7 @@ def test_idempotency_header_is_echoed_when_present() -> None:
         response = client.get("/health", headers={"Idempotency-Key": "idem-123"})
     assert response.status_code == 200
     assert response.headers["Idempotency-Key"] == "idem-123"
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

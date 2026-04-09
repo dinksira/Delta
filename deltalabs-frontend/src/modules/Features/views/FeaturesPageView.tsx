@@ -1,10 +1,19 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 import { Card, Typography } from "@/components/theme";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
+import { fetchFeaturesList } from "@/modules/Features/api";
 import {
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
   CalendarDays,
   CalendarClock,
   Boxes,
@@ -15,76 +24,132 @@ import {
   GraduationCap,
 } from "lucide-react";
 
-const featureCards = [
+const defaultFeatureCatalog = [
   {
+    featureKey: "school",
     title: "School",
-    linkLabel: "Enter School",
     icon: CalendarDays,
+    description: "Manage schools, staff, and academic structure.",
     chipClass: "bg-[color:var(--color-features-chip-slate-bg)] text-[color:var(--color-features-chip-slate-fg)]",
   },
   {
+    featureKey: "course",
     title: "Course",
-    linkLabel: "Enter Course",
     icon: Boxes,
+    description: "Courses, curriculum, and learner progress.",
     chipClass: "bg-[color:var(--color-features-chip-orange-bg)] text-[color:var(--color-features-chip-orange-fg)]",
   },
   {
+    featureKey: "competitions",
     title: "Online Competition",
-    linkLabel: "Enter Online Competition",
     icon: Dna,
+    description: "Host and join practical competitions with measurable outcomes.",
     chipClass: "bg-[color:var(--color-features-chip-indigo-bg)] text-[color:var(--color-features-chip-indigo-fg)]",
   },
   {
+    featureKey: "tutorials",
     title: "Tutorial",
-    linkLabel: "Enter Tutorial",
     icon: UserRound,
+    description: "Guided tutorials and structured practice paths.",
     chipClass: "bg-[color:var(--color-features-chip-emerald-bg)] text-[color:var(--color-features-chip-emerald-fg)]",
   },
   {
+    featureKey: "research",
     title: "R&D",
-    linkLabel: "Enter R&D",
     icon: Layers,
+    description: "Collaborative research workspace and experiment tracking.",
     chipClass: "bg-[color:var(--color-features-chip-amber-bg)] text-[color:var(--color-features-chip-amber-fg)]",
   },
   {
+    featureKey: "rent_lab",
     title: "Laboratory",
-    linkLabel: "Enter Laboratory",
     icon: FlaskConical,
+    description: "Laboratory usage, booking, and operational coordination.",
     chipClass: "bg-[color:var(--color-features-chip-rose-bg)] text-[color:var(--color-features-chip-rose-fg)]",
   },
   {
+    featureKey: "certification",
     title: "Certification",
-    linkLabel: "Enter Certification",
     icon: CalendarDays,
+    description: "Issue, track, and verify learning certifications.",
     chipClass: "bg-[color:var(--color-features-chip-cyan-bg)] text-[color:var(--color-features-chip-cyan-fg)]",
   },
   {
+    featureKey: "chatroom",
     title: "Chatroom",
-    linkLabel: "Enter Chatroom",
     icon: Boxes,
+    description: "Real-time group conversations and classroom communication.",
     chipClass: "bg-[color:var(--color-features-chip-teal-bg)] text-[color:var(--color-features-chip-teal-fg)]",
   },
   {
+    featureKey: "planner",
     title: "Planner",
-    linkLabel: "Enter Planner",
     icon: CalendarClock,
+    description: "Plan tasks, schedules, and academic milestones.",
     chipClass: "bg-[color:var(--color-features-chip-violet-bg)] text-[color:var(--color-features-chip-violet-fg)]",
   },
   {
+    featureKey: "specialization",
     title: "Specialization",
-    linkLabel: "Enter Specialization",
     icon: GraduationCap,
+    description: "Advanced specialization tracks for focused learning.",
     chipClass: "bg-[color:var(--color-features-chip-fuchsia-bg)] text-[color:var(--color-features-chip-fuchsia-fg)]",
   },
 ] as const;
 
+const iconByFeatureKey = {
+  school: CalendarDays,
+  course: Boxes,
+  competitions: Dna,
+  tutorials: UserRound,
+  research: Layers,
+  rent_lab: FlaskConical,
+  certification: CalendarDays,
+  chatroom: Boxes,
+  planner: CalendarClock,
+  specialization: GraduationCap,
+} as const;
+
 /** Authorized-only features screen: grid opens browser-style workspace tabs in the top nav. */
 export function FeaturesPageView() {
+  const { isAuthenticated, isReady } = useAuthSession();
   const { openWorkspaceTab, openTabs } = useFeatureTabs();
   const searchParams = useSearchParams();
+  const { data: featureData } = useQuery({
+    queryKey: ["features", "list"],
+    queryFn: fetchFeaturesList,
+    enabled: isReady && isAuthenticated,
+    staleTime: 60_000,
+    retry: false,
+  });
   const activeWorkspace = searchParams.get("tab");
   const activeLabel =
     activeWorkspace && openTabs.find((t) => t.param === activeWorkspace)?.label;
+  const backendByKey = new Map(
+    (featureData?.items ?? [])
+      .filter((item) => typeof item.featureKey === "string" && item.featureKey.length > 0)
+      .map((item) => [item.featureKey.toLowerCase(), item]),
+  );
+  const cards = defaultFeatureCatalog.map((feature, index) => {
+    const backend = backendByKey.get(feature.featureKey);
+    const canAccess = Boolean(backend?.enabled) && Boolean(backend?.capabilities?.canView);
+    const backendTitle =
+      typeof backend?.title === "string" && backend.title.trim().length > 0 ? backend.title : null;
+    const backendDescription =
+      typeof backend?.description === "string" && backend.description.trim().length > 0
+        ? backend.description
+        : null;
+    const title = backendTitle ?? feature.title;
+    return {
+      id: feature.featureKey || `feature-${index}`,
+      title,
+      linkLabel: canAccess ? `Enter ${title}` : "Not available",
+      icon: feature.icon ?? iconByFeatureKey[feature.featureKey as keyof typeof iconByFeatureKey] ?? CalendarDays,
+      chipClass: feature.chipClass,
+      disabled: !canAccess,
+      description: backendDescription ?? feature.description,
+    };
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 pb-6 pt-8 sm:pt-10">
@@ -114,15 +179,19 @@ export function FeaturesPageView() {
       ) : null}
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {featureCards.map((card) => (
+        {cards.map((card, index) => (
           <Card
-            key={card.title}
+            key={"id" in card ? card.id : `${card.title}-${index}`}
             role="button"
             tabIndex={0}
             aria-label={card.linkLabel}
             className="min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            onClick={() => openWorkspaceTab(card.title)}
+            onClick={() => {
+              if ("disabled" in card && card.disabled) return;
+              openWorkspaceTab(card.title);
+            }}
             onKeyDown={(e) => {
+              if ("disabled" in card && card.disabled) return;
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 openWorkspaceTab(card.title);
@@ -136,7 +205,9 @@ export function FeaturesPageView() {
               {card.title}
             </Typography>
             <Typography className="line-clamp-2 text-xs leading-[1.35] text-text-secondary">
-              Studio-quality text-to-speech with emotional nuance and support for over 140+ languages.
+              {"description" in card
+                ? card.description
+                : "Studio-quality text-to-speech with emotional nuance and support for over 140+ languages."}
             </Typography>
             <Typography
               as="p"
@@ -152,3 +223,4 @@ export function FeaturesPageView() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

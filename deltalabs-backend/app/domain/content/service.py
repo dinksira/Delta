@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import UTC
 from typing import Any
 
-from app.core.config import get_settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.domain.content.repository import Repository, decode_feed_cursor, encode_feed_cursor
 from app.domain.content.schemas import FeedItemPublic, FeedPaginatedResponse
@@ -35,11 +34,8 @@ class Service:
         return await self._repository.ping()
 
     async def bootstrap_indexes(self) -> None:
-        """Ensure indexes and optional local demo data."""
+        """Ensure indexes for feed content read paths."""
         await self._repository.ensure_indexes()
-        settings = get_settings()
-        if settings.env == "local":
-            await self._repository.insert_demo_items_if_empty()
 
     async def list_feed(
         self,
@@ -82,6 +78,9 @@ class Service:
             cursor_token=cursor_token,
             profile=profile,
         )
+        if docs:
+            item_ids = [str(doc.get("_id", "")) for doc in docs]
+            await self._apply_engagement_snapshot_to_docs(docs=docs, item_ids=item_ids, user_id=user_id)
         items = [Repository.doc_to_feed_item(doc) for doc in docs]
         next_cursor = None
         if has_more and docs:
@@ -107,7 +106,40 @@ class Service:
         doc = await self._repository.find_public_by_id(item_id)
         if doc is None:
             raise NotFoundError("Feed item not found.", code="feed_item_not_found")
+        await self._apply_engagement_snapshot_to_docs(
+            docs=[doc],
+            item_ids=[item_id],
+            user_id=None,
+        )
         return Repository.doc_to_feed_item(doc)
+
+    async def _apply_engagement_snapshot_to_docs(
+        self,
+        *,
+        docs: list[dict[str, Any]],
+        item_ids: list[str],
+        user_id: str | None,
+    ) -> None:
+        """Attach live counts and current-user flags onto feed docs."""
+        if not docs or not item_ids:
+            return
+        like_counts = await self._repository.list_like_counts(item_ids=item_ids)
+        save_counts = await self._repository.list_save_counts(item_ids=item_ids)
+        comment_counts = await self._repository.list_comment_counts(item_ids=item_ids)
+        share_counts = await self._repository.list_share_counts(item_ids=item_ids)
+        liked_ids: set[str] = set()
+        saved_ids: set[str] = set()
+        if user_id:
+            liked_ids = await self._repository.list_user_liked_ids(user_id=user_id, item_ids=item_ids)
+            saved_ids = await self._repository.list_user_saved_ids(user_id=user_id, item_ids=item_ids)
+        for doc in docs:
+            doc_id = str(doc.get("_id", ""))
+            doc["like_count"] = int(like_counts.get(doc_id, 0))
+            doc["save_count"] = int(save_counts.get(doc_id, 0))
+            doc["comment_count"] = int(comment_counts.get(doc_id, 0))
+            doc["share_count"] = int(share_counts.get(doc_id, 0))
+            doc["liked_by_me"] = doc_id in liked_ids
+            doc["saved_by_me"] = doc_id in saved_ids
 
     async def _personalize_docs(
         self,

@@ -46,3 +46,7 @@ def test_subclass_default_codes(
 def test_subclass_override_code() -> None:
     err = NotFoundError("missing", code="course_not_found")
     assert err.code == "course_not_found"
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

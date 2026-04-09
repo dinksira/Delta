@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { AuthenticatedUser } from "@/modules/Auth/types/auth";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Two-letter avatar label from profile fields. */
 export function profileInitialsFromUser(user: AuthenticatedUser): string {
   const first = user.firstName?.trim();
@@ -14,3 +20,4 @@ export function profileInitialsFromUser(user: AuthenticatedUser): string {
   if (local && local.length >= 2) return local.slice(0, 2).toUpperCase();
   return "U";
 }
+/** ################################ /COMPONENT ############################# */

@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 class DeltaLabsBaseError(Exception):
     """Base error for Delta Labs domains and services."""
 
+    # ################################ EXCEPTIONS ################################
     default_code: ClassVar[str] = "delta_labs_error"
 
     def __init__(
@@ -42,3 +43,18 @@ class ValidationError(DeltaLabsBaseError):
     """
 
     default_code: ClassVar[str] = "validation_error"
+
+
+class RateLimitError(DeltaLabsBaseError):
+    """Too many requests for a protected surface (maps to 429)."""
+
+    default_code: ClassVar[str] = "rate_limited"
+
+
+class PermissionDeniedError(DeltaLabsBaseError):
+    """Authenticated user is not authorized for this action (maps to 403)."""
+
+    default_code: ClassVar[str] = "permission_denied"
+
+
+# ################################ /EXCEPTIONS ################################

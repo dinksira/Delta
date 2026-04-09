@@ -1,8 +1,14 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { InputHTMLAttributes } from "react";
 
 import { Typography } from "@/components/theme/Typography";
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type RadioOption = Readonly<{
   value: string;
   label: string;
@@ -56,3 +62,4 @@ export function RadioGroup({
     </fieldset>
   );
 }
+/** ################################ /COMPONENT ############################# */

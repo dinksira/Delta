@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -19,6 +21,9 @@ import {
 import { authErrorMessage } from "@/lib/authErrors";
 import { useLoginMutation } from "@/modules/Auth/hooks";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type LoginPageViewProps = Readonly<{
   showBack?: boolean;
   backHref?: string;
@@ -29,6 +34,9 @@ type LoginPageViewProps = Readonly<{
   redirectAfterLoginHref?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function LoginPageView({
   showBack = false,
   backHref = "/",
@@ -124,3 +132,4 @@ export function LoginPageView({
     </AuthModalShell>
   );
 }
+/** ################################ /COMPONENT ############################# */

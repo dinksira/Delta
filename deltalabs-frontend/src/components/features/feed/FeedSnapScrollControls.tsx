@@ -1,7 +1,12 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useCallback, useEffect, useState, type RefObject } from "react";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type FeedSnapScrollControlsProps = Readonly<{
   /** The vertically scrollable, snap-aligned feed element (one “page” ≈ `clientHeight`). */
   scrollContainerRef: RefObject<HTMLElement | null>;
@@ -11,6 +16,9 @@ type FeedSnapScrollControlsProps = Readonly<{
   className?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function IconChevronUp({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
@@ -53,6 +61,8 @@ function IconChevronDown({ className }: Readonly<{ className?: string }>) {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /**
  * TikTok-style desktop up/down nudges: borderless circles, muted “up” chevron and stronger “down” chevron.
  * Light theme matches pale gray chips on a light surface; dark theme matches gunmetal on near-black.
@@ -168,3 +178,4 @@ export function FeedSnapScrollControls({
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

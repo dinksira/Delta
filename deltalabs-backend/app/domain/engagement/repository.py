@@ -121,6 +121,21 @@ class Repository:
         count = int(await self._db["content_comments"].count_documents({"content_id": content_id}))
         return comment_id, count
 
+    async def list_comments(
+        self,
+        *,
+        content_id: str,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List latest comments for a feed item."""
+        return await (
+            self._db["content_comments"]
+            .find({"content_id": content_id})
+            .sort([("created_at", -1)])
+            .limit(limit)
+            .to_list(length=limit)
+        )
+
     async def add_share(self, *, content_id: str, user_id: str) -> int:
         """Record a share event; return total share count for item."""
         now = datetime.now(UTC)
@@ -158,6 +173,45 @@ class Repository:
             },
         )
         return event_id
+
+    async def get_feed_event_counts(self) -> dict[str, int]:
+        """Event totals grouped by event name."""
+        rows = (
+            await self._db["content_events"]
+            .aggregate(
+                [
+                    {"$group": {"_id": "$event", "count": {"$sum": 1}}},
+                ]
+            )
+            .to_list(length=50)
+        )
+        result: dict[str, int] = {}
+        for row in rows:
+            key = str(row.get("_id", "")).strip()
+            if key:
+                result[key] = int(row.get("count", 0))
+        return result
+
+    async def get_feed_unique_user_count(self) -> int:
+        """Distinct user count for feed telemetry events."""
+        values = await self._db["content_events"].distinct("user_id")
+        return len([value for value in values if value])
+
+    async def get_feed_average_watch_ms(self) -> int:
+        """Average watch milliseconds across rows with watch_ms."""
+        rows = (
+            await self._db["content_events"]
+            .aggregate(
+                [
+                    {"$match": {"watch_ms": {"$type": "number"}}},
+                    {"$group": {"_id": None, "avg": {"$avg": "$watch_ms"}}},
+                ]
+            )
+            .to_list(length=1)
+        )
+        if not rows:
+            return 0
+        return int(float(rows[0].get("avg", 0.0)))
 
 
 # ################################ /REPOSITORY ################################

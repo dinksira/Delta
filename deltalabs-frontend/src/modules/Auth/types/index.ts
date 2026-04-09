@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Auth module TypeScript contracts (sessions, inputs, errors). */
 export type {
   AuthBannerType,
@@ -11,3 +13,4 @@ export type {
   SignupInput,
 } from "@/modules/Auth/types/auth";
 export { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
+/** ################################ /COMPONENT ############################# */

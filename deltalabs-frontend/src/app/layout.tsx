@@ -1,8 +1,14 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Root } from "@/theme";
 import "./globals.css";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -35,3 +41,4 @@ export default function RootLayout({
     </html>
   );
 }
+/** ################################ /COMPONENT ############################# */

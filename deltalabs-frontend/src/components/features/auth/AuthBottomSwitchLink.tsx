@@ -1,12 +1,20 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 
 import { Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type AuthBottomSwitchLinkProps = Readonly<{
   mode: "to_signup" | "to_signin";
   href?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthBottomSwitchLink({ mode, href }: AuthBottomSwitchLinkProps) {
   const isToSignup = mode === "to_signup";
   const targetHref = href ?? (isToSignup ? "/signup" : "/login");
@@ -27,3 +35,4 @@ export function AuthBottomSwitchLink({ mode, href }: AuthBottomSwitchLinkProps) 
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

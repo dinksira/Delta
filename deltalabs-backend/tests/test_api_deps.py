@@ -58,3 +58,7 @@ def test_get_current_user_placeholder_returns_401() -> None:
         response = client.get("/auth")
     assert response.status_code == 401
     assert response.json()["detail"]["code"] == "unauthenticated"
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

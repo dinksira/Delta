@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Client + mock-API shared auth contracts. Backend swap should preserve shapes. */
 
 export type AuthBannerType = "success" | "error" | "info";
@@ -48,6 +50,7 @@ export type SignupInput = Readonly<{
   email: string;
   phone: string;
   otp: string;
+  verificationId?: string;
   day: string;
   month: string;
   year: string;
@@ -72,3 +75,4 @@ export type AuthResult = Readonly<{
   /** Present after login and signup when the user is signed in. */
   session?: AuthSessionPayload;
 }>;
+/** ################################ /COMPONENT ############################# */

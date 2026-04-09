@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
  * Persistent mock user + recovery store (localStorage).
  * Replace with real API calls later; session is handled separately in AuthSession_Context.
@@ -193,3 +195,4 @@ export function updateUserPassword(userId: string, newPassword: string): void {
   const next = users.map((u) => (u.id === userId ? { ...u, password: newPassword } : u));
   saveUsers(next);
 }
+/** ################################ /COMPONENT ############################# */

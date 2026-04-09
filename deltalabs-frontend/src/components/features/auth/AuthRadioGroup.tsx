@@ -1,7 +1,12 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { InputHTMLAttributes } from "react";
 
 import { RadioGroup } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type RadioOption = Readonly<{
   value: string;
   label: string;
@@ -16,6 +21,9 @@ type AuthRadioGroupProps = Readonly<{
   error?: boolean;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthRadioGroup({ name, legend, options, error }: AuthRadioGroupProps) {
   return (
     <RadioGroup
@@ -27,3 +35,4 @@ export function AuthRadioGroup({ name, legend, options, error }: AuthRadioGroupP
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

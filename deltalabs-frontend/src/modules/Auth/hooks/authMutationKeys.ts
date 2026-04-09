@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Single prefix for TanStack mutations + global pending UI. */
 export const authMutationKeys = {
   all: ["auth"] as const,
@@ -6,3 +8,4 @@ export const authMutationKeys = {
   recover: ["auth", "recover"] as const,
   resetPassword: ["auth", "resetPassword"] as const,
 } as const;
+/** ################################ /COMPONENT ############################# */

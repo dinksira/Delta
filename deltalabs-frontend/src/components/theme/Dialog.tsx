@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Minimal dialog primitives for modals and sheets. */
 "use client";
 
@@ -62,3 +64,4 @@ export function DialogSection({ className, title, children, ...props }: DialogSe
   );
 }
 
+/** ################################ /COMPONENT ############################# */

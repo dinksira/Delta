@@ -1,8 +1,12 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Button } from "@/components/theme";
 import { useThemeContext } from "@/contexts/Theme_Context";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ COMPONENT ############################# */
 /** Cycles theme mode: light → dark → system. */
 export function ThemeToggle() {
   const { mode, setMode } = useThemeContext();
@@ -35,3 +39,4 @@ export function ThemeToggle() {
     </Button>
   );
 }
+/** ################################ /COMPONENT ############################# */

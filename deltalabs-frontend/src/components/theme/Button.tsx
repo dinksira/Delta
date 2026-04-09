@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared button primitive for Delta Labs UI. */
 import type { ButtonHTMLAttributes } from "react";
 
@@ -33,3 +35,4 @@ export function Button({
 function cxButtonDisabled(classes: string): string {
   return `${classes} disabled:cursor-not-allowed disabled:opacity-60`;
 }
+/** ################################ /COMPONENT ############################# */

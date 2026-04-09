@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useId, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 
@@ -7,6 +9,9 @@ import { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClass
 import { getAuthInputClassName } from "@/components/features/auth/authInputStyles";
 import { Field, Input } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type AuthPasswordFieldProps = Readonly<{
   id?: string;
   label: string;
@@ -16,6 +21,9 @@ type AuthPasswordFieldProps = Readonly<{
   inputProps?: Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "placeholder" | "className">;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthPasswordField({
   id: idProp,
   label,
@@ -55,3 +63,4 @@ export function AuthPasswordField({
     </Field>
   );
 }
+/** ################################ /COMPONENT ############################# */

@@ -1,6 +1,10 @@
-/** Tailwind class maps for auth form controls (aligned to `auth.input.*` tokens). */
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ HELPERS ############################# */
+/** Tailwind class maps for auth form controls (aligned to `auth.input.*` tokens). */
 export function getAuthInputClassName(
   options?: Readonly<{ error?: boolean; className?: string; trailingControl?: boolean }>,
 ): string {
@@ -16,3 +20,4 @@ export function getAuthInputClassName(
     className,
   );
 }
+/** ################################ /HELPERS ############################# */

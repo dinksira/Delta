@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Provider } from "react-redux";
 
 import { GlobalAuthPendingBar } from "@/components/system/GlobalAuthPendingBar";
@@ -8,6 +10,10 @@ import { ThemeProvider } from "@/contexts/Theme_Context";
 import { QueryProvider } from "@/lib/QueryProvider";
 import { store } from "@/store";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function Root({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <QueryProvider>
@@ -20,3 +26,4 @@ export function Root({ children }: Readonly<{ children: React.ReactNode }>) {
     </QueryProvider>
   );
 }
+/** ################################ /COMPONENT ############################# */

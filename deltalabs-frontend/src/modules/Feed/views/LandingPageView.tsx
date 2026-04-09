@@ -4,21 +4,27 @@
 /** Imports used by this file. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CircleAlert, VideoOff } from "lucide-react";
 
 import {
   CreatorIdentity,
   FeedActionRail,
+  FeedAuthGateModal,
   FeedCaption,
   FeedCommentPanel,
   FeedHashtagList,
   FeedResourceLink,
+  FeedShareSheet,
   FeedSnapScrollControls,
+  FeedStatePanel,
   FeedViewport,
   type FeedActionItem,
 } from "@/components/features/feed";
+import { FeedLoadingState, FeedWorkerHealthDebugPanel } from "@/modules/Feed/features";
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
-import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
+import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
   useFeedClips,
   useFeedEventMutation,
@@ -43,9 +49,9 @@ const actionRailTemplate = [
     actionLabel: "Go to Course",
     metaLabel: "Go to\nCourse",
   },
-  { key: "like", actionLabel: "Like", metaLabel: "42.8K" },
-  { key: "comment", actionLabel: "Comment", metaLabel: "1,204" },
-  { key: "bookmark", actionLabel: "Bookmark", metaLabel: "8.4K" },
+  { key: "like", actionLabel: "Like", metaLabel: "" },
+  { key: "comment", actionLabel: "Comment", metaLabel: "" },
+  { key: "bookmark", actionLabel: "Bookmark", metaLabel: "" },
   { key: "share", actionLabel: "Share", metaLabel: "Share" },
   {
     key: "profile",
@@ -60,8 +66,8 @@ const actionRailTemplate = [
 /** Helper utilities used by this file. */
 function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
   return actionRailTemplate.map((item) =>
-    item.key === "like" && clip.likeCount
-      ? { ...item, metaLabel: clip.likeCount }
+    item.key === "like" && typeof clip.likeCount === "number" && clip.likeCount > 0
+      ? { ...item, metaLabel: formatCompactCount(clip.likeCount) }
       : { ...item },
   );
 }
@@ -72,11 +78,25 @@ function formatCompactCount(value: number): string {
   return `${value}`;
 }
 
+function parseCompactCountLabel(value: string | number | undefined): number {
+  if (typeof value === "number") return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  if (!value) return 0;
+  const sanitized = value.trim().replace(/,/g, "");
+  const match = sanitized.match(/^(\d+(?:\.\d+)?)([kKmM])?$/);
+  if (!match) return Number.parseInt(sanitized, 10) || 0;
+  const base = Number.parseFloat(match[1] ?? "0");
+  const suffix = (match[2] ?? "").toLowerCase();
+  if (suffix === "m") return Math.round(base * 1_000_000);
+  if (suffix === "k") return Math.round(base * 1_000);
+  return Math.round(base);
+}
+
 /** ################################ /HELPERS ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
 function LandingClipSlide({
   clip,
+  isAuthenticated,
   isActive,
   isMuted,
   onToggleMute,
@@ -85,10 +105,17 @@ function LandingClipSlide({
   onFeedEvent,
   preloadStrategy,
   onFeedAction,
+  onRequireAuth,
+  likedActive,
+  savedActive,
+  actionPending,
   likeMetaLabel,
   bookmarkMetaLabel,
+  commentMetaLabel,
+  shareMetaLabel,
 }: Readonly<{
   clip: LandingVideoClip;
+  isAuthenticated: boolean;
   isActive: boolean;
   isMuted: boolean;
   onToggleMute: () => void;
@@ -101,8 +128,14 @@ function LandingClipSlide({
   ) => void;
   preloadStrategy: "auto" | "metadata" | "none";
   onFeedAction: (clipId: string, action: "like" | "bookmark" | "share") => void;
+  onRequireAuth: () => void;
+  likedActive: boolean;
+  savedActive: boolean;
+  actionPending: boolean;
   likeMetaLabel?: string;
   bookmarkMetaLabel?: string;
+  commentMetaLabel?: string;
+  shareMetaLabel?: string;
 }>) {
   const [localActionKey, setLocalActionKey] = useState<string | null>(null);
   const railItems = buildRailForClip(clip);
@@ -113,11 +146,22 @@ function LandingClipSlide({
     if (item.key === "bookmark" && bookmarkMetaLabel) {
       return { ...item, metaLabel: bookmarkMetaLabel };
     }
+    if (item.key === "comment" && commentMetaLabel) {
+      return { ...item, metaLabel: commentMetaLabel };
+    }
+    if (item.key === "share" && shareMetaLabel) {
+      return { ...item, metaLabel: shareMetaLabel };
+    }
     return item;
   });
 
-  const railActiveKey =
-    !isActive ? null : commentsOpen ? "comment" : localActionKey === "comment" ? null : localActionKey;
+  const railActiveKeys = !isActive
+    ? []
+    : [
+        ...(commentsOpen ? (["comment"] as const) : []),
+        ...(likedActive ? (["like"] as const) : []),
+        ...(savedActive ? (["bookmark"] as const) : []),
+      ];
 
   const handleRailToggle = (key: string) => {
     if (key === "comment") {
@@ -130,6 +174,17 @@ function LandingClipSlide({
       }
       return;
     }
+    if (key === "share") {
+      if (actionPending) return;
+      onFeedAction(clip.id, "share");
+      setLocalActionKey((prev) => (prev === key ? null : key));
+      return;
+    }
+    if (!isAuthenticated) {
+      onRequireAuth();
+      return;
+    }
+    if (actionPending) return;
     if (key === "like" || key === "bookmark" || key === "share") {
       onFeedAction(clip.id, key);
     }
@@ -167,7 +222,8 @@ function LandingClipSlide({
 
         <FeedActionRail
           items={resolvedRailItems}
-          activeActionKey={railActiveKey}
+          activeActionKey={localActionKey}
+          activeActionKeys={railActiveKeys}
           onActionToggle={handleRailToggle}
         />
       </div>
@@ -179,10 +235,19 @@ function LandingClipSlide({
 /** ################################ COMPONENT ############################# */
 /** Public landing feed-style layout aligned to design parity target. */
 export function LandingPageView() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAuthSession();
+  const { isAuthenticated, session } = useAuthSession();
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
-  const { data: clipsData } = useFeedClips();
+  const {
+    data: clipsData,
+    isPending: isFeedPending,
+    isError: isFeedError,
+    refetch: refetchFeed,
+    isFetching: isFeedFetching,
+  } = useFeedClips();
   const feedEventMutation = useFeedEventMutation();
   const feedLikeMutation = useFeedLikeMutation();
   const feedSaveMutation = useFeedSaveMutation();
@@ -190,8 +255,13 @@ export function LandingPageView() {
   const [hiddenClipIds, setHiddenClipIds] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [saveCounts, setSaveCounts] = useState<Record<string, number>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+  const [likedByClip, setLikedByClip] = useState<Record<string, boolean>>({});
+  const [savedByClip, setSavedByClip] = useState<Record<string, boolean>>({});
+  const [actionPendingByClip, setActionPendingByClip] = useState<Record<string, boolean>>({});
   const clips = useMemo(() => {
-    const source = clipsData ?? MOCK_VIDEO_FEED;
+    const source = clipsData ?? [];
     if (hiddenClipIds.size === 0) {
       return source;
     }
@@ -200,7 +270,12 @@ export function LandingPageView() {
   }, [clipsData, hiddenClipIds]);
 
   const [isFeedMuted, setIsFeedMuted] = useState(true);
-  const [activeClipId, setActiveClipId] = useState<string>(MOCK_VIDEO_FEED[0]?.id ?? "");
+  const [activeClipId, setActiveClipId] = useState<string>("");
+  const [isOffline, setIsOffline] = useState(false);
+  const [authGateOpen, setAuthGateOpen] = useState(false);
+  const [shareSheetClipId, setShareSheetClipId] = useState<string | null>(null);
+  const showWorkerHealthDebugPanel =
+    (process.env.NEXT_PUBLIC_FEED_DEBUG_WORKER_HEALTH ?? "").toLowerCase() === "true";
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const activeClipIndex = useMemo(
     () => clips.findIndex((clip) => clip.id === activeClipId),
@@ -210,6 +285,31 @@ export function LandingPageView() {
     () => clips.find((c) => c.id === activeClipId) ?? clips[0],
     [clips, activeClipId],
   );
+  const clipIdsKey = useMemo(() => clips.map((clip) => clip.id).join(","), [clips]);
+  const accessToken = session?.accessToken ?? null;
+  const currentUserId = session?.user?.id ?? null;
+
+  useEffect(() => {
+    if (clips.length === 0) return;
+    setLikedByClip((prev) => {
+      const next = { ...prev };
+      for (const clip of clips) {
+        if (next[clip.id] === undefined) {
+          next[clip.id] = Boolean(clip.likedByMe);
+        }
+      }
+      return next;
+    });
+    setSavedByClip((prev) => {
+      const next = { ...prev };
+      for (const clip of clips) {
+        if (next[clip.id] === undefined) {
+          next[clip.id] = Boolean(clip.savedByMe);
+        }
+      }
+      return next;
+    });
+  }, [clips]);
 
   useEffect(() => {
     const container = feedScrollRef.current;
@@ -247,6 +347,23 @@ export function LandingPageView() {
     slides[index]?.scrollIntoView({ block: "start", behavior: "smooth" });
   };
 
+  const openAuthModal = (mode: "login" | "signup") => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("auth", mode);
+    const query = next.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  };
+
+  const openFeedAuthGate = () => {
+    if (isAuthenticated) return;
+    setAuthGateOpen(true);
+  };
+
+  const openLoginDirect = () => {
+    if (isAuthenticated) return;
+    openAuthModal("login");
+  };
+
   const setCommentsOpen = (open: boolean) => {
     dispatch(setCommentPanelOpen(open));
   };
@@ -275,55 +392,213 @@ export function LandingPageView() {
   };
 
   const handleFeedAction = (clipId: string, action: "like" | "bookmark" | "share") => {
-    if (!isAuthenticated) return;
+    if (action === "share") {
+      setShareSheetClipId(clipId);
+      return;
+    }
+    if (!isAuthenticated) {
+      openFeedAuthGate();
+      return;
+    }
     if (action === "like") {
+      const clip = clips.find((row) => row.id === clipId);
+      const currentCount =
+        likeCounts[clipId] !== undefined
+          ? likeCounts[clipId] ?? 0
+          : parseCompactCountLabel(clip?.likeCount);
+      const previousActive = likedByClip[clipId] ?? false;
+      const nextActive = !previousActive;
+      const nextCount = Math.max(0, currentCount + (nextActive ? 1 : -1));
+      setActionPendingByClip((prev) => ({ ...prev, [clipId]: true }));
+      setLikedByClip((prev) => ({ ...prev, [clipId]: nextActive }));
+      setLikeCounts((prev) => ({ ...prev, [clipId]: nextCount }));
       feedLikeMutation.mutate(clipId, {
+        onError: () => {
+          setLikedByClip((prev) => ({ ...prev, [clipId]: previousActive }));
+          setLikeCounts((prev) => ({ ...prev, [clipId]: currentCount }));
+        },
         onSuccess: (result) => {
+          setLikedByClip((prev) => ({ ...prev, [clipId]: result.active }));
           setLikeCounts((prev) => ({ ...prev, [clipId]: result.count }));
+        },
+        onSettled: () => {
+          setActionPendingByClip((prev) => ({ ...prev, [clipId]: false }));
         },
       });
       return;
     }
     if (action === "bookmark") {
+      const clip = clips.find((row) => row.id === clipId);
+      const currentCount =
+        saveCounts[clipId] !== undefined ? saveCounts[clipId] ?? 0 : Number(clip?.saveCount ?? 0);
+      const previousActive = savedByClip[clipId] ?? false;
+      const nextActive = !previousActive;
+      const nextCount = Math.max(0, currentCount + (nextActive ? 1 : -1));
+      setActionPendingByClip((prev) => ({ ...prev, [clipId]: true }));
+      setSavedByClip((prev) => ({ ...prev, [clipId]: nextActive }));
+      setSaveCounts((prev) => ({ ...prev, [clipId]: nextCount }));
       feedSaveMutation.mutate(clipId, {
+        onError: () => {
+          setSavedByClip((prev) => ({ ...prev, [clipId]: previousActive }));
+          setSaveCounts((prev) => ({ ...prev, [clipId]: currentCount }));
+        },
         onSuccess: (result) => {
+          setSavedByClip((prev) => ({ ...prev, [clipId]: result.active }));
           setSaveCounts((prev) => ({ ...prev, [clipId]: result.count }));
+        },
+        onSettled: () => {
+          setActionPendingByClip((prev) => ({ ...prev, [clipId]: false }));
         },
       });
       return;
     }
-    feedShareMutation.mutate(clipId);
   };
+
+  const handleShareSelect = () => {
+    if (shareSheetClipId && isAuthenticated) {
+      const clip = clips.find((row) => row.id === shareSheetClipId);
+      const currentCount =
+        shareCounts[shareSheetClipId] !== undefined
+          ? shareCounts[shareSheetClipId] ?? 0
+          : Number(clip?.shareCount ?? 0);
+      setShareCounts((prev) => ({ ...prev, [shareSheetClipId]: currentCount + 1 }));
+      feedShareMutation.mutate(shareSheetClipId, {
+        onError: () => {
+          setShareCounts((prev) => ({ ...prev, [shareSheetClipId]: currentCount }));
+        },
+        onSuccess: (result) => {
+          setShareCounts((prev) => ({ ...prev, [shareSheetClipId]: result.count }));
+        },
+      });
+    }
+    setShareSheetClipId(null);
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!accessToken) return;
+    if (!clipIdsKey) return;
+    const configuredBase = process.env.NEXT_PUBLIC_API_BASE_URL?.trim();
+    const sourceBase = configuredBase && configuredBase.length > 0 ? configuredBase : window.location.origin;
+    const wsBase = sourceBase.replace(/^http/i, "ws");
+    const socketUrl = new URL("/v1/feed/ws", wsBase.endsWith("/") ? wsBase : `${wsBase}/`);
+    socketUrl.searchParams.set("clip_ids", clipIdsKey);
+    socketUrl.searchParams.set("access_token", accessToken);
+    let socket: WebSocket | null = null;
+    try {
+      socket = new window.WebSocket(socketUrl.toString());
+    } catch {
+      return;
+    }
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          content_id?: string;
+          user_id?: string;
+          action?: string;
+          payload?: { count?: number; active?: boolean };
+        };
+        const clipId = String(payload.content_id ?? "");
+        if (!clipId) return;
+        const action = String(payload.action ?? "");
+        const count = Number(payload.payload?.count ?? 0);
+        if (action === "like_toggled") {
+          setLikeCounts((prev) => ({ ...prev, [clipId]: count }));
+          if (payload.user_id && payload.user_id === currentUserId) {
+            setLikedByClip((prev) => ({ ...prev, [clipId]: Boolean(payload.payload?.active) }));
+          }
+          return;
+        }
+        if (action === "save_toggled") {
+          setSaveCounts((prev) => ({ ...prev, [clipId]: count }));
+          if (payload.user_id && payload.user_id === currentUserId) {
+            setSavedByClip((prev) => ({ ...prev, [clipId]: Boolean(payload.payload?.active) }));
+          }
+          return;
+        }
+        if (action === "comment_created") {
+          setCommentCounts((prev) => ({ ...prev, [clipId]: count }));
+          return;
+        }
+        if (action === "shared") {
+          setShareCounts((prev) => ({ ...prev, [clipId]: count }));
+        }
+      } catch {
+        // Ignore malformed realtime events.
+      }
+    };
+    return () => {
+      socket?.close();
+    };
+  }, [clipIdsKey, accessToken, currentUserId]);
 
   useEffect(() => {
     if (!activeClipId || clips.length === 0) return;
     const stillVisible = clips.some((clip) => clip.id === activeClipId);
     if (!stillVisible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active clip when filtered list changes
       setActiveClipId(clips[0]?.id ?? "");
     }
   }, [activeClipId, clips]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => setIsOffline(!window.navigator.onLine);
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+
+  const noVideosAvailable = !isFeedPending && !isFeedError && clips.length === 0;
+
   return (
     <>
-      {clips.length === 0 ? (
+      {isFeedPending ? (
         <FeedExplorerShell
+          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+          center={<FeedLoadingState />}
+        />
+      ) : null}
+      {isFeedError ? (
+        <FeedExplorerShell
+          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
           center={
-            <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
-              <div className="w-full max-w-lg rounded-2xl border border-border-default bg-surface-default p-6 text-center">
-                <Typography as="h2" variant="title" className="text-text-primary">
-                  No videos yet
-                </Typography>
-                <Typography as="p" variant="body" className="mt-2 text-text-secondary">
-                  The feed is ready. Once schools and creators publish videos, personalized FYP
-                  ranking will activate automatically.
-                </Typography>
-              </div>
-            </div>
+            <FeedStatePanel
+              icon={CircleAlert}
+              title="Something went wrong"
+              message={
+                isOffline
+                  ? "You are offline. Check your connection and try again."
+                  : "Something went wrong while loading videos."
+              }
+              actionLabel={isFeedFetching ? "Refreshing..." : "Refresh"}
+              isActionDisabled={isFeedFetching}
+              onAction={() => {
+                void refetchFeed();
+              }}
+            />
           }
         />
       ) : null}
-      {clips.length > 0 ? (
+      {noVideosAvailable ? (
+        <FeedExplorerShell
+          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+          center={
+            <FeedStatePanel
+              icon={VideoOff}
+              title="No videos available"
+              message="Public school posts have not appeared yet. Once videos are published, your feed will show up here."
+            />
+          }
+        />
+      ) : null}
+      {!isFeedPending && !isFeedError && clips.length > 0 ? (
       <FeedExplorerShell
+        rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
         afterGrid={
           <FeedSnapScrollControls
             scrollContainerRef={feedScrollRef}
@@ -353,6 +628,7 @@ export function LandingPageView() {
               <LandingClipSlide
                 key={clip.id}
                 clip={clip}
+                isAuthenticated={isAuthenticated}
                 isActive={clip.id === activeClipId}
                 isMuted={isFeedMuted}
                 onToggleMute={() => setIsFeedMuted((prev) => !prev)}
@@ -361,15 +637,37 @@ export function LandingPageView() {
                 onFeedEvent={handleFeedEvent}
                 preloadStrategy={Math.abs(activeClipIndex - index) <= 4 ? "auto" : "metadata"}
                 onFeedAction={handleFeedAction}
+                onRequireAuth={openFeedAuthGate}
+                likedActive={likedByClip[clip.id] ?? Boolean(clip.likedByMe)}
+                savedActive={savedByClip[clip.id] ?? Boolean(clip.savedByMe)}
+                actionPending={actionPendingByClip[clip.id] ?? false}
                 likeMetaLabel={
                   likeCounts[clip.id] !== undefined
                     ? formatCompactCount(likeCounts[clip.id] ?? 0)
-                    : clip.likeCount
+                    : typeof clip.likeCount === "number" && clip.likeCount > 0
+                      ? formatCompactCount(clip.likeCount)
+                      : undefined
                 }
                 bookmarkMetaLabel={
                   saveCounts[clip.id] !== undefined
                     ? formatCompactCount(saveCounts[clip.id] ?? 0)
-                    : undefined
+                    : typeof clip.saveCount === "number" && clip.saveCount > 0
+                      ? formatCompactCount(clip.saveCount)
+                      : undefined
+                }
+                commentMetaLabel={
+                  commentCounts[clip.id] !== undefined
+                    ? formatCompactCount(commentCounts[clip.id] ?? 0)
+                    : typeof clip.commentCount === "number" && clip.commentCount > 0
+                      ? formatCompactCount(clip.commentCount)
+                      : undefined
+                }
+                shareMetaLabel={
+                  shareCounts[clip.id] !== undefined
+                    ? formatCompactCount(shareCounts[clip.id] ?? 0)
+                    : typeof clip.shareCount === "number" && clip.shareCount > 0
+                      ? formatCompactCount(clip.shareCount)
+                      : undefined
                 }
               />
             ))}
@@ -380,7 +678,29 @@ export function LandingPageView() {
       <LandingCommentSidebarPortal
         open={commentPanelOpen}
         clip={activeClip}
+        isAuthenticated={isAuthenticated}
+        onRequireAuth={openLoginDirect}
+        onCommentCreated={(clipId, nextCount) =>
+          setCommentCounts((prev) => ({ ...prev, [clipId]: nextCount }))
+        }
         onClose={() => dispatch(setCommentPanelOpen(false))}
+      />
+      <FeedAuthGateModal
+        open={authGateOpen && !isAuthenticated}
+        onClose={() => setAuthGateOpen(false)}
+        onLogin={() => {
+          setAuthGateOpen(false);
+          openAuthModal("login");
+        }}
+        onSignup={() => {
+          setAuthGateOpen(false);
+          openAuthModal("signup");
+        }}
+      />
+      <FeedShareSheet
+        open={shareSheetClipId != null}
+        onClose={() => setShareSheetClipId(null)}
+        onShareSelect={handleShareSelect}
       />
     </>
   );
@@ -392,10 +712,16 @@ export function LandingPageView() {
 function LandingCommentSidebarPortal({
   open,
   clip,
+  isAuthenticated,
+  onRequireAuth,
+  onCommentCreated,
   onClose,
 }: Readonly<{
   open: boolean;
   clip: LandingVideoClip | undefined;
+  isAuthenticated: boolean;
+  onRequireAuth: () => void;
+  onCommentCreated: (clipId: string, nextCount: number) => void;
   onClose: () => void;
 }>) {
   if (typeof document === "undefined" || !open || !clip) {
@@ -407,7 +733,13 @@ function LandingCommentSidebarPortal({
       className="fixed right-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-full max-w-md min-w-0 flex-col border-l border-border-default bg-surface-default shadow-sm"
       aria-label="Comments"
     >
-      <FeedCommentPanel clip={clip} onClose={onClose} />
+      <FeedCommentPanel
+        clip={clip}
+        isAuthenticated={isAuthenticated}
+        onRequireAuth={onRequireAuth}
+        onCommentCreated={onCommentCreated}
+        onClose={onClose}
+      />
     </aside>,
     document.body,
   );

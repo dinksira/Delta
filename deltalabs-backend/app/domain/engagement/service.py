@@ -14,8 +14,11 @@ from app.domain.engagement.schemas import (
     CommentCreateResponse,
     EngagementWriteResponse,
     EnrollPlaceholderResponse,
+    FeedCommentListResponse,
+    FeedCommentPublic,
     FeedEventCreateRequest,
     FeedEventCreateResponse,
+    FeedTelemetrySummaryResponse,
     ShareCreateResponse,
 )
 
@@ -161,6 +164,24 @@ class Service:
         await self._repository.assert_public_content(content_id)
         return EnrollPlaceholderResponse().model_dump()
 
+    async def list_comments(self, *, content_id: str, limit: int = 100) -> dict[str, Any]:
+        """Read latest feed comments for an item."""
+        await self._repository.assert_public_content(content_id)
+        rows = await self._repository.list_comments(content_id=content_id, limit=limit)
+        items: list[FeedCommentPublic] = []
+        for row in rows:
+            created_at = row.get("created_at")
+            created_at_iso = created_at.isoformat() if hasattr(created_at, "isoformat") else ""
+            items.append(
+                FeedCommentPublic(
+                    id=str(row.get("_id", "")),
+                    user_id=str(row.get("user_id", "")),
+                    body=str(row.get("body", "")),
+                    created_at=created_at_iso,
+                )
+            )
+        return FeedCommentListResponse(items=items, count=len(items)).model_dump()
+
     async def feed_event(
         self,
         *,
@@ -191,6 +212,25 @@ class Service:
             ttl_seconds=settings.idempotency_ttl_seconds,
             execute=run,
         )
+
+    async def feed_telemetry_summary(self) -> dict[str, Any]:
+        """Aggregate feed event telemetry for observability dashboards."""
+        event_counts = await self._repository.get_feed_event_counts()
+        total_events = int(sum(event_counts.values()))
+        unique_users = await self._repository.get_feed_unique_user_count()
+        average_watch_ms = await self._repository.get_feed_average_watch_ms()
+        hide_count = int(event_counts.get("hide", 0))
+        completion_count = int(event_counts.get("view_complete", 0))
+        hide_rate = (hide_count / total_events) if total_events > 0 else 0.0
+        completion_rate = (completion_count / total_events) if total_events > 0 else 0.0
+        return FeedTelemetrySummaryResponse(
+            event_counts=event_counts,
+            total_events=total_events,
+            unique_users=unique_users,
+            average_watch_ms=average_watch_ms,
+            hide_rate=hide_rate,
+            completion_rate=completion_rate,
+        ).model_dump()
 
 
 # ################################ /SERVICE ################################

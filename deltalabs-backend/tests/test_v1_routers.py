@@ -62,6 +62,8 @@ def test_openapi_contains_stub_paths() -> None:
     assert "/v1/feed/{item_id}/like" in paths
     assert "/v1/feed/{item_id}/save" in paths
     assert "/v1/feed/{item_id}/comment" in paths
+    assert "/v1/feed/{item_id}/comments" in paths
+    assert "/v1/feed/telemetry/summary" in paths
     assert "/v1/feed/{item_id}/share" in paths
     assert "/v1/feed/{item_id}/enroll" in paths
     assert "/v1/features" in paths

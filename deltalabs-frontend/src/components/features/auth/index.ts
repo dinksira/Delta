@@ -1,8 +1,11 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClasses";
 export { AuthBottomSwitchLink } from "@/components/features/auth/AuthBottomSwitchLink";
 export { AuthDivider } from "@/components/features/auth/AuthDivider";
 export { AuthCheckboxField, AuthTextField } from "@/components/features/auth/AuthFields";
-export { AuthModalShell } from "@/components/features/auth/AuthModalShell";
+export { AuthModalGateway } from "@/components/features/auth/master/AuthModalGateway";
+export { AuthModalShell } from "@/components/features/auth/master/AuthModalShell";
 export { AuthOtpField } from "@/components/features/auth/AuthOtpField";
 export { AuthPasswordField } from "@/components/features/auth/AuthPasswordField";
 export { AuthPhoneField } from "@/components/features/auth/AuthPhoneField";
@@ -19,3 +22,4 @@ export {
   type AuthResponseBanner,
 } from "@/components/features/auth/useAuthResponseBanner";
 export { SocialProvidersRow } from "@/components/features/auth/SocialProvidersRow";
+/** ################################ /COMPONENT ############################# */

@@ -111,6 +111,79 @@ class Repository:
             {"_id": item_id, "visibility": "public"},
         )
 
+    async def list_like_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        """Return aggregated like totals keyed by content id."""
+        return await self._list_action_counts(collection="content_likes", item_ids=item_ids)
+
+    async def list_save_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        """Return aggregated save totals keyed by content id."""
+        return await self._list_action_counts(collection="content_saves", item_ids=item_ids)
+
+    async def list_comment_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        """Return aggregated comment totals keyed by content id."""
+        return await self._list_action_counts(collection="content_comments", item_ids=item_ids)
+
+    async def list_share_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        """Return aggregated share totals keyed by content id."""
+        return await self._list_action_counts(collection="content_shares", item_ids=item_ids)
+
+    async def list_user_liked_ids(self, *, user_id: str, item_ids: list[str]) -> set[str]:
+        """Return content ids liked by user from the provided list."""
+        return await self._list_user_action_ids(
+            collection="content_likes",
+            user_id=user_id,
+            item_ids=item_ids,
+        )
+
+    async def list_user_saved_ids(self, *, user_id: str, item_ids: list[str]) -> set[str]:
+        """Return content ids saved by user from the provided list."""
+        return await self._list_user_action_ids(
+            collection="content_saves",
+            user_id=user_id,
+            item_ids=item_ids,
+        )
+
+    async def _list_action_counts(self, *, collection: str, item_ids: list[str]) -> dict[str, int]:
+        """Return aggregated totals keyed by content id for a collection."""
+        if not item_ids:
+            return {}
+        rows = (
+            await self._db[collection]
+            .aggregate(
+                [
+                    {"$match": {"content_id": {"$in": item_ids}}},
+                    {"$group": {"_id": "$content_id", "count": {"$sum": 1}}},
+                ]
+            )
+            .to_list(length=len(item_ids))
+        )
+        counts: dict[str, int] = {}
+        for row in rows:
+            content_id = str(row.get("_id", ""))
+            if content_id:
+                counts[content_id] = int(row.get("count", 0))
+        return counts
+
+    async def _list_user_action_ids(
+        self,
+        *,
+        collection: str,
+        user_id: str,
+        item_ids: list[str],
+    ) -> set[str]:
+        """Return content ids from `item_ids` where user has an action row."""
+        if not item_ids:
+            return set()
+        rows = await (
+            self._db[collection]
+            .find(
+                {"user_id": user_id, "content_id": {"$in": item_ids}},
+                {"content_id": 1},
+            )
+            .to_list(length=len(item_ids))
+        )
+        return {str(row.get("content_id", "")) for row in rows if row.get("content_id")}
+
     async def list_recent_user_engaged_item_ids(
         self, *, user_id: str, limit: int = 120
     ) -> list[str]:
@@ -205,7 +278,12 @@ class Repository:
             caption=str(doc.get("caption", "")),
             hashtags=[str(h) for h in doc.get("hashtags", [])],
             pdfLabel=str(doc.get("pdf_label", "")),
-            likeCount=str(doc["like_count"]) if doc.get("like_count") is not None else None,
+            likeCount=int(doc.get("like_count", 0) or 0),
+            saveCount=int(doc.get("save_count", 0) or 0),
+            commentCount=int(doc.get("comment_count", 0) or 0),
+            shareCount=int(doc.get("share_count", 0) or 0),
+            likedByMe=bool(doc.get("liked_by_me", False)),
+            savedByMe=bool(doc.get("saved_by_me", False)),
         )
 
 

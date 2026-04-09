@@ -24,3 +24,7 @@ def test_lifespan_exposes_typed_clients() -> None:
         assert isinstance(get_database(), AsyncIOMotorDatabase)
         assert get_redis_client() is not None
         assert get_async_http_client() is not None
+
+
+# ################################ MODULE ################################
+# ################################ /MODULE ################################

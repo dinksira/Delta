@@ -14,6 +14,7 @@ _client: AsyncIOMotorClient[MongoDoc] | None = None
 
 async def connect_mongodb() -> None:
     """Create the shared Motor client (idempotent)."""
+    # ################################ INFRA ################################
     global _client
     if _client is not None:
         return
@@ -51,3 +52,6 @@ def get_database() -> AsyncIOMotorDatabase[MongoDoc]:
 async def get_db() -> AsyncGenerator[AsyncIOMotorDatabase[MongoDoc], None]:
     """FastAPI dependency: yield the application database."""
     yield get_database()
+
+
+# ################################ /INFRA ################################

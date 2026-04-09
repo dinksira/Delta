@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from typing import Any
 
 import redis.asyncio as redis
-from redis.asyncio import Redis
 
+from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
 
-_redis: Redis[Any] | None = None
+_redis: AsyncRedis | None = None
 
 
 async def connect_redis() -> None:
     """Create the shared Redis client (idempotent)."""
+    # ################################ INFRA ################################
     global _redis
     if _redis is not None:
         return
@@ -35,7 +35,7 @@ async def disconnect_redis() -> None:
         _redis = None
 
 
-def get_redis_client() -> Redis[Any]:
+def get_redis_client() -> AsyncRedis:
     """Return the process-wide Redis client."""
     if _redis is None:
         msg = "Redis client is not initialized; ensure application lifespan has started."
@@ -43,6 +43,9 @@ def get_redis_client() -> Redis[Any]:
     return _redis
 
 
-async def get_redis() -> AsyncGenerator[Redis[Any], None]:
+async def get_redis() -> AsyncGenerator[AsyncRedis, None]:
     """FastAPI dependency: yield the Redis client."""
     yield get_redis_client()
+
+
+# ################################ /INFRA ################################

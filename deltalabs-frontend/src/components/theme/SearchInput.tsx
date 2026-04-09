@@ -1,7 +1,13 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { InputHTMLAttributes, ReactNode } from "react";
 
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 function IconSearch({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
@@ -62,3 +68,4 @@ export function SearchInput({
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

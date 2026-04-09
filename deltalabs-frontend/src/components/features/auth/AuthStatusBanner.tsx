@@ -1,3 +1,5 @@
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type AuthStatusBannerType = "success" | "error" | "info";
 
 type AuthStatusBannerProps = Readonly<{
@@ -5,6 +7,9 @@ type AuthStatusBannerProps = Readonly<{
   message: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function IconSuccess() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0 text-auth-feedback-success-text">
@@ -43,6 +48,8 @@ function IconInfo() {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /**
  * Request / server response feedback for auth modals: centered in the header strip
  * (muted top bar), with type-colored icon + text — not field validation.
@@ -69,3 +76,4 @@ export function AuthStatusBanner({ type, message }: AuthStatusBannerProps) {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

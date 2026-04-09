@@ -1,11 +1,16 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import Link from "next/link";
 import { ArrowRight, Boxes, Cpu, Mic2, Sparkles, Video } from "lucide-react";
 
 import { Card, Typography } from "@/components/theme";
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const hubs = [
   {
     href: "/",
@@ -40,6 +45,8 @@ const hubs = [
 const hubScrollClass =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain py-2 sm:py-3";
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** “All” hub — same explorer shell as video; module tiles in the center column. */
 export function ExploreAllView() {
   return (
@@ -106,3 +113,4 @@ export function ExploreAllView() {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

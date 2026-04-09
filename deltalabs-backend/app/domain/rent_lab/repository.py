@@ -10,9 +10,13 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 class Repository:
     """MongoDB access layer placeholder for the rent_lab domain."""
 
+    # ################################ REPOSITORY ################################
     def __init__(self, db: AsyncIOMotorDatabase[dict[str, Any]]) -> None:
         self._db = db
 
     async def ping(self) -> bool:
         """Placeholder connectivity check used by foundation tests."""
         return True
+
+
+# ################################ /REPOSITORY ################################

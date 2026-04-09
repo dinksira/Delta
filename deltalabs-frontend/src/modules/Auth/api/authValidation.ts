@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
  * Server-shaped validation for mock auth API (mirror future backend rules).
  */
@@ -7,6 +9,7 @@ import { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
 
 const EMAIL_LIKE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_LIKE = /^\+?[0-9]{9,15}$/;
+const USERNAME_LIKE = /^[a-zA-Z0-9_.-]{3,40}$/;
 
 export function assertValidIdentifier(identifier: string, field = "identifier"): void {
   const v = identifier.trim();
@@ -20,8 +23,9 @@ export function assertValidIdentifier(identifier: string, field = "identifier"):
   const compact = v.replace(/\s/g, "");
   const looksEmail = EMAIL_LIKE.test(v);
   const looksPhone = PHONE_LIKE.test(compact);
-  if (!looksEmail && !looksPhone) {
-    throw new ApiError("Enter a valid email address or phone number.", {
+  const looksUsername = USERNAME_LIKE.test(v);
+  if (!looksEmail && !looksPhone && !looksUsername) {
+    throw new ApiError("Enter a valid email address, phone number, or username.", {
       status: 400,
       code: AUTH_ERROR_CODES.VALIDATION_FAILED,
       details: { field },
@@ -94,8 +98,8 @@ export function assertSignupInput(input: SignupInput): void {
     });
   }
 
-  if (input.password.length < 8) {
-    throw new ApiError("Password must be at least 8 characters.", {
+  if (input.password.length < 10) {
+    throw new ApiError("Password must be at least 10 characters.", {
       status: 422,
       code: AUTH_ERROR_CODES.PASSWORD_TOO_SHORT,
       details: { field: "password" },
@@ -140,8 +144,8 @@ export function assertResetPasswordInput(input: ResetPasswordInput): void {
       details: { field: "password" },
     });
   }
-  if (np.length < 8) {
-    throw new ApiError("Password must be at least 8 characters.", {
+  if (np.length < 10) {
+    throw new ApiError("Password must be at least 10 characters.", {
       status: 400,
       code: AUTH_ERROR_CODES.PASSWORD_TOO_SHORT,
       details: { field: "password" },
@@ -155,3 +159,4 @@ export function assertResetPasswordInput(input: ResetPasswordInput): void {
     });
   }
 }
+/** ################################ /COMPONENT ############################# */

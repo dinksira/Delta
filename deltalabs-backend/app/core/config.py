@@ -88,6 +88,34 @@ class Settings(BaseSettings):
         ge=1,
         description="Planned Redis TTL for idempotency records",
     )
+    feed_engagement_stream_key: str = Field(
+        default="feed:engagement:events",
+        description="Redis Stream key for feed engagement events",
+    )
+    feed_engagement_stream_maxlen: int = Field(
+        default=100_000,
+        ge=1000,
+        description="Approximate max length for feed engagement stream",
+    )
+    feed_engagement_dead_letter_stream_key: str = Field(
+        default="feed:engagement:dead_letter",
+        description="Redis Stream key for failed feed engagement worker events",
+    )
+    feed_engagement_dead_letter_stream_maxlen: int = Field(
+        default=50_000,
+        ge=1000,
+        description="Approximate max length for dead-letter stream",
+    )
+    feed_worker_max_retries: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Max worker retries before sending event to dead-letter stream",
+    )
+    feed_engagement_pubsub_channel_prefix: str = Field(
+        default="feed:clip:",
+        description="Pub/Sub channel prefix for clip-level realtime fanout",
+    )
 
     rate_limit_auth_posts_per_minute: int = Field(
         default=120,

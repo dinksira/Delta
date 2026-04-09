@@ -1,12 +1,20 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useCallback, useId, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
 
 import { AUTH_FIELD_LABEL_CLASS } from "@/components/features/auth/authFormClasses";
 import { getAuthInputClassName } from "@/components/features/auth/authInputStyles";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const CELL_COUNT = 6;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type AuthOtpFieldProps = Readonly<{
   label: string;
   error?: boolean;
@@ -14,6 +22,9 @@ type AuthOtpFieldProps = Readonly<{
   name?: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthOtpField({ label, error, errorMessage, name = "otp" }: AuthOtpFieldProps) {
   const baseId = useId();
   const invalid = !!(error || errorMessage);
@@ -106,3 +117,4 @@ export function AuthOtpField({ label, error, errorMessage, name = "otp" }: AuthO
     </fieldset>
   );
 }
+/** ################################ /COMPONENT ############################# */

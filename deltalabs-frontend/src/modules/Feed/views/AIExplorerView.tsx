@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useState } from "react";
 import { ArrowRight, Check, Code2, Image as ImageIcon, MessageSquare, PenLine } from "lucide-react";
 
@@ -7,6 +9,9 @@ import { Button, Card, Select, Typography } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const categories = [
   "All Models",
   "LLMs",
@@ -56,6 +61,9 @@ const modelCards = [
   },
 ] as const;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function ModelGlyph({ kind }: Readonly<{ kind: (typeof modelCards)[number]["icon"] }>) {
   if (kind === "audio") {
     return (
@@ -96,6 +104,8 @@ function ModelGlyph({ kind }: Readonly<{ kind: (typeof modelCards)[number]["icon
 const hubScrollClass =
   "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain py-2 sm:py-3";
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** AI explorer — feed shell + right “Recent activity” rail on large screens. */
 export function AIExplorerView() {
   const [activeCategory, setActiveCategory] = useState<string>(categories[0]);
@@ -292,3 +302,4 @@ export function AIExplorerView() {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

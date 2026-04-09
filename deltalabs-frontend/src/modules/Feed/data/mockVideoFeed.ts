@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type LandingVideoClip = Readonly<{
   id: string;
   videoSrc: string;
@@ -5,7 +7,12 @@ export type LandingVideoClip = Readonly<{
   caption: string;
   hashtags: readonly string[];
   pdfLabel: string;
-  likeCount?: string;
+  likeCount?: number;
+  saveCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  likedByMe?: boolean;
+  savedByMe?: boolean;
 }>;
 
 /** Local mock feed videos. Replace with backend feed payload later. */
@@ -25,7 +32,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Lab notes: closed-loop stimulation protocols on organoid arrays.",
     hashtags: ["BioEng", "Research", "DeltaLabs"],
     pdfLabel: "View lab summary (PDF)",
-    likeCount: "38.2K",
+    likeCount: 38200,
   },
   {
     id: "c3",
@@ -34,7 +41,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Dataset walkthrough — multimodal sensing fusion for edge devices.",
     hashtags: ["EdgeAI", "Sensors", "DeltaLabs"],
     pdfLabel: "Download dataset card (PDF)",
-    likeCount: "51.1K",
+    likeCount: 51100,
   },
   {
     id: "c4",
@@ -43,7 +50,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Simulation run #482: failure modes in redundant actuator meshes.",
     hashtags: ["Simulation", "Robotics", "DeltaLabs"],
     pdfLabel: "Open simulation report (PDF)",
-    likeCount: "19.4K",
+    likeCount: 19400,
   },
   {
     id: "c5",
@@ -52,7 +59,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Short brief on ethics review for autonomous lab assistants.",
     hashtags: ["Policy", "AI", "DeltaLabs"],
     pdfLabel: "Read ethics brief (PDF)",
-    likeCount: "8.9K",
+    likeCount: 8900,
   },
   {
     id: "c6",
@@ -61,7 +68,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Field test highlights — low-latency streaming from remote sites.",
     hashtags: ["Streaming", "FieldTest", "DeltaLabs"],
     pdfLabel: "Field test appendix (PDF)",
-    likeCount: "27.8K",
+    likeCount: 27800,
   },
   {
     id: "c7",
@@ -70,7 +77,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "On-site model validation with instrumented mobile rigs.",
     hashtags: ["Validation", "MobileLab", "DeltaLabs"],
     pdfLabel: "Review validation notes (PDF)",
-    likeCount: "22.1K",
+    likeCount: 22100,
   },
   {
     id: "c8",
@@ -79,7 +86,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Prototype sprint: robust control loops in noisy environments.",
     hashtags: ["Control", "Prototype", "DeltaLabs"],
     pdfLabel: "Open sprint brief (PDF)",
-    likeCount: "31.3K",
+    likeCount: 31300,
   },
   {
     id: "c9",
@@ -88,7 +95,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Weekly recap from the autonomous systems research floor.",
     hashtags: ["Recap", "Autonomy", "DeltaLabs"],
     pdfLabel: "Read weekly recap (PDF)",
-    likeCount: "44.6K",
+    likeCount: 44600,
   },
   {
     id: "c10",
@@ -97,7 +104,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "High-intensity replay clip captured from field telemetry broadcast.",
     hashtags: ["Replay", "SportsAI", "DeltaLabs"],
     pdfLabel: "Open replay notes (PDF)",
-    likeCount: "63.4K",
+    likeCount: 63400,
   },
   {
     id: "c11",
@@ -106,7 +113,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Mountain path capture with stabilization benchmark annotations.",
     hashtags: ["Outdoors", "Stabilization", "DeltaLabs"],
     pdfLabel: "View benchmark notes (PDF)",
-    likeCount: "18.7K",
+    likeCount: 18700,
   },
   {
     id: "c12",
@@ -115,7 +122,7 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Classic highlight sequence used for motion model evaluation.",
     hashtags: ["Highlights", "Motion", "DeltaLabs"],
     pdfLabel: "Inspect model metrics (PDF)",
-    likeCount: "82.9K",
+    likeCount: 82900,
   },
   {
     id: "c13",
@@ -124,7 +131,8 @@ export const MOCK_VIDEO_FEED: readonly LandingVideoClip[] = [
     caption: "Creative vertical cut prepared for template quality checks.",
     hashtags: ["Template", "Creative", "DeltaLabs"],
     pdfLabel: "Review template report (PDF)",
-    likeCount: "24.5K",
+    likeCount: 24500,
   },
 ];
 
+/** ################################ /COMPONENT ############################# */

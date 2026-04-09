@@ -1,5 +1,10 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { SearchInput } from "@/components/theme/SearchInput";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type FeedSearchInputProps = Readonly<{
   id?: string;
   placeholder?: string;
@@ -9,6 +14,9 @@ type FeedSearchInputProps = Readonly<{
   onFilterToggle?: () => void;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function IconFilterFunnel({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
@@ -31,6 +39,8 @@ function IconFilterFunnel({ className }: Readonly<{ className?: string }>) {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** Feed hub: theme `SearchInput` plus optional filter funnel. */
 export function FeedSearchInput({
   id = "feed-search",
@@ -62,3 +72,4 @@ export function FeedSearchInput({
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

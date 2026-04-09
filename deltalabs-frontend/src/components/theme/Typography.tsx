@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Shared typography primitive for semantic text rendering. */
 import type { HTMLAttributes, ReactNode } from "react";
 
@@ -35,3 +37,4 @@ export function Typography({
     </Component>
   );
 }
+/** ################################ /COMPONENT ############################# */

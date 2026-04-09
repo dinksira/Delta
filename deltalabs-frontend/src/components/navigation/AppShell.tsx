@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
@@ -8,6 +10,8 @@ import { FeatureTabsProvider } from "@/contexts/FeatureTabs_Context";
 import { TopNav } from "@/components/navigation/TopNav";
 import { profileInitialsFromUser } from "@/lib/authDisplay";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ COMPONENT ############################# */
 /** Authenticated app chrome: top bar and main content region. */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
@@ -42,3 +46,4 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     </FeatureTabsProvider>
   );
 }
+/** ################################ /COMPONENT ############################# */

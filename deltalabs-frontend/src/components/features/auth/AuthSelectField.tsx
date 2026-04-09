@@ -1,5 +1,7 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { ChangeEvent, SelectHTMLAttributes } from "react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
@@ -8,6 +10,9 @@ import { getAuthInputClassName } from "@/components/features/auth/authInputStyle
 import { Field } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type Option = Readonly<{ value: string; label: string }>;
 
 type AuthSelectFieldProps = Readonly<{
@@ -20,6 +25,9 @@ type AuthSelectFieldProps = Readonly<{
   selectProps?: Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" | "className" | "children">;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
+/** Local subcomponents used by the main export. */
 function ChevronDownIcon({ className }: Readonly<{ className?: string }>) {
   return (
     <svg
@@ -41,6 +49,9 @@ function ChevronDownIcon({ className }: Readonly<{ className?: string }>) {
   );
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function AuthSelectField({
   id,
   label,
@@ -180,3 +191,4 @@ export function AuthSelectField({
     </Field>
   );
 }
+/** ################################ /COMPONENT ############################# */

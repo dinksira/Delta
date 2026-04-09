@@ -1,9 +1,15 @@
 "use client";
 
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { useIsMutating } from "@tanstack/react-query";
 
 import { authMutationKeys } from "@/modules/Auth/hooks/authMutationKeys";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
  * Non-blocking global indicator while auth mutations run (mock or real API).
  * Mount once under QueryClientProvider.
@@ -29,3 +35,4 @@ export function GlobalAuthPendingBar() {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

@@ -1,3 +1,5 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import {
   SocialIconApple,
   SocialIconFacebook,
@@ -5,10 +7,16 @@ import {
   SocialIconGoogle,
 } from "@/components/features/auth/SocialProviderGlyphs";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type SocialProvidersRowProps = Readonly<{
   mode: "signin" | "signup";
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ CONSTANTS ############################# */
+/** Shared constants used by this file. */
 const providers = [
   { key: "google", label: "Google", Icon: SocialIconGoogle, className: "" },
   { key: "apple", label: "Apple", Icon: SocialIconApple, className: "text-text-primary" },
@@ -16,6 +24,9 @@ const providers = [
   { key: "facebook", label: "Facebook", Icon: SocialIconFacebook, className: "" },
 ] as const;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function SocialProvidersRow({ mode }: SocialProvidersRowProps) {
   return (
     <div className="rounded-md border border-border-default bg-auth-modal-surface px-4 py-3.5">
@@ -34,3 +45,4 @@ export function SocialProvidersRow({ mode }: SocialProvidersRowProps) {
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

@@ -1,7 +1,13 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { SelectHTMLAttributes } from "react";
 
 import { cx } from "@/components/theme/utils";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
 /** Shared select primitive for Delta Labs UI. */
@@ -18,3 +24,4 @@ export function Select({ className, ...props }: Readonly<SelectProps>) {
     />
   );
 }
+/** ################################ /COMPONENT ############################# */

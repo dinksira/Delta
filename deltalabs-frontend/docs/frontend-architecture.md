@@ -5,7 +5,7 @@ This note complements `rule.md` with **where code lives** and **how state is spl
 ## Routing
 
 - **`src/app/(public)/`** — Marketing and auth entry (`/`, `/login`, `/signup`, `/terms`, `/privacy`). Uses `PublicLayoutShell` + `TopNav`.
-- **`src/app/(app)/`** — Signed-in shell (`AppShell`): `/dashboard`, `/features`, `/features/school` (School management workspace), `/enrolled-courses`.
+- **`src/app/(app)/`** — Signed-in shell (`AppShell`): `/dashboard`, `/features`, `/features/school` (School workspace: screens in `modules/School/views/`, composites in `components/features/school/`), `/enrolled-courses`.
 - **Middleware** (`src/middleware.ts`) — Cookie-based redirects for protected vs auth pages.
 
 Route files stay **thin**: they import a single view from `src/modules/<Module>/views/`.
@@ -19,13 +19,14 @@ Route files stay **thin**: they import a single view from `src/modules/<Module>/
 | **`Features`**  | Authenticated features hub (workspace grid + tabs). |
 | **`Dashboard`** | App dashboard placeholder until domain dashboards land. |
 | **`Feed`**    | Public **explorer** surface: video `LandingPageView`, module hub shells (`/audio`, `/ai`, `/simulation`, `/explore`) sharing `FeedExplorerShell` + `FeedSearchInput` / `FeedFilterPanel`; mock clip data; `useFeedClips` / `useFeedComments`. |
+| **`School`**  | School workspace under `/features/school`: **`views/`** compose **`components/features/school/`** (rail, shell, cards, tables — same pattern as `feed/`); `modules/School/types/` for route query guards. Future domain **features** (e.g. enrollment, roster) stay in `modules/School/` as `api/`, `hooks/`, etc. |
 
-Scaffold modules under `src/modules/*` (School, Course, …) follow the same layout when implemented.
+Other scaffold modules under `src/modules/*` (Course, …) follow the same layout as they are implemented.
 
 ## Cross-cutting UI
 
 - **`src/components/theme/`** — Design-system primitives (Button, Input, Typography, …).
-- **`src/components/features/`** — Shared composites (e.g. `feed/*`, `auth/*`) used by multiple modules.
+- **`src/components/features/`** — Shared composites (e.g. `feed/*`, `auth/*`, `school/*`) used by one or more modules.
 - **`src/components/navigation/`** — Shells, `TopNav`, `AppShell`.
 
 ## State

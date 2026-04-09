@@ -1,3 +1,5 @@
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 export type FeedActionItem = Readonly<{
   key: string;
   actionLabel: string;
@@ -13,9 +15,12 @@ export type FeedActionItem = Readonly<{
 type FeedActionRailProps = Readonly<{
   items: readonly FeedActionItem[];
   activeActionKey: string | null;
+  activeActionKeys?: readonly string[];
   onActionToggle: (key: string) => void;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ CONSTANTS ############################# */
 /** TikTok-like pill: faint disk on dark UI; on light canvas use a soft gray so it still reads. */
 const railPillClass =
   "bg-black/[0.08] hover:bg-black/[0.12] text-slate-900 dark:bg-white/[0.12] dark:hover:bg-white/[0.18] dark:text-white";
@@ -25,6 +30,8 @@ const railLabelBase =
 
 const railLabelClass = `${railLabelBase} text-slate-800 dark:text-white`;
 
+/** ################################ /CONSTANTS ############################# */
+/** ################################ SUBCOMPONENTS ############################# */
 /** Hollow diamond (top-right open) + dual chevrons; matches rail glyph weight (Like / Comment). */
 function IconGoToCourse() {
   return (
@@ -132,13 +139,15 @@ function RailGlyph({
   }
 }
 
+/** ################################ /SUBCOMPONENTS ############################# */
+/** ################################ COMPONENT ############################# */
 /** TikTok-style rail: soft translucent circles, white glyphs on dark / soft gray on light. */
-export function FeedActionRail({ items, activeActionKey, onActionToggle }: FeedActionRailProps) {
+export function FeedActionRail({ items, activeActionKey, activeActionKeys, onActionToggle }: FeedActionRailProps) {
   return (
     <aside className="flex shrink-0 flex-col items-center">
       <ul className="flex flex-col items-center gap-5">
         {items.map((item) => {
-          const active = activeActionKey === item.key;
+          const active = activeActionKeys ? activeActionKeys.includes(item.key) : activeActionKey === item.key;
           const isProfile = item.key === "profile";
           const profileInitials = item.profileInitials ?? "EV";
 
@@ -150,7 +159,7 @@ export function FeedActionRail({ items, activeActionKey, onActionToggle }: FeedA
                 aria-pressed={isProfile ? undefined : active}
                 onClick={() => onActionToggle(item.key)}
                 className={[
-                  "inline-flex h-[46px] w-[46px] items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-white/35 dark:focus-visible:ring-offset-slate-900",
+                  "inline-flex h-[46px] w-[46px] cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/15 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-white/35 dark:focus-visible:ring-offset-slate-900",
                   isProfile
                     ? `${railPillClass} ring-2 ring-black/10 ring-offset-0 dark:ring-white/25`
                     : railPillClass,
@@ -174,3 +183,4 @@ export function FeedActionRail({ items, activeActionKey, onActionToggle }: FeedA
     </aside>
   );
 }
+/** ################################ /COMPONENT ############################# */

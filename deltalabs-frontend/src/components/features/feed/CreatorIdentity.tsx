@@ -1,11 +1,19 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { Typography } from "@/components/theme";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ TYPES ############################# */
+/** Type definitions used in this file. */
 type CreatorIdentityProps = Readonly<{
   initials: string;
   name: string;
   handle: string;
 }>;
 
+/** ################################ /TYPES ############################# */
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export function CreatorIdentity({ initials, name, handle }: CreatorIdentityProps) {
   return (
     <div className="mb-2.5 flex items-center gap-2.5 sm:mb-3 sm:gap-3">
@@ -29,3 +37,4 @@ export function CreatorIdentity({ initials, name, handle }: CreatorIdentityProps
     </div>
   );
 }
+/** ################################ /COMPONENT ############################# */

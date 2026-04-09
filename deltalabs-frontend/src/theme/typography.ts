@@ -1,5 +1,11 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { designTokens } from "@/theme/designTokens";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export const typography = {
   heading: {
     h1: {
@@ -38,3 +44,4 @@ export const typography = {
     },
   },
 } as const;
+/** ################################ /COMPONENT ############################# */
