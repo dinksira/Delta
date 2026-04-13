@@ -9,11 +9,8 @@ import { Card, Typography } from "@/components/theme";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import { fetchFeaturesList } from "@/modules/Features/api";
+import { featuresQueryKeys } from "@/modules/Features/hooks/featuresQueryKeys";
 import {
-/** ################################ /IMPORT ############################# */
-
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
   CalendarDays,
   CalendarClock,
   Boxes,
@@ -24,6 +21,10 @@ import {
   GraduationCap,
 } from "lucide-react";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ CONSTANTS ############################# */
+/** Default feature catalog and icon map for the features hub grid. */
 const defaultFeatureCatalog = [
   {
     featureKey: "school",
@@ -110,13 +111,16 @@ const iconByFeatureKey = {
   specialization: GraduationCap,
 } as const;
 
+/** ################################ /CONSTANTS ############################# */
+
+/** ################################ COMPONENT ############################# */
 /** Authorized-only features screen: grid opens browser-style workspace tabs in the top nav. */
 export function FeaturesPageView() {
   const { isAuthenticated, isReady } = useAuthSession();
   const { openWorkspaceTab, openTabs } = useFeatureTabs();
   const searchParams = useSearchParams();
   const { data: featureData } = useQuery({
-    queryKey: ["features", "list"],
+    queryKey: featuresQueryKeys.list(),
     queryFn: fetchFeaturesList,
     enabled: isReady && isAuthenticated,
     staleTime: 60_000,
@@ -152,7 +156,7 @@ export function FeaturesPageView() {
   });
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8 pb-6 pt-8 sm:pt-10">
+    <div className="mx-auto flex w-full max-w-[var(--dl-layout-features-page-max)] flex-col gap-8 pb-6 pt-8 sm:pt-10">
       <section className="mx-auto max-w-3xl space-y-2 text-center">
         <Typography as="h1" className="text-5xl font-semibold leading-[1.06] tracking-[-0.02em] text-primary-600 sm:text-6xl">
           Learn. Build. Experiment.
@@ -179,9 +183,9 @@ export function FeaturesPageView() {
       ) : null}
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card, index) => (
+        {cards.map((card) => (
           <Card
-            key={"id" in card ? card.id : `${card.title}-${index}`}
+            key={card.id}
             role="button"
             tabIndex={0}
             aria-label={card.linkLabel}

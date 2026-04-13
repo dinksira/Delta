@@ -76,6 +76,7 @@ class FeedCommentPublic(BaseModel):
 
     id: str
     user_id: str = Field(serialization_alias="userId")
+    user_name: str = Field(serialization_alias="userName")
     body: str
     created_at: str = Field(serialization_alias="createdAt")
 

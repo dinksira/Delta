@@ -31,7 +31,14 @@ export function FeedLoadingState() {
       >
         <span className="sr-only">Loading videos</span>
         <div className="mx-auto flex w-full max-w-full flex-row items-end justify-center gap-1 px-1 sm:gap-1.5 sm:px-0">
-          <div className="min-w-0 flex-1 basis-0 max-w-[380px] sm:w-[420px] sm:max-w-[420px] sm:flex-none sm:shrink-0 sm:basis-auto">
+          <div
+            className="shrink-0"
+            style={{
+              width:
+                "clamp(var(--dl-layout-feed-video-width-min), var(--dl-layout-feed-video-width-preferred), var(--dl-layout-feed-video-width-max))",
+              maxWidth: "calc(100vw - var(--dl-layout-feed-video-vw-inset))",
+            }}
+          >
             <FeedCard>
               <div className={feedLoadingCardOverlayClass} aria-hidden />
             </FeedCard>

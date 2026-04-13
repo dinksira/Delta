@@ -3,8 +3,9 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { useEffect } from "react";
+import { useRef } from "react";
 import { useState } from "react";
-import { Heart, Send, X } from "lucide-react";
+import { Send, X } from "lucide-react";
 
 import { Button, Textarea, Typography } from "@/components/theme";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
@@ -29,7 +30,6 @@ type FeedCommentPreview = Readonly<{
   name: string;
   text: string;
   time: string;
-  likes: string;
 }>;
 
 /** ################################ /TYPES ############################# */
@@ -42,10 +42,12 @@ export function FeedCommentPanel({
   onCommentCreated,
   onClose,
 }: FeedCommentPanelProps) {
+  const COMMENT_INPUT_MAX_HEIGHT_PX = 144;
   const queryClient = useQueryClient();
   const { data: comments } = useFeedComments(clip.id);
   const { mutateAsync: submitComment, isPending: isSubmitting } = useFeedCommentMutation();
   const [draft, setDraft] = useState("");
+  const commentInputRef = useRef<HTMLTextAreaElement | null>(null);
   const commentList = (comments ?? []) as readonly FeedCommentPreview[];
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -54,6 +56,15 @@ export function FeedCommentPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    const node = commentInputRef.current;
+    if (!node) return;
+    node.style.height = "auto";
+    const nextHeight = Math.min(node.scrollHeight, COMMENT_INPUT_MAX_HEIGHT_PX);
+    node.style.height = `${nextHeight}px`;
+    node.style.overflowY = node.scrollHeight > COMMENT_INPUT_MAX_HEIGHT_PX ? "auto" : "hidden";
+  }, [draft]);
 
   const handleSend = async () => {
     const body = draft.trim();
@@ -65,7 +76,6 @@ export function FeedCommentPanel({
       name: "You",
       text: body,
       time: "now",
-      likes: "0",
     };
     const previousComments = queryClient.getQueryData<readonly FeedCommentPreview[]>(
       feedQueryKeys.comments(clip.id),
@@ -138,18 +148,6 @@ export function FeedCommentPanel({
                 <Typography as="p" variant="body" className="mt-0.5 text-sm text-text-primary">
                   {c.text}
                 </Typography>
-                <div className="mt-1 flex items-center gap-3">
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-text-secondary hover:text-text-primary"
-                  >
-                    Reply
-                  </button>
-                  <span className="inline-flex items-center gap-1 text-xs text-text-secondary">
-                    <Heart className="size-3.5" aria-hidden />
-                    {c.likes}
-                  </span>
-                </div>
               </div>
             </li>
           ))}
@@ -164,10 +162,12 @@ export function FeedCommentPanel({
             </label>
             <div className="flex items-end gap-2">
               <Textarea
+                ref={commentInputRef}
                 id={`feed-comment-draft-${clip.id}`}
                 rows={1}
                 placeholder="Add comment…"
                 className="min-h-10 min-w-0 flex-1 resize-none rounded-xl bg-surface-muted"
+                style={{ maxHeight: `${COMMENT_INPUT_MAX_HEIGHT_PX}px` }}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
               />

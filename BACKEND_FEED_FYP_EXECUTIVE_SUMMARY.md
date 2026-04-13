@@ -27,6 +27,10 @@ Build a feed system that works well today with low content volume and scales int
   - hashtag affinity
   - engagement history
   - event boosts/penalties
+- Cold-start order for logged-in users is deterministic per user/page:
+  - seed text: `user_id + cursor_token`
+  - SHA-256 based seeded shuffle
+  - different users usually start from different first videos
 - Hidden and watched items are filtered where possible
 - Safe fallback ensures feed still shows videos when inventory is small
 

@@ -168,14 +168,18 @@ class Service:
         """Read latest feed comments for an item."""
         await self._repository.assert_public_content(content_id)
         rows = await self._repository.list_comments(content_id=content_id, limit=limit)
+        user_ids = [str(row.get("user_id", "")).strip() for row in rows]
+        display_name_by_user_id = await self._repository.list_user_display_names(user_ids)
         items: list[FeedCommentPublic] = []
         for row in rows:
             created_at = row.get("created_at")
             created_at_iso = created_at.isoformat() if hasattr(created_at, "isoformat") else ""
+            user_id = str(row.get("user_id", ""))
             items.append(
                 FeedCommentPublic(
                     id=str(row.get("_id", "")),
-                    user_id=str(row.get("user_id", "")),
+                    user_id=user_id,
+                    user_name=display_name_by_user_id.get(user_id, "User"),
                     body=str(row.get("body", "")),
                     created_at=created_at_iso,
                 )

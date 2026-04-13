@@ -8,4 +8,5 @@ export { SchoolStatStrip } from "@/components/features/school/master/SchoolStatS
 export { SchoolIconRail } from "@/components/features/school/layout/SchoolIconRail";
 export { SchoolManagementShell } from "@/components/features/school/layout/SchoolManagementShell";
 export { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
+/** Main exported component logic for this file. */
 /** ################################ /COMPONENT ############################# */

@@ -132,6 +132,23 @@ This produces user-specific ordering while preserving stable pagination behavior
 
 This is essential for current low-volume public feed.
 
+### Deterministic cold-start shuffle algorithm (exact)
+
+When a logged-in user has sparse/no personalization signals, backend uses a deterministic per-user shuffle:
+
+1. Build seed text: `"{user_id}:{cursor_token or 'first'}"`
+2. Compute SHA-256 hash of that seed text
+3. Take first 16 hex chars, convert to integer seed
+4. Initialize RNG with that seed
+5. Shuffle the candidate docs with that seeded RNG
+
+Implementation behavior:
+- Same user + same cursor page => same order (stable pagination UX)
+- Different user => different seed => different starting order
+- Next cursor page changes seed input, so ordering remains deterministic per page
+
+This is implemented in content service method `_stable_user_shuffle(...)`.
+
 ---
 
 ## Frontend Runtime Behavior

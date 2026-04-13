@@ -53,7 +53,7 @@ export function SchoolIconRail() {
 
   return (
     <nav
-      className="-ml-[6px] flex min-h-0 w-[4.5rem] shrink-0 flex-col items-center justify-center gap-3 self-stretch bg-surface-canvas"
+      className="-ml-[var(--dl-layout-school-icon-rail-overlap)] flex min-h-0 w-[var(--dl-layout-school-icon-rail-width)] shrink-0 flex-col items-center justify-center gap-3 self-stretch bg-surface-canvas"
       aria-label="School sections"
     >
       {items.map(({ href, label, tooltip, icon: Icon, match }) => {

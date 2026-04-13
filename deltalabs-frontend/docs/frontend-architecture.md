@@ -29,6 +29,11 @@ Other scaffold modules under `src/modules/*` (Course, …) follow the same layou
 - **`src/components/features/`** — Shared composites (e.g. `feed/*`, `auth/*`, `school/*`) used by one or more modules.
 - **`src/components/navigation/`** — Shells, `TopNav`, `AppShell`.
 
+## Responsiveness (mobile-first + layout tokens)
+
+- **Order:** tokens → theme → features → shells → module views (see `docs/frontend-responsiveness-standard.md`).
+- **Layout constants** (`--dl-layout-*`) live in `src/styles/design-tokens.css`; reuse them instead of copying pixel/rem values into multiple components.
+
 ## State
 
 | Concern              | Tool |
