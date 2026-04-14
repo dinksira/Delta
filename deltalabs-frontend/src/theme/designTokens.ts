@@ -131,6 +131,21 @@ export interface DesignTokens {
     modal: number;
     toast: number;
   };
+  /** CSS custom properties in `styles/design-tokens.css` — use for inline styles or docs; prefer tokens in CSS. */
+  layout: {
+    shellRailMin: string;
+    shellRailMax: string;
+    shellRailAsideCap: string;
+    schoolIconRailWidth: string;
+    schoolIconRailOverlap: string;
+    featuresPageMax: string;
+    feedCommentSheetMax: string;
+    feedVideoWidthMin: string;
+    feedVideoWidthMax: string;
+    feedVideoVhTrim: string;
+    feedVideoWidthPreferred: string;
+    feedVideoVwInset: string;
+  };
 }
 
 export const designTokens: Readonly<DesignTokens> = {
@@ -272,6 +287,20 @@ export const designTokens: Readonly<DesignTokens> = {
     overlay: 1200,
     modal: 1300,
     toast: 1400,
+  },
+  layout: {
+    shellRailMin: "var(--dl-layout-shell-rail-min)",
+    shellRailMax: "var(--dl-layout-shell-rail-max)",
+    shellRailAsideCap: "var(--dl-layout-shell-rail-aside-cap)",
+    schoolIconRailWidth: "var(--dl-layout-school-icon-rail-width)",
+    schoolIconRailOverlap: "var(--dl-layout-school-icon-rail-overlap)",
+    featuresPageMax: "var(--dl-layout-features-page-max)",
+    feedCommentSheetMax: "var(--dl-layout-feed-comment-sheet-max)",
+    feedVideoWidthMin: "var(--dl-layout-feed-video-width-min)",
+    feedVideoWidthMax: "var(--dl-layout-feed-video-width-max)",
+    feedVideoVhTrim: "var(--dl-layout-feed-video-vh-trim)",
+    feedVideoWidthPreferred: "var(--dl-layout-feed-video-width-preferred)",
+    feedVideoVwInset: "var(--dl-layout-feed-video-vw-inset)",
   },
 } as const;
 /** ################################ /COMPONENT ############################# */

@@ -142,7 +142,7 @@ export function FeedSnapScrollControls({
     "disabled:pointer-events-none disabled:opacity-[0.38]";
 
   const positionClasses = commentSidebarOpen
-    ? "left-auto right-[calc(min(100vw,28rem)+0.75rem)] translate-x-0"
+    ? "left-auto right-[calc(min(100vw,var(--dl-layout-feed-comment-sheet-max))+0.75rem)] translate-x-0"
     : "left-auto right-3 translate-x-0";
 
   return (

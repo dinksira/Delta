@@ -109,6 +109,29 @@
   --dl-feed-action-rail-bg: var(--dl-color-surface-muted);
   --dl-feed-action-icon-default: var(--dl-color-text-secondary);
   --dl-feed-action-icon-active: var(--dl-color-primary-600);
+
+  /**
+   * layout.* — shared shell dimensions for mobile-first responsive UIs.
+   * Change here once; reference in Tailwind via arbitrary values, e.g. max-w-[var(--dl-layout-shell-rail-aside-cap)].
+   */
+  --dl-layout-shell-rail-min: 14rem;
+  --dl-layout-shell-rail-max: 18rem;
+  /** Sticky feed/shell side column cap (search rail, right aside, nav brand/utility zones at lg+). */
+  --dl-layout-shell-rail-aside-cap: 280px;
+  /** School workspace icon rail (fixed width; collapse behavior is shell-owned). */
+  --dl-layout-school-icon-rail-width: 4.5rem;
+  /** Optical overlap with adjacent content (tokenized instead of ad-hoc -ml-[6px]). */
+  --dl-layout-school-icon-rail-overlap: 6px;
+  /** Authenticated features hub max content width (1440px). */
+  --dl-layout-features-page-max: 90rem;
+  /** Feed comment sheet max width (aligns with Tailwind max-w-md / comment panel). */
+  --dl-layout-feed-comment-sheet-max: 28rem;
+  /** Landing / feed portrait frame (9:16 width from viewport height); keep in sync with docs + loading state. */
+  --dl-layout-feed-video-width-min: 340px;
+  --dl-layout-feed-video-width-max: 520px;
+  --dl-layout-feed-video-vh-trim: 6rem;
+  --dl-layout-feed-video-width-preferred: calc((100dvh - var(--dl-layout-feed-video-vh-trim)) * 0.5625);
+  --dl-layout-feed-video-vw-inset: 9.5rem;
 }
 
 .dark {

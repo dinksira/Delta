@@ -4,11 +4,12 @@ title: Delta Labs Frontend Standards
 
 # Delta Labs Frontend Standards (Next.js + TypeScript)
 
-> **Version**: 1.1.0  
+> **Version**: 1.2.0  
 > **Status**: Official — All frontend code MUST follow this document  
 > **Scope**: Next.js App Router, TypeScript, Tailwind, design system  
 
-> **Companion:** `docs/frontend-architecture.md` — concrete module map, routing groups, and state split (React Query vs Redux vs Context). Keep it in sync when structure changes.
+> **Companion:** `docs/frontend-architecture.md` — concrete module map, routing groups, and state split (React Query vs Redux vs Context). Keep it in sync when structure changes.  
+> **Responsiveness Standard:** `docs/frontend-responsiveness-standard.md` — canonical breakpoints, zoom-resilient layout rules, and mandatory feed/landing sizing guidance.
 
 ---
 
@@ -106,7 +107,8 @@ src/
     └── config.ts
 
 docs/
-└── frontend-architecture.md    # Module ownership + state conventions (non-normative detail)
+├── frontend-architecture.md           # Module ownership + state conventions (non-normative detail)
+└── frontend-responsiveness-standard.md # Breakpoints, mobile-first order, layout tokens, feed frame rules
 ```
 
 ---
@@ -255,6 +257,13 @@ Example:
 className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg shadow-sm hover:bg-primary-700 transition-colors duration-200"
 ```
 
+### 4.3.1 Mobile-first responsiveness (required)
+
+- **Base layout is the smallest target** (≈390px effective width): unprefixed Tailwind classes define that baseline; `sm:` / `md:` / `lg:` only add what larger breakpoints need.
+- **Implementation order** (same for every feature): design tokens (including **layout** tokens) → `components/theme` primitives → `components/features` composites → navigation/layout shells → module `views/` and thin route pages. Full normative detail: `docs/frontend-responsiveness-standard.md`.
+- **Shared layout numbers** (shell rail caps, feed frame `clamp`, comment sheet width, school icon rail) MUST use `--dl-layout-*` in `styles/design-tokens.css`, referenced from class names or inline styles — not duplicated literals across files.
+- **Fluid before breakpoint:** prefer `clamp()`, `min()`, and `calc(100vw - …)` for zoom-sensitive surfaces; add breakpoints only when the layout structure must change.
+
 ### 4.4 Design Tokens
 
 All tokens live in `theme/designTokens.ts` and `styles/design-tokens.css`. They define:
@@ -263,6 +272,7 @@ All tokens live in `theme/designTokens.ts` and `styles/design-tokens.css`. They 
 - Typography tokens (fonts and sizes).
 - Spacing scale.
 - Z-index map.
+- **Layout tokens** (`--dl-layout-*` in CSS; `designTokens.layout` in TypeScript) for shared shell and feed dimensions.
 
 **Rule:** When design needs to change, update tokens and shared theme primitives first.
 

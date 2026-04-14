@@ -136,6 +136,36 @@ class Repository:
             .to_list(length=limit)
         )
 
+    async def list_user_display_names(self, user_ids: list[str]) -> dict[str, str]:
+        """Resolve display names for user ids referenced by engagement rows."""
+        cleaned_ids = [user_id.strip() for user_id in user_ids if user_id and user_id.strip()]
+        if not cleaned_ids:
+            return {}
+        docs = await (
+            self._db["users"]
+            .find(
+                {"_id": {"$in": cleaned_ids}},
+                {"_id": 1, "username": 1, "email": 1, "phone_e164": 1},
+            )
+            .to_list(length=len(cleaned_ids))
+        )
+        names: dict[str, str] = {}
+        for doc in docs:
+            uid = str(doc.get("_id", "")).strip()
+            if not uid:
+                continue
+            username = str(doc.get("username", "")).strip()
+            if username:
+                names[uid] = username
+                continue
+            email = str(doc.get("email", "")).strip()
+            if email and "@" in email:
+                names[uid] = email.split("@", 1)[0]
+                continue
+            phone = str(doc.get("phone_e164", "")).strip()
+            names[uid] = phone or "User"
+        return names
+
     async def add_share(self, *, content_id: str, user_id: str) -> int:
         """Record a share event; return total share count for item."""
         now = datetime.now(UTC)

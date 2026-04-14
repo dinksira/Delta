@@ -54,11 +54,11 @@ export function FeedExplorerShell({
         className={cx(
           "grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden sm:gap-4 lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-4",
           twoColumnMain
-            ? "lg:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)]"
-            : "lg:grid-cols-[minmax(14rem,18rem)_auto_minmax(14rem,18rem)]",
+            ? "lg:grid-cols-[minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))_minmax(0,1fr)]"
+            : "lg:grid-cols-[minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))_auto_minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))]",
         )}
       >
-        <aside className="w-full max-w-none justify-self-stretch pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:w-full lg:max-w-[280px] lg:self-start">
+        <aside className="w-full max-w-none justify-self-stretch pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:self-start">
           <FeedSearchInput
             id={searchInputId}
             filterControlsId={filterPanelId}
@@ -84,8 +84,8 @@ export function FeedExplorerShell({
           <div
             className={
               rightAside
-                ? "hidden min-w-0 pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:block lg:w-full lg:max-w-[280px] lg:justify-self-end lg:self-start"
-                : "hidden min-w-0 lg:block lg:w-full lg:max-w-[280px] lg:justify-self-end"
+                ? "hidden min-w-0 pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:block lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:justify-self-end lg:self-start"
+                : "hidden min-w-0 lg:block lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:justify-self-end"
             }
             {...(rightAside ? {} : { "aria-hidden": true as const })}
           >

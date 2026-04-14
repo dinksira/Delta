@@ -198,7 +198,14 @@ function LandingClipSlide({
       data-clip-id={clip.id}
     >
       <div className="mx-auto flex w-full max-w-full flex-row items-end justify-center gap-1 px-1 sm:gap-1.5 sm:px-0">
-        <div className="min-w-0 flex-1 basis-0 max-w-[380px] sm:w-[420px] sm:max-w-[420px] sm:flex-none sm:shrink-0 sm:basis-auto">
+        <div
+          className="shrink-0"
+          style={{
+            width:
+              "clamp(var(--dl-layout-feed-video-width-min), var(--dl-layout-feed-video-width-preferred), var(--dl-layout-feed-video-width-max))",
+            maxWidth: "calc(100vw - var(--dl-layout-feed-video-vw-inset))",
+          }}
+        >
           <FeedViewport
             clipId={clip.id}
             mediaTone={clip.mediaTone}
@@ -730,7 +737,7 @@ function LandingCommentSidebarPortal({
 
   return createPortal(
     <aside
-      className="fixed right-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-full max-w-md min-w-0 flex-col border-l border-border-default bg-surface-default shadow-sm"
+      className="fixed right-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-full max-w-[var(--dl-layout-feed-comment-sheet-max)] min-w-0 flex-col border-l border-border-default bg-surface-default shadow-sm"
       aria-label="Comments"
     >
       <FeedCommentPanel

@@ -39,6 +39,7 @@ export type FeedShareResponseDto = Readonly<{
 export type FeedCommentDto = Readonly<{
   id: string;
   userId: string;
+  userName: string;
   body: string;
   createdAt: string;
 }>;
@@ -205,6 +206,7 @@ export async function postFeedComment(
     const created: FeedCommentDto = {
       id: `${itemId}-comment-${Date.now()}`,
       userId: "Debug User",
+      userName: "Debug User",
       body: payload.body,
       createdAt: new Date().toISOString(),
     };

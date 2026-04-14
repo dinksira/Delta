@@ -1,8 +1,12 @@
+"use client";
+
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { useQuery } from "@tanstack/react-query";
 
 import { SchoolBodySearch } from "@/components/features/school/SchoolBodySearch";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { SchoolEntityCard } from "@/components/features/school/master/SchoolEntityCard";
 import { SchoolStatStrip } from "@/components/features/school/master/SchoolStatStrip";
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
@@ -12,15 +16,21 @@ import { fetchMyOrgs, fetchSchoolModuleStatus } from "@/modules/School/api";
 /** ################################ COMPONENT ############################# */
 /** My School — overview, stats, search, and school cards (design shell). */
 export function SchoolHomeView() {
+  const { isAuthenticated, isReady } = useAuthSession();
+  const queriesEnabled = isReady && isAuthenticated;
   const { data: orgData } = useQuery({
-    queryKey: ["orgs", "me"],
+    queryKey: schoolQueryKeys.orgsMe(),
     queryFn: fetchMyOrgs,
+    enabled: queriesEnabled,
     staleTime: 60_000,
+    retry: false,
   });
   const { data: schoolStatus } = useQuery({
-    queryKey: ["school", "module-status"],
+    queryKey: schoolQueryKeys.moduleStatus(),
     queryFn: fetchSchoolModuleStatus,
+    enabled: queriesEnabled,
     staleTime: 60_000,
+    retry: false,
   });
   const orgItems = orgData?.items ?? [];
 

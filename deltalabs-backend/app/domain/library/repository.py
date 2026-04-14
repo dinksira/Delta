@@ -7,9 +7,17 @@ from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING
+from pymongo.errors import DuplicateKeyError
 
+from app.core.exceptions import ConflictError
 from app.domain.authorization.schemas import AuthorizationAccessProfile
-from app.domain.library.schemas import FeatureCapabilities, FeaturePublic
+from app.domain.library.schemas import (
+    FeatureCapabilities,
+    FeatureCreateInput,
+    FeaturePublic,
+    FeatureSeedResponse,
+    FeatureUpdateInput,
+)
 
 
 class Repository:
@@ -52,12 +60,108 @@ class Repository:
             {"feature_key": feature_key, "enabled": True},
         )
 
-    async def insert_demo_catalog_if_empty(self) -> None:
-        """Seed demo rows for local development when collection is empty."""
-        if await self._db["feature_catalog"].count_documents({}) > 0:
-            return
+    async def find_feature_any_state(self, feature_key: str) -> dict[str, Any] | None:
+        """Load one feature by stable key regardless of enabled state."""
+        return await self._db["feature_catalog"].find_one({"feature_key": feature_key})
+
+    async def create_feature(self, payload: FeatureCreateInput) -> dict[str, Any]:
+        """Insert a new feature; raises ConflictError if key already exists."""
         now = datetime.now(UTC)
-        demos: list[dict[str, Any]] = [
+        feature_key = payload.feature_key.strip().lower()
+        doc: dict[str, Any] = {
+            "_id": f"feat_{feature_key}",
+            "feature_key": feature_key,
+            "title": payload.title.strip(),
+            "description": payload.description.strip(),
+            "enabled": payload.enabled,
+            "beta": payload.beta,
+            "sort_order": payload.sort_order,
+            "route_path": payload.route_path,
+            "capability_requirements": payload.capability_requirements.model_dump(),
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            await self._db["feature_catalog"].insert_one(doc)
+        except DuplicateKeyError as exc:
+            raise ConflictError(
+                "Feature key already exists.",
+                code="feature_key_conflict",
+                details={"featureKey": feature_key},
+            ) from exc
+        inserted = await self.find_feature_any_state(feature_key)
+        assert inserted is not None
+        return inserted
+
+    async def update_feature(
+        self,
+        feature_key: str,
+        payload: FeatureUpdateInput,
+    ) -> dict[str, Any] | None:
+        """Partially update an existing feature by key."""
+        updates: dict[str, Any] = {"updated_at": datetime.now(UTC)}
+        if payload.title is not None:
+            updates["title"] = payload.title.strip()
+        if payload.description is not None:
+            updates["description"] = payload.description.strip()
+        if payload.enabled is not None:
+            updates["enabled"] = payload.enabled
+        if payload.beta is not None:
+            updates["beta"] = payload.beta
+        if payload.sort_order is not None:
+            updates["sort_order"] = payload.sort_order
+        if payload.route_path is not None:
+            updates["route_path"] = payload.route_path
+        if payload.capability_requirements is not None:
+            updates["capability_requirements"] = payload.capability_requirements.model_dump()
+        await self._db["feature_catalog"].update_one(
+            {"feature_key": feature_key},
+            {"$set": updates},
+        )
+        return await self.find_feature_any_state(feature_key)
+
+    async def delete_feature(self, feature_key: str) -> bool:
+        """Delete a feature by key."""
+        result = await self._db["feature_catalog"].delete_one({"feature_key": feature_key})
+        return result.deleted_count > 0
+
+    async def insert_demo_catalog_if_empty(self) -> FeatureSeedResponse:
+        """Seed default feature catalog rows only when the collection is empty."""
+        existing_docs = await self._db["feature_catalog"].count_documents({}, limit=1)
+        if existing_docs > 0:
+            demos = self._default_demo_catalog()
+            return FeatureSeedResponse(
+                inserted_count=0,
+                existing_count=len(demos),
+                total_defaults=len(demos),
+            )
+        return await self.upsert_demo_catalog()
+
+    async def upsert_demo_catalog(self) -> FeatureSeedResponse:
+        """Upsert default feature catalog rows; preserve existing feature records."""
+        demos = self._default_demo_catalog()
+        inserted_count = 0
+        existing_count = 0
+        for doc in demos:
+            result = await self._db["feature_catalog"].update_one(
+                {"feature_key": doc["feature_key"]},
+                {"$setOnInsert": doc},
+                upsert=True,
+            )
+            if result.upserted_id is not None:
+                inserted_count += 1
+            else:
+                existing_count += 1
+        return FeatureSeedResponse(
+            inserted_count=inserted_count,
+            existing_count=existing_count,
+            total_defaults=len(demos),
+        )
+
+    def _default_demo_catalog(self) -> list[dict[str, Any]]:
+        """Build default local feature catalog rows."""
+        now = datetime.now(UTC)
+        return [
             {
                 "_id": "feat_school",
                 "feature_key": "school",
@@ -95,25 +199,150 @@ class Repository:
                 "updated_at": now,
             },
             {
-                "_id": "feat_feed",
-                "feature_key": "feed",
-                "title": "Feed",
-                "description": "Public discovery and content stream.",
+                "_id": "feat_competitions",
+                "feature_key": "competitions",
+                "title": "Online Competition",
+                "description": "Host and join practical competitions with measurable outcomes.",
                 "enabled": True,
                 "beta": False,
-                "sort_order": 5,
-                "route_path": "/explore",
+                "sort_order": 30,
+                "route_path": "/features/competitions",
                 "capability_requirements": {
                     "view": ["content:read"],
-                    "join": [],
+                    "join": ["community:write"],
+                    "create": ["community:manage"],
+                    "manage": ["community:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_tutorials",
+                "feature_key": "tutorials",
+                "title": "Tutorial",
+                "description": "Guided tutorials and structured practice paths.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 40,
+                "route_path": "/features/tutorials",
+                "capability_requirements": {
+                    "view": ["content:read"],
+                    "join": ["course:learn"],
+                    "create": ["course:teach"],
+                    "manage": ["course:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_research",
+                "feature_key": "research",
+                "title": "R&D",
+                "description": "Collaborative research workspace and experiment tracking.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 50,
+                "route_path": "/features/research",
+                "capability_requirements": {
+                    "view": ["content:read"],
+                    "join": ["community:write"],
+                    "create": ["community:manage"],
+                    "manage": ["community:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_rent_lab",
+                "feature_key": "rent_lab",
+                "title": "Laboratory",
+                "description": "Laboratory usage, booking, and operational coordination.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 60,
+                "route_path": "/features/rent-lab",
+                "capability_requirements": {
+                    "view": ["lab:read"],
+                    "join": ["lab:bookings:create"],
+                    "create": ["lab:manage"],
+                    "manage": ["lab:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_certification",
+                "feature_key": "certification",
+                "title": "Certification",
+                "description": "Issue, track, and verify learning certifications.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 70,
+                "route_path": "/features/certification",
+                "capability_requirements": {
+                    "view": ["content:read"],
+                    "join": ["course:learn"],
+                    "create": ["course:teach"],
+                    "manage": ["course:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_chatroom",
+                "feature_key": "chatroom",
+                "title": "Chatroom",
+                "description": "Real-time group conversations and classroom communication.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 80,
+                "route_path": "/features/chatroom",
+                "capability_requirements": {
+                    "view": ["community:write"],
+                    "join": ["community:write"],
+                    "create": ["community:write"],
+                    "manage": ["community:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_planner",
+                "feature_key": "planner",
+                "title": "Planner",
+                "description": "Plan tasks, schedules, and academic milestones.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 90,
+                "route_path": "/features/planner",
+                "capability_requirements": {
+                    "view": ["content:read"],
+                    "join": ["content:read"],
                     "create": ["content:write"],
-                    "manage": ["content:write"],
+                    "manage": ["org:manage"],
+                },
+                "created_at": now,
+                "updated_at": now,
+            },
+            {
+                "_id": "feat_specialization",
+                "feature_key": "specialization",
+                "title": "Specialization",
+                "description": "Advanced specialization tracks for focused learning.",
+                "enabled": True,
+                "beta": False,
+                "sort_order": 100,
+                "route_path": "/features/specialization",
+                "capability_requirements": {
+                    "view": ["course:learn", "course:teach", "course:manage"],
+                    "join": ["course:learn"],
+                    "create": ["course:teach"],
+                    "manage": ["course:manage"],
                 },
                 "created_at": now,
                 "updated_at": now,
             },
         ]
-        await self._db["feature_catalog"].insert_many(demos)
 
     @staticmethod
     def doc_to_feature(

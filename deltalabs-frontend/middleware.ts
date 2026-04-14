@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { buildLoginModalRedirectHref } from "@/lib/authRedirect";
 import { AUTH_SESSION_COOKIE, isAuthenticatedFromCookieValue } from "@/lib/authSession";
 
 const PROTECTED_PATHS = ["/features", "/dashboard", "/enrolled-courses"] as const;
@@ -21,8 +22,7 @@ export function middleware(request: NextRequest): NextResponse {
   );
 
   if (isProtectedPath(pathname) && !isAuthenticated) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
+    const loginUrl = new URL(buildLoginModalRedirectHref(pathname), request.url);
     return NextResponse.redirect(loginUrl);
   }
 

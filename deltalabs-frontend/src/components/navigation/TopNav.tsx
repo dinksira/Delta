@@ -126,12 +126,12 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
         className={[
           "h-16 w-full items-center px-2 md:px-3",
           showFeatureBrowserTabs
-            ? "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 md:gap-5 lg:grid-cols-[auto_minmax(0,1fr)_minmax(14rem,18rem)] lg:gap-6"
+            ? "grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 md:gap-5 lg:grid-cols-[auto_minmax(0,1fr)_minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))] lg:gap-6"
             : [
                 /* <sm: category tabs hidden — flex avoids an empty 1fr “dead” column */
                 "flex justify-between gap-2 md:gap-4",
                 "sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:gap-2 md:gap-4",
-                "lg:grid-cols-[minmax(14rem,18rem)_minmax(0,1fr)_minmax(14rem,18rem)] lg:gap-4",
+                "lg:grid-cols-[minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))_minmax(0,1fr)_minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))] lg:gap-4",
               ].join(" "),
         ].join(" ")}
       >
@@ -139,7 +139,7 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
           href="/"
           className={[
             "flex min-w-0 shrink-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-            showFeatureBrowserTabs ? "" : "lg:w-full lg:max-w-[280px] lg:justify-self-start",
+            showFeatureBrowserTabs ? "" : "lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:justify-self-start",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -166,7 +166,7 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
           <TopNavCategoryTabs items={landingTabs} />
         )}
 
-        <div className="flex min-w-0 shrink-0 items-center lg:w-full lg:max-w-[280px] lg:justify-self-end lg:justify-end">
+        <div className="flex min-w-0 shrink-0 items-center lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:justify-self-end lg:justify-end">
           {showRightPlaceholder ? (
             <TopNavRightPlaceholder wide={showFeatureBrowserTabs} />
           ) : showAuthActions ? (

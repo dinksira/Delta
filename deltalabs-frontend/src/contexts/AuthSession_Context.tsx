@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { setApiAccessTokenGetter } from "@/lib/apiClient";
+import { AUTH_SESSION_COOKIE } from "@/lib/authSession";
 import type { AuthSessionPayload } from "@/modules/Auth/types/auth";
 
 const SESSION_KEY = "dl.auth.session.v1";
@@ -53,6 +54,21 @@ function readStoredSession(): AuthSessionPayload | null {
   }
 }
 
+function syncSessionCookie(session: AuthSessionPayload | null): void {
+  if (typeof document === "undefined") return;
+  if (!session) {
+    document.cookie = `${AUTH_SESSION_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`;
+    return;
+  }
+  const maxAgeSeconds = Math.max(0, Math.floor((session.expiresAt - Date.now()) / 1000));
+  if (maxAgeSeconds <= 0) {
+    document.cookie = `${AUTH_SESSION_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`;
+    return;
+  }
+  // Cookie value is only an auth presence marker for middleware checks.
+  document.cookie = `${AUTH_SESSION_COOKIE}=1; Max-Age=${maxAgeSeconds}; path=/; SameSite=Lax`;
+}
+
 export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [session, setSession] = useState<AuthSessionPayload | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -67,8 +83,9 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
     setIsReady(true);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setApiAccessTokenGetter(session ? () => session.accessToken : undefined);
+    syncSessionCookie(session);
   }, [session]);
 
   const establishSession = useCallback((next: AuthSessionPayload) => {
@@ -78,6 +95,7 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
     } catch {
       /* storage full / private mode */
     }
+    syncSessionCookie(next);
   }, []);
 
   const clearSession = useCallback(() => {
@@ -87,6 +105,7 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
     } catch {
       /* ignore */
     }
+    syncSessionCookie(null);
   }, []);
 
   const value = useMemo<AuthSessionContextValue>(
