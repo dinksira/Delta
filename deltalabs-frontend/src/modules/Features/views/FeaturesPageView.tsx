@@ -24,80 +24,6 @@ import {
 /** ################################ /IMPORT ############################# */
 
 /** ################################ CONSTANTS ############################# */
-/** Default feature catalog and icon map for the features hub grid. */
-const defaultFeatureCatalog = [
-  {
-    featureKey: "school",
-    title: "School",
-    icon: CalendarDays,
-    description: "Manage schools, staff, and academic structure.",
-    chipClass: "bg-[color:var(--color-features-chip-slate-bg)] text-[color:var(--color-features-chip-slate-fg)]",
-  },
-  {
-    featureKey: "course",
-    title: "Course",
-    icon: Boxes,
-    description: "Courses, curriculum, and learner progress.",
-    chipClass: "bg-[color:var(--color-features-chip-orange-bg)] text-[color:var(--color-features-chip-orange-fg)]",
-  },
-  {
-    featureKey: "competitions",
-    title: "Online Competition",
-    icon: Dna,
-    description: "Host and join practical competitions with measurable outcomes.",
-    chipClass: "bg-[color:var(--color-features-chip-indigo-bg)] text-[color:var(--color-features-chip-indigo-fg)]",
-  },
-  {
-    featureKey: "tutorials",
-    title: "Tutorial",
-    icon: UserRound,
-    description: "Guided tutorials and structured practice paths.",
-    chipClass: "bg-[color:var(--color-features-chip-emerald-bg)] text-[color:var(--color-features-chip-emerald-fg)]",
-  },
-  {
-    featureKey: "research",
-    title: "R&D",
-    icon: Layers,
-    description: "Collaborative research workspace and experiment tracking.",
-    chipClass: "bg-[color:var(--color-features-chip-amber-bg)] text-[color:var(--color-features-chip-amber-fg)]",
-  },
-  {
-    featureKey: "rent_lab",
-    title: "Laboratory",
-    icon: FlaskConical,
-    description: "Laboratory usage, booking, and operational coordination.",
-    chipClass: "bg-[color:var(--color-features-chip-rose-bg)] text-[color:var(--color-features-chip-rose-fg)]",
-  },
-  {
-    featureKey: "certification",
-    title: "Certification",
-    icon: CalendarDays,
-    description: "Issue, track, and verify learning certifications.",
-    chipClass: "bg-[color:var(--color-features-chip-cyan-bg)] text-[color:var(--color-features-chip-cyan-fg)]",
-  },
-  {
-    featureKey: "chatroom",
-    title: "Chatroom",
-    icon: Boxes,
-    description: "Real-time group conversations and classroom communication.",
-    chipClass: "bg-[color:var(--color-features-chip-teal-bg)] text-[color:var(--color-features-chip-teal-fg)]",
-  },
-  {
-    featureKey: "planner",
-    title: "Planner",
-    icon: CalendarClock,
-    description: "Plan tasks, schedules, and academic milestones.",
-    chipClass: "bg-[color:var(--color-features-chip-violet-bg)] text-[color:var(--color-features-chip-violet-fg)]",
-  },
-  {
-    featureKey: "specialization",
-    title: "Specialization",
-    icon: GraduationCap,
-    description: "Advanced specialization tracks for focused learning.",
-    chipClass: "bg-[color:var(--color-features-chip-fuchsia-bg)] text-[color:var(--color-features-chip-fuchsia-fg)]",
-  },
-] as const;
-
 const iconByFeatureKey = {
   school: CalendarDays,
   course: Boxes,
@@ -109,6 +35,19 @@ const iconByFeatureKey = {
   chatroom: Boxes,
   planner: CalendarClock,
   specialization: GraduationCap,
+} as const;
+
+const chipClassByFeatureKey = {
+  school: "bg-[color:var(--color-features-chip-slate-bg)] text-[color:var(--color-features-chip-slate-fg)]",
+  course: "bg-[color:var(--color-features-chip-orange-bg)] text-[color:var(--color-features-chip-orange-fg)]",
+  competitions: "bg-[color:var(--color-features-chip-indigo-bg)] text-[color:var(--color-features-chip-indigo-fg)]",
+  tutorials: "bg-[color:var(--color-features-chip-emerald-bg)] text-[color:var(--color-features-chip-emerald-fg)]",
+  research: "bg-[color:var(--color-features-chip-amber-bg)] text-[color:var(--color-features-chip-amber-fg)]",
+  rent_lab: "bg-[color:var(--color-features-chip-rose-bg)] text-[color:var(--color-features-chip-rose-fg)]",
+  certification: "bg-[color:var(--color-features-chip-cyan-bg)] text-[color:var(--color-features-chip-cyan-fg)]",
+  chatroom: "bg-[color:var(--color-features-chip-teal-bg)] text-[color:var(--color-features-chip-teal-fg)]",
+  planner: "bg-[color:var(--color-features-chip-violet-bg)] text-[color:var(--color-features-chip-violet-fg)]",
+  specialization: "bg-[color:var(--color-features-chip-fuchsia-bg)] text-[color:var(--color-features-chip-fuchsia-fg)]",
 } as const;
 
 /** ################################ /CONSTANTS ############################# */
@@ -129,29 +68,27 @@ export function FeaturesPageView() {
   const activeWorkspace = searchParams.get("tab");
   const activeLabel =
     activeWorkspace && openTabs.find((t) => t.param === activeWorkspace)?.label;
-  const backendByKey = new Map(
-    (featureData?.items ?? [])
-      .filter((item) => typeof item.featureKey === "string" && item.featureKey.length > 0)
-      .map((item) => [item.featureKey.toLowerCase(), item]),
-  );
-  const cards = defaultFeatureCatalog.map((feature, index) => {
-    const backend = backendByKey.get(feature.featureKey);
-    const canAccess = Boolean(backend?.enabled) && Boolean(backend?.capabilities?.canView);
-    const backendTitle =
-      typeof backend?.title === "string" && backend.title.trim().length > 0 ? backend.title : null;
-    const backendDescription =
-      typeof backend?.description === "string" && backend.description.trim().length > 0
-        ? backend.description
-        : null;
-    const title = backendTitle ?? feature.title;
+  const cards = (featureData?.items ?? []).map((feature, index) => {
+    const featureKey = feature.featureKey.toLowerCase();
+    const title =
+      typeof feature.title === "string" && feature.title.trim().length > 0
+        ? feature.title
+        : featureKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const description =
+      typeof feature.description === "string" && feature.description.trim().length > 0
+        ? feature.description
+        : "Feature workspace";
+    const canAccess = Boolean(feature.enabled) && Boolean(feature.capabilities?.canView);
     return {
       id: feature.featureKey || `feature-${index}`,
       title,
       linkLabel: canAccess ? `Enter ${title}` : "Not available",
-      icon: feature.icon ?? iconByFeatureKey[feature.featureKey as keyof typeof iconByFeatureKey] ?? CalendarDays,
-      chipClass: feature.chipClass,
+      icon: iconByFeatureKey[featureKey as keyof typeof iconByFeatureKey] ?? CalendarDays,
+      chipClass:
+        chipClassByFeatureKey[featureKey as keyof typeof chipClassByFeatureKey] ??
+        "bg-[color:var(--color-features-chip-slate-bg)] text-[color:var(--color-features-chip-slate-fg)]",
       disabled: !canAccess,
-      description: backendDescription ?? feature.description,
+      description,
     };
   });
 

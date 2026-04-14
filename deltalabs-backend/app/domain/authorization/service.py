@@ -284,6 +284,14 @@ class _RoleSeed(TypedDict, total=False):
 # Default role catalog and permissions seed.
 _DEFAULT_ROLES: list[_RoleSeed] = [
     {
+        "role_key": "system_admin",
+        "title": "System Administrator",
+        "permissions": ["system:manage_features"],
+        "description": "System-level feature catalog administration.",
+        "membership_state": "owner",
+        "membership_rank": 6,
+    },
+    {
         "role_key": "org_owner",
         "title": "Organization Owner",
         "permissions": ["*"],

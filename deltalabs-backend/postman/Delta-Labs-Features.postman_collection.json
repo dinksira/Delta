@@ -1,0 +1,219 @@
+{
+  "info": {
+    "name": "Delta Labs Features API",
+    "_postman_id": "8f2b4787-bf02-4cda-bec3-8a8ed74df04c",
+    "description": "Feature catalog endpoints: list/detail, org-scoped CRUD, and default seeding.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8081"
+    },
+    {
+      "key": "orgId",
+      "value": "default-org"
+    },
+    {
+      "key": "featureKey",
+      "value": "school"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Features (Legacy Scope)",
+      "item": [
+        {
+          "name": "List Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "features"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Feature By Key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/features/{{featureKey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "features",
+                "{{featureKey}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Features (Org Scope)",
+      "item": [
+        {
+          "name": "List Org Features",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Org Feature By Key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features/{{featureKey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features",
+                "{{featureKey}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Seed Default Features",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features/seed-defaults",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features",
+                "seed-defaults"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Feature",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"featureKey\": \"help_support\",\n  \"title\": \"Help Support\",\n  \"description\": \"Support center and issue handling.\",\n  \"enabled\": true,\n  \"beta\": false,\n  \"sortOrder\": 110,\n  \"routePath\": \"/features/help-support\",\n  \"capabilityRequirements\": {\n    \"view\": [\"content:read\"],\n    \"join\": [\"community:write\"],\n    \"create\": [\"community:manage\"],\n    \"manage\": [\"org:manage\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Feature",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"School\",\n  \"description\": \"Manage schools, staff, and academic structure.\",\n  \"enabled\": true,\n  \"beta\": false,\n  \"sortOrder\": 10,\n  \"routePath\": \"/features/school\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features/{{featureKey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features",
+                "{{featureKey}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Feature",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/orgs/{{orgId}}/features/{{featureKey}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "orgs",
+                "{{orgId}}",
+                "features",
+                "{{featureKey}}"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
