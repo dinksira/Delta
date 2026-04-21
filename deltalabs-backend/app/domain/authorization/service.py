@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TypedDict
+from uuid import uuid4
 
 from app.core.config import get_settings
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
@@ -202,9 +203,44 @@ class Service:
             role_keys=["org_owner"],
         )
 
+    async def create_workspace_org_for_school_owner(
+        self,
+        *,
+        user_id: str,
+        workspace_name: str,
+    ) -> OrgCreateResponse:
+        """Create a dedicated tenant org for a new school; user becomes org_owner."""
+        trimmed = workspace_name.strip()
+        if len(trimmed) < 2:
+            raise ValidationError("Invalid workspace name.", code="invalid_workspace_name")
+        safe_name = trimmed[:120]
+        for _ in range(8):
+            slug = f"ws-{uuid4().hex[:12]}"
+            try:
+                return await self.create_org_for_user(
+                    user_id=user_id,
+                    payload=OrgCreateRequest(name=safe_name, slug=slug),
+                )
+            except ConflictError:
+                continue
+        raise ConflictError(
+            "Could not allocate a unique organization slug.",
+            code="org_slug_exhausted",
+        )
+
     async def list_my_orgs(self, *, user_id: str) -> MyOrgsResponse:
         docs = await self._repository.list_orgs_for_user(user_id=user_id)
         return MyOrgsResponse(items=[_doc_to_org_public(doc) for doc in docs])
+
+    async def list_org_ids_where_user_is_owner(self, *, user_id: str) -> list[str]:
+        """Org ids where the user has the ``org_owner`` role (stable sort: first is primary tenant)."""
+        my = await self.list_my_orgs(user_id=user_id)
+        owner_ids: list[str] = []
+        for org in my.items:
+            profile = await self.get_access_profile(user_id=user_id, org_id=org.id)
+            if "org_owner" in profile.role_keys:
+                owner_ids.append(org.id)
+        return sorted(owner_ids)
 
     async def join_org(self, *, user_id: str, org_id: str) -> OrgJoinResponse:
         org_doc = await self._repository.find_org_by_id(org_id)

@@ -21,6 +21,12 @@ export type { SearchInputProps } from "@/components/theme/SearchInput";
 export { Textarea } from "@/components/theme/Textarea";
 export type { TextareaProps } from "@/components/theme/Textarea";
 export { Field } from "@/components/theme/Field";
+export {
+  DialogHeader,
+  DialogOverlay,
+  DialogPanel,
+  DialogSection,
+} from "@/components/theme/Dialog";
 export { Select } from "@/components/theme/Select";
 export type { SelectProps } from "@/components/theme/Select";
 export { RadioGroup } from "@/components/theme/RadioGroup";
@@ -29,4 +35,6 @@ export { StatusBanner } from "@/components/theme/StatusBanner";
 export type { StatusBannerProps, StatusBannerType } from "@/components/theme/StatusBanner";
 export { Typography } from "@/components/theme/Typography";
 export type { TypographyProps } from "@/components/theme/Typography";
+export { Table } from "@/components/theme/Table";
+export type { TableColumn, TableProps } from "@/components/theme/Table";
 /** ################################ /COMPONENT ############################# */

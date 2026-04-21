@@ -126,7 +126,10 @@ export function FeaturesPageView() {
             role="button"
             tabIndex={0}
             aria-label={card.linkLabel}
-            className="min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className={[
+              "min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
+              card.disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+            ].join(" ")}
             onClick={() => {
               if ("disabled" in card && card.disabled) return;
               openWorkspaceTab(card.title);

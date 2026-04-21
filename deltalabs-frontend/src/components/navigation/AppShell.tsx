@@ -34,7 +34,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           className={[
             "min-h-0 w-full flex-1",
             isSchoolWorkspace
-              ? "flex flex-col overflow-hidden px-6 md:px-8 xl:px-10"
+              ? "flex flex-col overflow-hidden pl-6 md:pl-8 xl:pl-10"
               : isFeaturesRoute
                 ? "flex flex-col overflow-y-auto overscroll-y-contain px-6 py-6 md:px-8 xl:px-10"
                 : "mx-auto flex max-w-6xl flex-col overflow-y-auto overscroll-y-contain px-2 py-6 md:px-3",

@@ -1,11 +1,31 @@
+"use client";
+
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertCircle, Inbox } from "lucide-react";
 
+import { useState } from "react";
 import { SchoolBodySearch } from "@/components/features/school/SchoolBodySearch";
+import { SchoolConfirmActionModal } from "@/components/features/school/master/SchoolConfirmActionModal";
+import { SchoolAmendOfferModal } from "@/components/features/school/master/SchoolAmendOfferModal";
+import { SchoolOfferDetailsDrawer } from "@/components/features/school/master/SchoolOfferDetailsDrawer";
 import { SchoolOffersTable } from "@/components/features/school/master/SchoolOffersTable";
+import { SchoolStatePanel } from "@/components/features/school/master/SchoolStatePanel";
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { cx } from "@/components/theme/utils";
+import {
+  fetchSchoolOffers,
+  shortlistSchoolOffer,
+  unshortlistSchoolOffer,
+  updateSchoolOfferStatus,
+  type OfferDto,
+  type OfferView,
+} from "@/modules/School/api";
+import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
+import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 import type { OfferStatus } from "@/modules/School/types/offers";
 
 /** ################################ /IMPORT ############################# */
@@ -23,22 +43,159 @@ const tabs: { label: string; status: OfferStatus }[] = [
 /** Type definitions used in this file. */
 type SchoolOffersViewProps = Readonly<{
   status: OfferStatus;
+  view: OfferView;
 }>;
 
 /** ################################ /TYPES ############################# */
 /** ################################ COMPONENT ############################# */
 /** Offers — status tabs, search, and queue table (design shell). */
-export function SchoolOffersView({ status }: SchoolOffersViewProps) {
+export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
+  const { isReady, isAuthenticated, session } = useAuthSession();
+  const enabled = isReady && isAuthenticated;
+  const queryClient = useQueryClient();
+  const { activeOrgId } = useSchoolActiveOrgId();
+  const [selectedOffer, setSelectedOffer] = useState<OfferDto | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    | { kind: "approve" | "reject"; offer: OfferDto }
+    | null
+  >(null);
+  const [amendOffer, setAmendOffer] = useState<OfferDto | null>(null);
+  const { data: offersData, error: offersError } = useQuery({
+    queryKey: schoolQueryKeys.offers("all", status, view),
+    queryFn: () => fetchSchoolOffers(status, view),
+    enabled,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const updateOfferMutation = useMutation({
+    mutationFn: async ({
+      offerId,
+      nextStatus,
+      orgId,
+      amendmentData,
+    }: {
+      offerId: string;
+      nextStatus: OfferStatus;
+      orgId: string;
+      amendmentData?: {
+        ownership_percentage?: number;
+        share_accesses?: { access_name: string; status: "can_view" | "can_edit" | "can_manage" }[];
+        offered_price?: number;
+        offered_currency?: string;
+        note?: string | null;
+      };
+    }) => {
+      return updateSchoolOfferStatus(orgId, offerId, nextStatus, amendmentData);
+    },
+    onSuccess: async () => {
+      for (const s of ["requested", "approved", "amendment", "rejected"] as const) {
+        for (const v of ["received", "sent"] as const) {
+          await queryClient.invalidateQueries({
+            queryKey: schoolQueryKeys.offers("all", s, v),
+          });
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.mySchools() });
+      setConfirmAction(null);
+      setAmendOffer(null);
+      setSelectedOffer(null);
+    },
+  });
+  const shortlistOfferMutation = useMutation({
+    mutationFn: async ({ offerId, orgId }: { offerId: string; orgId: string }) =>
+      shortlistSchoolOffer(orgId, offerId),
+    onSuccess: async () => {
+      for (const s of ["requested", "approved", "amendment", "rejected"] as const) {
+        for (const v of ["received", "sent"] as const) {
+          await queryClient.invalidateQueries({
+            queryKey: schoolQueryKeys.offers("all", s, v),
+          });
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.mySchools() });
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "community") });
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "bids") });
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "listings") });
+    },
+  });
+  const unshortlistOfferMutation = useMutation({
+    mutationFn: async ({ offerId, orgId }: { offerId: string; orgId: string }) =>
+      unshortlistSchoolOffer(orgId, offerId),
+    onSuccess: async () => {
+      for (const s of ["requested", "approved", "amendment", "rejected"] as const) {
+        for (const v of ["received", "sent"] as const) {
+          await queryClient.invalidateQueries({
+            queryKey: schoolQueryKeys.offers("all", s, v),
+          });
+        }
+      }
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "community") });
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "bids") });
+      await queryClient.invalidateQueries({ queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", "listings") });
+    },
+  });
+
   const statusTabLabel = tabs.find((t) => t.status === status)?.label ?? "Requested";
+  const rows = offersData?.items ?? [];
+
+  const nextStatusForKind: Record<"approve" | "reject", OfferStatus> = {
+    approve: "approved",
+    reject: "rejected",
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    updateOfferMutation.mutate({
+      offerId: confirmAction.offer.id,
+      nextStatus: nextStatusForKind[confirmAction.kind],
+      orgId: confirmAction.offer.orgId,
+    });
+  };
+
+  const normalizedSessionEmail = session?.user?.email?.trim().toLowerCase() ?? "";
+  const canRespondToOffer = (offer: OfferDto) => {
+    if (!normalizedSessionEmail) return false;
+    const turn = offer.negotiationTurn ?? "recipient";
+    const expected =
+      turn === "recipient"
+        ? offer.recipientEmail?.trim().toLowerCase()
+        : offer.senderEmail?.trim().toLowerCase();
+    return expected === normalizedSessionEmail;
+  };
 
   return (
     <>
-      <SchoolWorkspaceHeader title="Offers" />
+      <SchoolWorkspaceHeader title="Offers" addSchoolHref="/features/school/create" />
       <div className="bg-surface-canvas py-4">
+        <p className="mb-3 text-sm text-text-secondary">
+          Offers is the core negotiation module for partner ownership invites and direct offer exchanges. Marketplace bids
+          are handled in Marketplace/Deal Room.
+        </p>
+        <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-border-default bg-surface-default p-1">
+          {([
+            { key: "received", label: "Received offers" },
+            { key: "sent", label: "Sent offers" },
+          ] as const).map((entry) => {
+            const active = view === entry.key;
+            const href = `/features/school/offers?status=${status}&view=${entry.key}`;
+            return (
+              <Link
+                key={entry.key}
+                href={href}
+                className={cx(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  active ? "bg-primary-600 text-white" : "text-text-secondary hover:bg-surface-muted",
+                )}
+              >
+                {entry.label}
+              </Link>
+            );
+          })}
+        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <nav className="flex min-w-0 flex-1 flex-wrap gap-x-6 gap-y-2" aria-label="Offer status">
             {tabs.map((tab) => {
-              const href = `/features/school/offers?status=${tab.status}`;
+              const href = `/features/school/offers?status=${tab.status}&view=${view}`;
               const active = tab.status === status;
               return (
                 <Link
@@ -67,8 +224,91 @@ export function SchoolOffersView({ status }: SchoolOffersViewProps) {
         </div>
       </div>
       <div className="py-6">
-        <SchoolOffersTable title={`${statusTabLabel} offers`} />
+        {offersError ? (
+          <SchoolStatePanel
+            title="Unable to load offers"
+            message="We could not load offers right now. Please refresh and try again."
+            icon={AlertCircle}
+            actionLabel="Reload"
+            onAction={() => window.location.reload()}
+          />
+        ) : rows.length === 0 ? (
+          <SchoolStatePanel
+            title="No offers in this view"
+            message="There are no offers matching this status and direction yet."
+            icon={Inbox}
+          />
+        ) : (
+          <SchoolOffersTable
+            title={`${view === "sent" ? "Sent" : "Received"} • ${statusTabLabel}`}
+            rows={rows}
+            variant="offers"
+            canRespond={canRespondToOffer}
+            onShowDetails={(offer) => setSelectedOffer(offer)}
+            onChangeStatus={(offer, nextStatus) => {
+              if (nextStatus === "amendment") {
+                setAmendOffer(offer);
+                return;
+              }
+              const nextKind = nextStatus === "approved" ? "approve" : "reject";
+              setConfirmAction({ kind: nextKind, offer });
+            }}
+            onShortlist={(offer) => {
+              shortlistOfferMutation.mutate({ offerId: offer.id, orgId: offer.orgId });
+            }}
+            onUnshortlist={(offer) => {
+              unshortlistOfferMutation.mutate({ offerId: offer.id, orgId: offer.orgId });
+            }}
+          />
+        )}
       </div>
+
+      <SchoolOfferDetailsDrawer open={selectedOffer != null} offer={selectedOffer} onClose={() => setSelectedOffer(null)} />
+
+      <SchoolConfirmActionModal
+        open={confirmAction != null}
+        title={
+          confirmAction?.kind === "approve"
+            ? "Confirm acceptance"
+            : confirmAction?.kind === "reject"
+            ? "Confirm rejection"
+            : "Confirm action"
+        }
+        description={
+          confirmAction?.kind === "approve"
+            ? "Accepting this offer will confirm the request and notify Delta Labs. The offer will move to Approved status."
+            : confirmAction?.kind === "reject"
+            ? "Rejecting this offer will decline the proposed allocation and send a Delta Labs confirmation to the provider."
+            : ""
+        }
+        confirmLabel={
+          confirmAction?.kind === "approve"
+            ? "Accept offer"
+            : confirmAction?.kind === "reject"
+            ? "Reject offer"
+            : ""
+        }
+        confirmTone={confirmAction?.kind === "reject" ? "danger" : "primary"}
+        pending={updateOfferMutation.isPending}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+      />
+      {amendOffer ? (
+        <SchoolAmendOfferModal
+          open
+          offer={amendOffer}
+          pending={updateOfferMutation.isPending}
+          onCancel={() => setAmendOffer(null)}
+          onSubmit={(payload) => {
+            updateOfferMutation.mutate({
+              offerId: amendOffer.id,
+              orgId: amendOffer.orgId,
+              nextStatus: "amendment",
+              amendmentData: payload,
+            });
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -39,7 +39,7 @@
   --dl-auth-modal-border: var(--dl-color-border-default);
   --dl-auth-modal-header-border: var(--dl-color-border-subtle);
   --dl-auth-modal-shadow: var(--dl-shadow-md);
-  --dl-auth-modal-max-width: 28rem;
+  --dl-auth-modal-max-width: 30rem;
   --dl-auth-link-secondary: var(--dl-color-secondary-500);
 
   /* auth.banner.* (legacy full-width banner backgrounds; header strip uses surface-muted) */

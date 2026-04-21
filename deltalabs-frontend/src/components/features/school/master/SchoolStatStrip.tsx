@@ -10,16 +10,27 @@ import { cx } from "@/components/theme/utils";
 /** ################################ CONSTANTS ############################# */
 /** Shared constants used by this file. */
 const stats = [
-  { label: "My Schools", value: "5", tone: schoolFeatureChip.cyan },
-  { label: "Total Classes", value: "62", tone: schoolFeatureChip.violet },
-  { label: "Total Students", value: "62", tone: schoolFeatureChip.amber },
-  { label: "Total Teachers", value: "62", tone: schoolFeatureChip.rose },
+  { key: "mySchools", label: "My Schools", tone: schoolFeatureChip.cyan },
+  { key: "totalClasses", label: "Total Classes", tone: schoolFeatureChip.violet },
+  { key: "totalStudents", label: "Total Students", tone: schoolFeatureChip.amber },
+  { key: "totalTeachers", label: "Total Teachers", tone: schoolFeatureChip.rose },
 ] as const;
 
 /** ################################ /CONSTANTS ############################# */
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
-export function SchoolStatStrip() {
+type SchoolStatValues = Readonly<{
+  mySchools: number;
+  totalClasses: number;
+  totalStudents: number;
+  totalTeachers: number;
+}>;
+
+type SchoolStatStripProps = Readonly<{
+  values: SchoolStatValues;
+}>;
+
+export function SchoolStatStrip({ values }: SchoolStatStripProps) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((s) => (
@@ -36,7 +47,7 @@ export function SchoolStatStrip() {
           </span>
           <div>
             <Typography variant="label" className="text-lg font-bold">
-              {s.value}
+              {values[s.key].toLocaleString()}
             </Typography>
             <Typography variant="small" className="opacity-90">
               {s.label}

@@ -126,6 +126,31 @@ class Settings(BaseSettings):
         default=False,
         description="If true, use first X-Forwarded-For hop as client IP for rate limits",
     )
+    marketplace_bid_cooldown_seconds: int = Field(
+        default=60,
+        ge=0,
+        description="Cooldown between consecutive bid/buy submissions on the same listing by the same bidder (0 disables).",
+    )
+    marketplace_bid_expiry_hours: int = Field(
+        default=72,
+        ge=1,
+        description="Hours until marketplace transfer offers expire.",
+    )
+    marketplace_max_amendment_rounds: int = Field(
+        default=3,
+        ge=0,
+        description="Maximum amendment rounds allowed for marketplace transfer offers (0 disables amendments).",
+    )
+    marketplace_bid_rate_limit_window_seconds: int = Field(
+        default=3600,
+        ge=1,
+        description="Rolling time window for marketplace bid creation rate limits.",
+    )
+    marketplace_bid_rate_limit_max_creates: int = Field(
+        default=20,
+        ge=0,
+        description="Maximum marketplace bid/buy creations allowed per bidder within the configured window (0 disables).",
+    )
     media_storage_provider: str = Field(
         default="s3",
         description="Object storage provider identifier (e.g. s3, r2, gcs)",

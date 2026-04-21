@@ -36,6 +36,7 @@ function buildUrl(path: string, searchParams?: ApiRequestInit["searchParams"]): 
     if (!searchParams) {
       return normalizedPath;
     }
+
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams)) {
       if (value === undefined || value === null) {

@@ -14,6 +14,7 @@ from app.api.v1.help_support import router as help_support_router
 from app.api.v1.library import router as library_router
 from app.api.v1.media import org_router as org_media_router
 from app.api.v1.media import router as media_router
+from app.api.v1.me import router as me_router
 from app.api.v1.orgs import router as orgs_router
 from app.api.v1.planner import router as planner_router
 from app.api.v1.rent_lab import org_router as org_rent_lab_router
@@ -30,6 +31,7 @@ from app.api.v1.tutorials import router as tutorials_router
 api_router = APIRouter()
 api_router.include_router(system_router)
 api_router.include_router(auth_router)
+api_router.include_router(me_router)
 api_router.include_router(orgs_router)
 api_router.include_router(feed_router)
 api_router.include_router(features_router)

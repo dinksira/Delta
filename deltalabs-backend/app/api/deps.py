@@ -39,6 +39,7 @@ class CurrentUser:
     """Auth placeholder model until JWT auth is implemented."""
 
     user_id: str
+    email: str | None = None
 
 
 # ################################ /TYPES ################################
@@ -70,7 +71,9 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "unauthenticated", "message": "Session is invalid or expired."},
         )
-    return CurrentUser(user_id=str(session_doc["user_id"]))
+    user_id = str(session_doc["user_id"])
+    user_doc = await repository.find_user_by_id(user_id)
+    return CurrentUser(user_id=user_id, email=user_doc.email if user_doc is not None else None)
 
 
 async def get_current_user_optional(
@@ -90,7 +93,9 @@ async def get_current_user_optional(
     session_doc = await repository.find_session_by_token_hash(hash_session_token(token))
     if session_doc is None:
         return None
-    return CurrentUser(user_id=str(session_doc["user_id"]))
+    user_id = str(session_doc["user_id"])
+    user_doc = await repository.find_user_by_id(user_id)
+    return CurrentUser(user_id=user_id, email=user_doc.email if user_doc is not None else None)
 
 
 # ################################ /DEPENDENCIES ################################
