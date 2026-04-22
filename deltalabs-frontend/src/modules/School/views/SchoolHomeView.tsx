@@ -24,9 +24,10 @@ import { setSchoolArchived } from "@/modules/School/api";
 /** My School — overview, stats, search, and school cards (membership-based list). */
 export function SchoolHomeView() {
   const router = useRouter();
-  useAuthSession();
+  const { isAuthenticated, isReady } = useAuthSession();
   const queryClient = useQueryClient();
-  const { orgs, mySchools, orgsError, mySchoolsError } = useSchoolActiveOrgId();
+  const { orgs, mySchools, orgsError, mySchoolsError, orgsPending, mySchoolsPending } =
+    useSchoolActiveOrgId();
   const [detailsSchoolId, setDetailsSchoolId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     | {
@@ -81,6 +82,7 @@ export function SchoolHomeView() {
         orgSlug: slugForOrg(detailsSchool.orgId),
       }
     : null;
+  const schoolsLoading = isAuthenticated && isReady && (orgsPending || mySchoolsPending);
 
   return (
     <>
@@ -89,7 +91,23 @@ export function SchoolHomeView() {
         <SchoolStatStrip values={schoolStats} />
         <SchoolBodySearch id="school-home-search" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {orgsError || mySchoolsError ? (
+          {schoolsLoading ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`school-card-skeleton-${index}`}
+                className="min-h-[188px] rounded-xl border border-border-default bg-surface-default px-4 py-4 shadow-sm"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <span className="sr-only">Loading schools</span>
+                <div className="h-5 w-2/3 animate-pulse rounded bg-surface-muted" />
+                <div className="mt-2 h-4 w-1/3 animate-pulse rounded bg-surface-muted" />
+                <div className="mt-8 h-9 w-full animate-pulse rounded-md bg-surface-muted" />
+                <div className="mt-3 h-9 w-full animate-pulse rounded-md bg-surface-muted" />
+              </div>
+            ))
+          ) : orgsError || mySchoolsError ? (
             <SchoolStatePanel
               title="Unable to load schools"
               message="We could not load your school workspace right now. Please refresh and try again."

@@ -487,7 +487,7 @@ export function SchoolCreateWizardModal({
       </div>
     </>
   ) : (
-    <div className="mx-auto w-full max-w-6xl px-6 py-8 md:px-10">
+    <div className="mx-auto w-full max-w-7xl py-6">
       <div className="w-full">{renderWizardContent()}</div>
     </div>
   );

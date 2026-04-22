@@ -55,14 +55,21 @@ const chipClassByFeatureKey = {
 /** ################################ COMPONENT ############################# */
 /** Authorized-only features screen: grid opens browser-style workspace tabs in the top nav. */
 export function FeaturesPageView() {
-  const { isAuthenticated, isReady } = useAuthSession();
+  const { isAuthenticated, isReady, session } = useAuthSession();
   const { openWorkspaceTab, openTabs } = useFeatureTabs();
   const searchParams = useSearchParams();
-  const { data: featureData } = useQuery({
-    queryKey: featuresQueryKeys.list(),
+  const userId = session?.user?.id ?? "anon";
+  const {
+    data: featureData,
+    isPending: featuresPending,
+    isError: featuresError,
+  } = useQuery({
+    queryKey: featuresQueryKeys.list(userId),
     queryFn: fetchFeaturesList,
     enabled: isReady && isAuthenticated,
-    staleTime: 60_000,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnMount: false,
     retry: false,
   });
   const activeWorkspace = searchParams.get("tab");
@@ -120,49 +127,88 @@ export function FeaturesPageView() {
       ) : null}
 
       <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Card
-            key={card.id}
-            role="button"
-            tabIndex={0}
-            aria-label={card.linkLabel}
-            className={[
-              "min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
-              card.disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-            ].join(" ")}
-            onClick={() => {
-              if ("disabled" in card && card.disabled) return;
-              openWorkspaceTab(card.title);
-            }}
-            onKeyDown={(e) => {
-              if ("disabled" in card && card.disabled) return;
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                openWorkspaceTab(card.title);
-              }
-            }}
-          >
-            <div className={`inline-flex size-10 items-center justify-center rounded-full ${card.chipClass}`} aria-hidden>
-              <card.icon className="size-6" />
-            </div>
-            <Typography as="h3" className="text-[29px] font-semibold leading-tight text-primary-600">
-              {card.title}
-            </Typography>
-            <Typography className="line-clamp-2 text-xs leading-[1.35] text-text-secondary">
-              {"description" in card
-                ? card.description
-                : "Studio-quality text-to-speech with emotional nuance and support for over 140+ languages."}
-            </Typography>
-            <Typography
-              as="p"
-              variant="small"
-              className="mt-auto pt-2 text-xs font-medium text-secondary-500"
-              aria-hidden
+        {featuresPending ? (
+          Array.from({ length: 8 }).map((_, index) => (
+            <Card
+              key={`feature-skeleton-${index}`}
+              className="min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm"
+              role="status"
+              aria-live="polite"
+              aria-busy="true"
             >
-              {card.linkLabel}
+              <span className="sr-only">Loading features</span>
+              <div className="inline-flex size-10 animate-pulse rounded-full bg-slate-200/80 dark:bg-slate-700/70" />
+              <div className="h-7 w-3/5 animate-pulse rounded-md bg-slate-200/80 dark:bg-slate-700/70" />
+              <div className="space-y-2">
+                <div className="h-3 w-full animate-pulse rounded-md bg-slate-200/80 dark:bg-slate-700/70" />
+                <div className="h-3 w-4/5 animate-pulse rounded-md bg-slate-200/80 dark:bg-slate-700/70" />
+              </div>
+              <div className="mt-auto h-3 w-1/2 animate-pulse rounded-md bg-slate-200/80 dark:bg-slate-700/70" />
+            </Card>
+          ))
+        ) : featuresError ? (
+          <Card className="sm:col-span-2 lg:col-span-4 rounded-2xl border-features-card-border bg-features-card-surface px-5 py-6 text-center">
+            <Typography as="h3" className="text-lg font-semibold text-primary-600">
+              Could not load features
+            </Typography>
+            <Typography className="mt-2 text-sm text-text-secondary">
+              Please refresh the page and try again.
             </Typography>
           </Card>
-        ))}
+        ) : cards.length === 0 ? (
+          <Card className="sm:col-span-2 lg:col-span-4 rounded-2xl border-features-card-border bg-features-card-surface px-5 py-6 text-center">
+            <Typography as="h3" className="text-lg font-semibold text-primary-600">
+              No features available yet
+            </Typography>
+            <Typography className="mt-2 text-sm text-text-secondary">
+              Your account does not have feature access right now.
+            </Typography>
+          </Card>
+        ) : (
+          cards.map((card) => (
+            <Card
+              key={card.id}
+              role="button"
+              tabIndex={0}
+              aria-label={card.linkLabel}
+              className={[
+                "min-h-[178px] gap-3 rounded-2xl border-features-card-border bg-features-card-surface px-4 py-3 shadow-sm transition-colors hover:border-features-card-hover-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
+                card.disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+              ].join(" ")}
+              onClick={() => {
+                if ("disabled" in card && card.disabled) return;
+                openWorkspaceTab(card.title);
+              }}
+              onKeyDown={(e) => {
+                if ("disabled" in card && card.disabled) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openWorkspaceTab(card.title);
+                }
+              }}
+            >
+              <div className={`inline-flex size-10 items-center justify-center rounded-full ${card.chipClass}`} aria-hidden>
+                <card.icon className="size-6" />
+              </div>
+              <Typography as="h3" className="text-[29px] font-semibold leading-tight text-primary-600">
+                {card.title}
+              </Typography>
+              <Typography className="line-clamp-2 text-xs leading-[1.35] text-text-secondary">
+                {"description" in card
+                  ? card.description
+                  : "Studio-quality text-to-speech with emotional nuance and support for over 140+ languages."}
+              </Typography>
+              <Typography
+                as="p"
+                variant="small"
+                className="mt-auto pt-2 text-xs font-medium text-secondary-500"
+                aria-hidden
+              >
+                {card.linkLabel}
+              </Typography>
+            </Card>
+          ))
+        )}
       </section>
     </div>
   );

@@ -1,4 +1,4 @@
 /** TanStack Query keys for the Features hub. */
 export const featuresQueryKeys = {
-  list: () => ["features", "list"] as const,
+  list: (userId: string) => ["features", "list", userId] as const,
 } as const;

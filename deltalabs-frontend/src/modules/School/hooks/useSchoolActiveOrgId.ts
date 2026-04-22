@@ -19,7 +19,11 @@ export function useSchoolActiveOrgId() {
   const enabled = isAuthenticated && isReady;
   const userId = session?.user?.id ?? "anon";
 
-  const { data: orgData, error: orgsError } = useQuery({
+  const {
+    data: orgData,
+    error: orgsError,
+    isPending: orgsPending,
+  } = useQuery({
     queryKey: schoolQueryKeys.orgsMe(userId),
     queryFn: fetchMyOrgs,
     enabled,
@@ -27,7 +31,11 @@ export function useSchoolActiveOrgId() {
     retry: false,
   });
 
-  const { data: mySchoolsData, error: mySchoolsError } = useQuery({
+  const {
+    data: mySchoolsData,
+    error: mySchoolsError,
+    isPending: mySchoolsPending,
+  } = useQuery({
     queryKey: schoolQueryKeys.mySchools(userId),
     queryFn: fetchMySchools,
     enabled,
@@ -57,5 +65,7 @@ export function useSchoolActiveOrgId() {
     mySchools,
     orgsError,
     mySchoolsError,
+    orgsPending,
+    mySchoolsPending,
   };
 }

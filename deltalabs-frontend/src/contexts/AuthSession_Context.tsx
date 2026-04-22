@@ -18,6 +18,7 @@ import {
 
 import { setApiAccessTokenGetter } from "@/lib/apiClient";
 import { AUTH_SESSION_COOKIE } from "@/lib/authSession";
+import { clearBrowserQueryCache } from "@/lib/queryClient";
 import type { AuthSessionPayload } from "@/modules/Auth/types/auth";
 
 const SESSION_KEY = "dl.auth.session.v1";
@@ -105,6 +106,7 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
       /* ignore */
     }
     syncSessionCookie(null);
+    clearBrowserQueryCache();
   }, []);
 
   const value = useMemo<AuthSessionContextValue>(

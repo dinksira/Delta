@@ -60,7 +60,11 @@ export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
     | null
   >(null);
   const [amendOffer, setAmendOffer] = useState<OfferDto | null>(null);
-  const { data: offersData, error: offersError } = useQuery({
+  const {
+    data: offersData,
+    error: offersError,
+    isPending: offersPending,
+  } = useQuery({
     queryKey: schoolQueryKeys.offers("all", status, view),
     queryFn: () => fetchSchoolOffers(status, view),
     enabled,
@@ -224,7 +228,31 @@ export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
         </div>
       </div>
       <div className="py-6">
-        {offersError ? (
+        {offersPending ? (
+          <div className="space-y-4" role="status" aria-live="polite" aria-busy="true">
+            <span className="sr-only">Loading offers</span>
+            <div className="h-6 w-52 animate-pulse rounded bg-surface-muted" />
+            <div className="overflow-hidden rounded-xl border border-border-default bg-surface-default">
+              <div className="grid grid-cols-6 gap-3 border-b border-border-default px-4 py-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={`offers-head-skeleton-${index}`} className="h-4 animate-pulse rounded bg-surface-muted" />
+                ))}
+              </div>
+              <div className="space-y-3 px-4 py-4">
+                {Array.from({ length: 6 }).map((_, rowIndex) => (
+                  <div key={`offers-row-skeleton-${rowIndex}`} className="grid grid-cols-6 gap-3">
+                    {Array.from({ length: 6 }).map((__, cellIndex) => (
+                      <div
+                        key={`offers-cell-skeleton-${rowIndex}-${cellIndex}`}
+                        className="h-8 animate-pulse rounded bg-surface-muted"
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : offersError ? (
           <SchoolStatePanel
             title="Unable to load offers"
             message="We could not load offers right now. Please refresh and try again."

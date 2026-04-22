@@ -175,7 +175,11 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
     return `${pathname}?${params.toString()}`;
   };
 
-  const { data: marketplaceData, error: marketplaceError } = useQuery({
+  const {
+    data: marketplaceData,
+    error: marketplaceError,
+    isPending: marketplacePending,
+  } = useQuery({
     queryKey: schoolQueryKeys.marketplace(activeOrgId ?? "none", view, {
       q: queryText,
       status: listingStatus,
@@ -848,7 +852,23 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {marketplaceError ? (
+          {marketplacePending ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`marketplace-card-skeleton-${index}`}
+                className="min-h-[188px] rounded-xl border border-border-default bg-surface-default px-4 py-4 shadow-sm"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <span className="sr-only">Loading marketplace listings</span>
+                <div className="h-5 w-2/3 animate-pulse rounded bg-surface-muted" />
+                <div className="mt-2 h-4 w-1/3 animate-pulse rounded bg-surface-muted" />
+                <div className="mt-8 h-9 w-full animate-pulse rounded-md bg-surface-muted" />
+                <div className="mt-3 h-9 w-full animate-pulse rounded-md bg-surface-muted" />
+              </div>
+            ))
+          ) : marketplaceError ? (
             <SchoolStatePanel
               title="Unable to load marketplace"
               message="We could not load marketplace listings right now. Please refresh and try again."

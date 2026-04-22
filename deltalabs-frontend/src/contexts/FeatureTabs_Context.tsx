@@ -16,8 +16,10 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 
-const STORAGE_KEY = "deltalabs-feature-open-tabs-v1";
+const STORAGE_KEY_PREFIX = "deltalabs-feature-open-tabs-v2";
+const LEGACY_STORAGE_KEY = "deltalabs-feature-open-tabs-v1";
 
 export type FeatureWorkspaceTab = Readonly<{
   id: string;
@@ -44,14 +46,21 @@ type FeatureTabsContextValue = Readonly<{
   removeWorkspaceTab: (param: string) => void;
   /** Ensures a tab exists for the current URL (e.g. deep link). */
   ensureTabForParam: (param: string, labelHint?: string) => void;
+  /** Updates the tab href so it can restore the last visited workspace route. */
+  updateWorkspaceTabHref: (param: string, href: string) => void;
 }>;
 
 const FeatureTabsContext = createContext<FeatureTabsContextValue | null>(null);
 
-function readStoredTabs(): FeatureWorkspaceTab[] {
+function storageKeyForUser(userId: string): string {
+  return `${STORAGE_KEY_PREFIX}:${userId}`;
+}
+
+function readStoredTabsForUser(userId: string): FeatureWorkspaceTab[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const key = storageKeyForUser(userId);
+    const raw = localStorage.getItem(key) ?? sessionStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -71,21 +80,27 @@ function readStoredTabs(): FeatureWorkspaceTab[] {
 
 export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const router = useRouter();
+  const { isReady, session } = useAuthSession();
+  const userId = session?.user?.id ?? "anon";
   const [openTabs, setOpenTabs] = useState<FeatureWorkspaceTab[]>([]);
+  const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
 
-  // Intentionally after mount: sessionStorage is unavailable during SSR; avoids hydration mismatch.
+  // Hydrate once auth is ready, and rehydrate when account changes.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate persisted tabs once on client
-    setOpenTabs(readStoredTabs());
-  }, []);
+    if (!isReady) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side storage hydration
+    setOpenTabs(readStoredTabsForUser(userId));
+    setHydratedUserId(userId);
+  }, [isReady, userId]);
 
   useEffect(() => {
+    if (!isReady || hydratedUserId !== userId) return;
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(openTabs));
+      localStorage.setItem(storageKeyForUser(userId), JSON.stringify(openTabs));
     } catch {
       /* ignore */
     }
-  }, [openTabs]);
+  }, [hydratedUserId, isReady, openTabs, userId]);
 
   const openWorkspaceTab = useCallback(
     (label: string) => {
@@ -123,14 +138,26 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
     });
   }, []);
 
+  const updateWorkspaceTabHref = useCallback((param: string, href: string) => {
+    if (!param || !href) return;
+    setOpenTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.param !== param) return tab;
+        if (tab.href === href) return tab;
+        return { ...tab, href };
+      }),
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       openTabs,
       openWorkspaceTab,
       removeWorkspaceTab,
       ensureTabForParam,
+      updateWorkspaceTabHref,
     }),
-    [openTabs, openWorkspaceTab, removeWorkspaceTab, ensureTabForParam],
+    [openTabs, openWorkspaceTab, removeWorkspaceTab, ensureTabForParam, updateWorkspaceTabHref],
   );
 
   return <FeatureTabsContext.Provider value={value}>{children}</FeatureTabsContext.Provider>;

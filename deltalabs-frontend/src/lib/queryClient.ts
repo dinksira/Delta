@@ -24,4 +24,18 @@ export function createQueryClient(): QueryClient {
     },
   });
 }
+
+let browserQueryClient: QueryClient | null = null;
+
+/** Returns one browser-scoped QueryClient instance for the app lifetime. */
+export function getBrowserQueryClient(): QueryClient {
+  if (browserQueryClient) return browserQueryClient;
+  browserQueryClient = createQueryClient();
+  return browserQueryClient;
+}
+
+/** Clears cached queries when auth session ends. */
+export function clearBrowserQueryCache(): void {
+  browserQueryClient?.clear();
+}
 /** ################################ /COMPONENT ############################# */

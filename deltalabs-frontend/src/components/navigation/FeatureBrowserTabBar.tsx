@@ -97,7 +97,12 @@ export function FeatureBrowserTabBar() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { openTabs, removeWorkspaceTab, ensureTabForParam } = useFeatureTabs();
+  const {
+    openTabs,
+    removeWorkspaceTab,
+    ensureTabForParam,
+    updateWorkspaceTabHref,
+  } = useFeatureTabs();
 
   const tabParam = pathname.startsWith("/features") ? searchParams.get("tab") : null;
   const featuresHomeActive = pathname === "/features";
@@ -111,6 +116,12 @@ export function FeatureBrowserTabBar() {
     if (!pathname.startsWith("/features") || !tabParam) return;
     ensureTabForParam(tabParam);
   }, [pathname, tabParam, schoolPathActive, ensureTabForParam]);
+
+  useEffect(() => {
+    if (!schoolPathActive) return;
+    const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    updateWorkspaceTabHref("school", current);
+  }, [pathname, schoolPathActive, searchParams, updateWorkspaceTabHref]);
 
   const onCloseDynamic = (param: string) => {
     removeWorkspaceTab(param);
