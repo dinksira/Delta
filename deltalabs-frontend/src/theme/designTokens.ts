@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export type DesignTokenScale = Readonly<Record<string, string>>;
 
 export interface DesignTokens {
@@ -19,9 +21,53 @@ export interface DesignTokens {
       canvas: string;
       default: string;
       elevated: string;
+      muted: string;
     };
     border: {
       default: string;
+      subtle: string;
+    };
+    authModal: {
+      surface: string;
+      border: string;
+      headerBorder: string;
+      shadow: string;
+    };
+    authBanner: {
+      successBg: string;
+      successText: string;
+      errorBg: string;
+      errorText: string;
+      infoBg: string;
+      infoText: string;
+    };
+    authInput: {
+      bg: string;
+      border: string;
+      borderFocus: string;
+      borderError: string;
+      placeholder: string;
+    };
+    authLink: {
+      secondary: string;
+    };
+    switchMode: {
+      trackBg: string;
+      trackBorder: string;
+      pillActiveBg: string;
+      pillActiveText: string;
+      pillInactiveText: string;
+    };
+    featuresCard: {
+      surface: string;
+      border: string;
+      hoverBorder: string;
+      iconBg: string;
+    };
+    feedAction: {
+      railBg: string;
+      iconDefault: string;
+      iconActive: string;
     };
     text: {
       primary: string;
@@ -85,6 +131,21 @@ export interface DesignTokens {
     modal: number;
     toast: number;
   };
+  /** CSS custom properties in `styles/design-tokens.css` — use for inline styles or docs; prefer tokens in CSS. */
+  layout: {
+    shellRailMin: string;
+    shellRailMax: string;
+    shellRailAsideCap: string;
+    schoolIconRailWidth: string;
+    schoolIconRailOverlap: string;
+    featuresPageMax: string;
+    feedCommentSheetMax: string;
+    feedVideoWidthMin: string;
+    feedVideoWidthMax: string;
+    feedVideoVhTrim: string;
+    feedVideoWidthPreferred: string;
+    feedVideoVwInset: string;
+  };
 }
 
 export const designTokens: Readonly<DesignTokens> = {
@@ -117,9 +178,53 @@ export const designTokens: Readonly<DesignTokens> = {
       canvas: "var(--dl-color-surface-canvas)",
       default: "var(--dl-color-surface-default)",
       elevated: "var(--dl-color-surface-elevated)",
+      muted: "var(--dl-color-surface-muted)",
     },
     border: {
       default: "var(--dl-color-border-default)",
+      subtle: "var(--dl-color-border-subtle)",
+    },
+    authModal: {
+      surface: "var(--dl-auth-modal-surface)",
+      border: "var(--dl-auth-modal-border)",
+      headerBorder: "var(--dl-auth-modal-header-border)",
+      shadow: "var(--dl-auth-modal-shadow)",
+    },
+    authBanner: {
+      successBg: "var(--dl-auth-banner-success-bg)",
+      successText: "var(--dl-auth-banner-success-text)",
+      errorBg: "var(--dl-auth-banner-error-bg)",
+      errorText: "var(--dl-auth-banner-error-text)",
+      infoBg: "var(--dl-auth-banner-info-bg)",
+      infoText: "var(--dl-auth-banner-info-text)",
+    },
+    authInput: {
+      bg: "var(--dl-auth-input-bg)",
+      border: "var(--dl-auth-input-border)",
+      borderFocus: "var(--dl-auth-input-border-focus)",
+      borderError: "var(--dl-auth-input-border-error)",
+      placeholder: "var(--dl-auth-input-placeholder)",
+    },
+    authLink: {
+      secondary: "var(--dl-auth-link-secondary)",
+    },
+    switchMode: {
+      trackBg: "var(--dl-switch-mode-track-bg)",
+      trackBorder: "var(--dl-switch-mode-track-border)",
+      pillActiveBg: "var(--dl-switch-mode-pill-active-bg)",
+      pillActiveText: "var(--dl-switch-mode-pill-active-text)",
+      pillInactiveText: "var(--dl-switch-mode-pill-inactive-text)",
+    },
+    featuresCard: {
+      surface: "var(--dl-features-card-surface)",
+      border: "var(--dl-features-card-border)",
+      hoverBorder: "var(--dl-features-card-hover-border)",
+      iconBg: "var(--dl-features-card-icon-bg)",
+    },
+    feedAction: {
+      railBg: "var(--dl-feed-action-rail-bg)",
+      iconDefault: "var(--dl-feed-action-icon-default)",
+      iconActive: "var(--dl-feed-action-icon-active)",
     },
     text: {
       primary: "var(--dl-color-text-primary)",
@@ -183,4 +288,19 @@ export const designTokens: Readonly<DesignTokens> = {
     modal: 1300,
     toast: 1400,
   },
+  layout: {
+    shellRailMin: "var(--dl-layout-shell-rail-min)",
+    shellRailMax: "var(--dl-layout-shell-rail-max)",
+    shellRailAsideCap: "var(--dl-layout-shell-rail-aside-cap)",
+    schoolIconRailWidth: "var(--dl-layout-school-icon-rail-width)",
+    schoolIconRailOverlap: "var(--dl-layout-school-icon-rail-overlap)",
+    featuresPageMax: "var(--dl-layout-features-page-max)",
+    feedCommentSheetMax: "var(--dl-layout-feed-comment-sheet-max)",
+    feedVideoWidthMin: "var(--dl-layout-feed-video-width-min)",
+    feedVideoWidthMax: "var(--dl-layout-feed-video-width-max)",
+    feedVideoVhTrim: "var(--dl-layout-feed-video-vh-trim)",
+    feedVideoWidthPreferred: "var(--dl-layout-feed-video-width-preferred)",
+    feedVideoVwInset: "var(--dl-layout-feed-video-vw-inset)",
+  },
 } as const;
+/** ################################ /COMPONENT ############################# */

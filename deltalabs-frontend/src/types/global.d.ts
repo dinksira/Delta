@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export {};
 
 declare global {
@@ -7,3 +9,4 @@ declare global {
     }
   }
 }
+/** ################################ /COMPONENT ############################# */

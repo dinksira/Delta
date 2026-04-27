@@ -1,2 +1,0 @@
-/** Module TypeScript types. */
-export {};

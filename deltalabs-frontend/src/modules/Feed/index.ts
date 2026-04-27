@@ -1,5 +1,8 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /**
- * Feed module — landing, marketing placeholders, and dashboard shell entrypoints.
- * Layout: views, context, features, api, hooks, routing, types, utils per Delta Labs standards.
+ * Feed module — public explorer (video landing + hub routes), mock data, and feed TanStack Query hooks.
  */
+export * from "@/modules/Feed/hooks";
 export * from "@/modules/Feed/views";
+/** ################################ /COMPONENT ############################# */

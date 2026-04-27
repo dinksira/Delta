@@ -1,41 +1,49 @@
-import Link from "next/link";
+"use client";
+
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
-import { Typography } from "@/components/theme";
-import { ThemeToggle } from "@/components/navigation/ThemeToggle";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { FeatureTabsProvider } from "@/contexts/FeatureTabs_Context";
+import { TopNav } from "@/components/navigation/TopNav";
+import { profileInitialsFromUser } from "@/lib/authDisplay";
 
+/** ################################ /IMPORT ############################# */
+/** ################################ COMPONENT ############################# */
 /** Authenticated app chrome: top bar and main content region. */
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  const pathname = usePathname();
+  const isFeaturesRoute = pathname.startsWith("/features");
+  const isSchoolWorkspace = pathname.startsWith("/features/school");
+  const variant = isFeaturesRoute ? "features_authorized" : "landing_authorized";
+  const { session, isReady } = useAuthSession();
+  const profileInitials = isReady && session ? profileInitialsFromUser(session.user) : undefined;
+
   return (
-    <div className="flex min-h-full flex-col bg-surface-canvas">
-      <header className="border-b border-border-default bg-surface-default">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link
-            href="/dashboard"
-            className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 rounded-md"
-          >
-            <Typography as="span" variant="label" className="text-primary-600">
-              Delta Labs
-            </Typography>
-          </Link>
-          <nav className="flex items-center gap-4 sm:gap-6" aria-label="App">
-            <Link
-              href="/dashboard"
-              className="text-sm font-medium text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 rounded-sm"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/enrolled-courses"
-              className="text-sm font-medium text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 rounded-sm"
-            >
-              Enrolled courses
-            </Link>
-          </nav>
-          <ThemeToggle />
-        </div>
-      </header>
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6 sm:px-6">{children}</main>
-    </div>
+    <FeatureTabsProvider>
+      <div className="flex h-dvh max-h-dvh min-h-0 w-full flex-col overflow-hidden bg-surface-canvas">
+        <TopNav
+          variant={variant}
+          isAuthenticated
+          profileInitials={profileInitials}
+          sessionPending={!isReady}
+        />
+        <main
+          className={[
+            "min-h-0 w-full flex-1",
+            isSchoolWorkspace
+              ? "flex flex-col overflow-hidden pl-6 md:pl-8 xl:pl-10"
+              : isFeaturesRoute
+                ? "flex flex-col overflow-y-auto overscroll-y-contain px-6 py-6 md:px-8 xl:px-10"
+                : "mx-auto flex max-w-6xl flex-col overflow-y-auto overscroll-y-contain px-2 py-6 md:px-3",
+          ].join(" ")}
+        >
+          {children}
+        </main>
+      </div>
+    </FeatureTabsProvider>
   );
 }
+/** ################################ /COMPONENT ############################# */

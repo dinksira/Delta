@@ -1,6 +1,12 @@
+/** ################################ IMPORT ############################# */
+/** Imports used by this file. */
 import { getPublicApiBaseUrl } from "@/lib/config";
 import { ApiError, type ApiRequestInit, type HttpMethod } from "@/lib/apiClient.types";
 
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 export { ApiError, type ApiRequestInit, type HttpMethod } from "@/lib/apiClient.types";
 
 type AccessTokenGetter = () => string | null | undefined;
@@ -30,6 +36,7 @@ function buildUrl(path: string, searchParams?: ApiRequestInit["searchParams"]): 
     if (!searchParams) {
       return normalizedPath;
     }
+
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams)) {
       if (value === undefined || value === null) {
@@ -58,6 +65,10 @@ function extractMessageFromBody(body: unknown, fallback: string): string {
     return fallback;
   }
   if (typeof body === "string" && body.trim().length > 0) {
+    const lowered = body.trim().toLowerCase();
+    if (lowered.startsWith("<!doctype html") || lowered.startsWith("<html")) {
+      return "Received HTML instead of JSON. Check NEXT_PUBLIC_API_BASE_URL and ensure it points to the backend API server.";
+    }
     return body;
   }
   if (typeof body === "object" && "message" in body) {
@@ -156,3 +167,4 @@ export const apiClient = {
   delete: <T>(path: string, init?: ApiRequestInit) => request<T>("DELETE", path, init),
   rawRequest: request,
 } as const;
+/** ################################ /COMPONENT ############################# */

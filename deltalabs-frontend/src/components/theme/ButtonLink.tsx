@@ -1,3 +1,5 @@
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
 /** Anchor styled as a theme button for Next.js navigation. */
 import Link from "next/link";
 import type { ComponentProps } from "react";
@@ -21,3 +23,4 @@ export function ButtonLink({
 }: Readonly<ButtonLinkProps>) {
   return <Link className={getButtonClassName(variant, size, className)} {...props} />;
 }
+/** ################################ /COMPONENT ############################# */
