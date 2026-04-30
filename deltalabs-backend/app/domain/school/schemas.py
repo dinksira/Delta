@@ -175,6 +175,54 @@ MarketplaceSortDirection = Literal["asc", "desc"]
 OfferStatus = Literal["requested", "approved", "amendment", "rejected"]
 OfferListView = Literal["received", "sent"]
 SchoolOnboardingStatus = Literal["active", "pending_partner_acceptance"]
+SchoolWorkspaceItemType = Literal[
+    "folder",
+    "department",
+    "class",
+    "course",
+    "management-table",
+    "resource",
+    "student",
+    "service",
+    "staff",
+]
+
+
+class SchoolWorkspaceCreateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    type: SchoolWorkspaceItemType
+    title: str = Field(min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class SchoolWorkspaceUpdateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=2000)
+    metadata: dict[str, object] | None = None
+
+
+class SchoolWorkspaceItemPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    org_id: str = Field(serialization_alias="orgId")
+    school_id: str = Field(serialization_alias="schoolId")
+    parent_id: str | None = Field(default=None, serialization_alias="parentId")
+    type: SchoolWorkspaceItemType
+    title: str
+    description: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)
+    is_root: bool = Field(default=False, serialization_alias="isRoot")
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class SchoolWorkspaceListResponse(BaseModel):
+    items: list[SchoolWorkspaceItemPublic]
 
 
 class OfferPublic(BaseModel):

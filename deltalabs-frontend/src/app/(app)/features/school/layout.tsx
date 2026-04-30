@@ -1,3 +1,5 @@
+ "use client";
+
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import type { ReactNode } from "react";

@@ -42,6 +42,8 @@ type FeatureTabsContextValue = Readonly<{
   openTabs: readonly FeatureWorkspaceTab[];
   /** Opens or focuses a workspace tab and navigates to `/features?tab=…`. */
   openWorkspaceTab: (label: string) => void;
+  /** Opens or focuses a tab that points to an explicit route (used for per-school workspaces). */
+  openWorkspaceTabAt: (label: string, param: string, href: string) => void;
   /** Removes a tab from the strip (pinned Features is not in this list). */
   removeWorkspaceTab: (param: string) => void;
   /** Ensures a tab exists for the current URL (e.g. deep link). */
@@ -122,6 +124,27 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
     setOpenTabs((prev) => prev.filter((t) => t.param !== param));
   }, []);
 
+  const openWorkspaceTabAt = useCallback(
+    (label: string, param: string, href: string) => {
+      const cleanLabel = label.trim();
+      const cleanParam = param.trim().toLowerCase();
+      const cleanHref = href.trim();
+      if (!cleanLabel || !cleanParam || !cleanHref) return;
+      setOpenTabs((prev) => {
+        const existing = prev.find((t) => t.param === cleanParam);
+        if (existing) {
+          if (existing.label === cleanLabel && existing.href === cleanHref) return prev;
+          return prev.map((t) =>
+            t.param === cleanParam ? { ...t, label: cleanLabel, href: cleanHref } : t,
+          );
+        }
+        return [...prev, { id: cleanParam, label: cleanLabel, param: cleanParam, href: cleanHref }];
+      });
+      router.push(cleanHref);
+    },
+    [router],
+  );
+
   const ensureTabForParam = useCallback((param: string, labelHint?: string) => {
     if (!param) return;
     setOpenTabs((prev) => {
@@ -153,11 +176,19 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
     () => ({
       openTabs,
       openWorkspaceTab,
+      openWorkspaceTabAt,
       removeWorkspaceTab,
       ensureTabForParam,
       updateWorkspaceTabHref,
     }),
-    [openTabs, openWorkspaceTab, removeWorkspaceTab, ensureTabForParam, updateWorkspaceTabHref],
+    [
+      openTabs,
+      openWorkspaceTab,
+      openWorkspaceTabAt,
+      removeWorkspaceTab,
+      ensureTabForParam,
+      updateWorkspaceTabHref,
+    ],
   );
 
   return <FeatureTabsContext.Provider value={value}>{children}</FeatureTabsContext.Provider>;

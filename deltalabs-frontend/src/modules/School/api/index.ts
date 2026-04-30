@@ -141,6 +141,34 @@ export type MarketplaceUpdateInputDto = Readonly<{
 
 export type OfferStatus = "requested" | "approved" | "amendment" | "rejected";
 export type OfferView = "received" | "sent";
+export type SchoolWorkspaceItemTypeDto =
+  | "folder"
+  | "department"
+  | "class"
+  | "course"
+  | "management-table"
+  | "resource"
+  | "student"
+  | "service"
+  | "staff";
+
+export type SchoolWorkspaceItemDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  parentId?: string | null;
+  type: SchoolWorkspaceItemTypeDto;
+  title: string;
+  description?: string | null;
+  metadata: Record<string, unknown>;
+  isRoot: boolean;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type SchoolWorkspaceListResponseDto = Readonly<{
+  items: readonly SchoolWorkspaceItemDto[];
+}>;
 
 export type OfferDto = Readonly<{
   id: string;
@@ -234,6 +262,59 @@ export async function setSchoolArchived(
   return apiClient.patch<{ archived: boolean }>(`/v1/orgs/${orgId}/schools/${schoolId}/archive`, {
     json: { archived },
   });
+}
+
+export async function fetchSchoolWorkspaceItems(
+  orgId: string,
+  schoolId: string,
+  itemType?: SchoolWorkspaceItemTypeDto,
+): Promise<SchoolWorkspaceListResponseDto> {
+  return apiClient.get<SchoolWorkspaceListResponseDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items`,
+    { searchParams: { type: itemType } },
+  );
+}
+
+export async function createSchoolWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  payload: Readonly<{
+    type: SchoolWorkspaceItemTypeDto;
+    title: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+  }>,
+): Promise<SchoolWorkspaceItemDto> {
+  return apiClient.post<SchoolWorkspaceItemDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items`,
+    { json: payload },
+  );
+}
+
+export async function updateSchoolWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  itemId: string,
+  payload: Readonly<{
+    title?: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+  }>,
+): Promise<SchoolWorkspaceItemDto> {
+  return apiClient.patch<SchoolWorkspaceItemDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items/${itemId}`,
+    { json: payload },
+  );
+}
+
+export async function deleteSchoolWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  itemId: string,
+): Promise<{ status: string; itemId: string }> {
+  return apiClient.delete<{ status: string; itemId: string }>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items/${itemId}`,
+  );
 }
 
 export async function fetchSchoolMarketplace(

@@ -50,6 +50,16 @@ class Repository:
             [("school_id", ASCENDING)],
             name="ix_school_memberships_school",
         )
+        await self._db["school_workspace_items"].create_index(
+            [("org_id", ASCENDING), ("school_id", ASCENDING), ("type", ASCENDING), ("created_at", ASCENDING)],
+            name="ix_school_workspace_items_org_school_type_created",
+        )
+        await self._db["school_workspace_items"].create_index(
+            [("org_id", ASCENDING), ("school_id", ASCENDING), ("is_root", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"is_root": True},
+            name="uq_school_workspace_items_single_root",
+        )
 
     async def ping(self) -> bool:
         return True
@@ -104,6 +114,111 @@ class Repository:
         }
         await self._db["schools"].insert_one(doc)
         return doc
+
+    async def ensure_school_workspace_root(self, *, org_id: str, school_id: str) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        root = await self._db["school_workspace_items"].find_one(
+            {"org_id": org_id, "school_id": school_id, "is_root": True}
+        )
+        if isinstance(root, dict):
+            return root
+        doc = {
+            "_id": f"wsi_{uuid4().hex}",
+            "org_id": org_id,
+            "school_id": school_id,
+            "parent_id": None,
+            "type": "department",
+            "title": "Root Department",
+            "description": "Default root department for this school workspace.",
+            "metadata": {"default": True},
+            "is_root": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._db["school_workspace_items"].insert_one(doc)
+        return doc
+
+    async def create_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_type: str,
+        title: str,
+        description: str | None,
+        metadata: dict[str, Any],
+        parent_id: str | None,
+    ) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        doc = {
+            "_id": f"wsi_{uuid4().hex}",
+            "org_id": org_id,
+            "school_id": school_id,
+            "parent_id": parent_id,
+            "type": item_type,
+            "title": title.strip(),
+            "description": description.strip() if isinstance(description, str) and description.strip() else None,
+            "metadata": metadata,
+            "is_root": False,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._db["school_workspace_items"].insert_one(doc)
+        return doc
+
+    async def list_school_workspace_items(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {"org_id": org_id, "school_id": school_id}
+        if isinstance(item_type, str) and item_type.strip():
+            query["type"] = item_type.strip()
+        cursor = self._db["school_workspace_items"].find(query).sort(
+            [("is_root", -1), ("created_at", ASCENDING), ("title", ASCENDING)]
+        )
+        return await cursor.to_list(length=1000)
+
+    async def find_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["school_workspace_items"].find_one(
+            {"_id": item_id, "org_id": org_id, "school_id": school_id}
+        )
+
+    async def update_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+        updates: dict[str, Any],
+    ) -> bool:
+        safe_updates = dict(updates)
+        safe_updates["updated_at"] = datetime.now(UTC)
+        result = await self._db["school_workspace_items"].update_one(
+            {"_id": item_id, "org_id": org_id, "school_id": school_id},
+            {"$set": safe_updates},
+        )
+        return result.matched_count > 0
+
+    async def delete_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+    ) -> bool:
+        result = await self._db["school_workspace_items"].delete_one(
+            {"_id": item_id, "org_id": org_id, "school_id": school_id}
+        )
+        return result.deleted_count > 0
 
     async def set_school_archived(self, *, org_id: str, school_id: str, archived: bool) -> bool:
         result = await self._db["schools"].update_one(

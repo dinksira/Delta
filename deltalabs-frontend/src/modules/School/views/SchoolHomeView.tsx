@@ -12,6 +12,7 @@ import { SchoolConfirmActionModal } from "@/components/features/school/master/Sc
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
+import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import { SchoolDetailsDrawer } from "@/components/features/school/master/SchoolDetailsDrawer";
 import { SchoolEntityCard } from "@/components/features/school/master/SchoolEntityCard";
 import { SchoolStatePanel } from "@/components/features/school/master/SchoolStatePanel";
@@ -24,6 +25,7 @@ import { setSchoolArchived } from "@/modules/School/api";
 /** My School — overview, stats, search, and school cards (membership-based list). */
 export function SchoolHomeView() {
   const router = useRouter();
+  const { openWorkspaceTabAt } = useFeatureTabs();
   const { isAuthenticated, isReady } = useAuthSession();
   const queryClient = useQueryClient();
   const { orgs, mySchools, orgsError, mySchoolsError, orgsPending, mySchoolsPending } =
@@ -83,6 +85,15 @@ export function SchoolHomeView() {
       }
     : null;
   const schoolsLoading = isAuthenticated && isReady && (orgsPending || mySchoolsPending);
+  const openSchoolWorkspaceTab = (schoolId: string, schoolName: string) => {
+    const safeSchoolId = encodeURIComponent(schoolId);
+    const safeSchoolName = encodeURIComponent(schoolName);
+    openWorkspaceTabAt(
+      schoolName,
+      `school-${schoolId}`,
+      `/features/school/${safeSchoolId}?name=${safeSchoolName}`,
+    );
+  };
 
   return (
     <>
@@ -126,7 +137,7 @@ export function SchoolHomeView() {
                 ctaVariant="portal"
                 primaryLabel="Go to School"
                 onPrimaryAction={() => {
-                  router.push(`/features/school/offers?status=requested&schoolId=${row.schoolId}`);
+                  openSchoolWorkspaceTab(row.schoolId, row.name);
                 }}
                 onDetailsAction={() => setDetailsSchoolId(row.schoolId)}
                 onEditAction={() => setDetailsSchoolId(row.schoolId)}
@@ -169,7 +180,7 @@ export function SchoolHomeView() {
           setDetailsSchoolId(null);
         }}
         onGoToSchool={(school) => {
-          router.push(`/features/school/offers?status=requested&schoolId=${school.schoolId}`);
+          openSchoolWorkspaceTab(school.schoolId, school.name);
           setDetailsSchoolId(null);
         }}
       />
