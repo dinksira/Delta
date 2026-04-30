@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import TypedDict
 from uuid import uuid4
 
@@ -25,27 +26,35 @@ from app.domain.authorization.schemas import (
 # Authorization decision engine and org lifecycle helpers.
 class Service:
     """Centralized allow/deny decision engine."""
+    _bootstrap_lock = asyncio.Lock()
+    _bootstrapped = False
 
     def __init__(self, repository: Repository) -> None:
         self._repository = repository
 
     async def bootstrap_defaults(self) -> None:
         """Ensure indexes and baseline role catalog exist."""
-        await self._repository.ensure_indexes()
-        settings = get_settings()
-        await self._repository.upsert_default_org(
-            slug=settings.authz_default_org_slug,
-            name=settings.authz_default_org_name,
-        )
-        for row in _DEFAULT_ROLES:
-            await self._repository.upsert_role_definition(
-                role_key=row["role_key"],
-                title=row["title"],
-                permissions=row["permissions"],
-                description=row.get("description"),
-                membership_state=row.get("membership_state", "member"),
-                membership_rank=row.get("membership_rank", 1),
+        if Service._bootstrapped:
+            return
+        async with Service._bootstrap_lock:
+            if Service._bootstrapped:
+                return
+            await self._repository.ensure_indexes()
+            settings = get_settings()
+            await self._repository.upsert_default_org(
+                slug=settings.authz_default_org_slug,
+                name=settings.authz_default_org_name,
             )
+            for row in _DEFAULT_ROLES:
+                await self._repository.upsert_role_definition(
+                    role_key=row["role_key"],
+                    title=row["title"],
+                    permissions=row["permissions"],
+                    description=row.get("description"),
+                    membership_state=row.get("membership_state", "member"),
+                    membership_rank=row.get("membership_rank", 1),
+                )
+            Service._bootstrapped = True
 
     async def require_permission(self, *, user_id: str, payload: PermissionCheckRequest) -> None:
         decision = await self.authorize(user_id=user_id, payload=payload)

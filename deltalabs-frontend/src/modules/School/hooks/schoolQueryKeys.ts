@@ -5,6 +5,8 @@ export const schoolQueryKeys = {
   mySchools: (userId?: string) => ["school", "me", "schools", userId ?? "anon"] as const,
   moduleStatus: () => ["school", "module-status"] as const,
   schools: (orgId: string, archived: boolean) => ["school", "schools", orgId, archived] as const,
+  workspaceItems: (orgId: string, schoolId: string, itemType: string) =>
+    ["school", "workspace", orgId, schoolId, itemType] as const,
   marketplace: (
     orgId: string,
     view: string,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from app.core.config import Settings, get_settings
@@ -29,17 +30,30 @@ from app.domain.school.schemas import (
     SchoolCreateInput,
     SchoolListResponse,
     SchoolPublic,
+    SchoolWorkspaceCreateInput,
+    SchoolWorkspaceItemPublic,
+    SchoolWorkspaceListResponse,
+    SchoolWorkspaceUpdateInput,
 )
 
 
 class Service:
     """Business logic for school, marketplace, and offer management."""
+    _bootstrap_lock = asyncio.Lock()
+    _bootstrapped = False
+
     def __init__(self, repository: Repository, settings: Settings | None = None) -> None:
         self._repository = repository
         self._settings = settings or get_settings()
 
     async def bootstrap(self) -> None:
-        await self._repository.ensure_indexes()
+        if Service._bootstrapped:
+            return
+        async with Service._bootstrap_lock:
+            if Service._bootstrapped:
+                return
+            await self._repository.ensure_indexes()
+            Service._bootstrapped = True
 
     async def healthcheck(self) -> bool:
         return await self._repository.ping()
@@ -86,6 +100,10 @@ class Service:
             org_id=org_id,
             role_keys=["school_owner"],
         )
+        await self._repository.ensure_school_workspace_root(
+            org_id=org_id,
+            school_id=str(doc["_id"]),
+        )
         school_id = str(doc["_id"])
         school_name = payload.name.strip()
         for partner in recipient_partners:
@@ -103,6 +121,120 @@ class Service:
                 offer_kind="ownership",
             )
         return _map_school(doc)
+
+    async def list_school_workspace_items(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_type: str | None = None,
+    ) -> SchoolWorkspaceListResponse:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        await self._repository.ensure_school_workspace_root(org_id=org_id, school_id=school_id)
+        docs = await self._repository.list_school_workspace_items(
+            org_id=org_id,
+            school_id=school_id,
+            item_type=item_type,
+        )
+        return SchoolWorkspaceListResponse(items=[_map_workspace_item(doc) for doc in docs])
+
+    async def create_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        payload: SchoolWorkspaceCreateInput,
+    ) -> SchoolWorkspaceItemPublic:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        root = await self._repository.ensure_school_workspace_root(org_id=org_id, school_id=school_id)
+        metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
+        doc = await self._repository.create_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_type=payload.type,
+            title=payload.title,
+            description=payload.description,
+            metadata=metadata,
+            parent_id=str(root["_id"]),
+        )
+        return _map_workspace_item(doc)
+
+    async def update_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+        payload: SchoolWorkspaceUpdateInput,
+    ) -> SchoolWorkspaceItemPublic:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        existing = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+        )
+        if existing is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        if bool(existing.get("is_root", False)):
+            raise ValidationError("Root workspace item cannot be edited.", code="workspace_item_root_immutable")
+        updates: dict[str, object] = {}
+        if payload.title is not None:
+            updates["title"] = payload.title.strip()
+        if payload.description is not None:
+            updates["description"] = payload.description.strip() if payload.description.strip() else None
+        if payload.metadata is not None:
+            updates["metadata"] = payload.metadata if isinstance(payload.metadata, dict) else {}
+        if len(updates) == 0:
+            raise ValidationError("No changes were provided.", code="workspace_item_update_empty")
+        ok = await self._repository.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+            updates=updates,
+        )
+        if not ok:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        refreshed = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+        )
+        if refreshed is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        return _map_workspace_item(refreshed)
+
+    async def delete_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+    ) -> None:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        existing = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+        )
+        if existing is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        if bool(existing.get("is_root", False)):
+            raise ValidationError("Root workspace item cannot be deleted.", code="workspace_item_root_immutable")
+        ok = await self._repository.delete_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+        )
+        if not ok:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
 
     async def list_my_schools(self, *, user_id: str) -> MySchoolsResponse:
         """School-scoped view: memberships plus backfill for legacy creator rows."""
@@ -1388,4 +1520,22 @@ def _map_offer(doc: dict[str, object]) -> OfferPublic:
         amendment_data=amendment_data,  # type: ignore[arg-type]
         expires_at=(doc["expires_at"] if isinstance(doc.get("expires_at"), datetime) else None),  # type: ignore[arg-type]
         amendment_rounds=(int(doc["amendment_rounds"]) if isinstance(doc.get("amendment_rounds"), int) else 0),
+    )
+
+
+def _map_workspace_item(doc: dict[str, object]) -> SchoolWorkspaceItemPublic:
+    metadata = doc.get("metadata")
+    metadata_safe = metadata if isinstance(metadata, dict) else {}
+    return SchoolWorkspaceItemPublic(
+        id=str(doc["_id"]),
+        org_id=str(doc["org_id"]),
+        school_id=str(doc["school_id"]),
+        parent_id=(str(doc["parent_id"]) if doc.get("parent_id") is not None else None),
+        type=str(doc["type"]),  # type: ignore[arg-type]
+        title=str(doc["title"]),
+        description=(str(doc["description"]) if doc.get("description") is not None else None),
+        metadata=metadata_safe,
+        is_root=bool(doc.get("is_root", False)),
+        created_at=doc["created_at"],  # type: ignore[arg-type]
+        updated_at=doc["updated_at"],  # type: ignore[arg-type]
     )

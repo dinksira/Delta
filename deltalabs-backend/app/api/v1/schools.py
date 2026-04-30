@@ -29,6 +29,10 @@ from app.domain.school.schemas import (
     SchoolCreateMeInput,
     SchoolListResponse,
     SchoolPublic,
+    SchoolWorkspaceCreateInput,
+    SchoolWorkspaceItemPublic,
+    SchoolWorkspaceListResponse,
+    SchoolWorkspaceUpdateInput,
 )
 from app.domain.school.service import Service
 
@@ -307,6 +311,88 @@ async def create_org_school(
         user_email=user.email,
         payload=payload,
     )
+
+
+@org_router.get(
+    "/{school_id}/workspace/items",
+    response_model=SchoolWorkspaceListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school_workspace_items(
+    org_id: str,
+    school_id: str,
+    item_type: str | None = Query(default=None, alias="type"),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolWorkspaceListResponse:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.list_school_workspace_items(
+        org_id=org_id,
+        school_id=school_id,
+        item_type=item_type,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items",
+    response_model=SchoolWorkspaceItemPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def create_org_school_workspace_item(
+    org_id: str,
+    school_id: str,
+    payload: SchoolWorkspaceCreateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolWorkspaceItemPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.create_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/workspace/items/{item_id}",
+    response_model=SchoolWorkspaceItemPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def update_org_school_workspace_item(
+    org_id: str,
+    school_id: str,
+    item_id: str,
+    payload: SchoolWorkspaceUpdateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolWorkspaceItemPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=item_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/workspace/items/{item_id}",
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def delete_org_school_workspace_item(
+    org_id: str,
+    school_id: str,
+    item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, str]:
+    service = _service(db)
+    await service.bootstrap()
+    await service.delete_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=item_id,
+    )
+    return {"status": "deleted", "itemId": item_id}
 
 
 @org_router.patch(

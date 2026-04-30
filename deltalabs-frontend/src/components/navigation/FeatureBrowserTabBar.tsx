@@ -105,10 +105,18 @@ export function FeatureBrowserTabBar() {
   } = useFeatureTabs();
 
   const tabParam = pathname.startsWith("/features") ? searchParams.get("tab") : null;
+  const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
   const featuresHomeActive = pathname === "/features";
   const schoolPathActive = pathname.startsWith("/features/school");
+  const schoolWorkspaceMatch = pathname.match(/^\/features\/school\/([^/?#]+)/);
+  const schoolWorkspaceId = schoolWorkspaceMatch?.[1] ?? null;
+  const schoolWorkspaceParam = schoolWorkspaceId ? `school-${schoolWorkspaceId}` : null;
 
   useEffect(() => {
+    if (schoolWorkspaceParam) {
+      ensureTabForParam(schoolWorkspaceParam, "School Workspace");
+      return;
+    }
     if (schoolPathActive) {
       ensureTabForParam("school", "School");
       return;
@@ -119,13 +127,14 @@ export function FeatureBrowserTabBar() {
 
   useEffect(() => {
     if (!schoolPathActive) return;
-    const current = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-    updateWorkspaceTabHref("school", current);
-  }, [pathname, schoolPathActive, searchParams, updateWorkspaceTabHref]);
+    updateWorkspaceTabHref(schoolWorkspaceParam ?? "school", currentUrl);
+  }, [currentUrl, schoolPathActive, schoolWorkspaceParam, updateWorkspaceTabHref]);
 
   const onCloseDynamic = (param: string) => {
     removeWorkspaceTab(param);
-    const leavingSchool = param === "school" && schoolPathActive;
+    const leavingSchool =
+      (param === "school" || (schoolWorkspaceParam !== null && param === schoolWorkspaceParam)) &&
+      schoolPathActive;
     if (tabParam === param || leavingSchool) {
       router.push("/features");
     }
@@ -146,9 +155,9 @@ export function FeatureBrowserTabBar() {
             ? "/features/school"
             : `/features?tab=${encodeURIComponent(t.param)}`);
         const active = t.param === "school"
-          ? pathname === "/features/school" || pathname.startsWith("/features/school/")
+          ? pathname === "/features/school"
           : t.href
-            ? pathname === t.href || pathname.startsWith(`${t.href}/`)
+            ? currentUrl === t.href || pathname === t.href || pathname.startsWith(`${t.href}/`)
             : tabParam === t.param;
         return (
           <BrowserTab
