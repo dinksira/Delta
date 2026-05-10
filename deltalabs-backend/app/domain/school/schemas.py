@@ -195,6 +195,11 @@ class SchoolWorkspaceCreateInput(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     description: str | None = Field(default=None, max_length=2000)
     metadata: dict[str, object] = Field(default_factory=dict)
+    parent_id: str | None = Field(
+        default=None,
+        alias="parentId",
+        description="Parent workspace item id; omit to attach under the school root department.",
+    )
 
 
 class SchoolWorkspaceUpdateInput(BaseModel):
@@ -223,6 +228,64 @@ class SchoolWorkspaceItemPublic(BaseModel):
 
 class SchoolWorkspaceListResponse(BaseModel):
     items: list[SchoolWorkspaceItemPublic]
+
+
+ClassSessionType = Literal["virtual", "in_person", "hybrid"]
+ClassSessionStatus = Literal["draft", "scheduled", "live", "completed"]
+ClassSessionCreationMode = Literal["single", "multiple"]
+
+
+class ClassSessionCreateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    weight: float | None = Field(default=None, ge=0, le=10_000)
+    duration_minutes: int | None = Field(
+        default=None,
+        ge=1,
+        le=24 * 60,
+        alias="durationMinutes",
+        description="Planned session length in minutes.",
+    )
+    session_type: ClassSessionType = Field(default="virtual", alias="sessionType")
+    scheduled_at: datetime | None = Field(default=None, alias="scheduledAt")
+    creation_mode: ClassSessionCreationMode | None = Field(default="single", alias="creationMode")
+
+
+class ClassSessionUpdateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    weight: float | None = Field(default=None, ge=0, le=10_000)
+    duration_minutes: int | None = Field(default=None, ge=1, le=24 * 60, alias="durationMinutes")
+    session_type: ClassSessionType | None = Field(default=None, alias="sessionType")
+    scheduled_at: datetime | None = Field(default=None, alias="scheduledAt")
+    status: ClassSessionStatus | None = None
+
+
+class ClassSessionPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    org_id: str = Field(serialization_alias="orgId")
+    school_id: str = Field(serialization_alias="schoolId")
+    class_workspace_item_id: str = Field(serialization_alias="classWorkspaceItemId")
+    title: str
+    description: str | None = None
+    weight: float | None = None
+    duration_minutes: int | None = Field(default=None, serialization_alias="durationMinutes")
+    session_type: ClassSessionType = Field(serialization_alias="sessionType")
+    scheduled_at: datetime | None = Field(default=None, serialization_alias="scheduledAt")
+    status: ClassSessionStatus
+    creation_mode: ClassSessionCreationMode | None = Field(default=None, serialization_alias="creationMode")
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+
+class ClassSessionListResponse(BaseModel):
+    items: list[ClassSessionPublic]
 
 
 class OfferPublic(BaseModel):

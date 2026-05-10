@@ -16,6 +16,15 @@ const TAB_IDLE_BG = "bg-[color:var(--color-features-tab-idle-bg)]";
 const TAB_BORDER = "border-[color:var(--color-features-tab-border)]";
 const TAB_TEXT = "text-[color:var(--color-features-tab-text)]";
 
+/**
+ * First path segment after `/features/school/` for **product sections** (offers, marketplace, …).
+ * Must not be treated as a `{schoolId}` or every sidebar click spawns a new "School Workspace" tab
+ * (`school-offers`, `school-archive`, …) with the same label.
+ */
+const SCHOOL_NON_ID_FIRST_SEGMENTS = new Set(
+  ["offers", "marketplace", "archive", "create"].map((s) => s.toLowerCase()),
+);
+
 /** ################################ /CONSTANTS ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
@@ -109,7 +118,11 @@ export function FeatureBrowserTabBar() {
   const featuresHomeActive = pathname === "/features";
   const schoolPathActive = pathname.startsWith("/features/school");
   const schoolWorkspaceMatch = pathname.match(/^\/features\/school\/([^/?#]+)/);
-  const schoolWorkspaceId = schoolWorkspaceMatch?.[1] ?? null;
+  const firstAfterSchool = schoolWorkspaceMatch?.[1] ?? null;
+  const schoolWorkspaceId =
+    firstAfterSchool && !SCHOOL_NON_ID_FIRST_SEGMENTS.has(firstAfterSchool.toLowerCase())
+      ? firstAfterSchool
+      : null;
   const schoolWorkspaceParam = schoolWorkspaceId ? `school-${schoolWorkspaceId}` : null;
 
   useEffect(() => {
@@ -123,7 +136,7 @@ export function FeatureBrowserTabBar() {
     }
     if (!pathname.startsWith("/features") || !tabParam) return;
     ensureTabForParam(tabParam);
-  }, [pathname, tabParam, schoolPathActive, ensureTabForParam]);
+  }, [pathname, tabParam, schoolPathActive, schoolWorkspaceParam, ensureTabForParam]);
 
   useEffect(() => {
     if (!schoolPathActive) return;

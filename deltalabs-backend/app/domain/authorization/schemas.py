@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ScopeType = Literal["org", "school", "lab", "course", "global"]
 RelationshipType = Literal["parent_of", "mentor_of", "guardian_of"]
@@ -99,6 +99,17 @@ class AuthorizationAccessProfile(BaseModel):
     role_keys: list[str]
     permissions: list[str]
     membership_state: str
+
+
+class OrgAccessPublic(BaseModel):
+    """Org-scoped RBAC snapshot for the signed-in user (API / JSON)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    org_id: str = Field(serialization_alias="orgId")
+    role_keys: list[str] = Field(default_factory=list, serialization_alias="roleKeys")
+    permissions: list[str] = Field(default_factory=list)
+    membership_state: str = Field(serialization_alias="membershipState")
 
 
 class PermissionCheckRequest(BaseModel):

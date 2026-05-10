@@ -1,0 +1,50 @@
+flowchart TB
+  subgraph Entry["Entry points (Next.js routes)"]
+    LoginRoute["/login\napp/(public)/login/page.tsx"]
+    SignupRoute["/signup\napp/(public)/signup/page.tsx"]
+    Landing["/\napp/(public)/page.tsx\n(contains AuthModalGateway)"]
+  end
+
+  subgraph Modal["Modal entry (query-driven)"]
+    Gateway["AuthModalGateway.tsx\n/?auth=login|signup|recover"]
+    Shell["AuthModalShell.tsx\n(back/close/banner slots)"]
+  end
+
+  subgraph Views["AU Views (composed)"]
+    LoginView["LoginPageView.tsx\nuses AuthTextField/AuthPasswordField/etc"]
+    SignupView["SignupPageView.tsx\nmulti-step, uses AuthSelectField/AuthPhoneField/etc"]
+    RecoverView["RecoverPageView.tsx\nrequest/reset/done, uses AuthOtpField/etc"]
+  end
+
+  subgraph State["State + API integration"]
+    Session["AuthSessionProvider\nstores dl.auth.session.v1\nsets AUTH_SESSION_COOKIE=1\nsets accessToken getter"]
+    Mutations["useAuthMutations.ts\nuseLoginMutation/useSignupMutation/etc"]
+    AuthApi["authApi.ts\ncalls /v1/auth/*"]
+    ApiClient["apiClient.ts\nadds Authorization header\n+ X-Request-Id + normalized errors"]
+  end
+
+  subgraph Routing["Route protection"]
+    MW["middleware.ts\nchecks AUTH_SESSION_COOKIE\nredirects to /?auth=login&next=..."]
+  end
+
+  subgraph Backend["Backend API"]
+    AuthAPI["/v1/auth/*"]
+  end
+
+  LoginRoute --> LoginView
+  SignupRoute --> SignupView
+
+  Landing --> Gateway
+  Gateway --> Shell
+  Shell --> LoginView
+  Shell --> SignupView
+  Shell --> RecoverView
+
+  LoginView --> Mutations
+  SignupView --> Mutations
+  RecoverView --> Mutations
+
+  Mutations --> AuthApi --> ApiClient --> AuthAPI
+  Session --> ApiClient
+  Session --> MW
+
