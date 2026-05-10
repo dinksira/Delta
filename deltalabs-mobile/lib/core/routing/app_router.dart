@@ -3,94 +3,93 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/register_step1_page.dart';
+import '../../features/auth/presentation/pages/register_step2_page.dart';
+import '../../features/auth/presentation/pages/register_otp_page.dart';
+import '../../features/auth/presentation/pages/register_dob_page.dart';
+import '../../features/auth/presentation/pages/register_password_page.dart';
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/forgot_otp_page.dart';
+import '../../features/auth/presentation/pages/reset_password_page.dart';
 import 'app_routes.dart';
-import 'guards/auth_guard.dart';
 
 part 'app_router.g.dart';
 
-/// Root router provider.
-/// Rebuilds when auth state changes to redirect unauthenticated users.
 @riverpod
-GoRouter appRouter(AppRouterRef ref) {
-  final authGuard = AuthGuard(ref);
-
+GoRouter appRouter(Ref ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
-    redirect: authGuard.redirect,
-    refreshListenable: authGuard,
     routes: [
       // ── Splash ─────────────────────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.splash,
         name: 'splash',
-        builder: (context, state) => const _SplashPlaceholder(),
+        builder: (_, __) => const SplashPage(),
       ),
 
       // ── Auth ───────────────────────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.login,
         name: 'login',
-        builder: (context, state) => const _PlaceholderPage(title: 'Login'),
+        builder: (_, __) => const LoginPage(),
       ),
       GoRoute(
-        path: AppRoutes.register,
-        name: 'register',
-        builder: (context, state) => const _PlaceholderPage(title: 'Register'),
+        path: AppRoutes.forgotPassword,
+        name: 'forgot-password',
+        builder: (_, __) => const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotOtp,
+        name: 'forgot-otp',
+        builder: (_, __) => const ForgotOtpPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.resetPassword,
+        name: 'reset-password',
+        builder: (_, __) => const ResetPasswordPage(),
       ),
 
-      // ── Main Shell ─────────────────────────────────────────────────────────
-      ShellRoute(
-        builder: (context, state, child) => _MainShell(child: child),
-        routes: [
-          GoRoute(
-            path: AppRoutes.home,
-            name: 'home',
-            builder: (context, state) => const _PlaceholderPage(title: 'Home'),
-          ),
-          GoRoute(
-            path: AppRoutes.feed,
-            name: 'feed',
-            builder: (context, state) => const _PlaceholderPage(title: 'Feed'),
-          ),
-          GoRoute(
-            path: AppRoutes.classes,
-            name: 'classes',
-            builder: (context, state) => const _PlaceholderPage(title: 'Classes'),
-          ),
-          GoRoute(
-            path: AppRoutes.library,
-            name: 'library',
-            builder: (context, state) => const _PlaceholderPage(title: 'Library'),
-          ),
-          GoRoute(
-            path: AppRoutes.profile,
-            name: 'profile',
-            builder: (context, state) => const _PlaceholderPage(title: 'Profile'),
-          ),
-        ],
+      // ── Register flow ──────────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.registerStep1,
+        name: 'register-step1',
+        builder: (_, __) => const RegisterStep1Page(),
+      ),
+      GoRoute(
+        path: AppRoutes.registerStep2,
+        name: 'register-step2',
+        builder: (_, __) => const RegisterStep2Page(),
+      ),
+      GoRoute(
+        path: AppRoutes.registerOtp,
+        name: 'register-otp',
+        builder: (_, __) => const RegisterOtpPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.registerDob,
+        name: 'register-dob',
+        builder: (_, __) => const RegisterDobPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.registerPassword,
+        name: 'register-password',
+        builder: (_, __) => const RegisterPasswordPage(),
+      ),
+
+      // ── Main (placeholder until features are built) ────────────────────────
+      GoRoute(
+        path: AppRoutes.home,
+        name: 'home',
+        builder: (_, __) => const _PlaceholderPage(title: 'Home'),
       ),
     ],
-    errorBuilder: (context, state) => _ErrorPage(error: state.error),
+    errorBuilder: (_, state) => Scaffold(
+      body: Center(child: Text('Route not found: ${state.uri}')),
+    ),
   );
-}
-
-// ── Placeholder widgets (replaced as features are implemented) ────────────────
-
-class _SplashPlaceholder extends StatelessWidget {
-  const _SplashPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'DeltaLabs',
-          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
 }
 
 class _PlaceholderPage extends StatelessWidget {
@@ -102,28 +101,6 @@ class _PlaceholderPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: Center(child: Text('$title — coming soon')),
-    );
-  }
-}
-
-class _MainShell extends StatelessWidget {
-  const _MainShell({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => child;
-}
-
-class _ErrorPage extends StatelessWidget {
-  const _ErrorPage({this.error});
-  final Exception? error;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text('Navigation error: ${error?.toString() ?? 'Unknown'}'),
-      ),
     );
   }
 }

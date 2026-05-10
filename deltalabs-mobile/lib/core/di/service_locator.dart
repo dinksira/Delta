@@ -9,11 +9,8 @@ import '../storage/local_database.dart';
 import '../realtime/websocket_manager.dart';
 import '../sync/sync_engine.dart';
 
-/// Global service locator instance.
 final GetIt sl = GetIt.instance;
 
-/// Registers all application-level singletons and factories.
-/// Called once during [bootstrap] before the app widget tree is built.
 class ServiceLocator {
   ServiceLocator._();
 
@@ -26,7 +23,6 @@ class ServiceLocator {
   }
 
   static Future<void> _registerCore() async {
-    // AppConfig is already initialized before this point
     sl.registerSingleton<AppConfig>(AppConfig.instance);
   }
 
@@ -53,8 +49,7 @@ class ServiceLocator {
   }
 
   static Future<void> _registerStorage() async {
-    final db = LocalDatabase();
-    sl.registerSingleton<LocalDatabase>(db);
+    sl.registerSingleton<LocalDatabase>(LocalDatabase());
   }
 
   static Future<void> _registerRealtime() async {

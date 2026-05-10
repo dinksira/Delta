@@ -78,7 +78,7 @@ class ErrorHandler {
       404 => NotFoundFailure(message: message ?? 'Not found', code: code),
       409 => ConflictFailure(message: message ?? 'Conflict', code: code),
       422 => ValidationFailure(message: message ?? 'Validation error', code: code),
-      >= 500 => ServerFailure(
+      final s when s != null && s >= 500 => ServerFailure(
           message: message ?? 'Server error',
           code: code,
           statusCode: statusCode,

@@ -1,10 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'realtime_event.freezed.dart';
-part 'realtime_event.g.dart';
-
 /// Typed realtime event envelope.
-/// All WebSocket messages are wrapped in this structure.
+/// Manual fromJson/toJson — avoids json_serializable null-aware-elements issue.
 @freezed
 abstract class RealtimeEvent with _$RealtimeEvent {
   const factory RealtimeEvent({
@@ -14,42 +12,28 @@ abstract class RealtimeEvent with _$RealtimeEvent {
     DateTime? timestamp,
   }) = _RealtimeEvent;
 
-  factory RealtimeEvent.fromJson(Map<String, dynamic> json) =>
-      _$RealtimeEventFromJson(json);
+  factory RealtimeEvent.fromJson(Map<String, dynamic> json) => RealtimeEvent(
+        type: json['type'] as String,
+        channel: json['channel'] as String? ?? '',
+        payload: (json['payload'] as Map<String, dynamic>?) ?? {},
+        timestamp: json['timestamp'] != null
+            ? DateTime.tryParse(json['timestamp'] as String)
+            : null,
+      );
 }
 
 /// Well-known realtime event type constants.
-/// Feature modules define their own event types in their domain layer.
 abstract class RealtimeEventTypes {
-  // System
   static const String ping = 'ping';
   static const String pong = 'pong';
-  static const String error = 'error';
-
-  // Auth
   static const String sessionExpired = 'session.expired';
-  static const String forceLogout = 'auth.force_logout';
-
-  // Notifications
   static const String notification = 'notification.new';
-
-  // Chat
   static const String chatMessage = 'chat.message';
   static const String chatTyping = 'chat.typing';
-  static const String chatRead = 'chat.read';
-
-  // Presence
   static const String presenceJoin = 'presence.join';
   static const String presenceLeave = 'presence.leave';
-  static const String presenceUpdate = 'presence.update';
-
-  // Live Class
   static const String liveClassStarted = 'live_class.started';
   static const String liveClassEnded = 'live_class.ended';
-  static const String liveClassParticipantJoined = 'live_class.participant_joined';
-
-  // Live Exam
   static const String examStarted = 'exam.started';
   static const String examEnded = 'exam.ended';
-  static const String examTimeWarning = 'exam.time_warning';
 }

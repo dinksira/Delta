@@ -15,7 +15,7 @@ part 'auth_provider.g.dart';
 // ── Repository Provider ───────────────────────────────────────────────────────
 
 @riverpod
-AuthRepository authRepository(AuthRepositoryRef ref) {
+AuthRepository authRepository(Ref ref) {
   return AuthRepositoryImpl(
     remoteDataSource: AuthRemoteDataSourceImpl(
       apiClient: sl<ApiClient>(),
@@ -27,7 +27,7 @@ AuthRepository authRepository(AuthRepositoryRef ref) {
 // ── Use Case Providers ────────────────────────────────────────────────────────
 
 @riverpod
-SignInUseCase signInUseCase(SignInUseCaseRef ref) {
+SignInUseCase signInUseCase(Ref ref) {
   return SignInUseCase(repository: ref.watch(authRepositoryProvider));
 }
 
@@ -86,6 +86,11 @@ class AuthNotifier extends _$AuthNotifier {
 // ── Convenience Selectors ─────────────────────────────────────────────────────
 
 @riverpod
-bool isAuthenticated(IsAuthenticatedRef ref) {
-  return ref.watch(authNotifierProvider).valueOrNull != null;
+bool isAuthenticated(Ref ref) {
+  final state = ref.watch(authProvider);
+  return state.when(
+    data: (user) => user != null,
+    loading: () => false,
+    error: (_, __) => false,
+  );
 }

@@ -4,7 +4,7 @@ part 'paginated_response.freezed.dart';
 part 'paginated_response.g.dart';
 
 /// Generic paginated API response wrapper.
-@freezed
+@Freezed(genericArgumentFactories: true)
 abstract class PaginatedResponse<T> with _$PaginatedResponse<T> {
   const factory PaginatedResponse({
     required List<T> data,
