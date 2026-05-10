@@ -101,6 +101,7 @@ function mapIssuedResponseToSession(dto: AuthIssuedResponseDto): AuthSessionPayl
 /** ################################ /HELPERS ############################# */
 
 /** ################################ COMPONENT ############################# */
+
 /** Real backend auth API integration. */
 export const authApi = {
   async login(input: LoginInput): Promise<AuthResult> {
@@ -132,6 +133,7 @@ export const authApi = {
       verificationId: data.verification_id,
       debugCode: data.debug_code ?? undefined,
     };
+    
   },
 
   async signup(input: SignupInput): Promise<AuthResult> {

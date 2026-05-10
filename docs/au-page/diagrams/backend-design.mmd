@@ -1,0 +1,50 @@
+flowchart TB
+  subgraph Routes["FastAPI routes"]
+    AuthRoutes["/v1/auth/* router\n(deltalabs-backend/app/api/v1/auth.py)"]
+  end
+
+  subgraph Identity["Identity domain"]
+    IdentitySvc["identity.service.Service\nsignup/login/session/logout"]
+    SignupFlow["identity.signup_flow_service.SignupFlowService\nresumable flow state (Redis TTL)"]
+    VerifySvc["identity.verification_service.VerificationService\nOTP state + throttles (Redis TTL)"]
+    RecoverSvc["identity.recover_service.RecoverService\nrecover→verify→reset (Redis TTL)"]
+    IdentityRepo["identity.repository.Repository\nusers + user_sessions (Mongo)"]
+    Sec["core.security\nscrypt password hashing\nissue_session_token + hash_session_token"]
+  end
+
+  subgraph AuthZ["Authorization domain"]
+    AuthZSvc["authorization.service.Service\nRBAC allow/deny"]
+    AuthZRepo["authorization.repository.Repository\norgs/memberships/role_* (Mongo)"]
+  end
+
+  subgraph Stores["Data stores"]
+    Mongo[(MongoDB)]
+    Redis[(Redis)]
+  end
+
+  subgraph Providers["OTP delivery providers (not implemented yet)"]
+    SMS["SMS provider\nNOT wired"]
+    EMAIL["Email provider\nNOT wired"]
+  end
+
+  AuthRoutes --> IdentitySvc
+  AuthRoutes --> SignupFlow
+  AuthRoutes --> VerifySvc
+  AuthRoutes --> RecoverSvc
+
+  IdentitySvc --> IdentityRepo --> Mongo
+  SignupFlow --> IdentityRepo
+  SignupFlow --> Redis
+  VerifySvc --> Redis
+  RecoverSvc --> IdentityRepo
+  RecoverSvc --> Redis
+  RecoverSvc --> Mongo
+
+  IdentitySvc --> Sec
+  SignupFlow --> Sec
+
+  AuthZSvc --> AuthZRepo --> Mongo
+
+  VerifySvc -. "future integration"\n(deliver OTP) .-> SMS
+  VerifySvc -. "future integration"\n(deliver OTP) .-> EMAIL
+

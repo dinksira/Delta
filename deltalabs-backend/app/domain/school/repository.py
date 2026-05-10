@@ -7,9 +7,10 @@ from typing import Any
 from uuid import uuid4
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pymongo import ASCENDING
+from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import OperationFailure
 
+from app.domain.management_table.repository import ManagementTableRepository
 from app.domain.school.schemas import MarketplaceSortBy, MarketplaceSortDirection, OfferListView, OfferStatus
 
 
@@ -60,6 +61,17 @@ class Repository:
             partialFilterExpression={"is_root": True},
             name="uq_school_workspace_items_single_root",
         )
+        await self._db["school_class_sessions"].create_index(
+            [
+                ("org_id", ASCENDING),
+                ("school_id", ASCENDING),
+                ("class_workspace_item_id", ASCENDING),
+                ("scheduled_at", ASCENDING),
+                ("created_at", DESCENDING),
+            ],
+            name="ix_school_class_sessions_org_school_class_time",
+        )
+        await ManagementTableRepository(self._db).ensure_indexes()
 
     async def ping(self) -> bool:
         return True
@@ -172,14 +184,30 @@ class Repository:
         org_id: str,
         school_id: str,
         item_type: str | None = None,
+        parent_id: str | None = None,
     ) -> list[dict[str, Any]]:
         query: dict[str, Any] = {"org_id": org_id, "school_id": school_id}
         if isinstance(item_type, str) and item_type.strip():
             query["type"] = item_type.strip()
+        if parent_id is not None:
+            query["parent_id"] = parent_id
         cursor = self._db["school_workspace_items"].find(query).sort(
             [("is_root", -1), ("created_at", ASCENDING), ("title", ASCENDING)]
         )
         return await cursor.to_list(length=1000)
+
+    async def count_school_workspace_children(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        parent_id: str,
+    ) -> int:
+        return int(
+            await self._db["school_workspace_items"].count_documents(
+                {"org_id": org_id, "school_id": school_id, "parent_id": parent_id}
+            )
+        )
 
     async def find_school_workspace_item(
         self,
@@ -217,6 +245,100 @@ class Repository:
     ) -> bool:
         result = await self._db["school_workspace_items"].delete_one(
             {"_id": item_id, "org_id": org_id, "school_id": school_id}
+        )
+        return result.deleted_count > 0
+
+    async def list_class_sessions(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> list[dict[str, Any]]:
+        cursor = (
+            self._db["school_class_sessions"]
+            .find(
+                {
+                    "org_id": org_id,
+                    "school_id": school_id,
+                    "class_workspace_item_id": class_workspace_item_id,
+                },
+            )
+            .sort([("scheduled_at", ASCENDING), ("created_at", DESCENDING)])
+        )
+        return await cursor.to_list(length=500)
+
+    async def create_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        title: str,
+        description: str | None,
+        weight: float | None,
+        duration_minutes: int | None,
+        session_type: str,
+        scheduled_at: datetime | None,
+        creation_mode: str,
+        status: str,
+    ) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        doc = {
+            "_id": f"scs_{uuid4().hex}",
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+            "title": title.strip(),
+            "description": description.strip() if isinstance(description, str) and description.strip() else None,
+            "weight": weight,
+            "duration_minutes": duration_minutes,
+            "session_type": session_type,
+            "scheduled_at": scheduled_at,
+            "creation_mode": creation_mode,
+            "status": status,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._db["school_class_sessions"].insert_one(doc)
+        return doc
+
+    async def find_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        session_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["school_class_sessions"].find_one(
+            {"_id": session_id, "org_id": org_id, "school_id": school_id},
+        )
+
+    async def update_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        session_id: str,
+        updates: dict[str, Any],
+    ) -> bool:
+        safe_updates = dict(updates)
+        safe_updates["updated_at"] = datetime.now(UTC)
+        result = await self._db["school_class_sessions"].update_one(
+            {"_id": session_id, "org_id": org_id, "school_id": school_id},
+            {"$set": safe_updates},
+        )
+        return result.matched_count > 0
+
+    async def delete_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        session_id: str,
+    ) -> bool:
+        result = await self._db["school_class_sessions"].delete_one(
+            {"_id": session_id, "org_id": org_id, "school_id": school_id},
         )
         return result.deleted_count > 0
 

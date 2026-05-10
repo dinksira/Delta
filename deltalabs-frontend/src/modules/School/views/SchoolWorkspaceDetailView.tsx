@@ -2,16 +2,14 @@
 
 /** ################################ IMPORT ############################# */
 /** Workspace detail view imports. */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
-  Bot,
   EllipsisVertical,
   FileText,
   GraduationCap,
   HandHelping,
   LayoutGrid,
-  Link2,
   List,
   Network,
   Plus,
@@ -19,24 +17,28 @@ import {
   Search,
   Share2,
   SlidersHorizontal,
-  SquareArrowOutUpRight,
   Table2,
   Trash2,
-  Wrench,
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { SchoolDetailUtilityActions } from "@/components/features/school/SchoolDetailUtilityActions";
 import { Button, DialogOverlay, DialogPanel } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import {
   createSchoolWorkspaceItem,
   deleteSchoolWorkspaceItem,
+  fetchOrgAccess,
+  fetchSchoolWorkspaceItem,
   fetchSchoolWorkspaceItems,
   type SchoolWorkspaceItemTypeDto,
   updateSchoolWorkspaceItem,
 } from "@/modules/School/api";
+import { ManagementTableTemplatePickerModal } from "@/modules/School/managementTable/ManagementTableTemplatePickerModal";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 /** ################################ /IMPORT ############################# */
@@ -47,6 +49,8 @@ type SchoolWorkspaceDetailViewProps = Readonly<{
   schoolId?: string;
   schoolName?: string;
   initialView?: string;
+  /** When set, list/browse is scoped under this workspace item (department route). */
+  departmentRootItemId?: string;
 }>;
 /** ################################ /TYPES ############################# */
 
@@ -77,6 +81,15 @@ type AddableSectionId = (typeof ADDABLE_SECTION_OPTIONS)[number]["id"];
 
 const SCHOOL_DETAIL_TABS_STORAGE_KEY = "deltalabs-school-detail-tabs-v1";
 const SCHOOL_DETAIL_ACTIVE_TAB_STORAGE_KEY = "deltalabs-school-detail-active-tab-v1";
+/** Query param: comma-separated `wsi_…` ids from first nested folder down to current (breadcrumb + list parent). */
+const WORKSPACE_PATH_QUERY = "path";
+
+function workspacePathIdsFromSearchParams(searchParams: URLSearchParams): string[] {
+  const raw = (searchParams.get(WORKSPACE_PATH_QUERY) ?? "").trim();
+  if (raw) return raw.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  const legacy = (searchParams.get("parent") ?? "").trim();
+  return legacy ? [legacy] : [];
+}
 
 const CREATION_CHOICES = [
   { id: "folder", label: "Folder" },
@@ -91,11 +104,25 @@ const CREATION_CHOICES = [
 ] as const;
 type CreationChoiceId = (typeof CREATION_CHOICES)[number]["id"];
 type FormFieldConfig = Readonly<{ key: string; label: string; placeholder: string }>;
+
+function userCanManageSchoolWorkspace(permissions: readonly string[] | undefined): boolean {
+  if (!permissions?.length) return false;
+  return permissions.includes("*") || permissions.includes("school:manage");
+}
+
 /** ################################ /CONSTANTS ############################# */
 
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
-function DepartmentEmptyState({ onCreate }: Readonly<{ onCreate: () => void }>) {
+function DepartmentEmptyState({
+  onCreate,
+  canMutateWorkspace,
+  accessPending,
+}: Readonly<{
+  onCreate: () => void;
+  canMutateWorkspace: boolean;
+  accessPending: boolean;
+}>) {
   return (
     <div className="flex min-h-[420px] w-full items-center justify-center py-16">
       <div className="flex max-w-sm flex-col items-center text-center">
@@ -117,10 +144,22 @@ function DepartmentEmptyState({ onCreate }: Readonly<{ onCreate: () => void }>) 
         </div>
         <p className="text-sm font-medium text-text-secondary">Nothing in the Root</p>
         <p className="mt-1 text-xs text-text-tertiary">Add departments, classes, or resources to get started.</p>
-        <Button type="button" variant="primary" size="sm" className="mt-5 px-5" onClick={onCreate}>
-          <Plus className="size-4" aria-hidden />
-          New
-        </Button>
+        {accessPending ? (
+          <Button type="button" variant="primary" size="sm" className="mt-5 px-5" disabled>
+            <Plus className="size-4" aria-hidden />
+            New
+          </Button>
+        ) : canMutateWorkspace ? (
+          <Button type="button" variant="primary" size="sm" className="mt-5 px-5" onClick={onCreate}>
+            <Plus className="size-4" aria-hidden />
+            New
+          </Button>
+        ) : (
+          <p className="mt-5 max-w-[22rem] text-xs leading-relaxed text-text-tertiary">
+            You can&apos;t add workspace items with your current organization role. An org admin or someone with{" "}
+            <span className="font-medium text-text-secondary">school:manage</span> (or owner) can create structure here.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -129,17 +168,22 @@ function DepartmentEmptyState({ onCreate }: Readonly<{ onCreate: () => void }>) 
 function CreationChooserModal({
   open,
   selected,
+  canMutateWorkspace,
+  accessPending,
   onClose,
   onSelect,
   onNext,
 }: Readonly<{
   open: boolean;
   selected: CreationChoiceId | null;
+  canMutateWorkspace: boolean;
+  accessPending: boolean;
   onClose: () => void;
   onSelect: (choice: CreationChoiceId) => void;
   onNext: () => void;
 }>) {
   if (!open) return null;
+  const choicesLocked = accessPending || !canMutateWorkspace;
   return createPortal(
     <>
       <DialogOverlay onClose={onClose} />
@@ -156,18 +200,31 @@ function CreationChooserModal({
               <X className="size-5" aria-hidden />
             </button>
           </div>
+          {accessPending ? (
+            <p className="mt-4 text-sm text-text-tertiary">Checking your permissions…</p>
+          ) : !canMutateWorkspace ? (
+            <p className="mt-4 rounded-lg border border-border-default bg-surface-muted/60 px-4 py-3 text-sm leading-relaxed text-text-secondary">
+              You don&apos;t have permission to add workspace items in this organization. You need{" "}
+              <span className="font-medium text-text-primary">school:manage</span> or an owner role. Ask an org admin if
+              you need access.
+            </p>
+          ) : null}
           <div className="mt-5 grid grid-cols-1 gap-x-12 gap-y-3 sm:grid-cols-2">
             {CREATION_CHOICES.map((choice) => (
               <label
                 key={choice.id}
-                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-lg text-text-secondary transition-colors hover:bg-surface-muted/70"
+                className={[
+                  "flex items-center gap-3 rounded-md px-2 py-2 text-lg text-text-secondary transition-colors",
+                  choicesLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:bg-surface-muted/70",
+                ].join(" ")}
               >
                 <input
                   type="radio"
                   name="school-create-target"
                   checked={selected === choice.id}
+                  disabled={choicesLocked}
                   onChange={() => onSelect(choice.id)}
-                  className="h-5 w-5 accent-primary-600"
+                  className="h-5 w-5 accent-primary-600 disabled:cursor-not-allowed"
                 />
                 <span>{choice.label}</span>
               </label>
@@ -177,7 +234,13 @@ function CreationChooserModal({
             <Button type="button" variant="secondary" className="min-w-44" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="button" variant="primary" className="min-w-44" onClick={onNext} disabled={!selected}>
+            <Button
+              type="button"
+              variant="primary"
+              className="min-w-44"
+              onClick={onNext}
+              disabled={!selected || choicesLocked}
+            >
               Next
             </Button>
           </div>
@@ -375,30 +438,6 @@ function DeleteWorkspaceItemModal({
   );
 }
 
-function WorkspaceUtilityActions() {
-  return (
-    <div className="flex flex-wrap items-center justify-end gap-3 text-primary-700">
-      <button type="button" className="inline-flex h-8 items-center gap-2 rounded-md px-1 text-sm font-medium transition-colors hover:bg-primary-50">
-        <Wrench className="size-3.5" aria-hidden />
-        Integrate
-      </button>
-      <button type="button" className="inline-flex h-8 items-center gap-2 rounded-md px-1 text-sm font-medium transition-colors hover:bg-primary-50">
-        <Bot className="size-3.5" aria-hidden />
-        Automate
-      </button>
-      <div className="inline-flex h-8 items-center overflow-hidden rounded-md border border-primary-200 bg-surface-default">
-        <button type="button" className="inline-flex h-full items-center gap-2 px-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50">
-          <SquareArrowOutUpRight className="size-3.5" aria-hidden />
-          Invite
-        </button>
-        <span className="h-5 w-px bg-primary-200" aria-hidden />
-        <button type="button" className="inline-flex h-full items-center px-2.5 text-primary-700 transition-colors hover:bg-primary-50" aria-label="Copy invite link">
-          <Link2 className="size-3.5" aria-hidden />
-        </button>
-      </div>
-    </div>
-  );
-}
 /** ################################ /SUBCOMPONENTS ############################# */
 function WorkspaceLoadingShimmer() {
   return (
@@ -436,8 +475,15 @@ function WorkspaceLoadingShimmer() {
 
 /** ################################ COMPONENT ############################# */
 /** School detail workspace layout with per-school tab-state persistence. */
-export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }: SchoolWorkspaceDetailViewProps) {
+export function SchoolWorkspaceDetailView({
+  schoolId,
+  schoolName,
+  initialView,
+  departmentRootItemId,
+}: SchoolWorkspaceDetailViewProps) {
   const queryClient = useQueryClient();
+  const { isAuthenticated, isReady, session } = useAuthSession();
+  const userId = session?.user?.id ?? "anon";
   const { mySchools, mySchoolsPending, orgsPending } = useSchoolActiveOrgId();
   const cleanSchoolId = (schoolId ?? "").trim();
   const displaySchoolName = (schoolName ?? "").trim();
@@ -445,6 +491,61 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   const viewFromRoute = (initialView ?? "all").trim().toLowerCase();
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
+
+  const orgAccessQuery = useQuery({
+    queryKey: schoolQueryKeys.orgAccess(userId, activeOrgId),
+    queryFn: () => fetchOrgAccess(activeOrgId!),
+    enabled: isAuthenticated && isReady && Boolean(activeOrgId && cleanSchoolId),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const waitingForOrgContext = Boolean(cleanSchoolId) && mySchoolsPending;
+  const waitingForOrgAccess = Boolean(activeOrgId && cleanSchoolId) && orgAccessQuery.isPending;
+  const accessGatingPending = waitingForOrgContext || waitingForOrgAccess;
+  const canMutateWorkspace = useMemo(
+    () => userCanManageSchoolWorkspace(orgAccessQuery.data?.permissions),
+    [orgAccessQuery.data?.permissions],
+  );
+  const workspaceMutationLocked = accessGatingPending || !canMutateWorkspace;
+
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const pathParam = searchParams.get(WORKSPACE_PATH_QUERY);
+  const legacyParentParam = searchParams.get("parent");
+  const workspacePathIds = useMemo(
+    () => workspacePathIdsFromSearchParams(searchParams),
+    [pathParam, legacyParentParam],
+  );
+  /** Previous builds used `?mt=` for the editor; migrate to the full-page route. */
+  const managementTableLegacyMt = searchParams.get("mt")?.trim() ?? "";
+  const cleanDepartmentRootId = departmentRootItemId?.trim() ?? "";
+  /** API `parentId` for the current list: nested path tail, else department route root, else school workspace root. */
+  const listParentId: string | null =
+    workspacePathIds.length > 0
+      ? workspacePathIds[workspacePathIds.length - 1]!
+      : cleanDepartmentRootId || null;
+  const workspaceParentQueryKey = listParentId ?? "root";
+
+  const workspaceFolderItemQueries = useQueries({
+    queries: workspacePathIds.map((id) => ({
+      queryKey: schoolQueryKeys.workspaceItem(activeOrgId ?? "unknown-org", cleanSchoolId, id),
+      queryFn: () => fetchSchoolWorkspaceItem(activeOrgId!, cleanSchoolId, id),
+      enabled: Boolean(activeOrgId && cleanSchoolId && id),
+      staleTime: 30_000,
+      retry: false,
+      placeholderData: keepPreviousData,
+    })),
+  });
+
+  const departmentRootItemQuery = useQuery({
+    queryKey: schoolQueryKeys.workspaceItem(activeOrgId ?? "unknown-org", cleanSchoolId, cleanDepartmentRootId),
+    queryFn: () => fetchSchoolWorkspaceItem(activeOrgId!, cleanSchoolId, cleanDepartmentRootId),
+    enabled: Boolean(activeOrgId && cleanSchoolId && cleanDepartmentRootId),
+    staleTime: 30_000,
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
 
   const validViews = useMemo(() => new Set<SectionId>(SCHOOL_DETAIL_SECTIONS.map((section) => section.id)), []);
   const sectionById = useMemo(
@@ -464,6 +565,8 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [detailsFormValues, setDetailsFormValues] = useState<Record<string, string>>({});
   const [detailsSubmitError, setDetailsSubmitError] = useState<string | null>(null);
+  const [managementTablePickerOpen, setManagementTablePickerOpen] = useState(false);
+  const [pendingManagementTableItem, setPendingManagementTableItem] = useState<null | { id: string; title: string }>(null);
   const [openCardMenuId, setOpenCardMenuId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -542,8 +645,19 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   const itemTypeForCurrentView = mapSectionToItemType(currentView);
 
   const workspaceItemsQuery = useQuery({
-    queryKey: schoolQueryKeys.workspaceItems(activeOrgId ?? "unknown-org", cleanSchoolId, itemTypeForCurrentView ?? "all"),
-    queryFn: () => fetchSchoolWorkspaceItems(activeOrgId ?? "", cleanSchoolId, itemTypeForCurrentView ?? undefined),
+    queryKey: schoolQueryKeys.workspaceItems(
+      activeOrgId ?? "unknown-org",
+      cleanSchoolId,
+      itemTypeForCurrentView ?? "all",
+      workspaceParentQueryKey,
+    ),
+    queryFn: () =>
+      fetchSchoolWorkspaceItems(
+        activeOrgId ?? "",
+        cleanSchoolId,
+        itemTypeForCurrentView ?? undefined,
+        listParentId ?? undefined,
+      ),
     enabled: Boolean(activeOrgId && cleanSchoolId),
     staleTime: 15_000,
     retry: false,
@@ -569,22 +683,23 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
       title: string;
       description?: string;
       metadata?: Record<string, unknown>;
+      parentId?: string;
     }) => {
       if (!activeOrgId || !cleanSchoolId) throw new Error("School workspace is not ready.");
       return createSchoolWorkspaceItem(activeOrgId, cleanSchoolId, payload);
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
       setDetailsModalOpen(false);
       setDetailsSubmitError(null);
       setDetailsFormValues({});
       setCreationModalOpen(false);
+      if (created.type === "management-table") {
+        setPendingManagementTableItem({ id: created.id, title: created.title });
+        setManagementTablePickerOpen(true);
+      }
       if (!activeOrgId || !cleanSchoolId) return;
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, "all"),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, itemTypeForCurrentView ?? "all"),
-      });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace", activeOrgId, cleanSchoolId] });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace-item", activeOrgId, cleanSchoolId] });
     },
     onError: (error) => {
       if (error instanceof ApiError) {
@@ -611,12 +726,8 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
       setEditSubmitError(null);
       setOpenCardMenuId(null);
       if (!activeOrgId || !cleanSchoolId) return;
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, "all"),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, itemTypeForCurrentView ?? "all"),
-      });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace", activeOrgId, cleanSchoolId] });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace-item", activeOrgId, cleanSchoolId] });
     },
     onError: (error) => {
       if (error instanceof ApiError) {
@@ -638,12 +749,8 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
     onSuccess: () => {
       setOpenCardMenuId(null);
       if (!activeOrgId || !cleanSchoolId) return;
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, "all"),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: schoolQueryKeys.workspaceItems(activeOrgId, cleanSchoolId, itemTypeForCurrentView ?? "all"),
-      });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace", activeOrgId, cleanSchoolId] });
+      void queryClient.invalidateQueries({ queryKey: ["school", "workspace-item", activeOrgId, cleanSchoolId] });
     },
   });
 
@@ -727,6 +834,7 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   };
 
   const onNewClick = () => {
+    if (workspaceMutationLocked) return;
     if (currentView === "all") {
       setCreationModalOpen(true);
       return;
@@ -743,6 +851,92 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   const onDeleteItem = (itemId: string) => {
     setOpenCardMenuId(null);
     setDeleteTargetItemId(itemId);
+  };
+
+  const lastFolderItemQuery =
+    workspacePathIds.length > 0 ? workspaceFolderItemQueries[workspaceFolderItemQueries.length - 1] : undefined;
+  const workspaceHeading =
+    workspacePathIds.length === 0
+      ? cleanDepartmentRootId
+        ? (departmentRootItemQuery.data?.title ??
+          (departmentRootItemQuery.isPending ? "…" : "Department"))
+        : "Root Department"
+      : (lastFolderItemQuery?.data?.title ?? (lastFolderItemQuery?.isPending ? "…" : "Department"));
+
+  const pushWorkspacePath = (nextPathIds: string[]) => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("parent");
+    next.delete("parentName");
+    if (nextPathIds.length === 0) next.delete(WORKSPACE_PATH_QUERY);
+    else next.set(WORKSPACE_PATH_QUERY, nextPathIds.join(","));
+    const qs = next.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  };
+
+  const navigateIntoWorkspaceFolder = (item: { id: string; title: string }) => {
+    void item.title;
+    pushWorkspacePath([...workspacePathIds, item.id]);
+  };
+
+  const navigateToClassDetail = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      `/features/school/${encodeURIComponent(cleanSchoolId)}/class/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+    );
+  };
+
+  const navigateToDepartmentDetail = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      `/features/school/${encodeURIComponent(cleanSchoolId)}/department/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+    );
+  };
+
+  const navigateWorkspaceRoot = () => {
+    if (cleanDepartmentRootId) {
+      router.push(`/features/school/${encodeURIComponent(cleanSchoolId)}`);
+      return;
+    }
+    pushWorkspacePath([]);
+  };
+
+  const itemOpensAsFolder = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "folder";
+
+  const itemOpensAsDepartmentRoute = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "department";
+
+  const itemOpensAsClassDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "class";
+
+  const itemOpensAsManagementTable = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "management-table";
+
+  const itemPrimaryOpens = (item: (typeof filteredWorkspaceItems)[number]) =>
+    itemOpensAsFolder(item) ||
+    itemOpensAsDepartmentRoute(item) ||
+    itemOpensAsClassDetail(item) ||
+    itemOpensAsManagementTable(item);
+
+  const navigateToManagementTableWorkspace = (item: { id: string }) => {
+    // Open the table editor if already linked; otherwise prompt for a template to link it.
+    const found = workspaceItems.find((w) => w.id === item.id);
+    const meta = found?.metadata ?? {};
+    const existingInstanceId = typeof meta.managementTableInstanceId === "string" ? meta.managementTableInstanceId : "";
+    if (existingInstanceId.trim().length > 0) {
+      router.push(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(existingInstanceId.trim())}`,
+      );
+      return;
+    }
+    setPendingManagementTableItem({ id: item.id, title: found?.title ?? "Management table" });
+    setManagementTablePickerOpen(true);
+  };
+
+  const onPrimaryOpenWorkspaceItem = (item: (typeof filteredWorkspaceItems)[number]) => {
+    if (itemOpensAsFolder(item)) navigateIntoWorkspaceFolder(item);
+    else if (itemOpensAsDepartmentRoute(item)) {
+      /** Under a department route, nested departments use the same in-page `path` stack as before (breadcrumb back). */
+      if (cleanDepartmentRootId) navigateIntoWorkspaceFolder(item);
+      else navigateToDepartmentDetail(item);
+    } else if (itemOpensAsClassDetail(item)) navigateToClassDetail(item);
+    else if (itemOpensAsManagementTable(item)) navigateToManagementTableWorkspace(item);
   };
 
   const itemPrimaryMeta = (item: (typeof filteredWorkspaceItems)[number]): string => {
@@ -764,6 +958,13 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
     if (item.type === "student") return item.description ?? "Student Registration";
     return item.description ?? "";
   };
+
+  useEffect(() => {
+    if (!cleanSchoolId || !managementTableLegacyMt) return;
+    router.replace(
+      `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(managementTableLegacyMt)}`,
+    );
+  }, [cleanSchoolId, managementTableLegacyMt, router]);
 
   useEffect(() => {
     if (!cleanSchoolId) return;
@@ -800,6 +1001,9 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
   }, [cleanSchoolId, validViews, viewFromRoute]);
 
   useEffect(() => setIsAddMenuOpen(false), [cleanSchoolId]);
+  useEffect(() => {
+    setSearchText("");
+  }, [workspaceParentQueryKey, cleanSchoolId]);
 
   useEffect(() => {
     if (!cleanSchoolId || hydratedSchoolId !== cleanSchoolId) return;
@@ -814,13 +1018,90 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
     setCurrentView("all");
   }, [currentView, visibleTabs]);
 
+  const departmentRouteRootItem = departmentRootItemQuery.data;
+  const showDepartmentRouteBreadcrumbSkeleton = Boolean(
+    cleanDepartmentRootId && departmentRootItemQuery.isPending && !departmentRouteRootItem,
+  );
+
   return (
     <section className="min-h-[calc(100vh-10rem)] bg-surface-canvas py-2 md:py-3" aria-label={`School workspace for ${workspaceLabel}`}>
       <div className="space-y-6">
         <header className="space-y-3">
-          <WorkspaceUtilityActions />
+          <SchoolDetailUtilityActions />
+          <nav
+            aria-label="Workspace folder"
+            className="flex min-h-[1.75rem] flex-wrap items-center gap-1.5 text-sm text-text-secondary"
+          >
+            <button
+              type="button"
+              onClick={navigateWorkspaceRoot}
+              title={cleanDepartmentRootId ? "Go to school workspace root" : undefined}
+              className={[
+                "rounded-md px-1.5 py-0.5 font-medium transition-colors",
+                workspacePathIds.length > 0 || cleanDepartmentRootId ? "text-primary-700 hover:bg-primary-50" : "text-text-primary",
+              ].join(" ")}
+            >
+              Root
+            </button>
+            {cleanDepartmentRootId ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="text-text-tertiary">
+                  /
+                </span>
+                <button
+                  type="button"
+                  onClick={() => pushWorkspacePath([])}
+                  title="Top of this department"
+                  className={[
+                    "rounded-md px-1.5 py-0.5 font-medium transition-colors",
+                    workspacePathIds.length === 0 ? "text-text-primary" : "text-primary-700 hover:bg-primary-50",
+                  ].join(" ")}
+                >
+                  {showDepartmentRouteBreadcrumbSkeleton ? (
+                    <span
+                      className="inline-block min-h-[0.85rem] min-w-[5.5rem] rounded-sm bg-surface-muted align-middle"
+                      aria-hidden
+                    />
+                  ) : (
+                    (departmentRouteRootItem?.title ?? cleanDepartmentRootId)
+                  )}
+                </button>
+              </span>
+            ) : null}
+            {workspacePathIds.map((id, index) => {
+              const q = workspaceFolderItemQueries[index];
+              const title = q?.data?.title;
+              const loading = Boolean(q?.isPending && !title);
+              const label = title ?? id;
+              const isLast = index === workspacePathIds.length - 1;
+              return (
+                <span key={`${id}-${index}`} className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="text-text-tertiary">
+                    /
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => pushWorkspacePath(workspacePathIds.slice(0, index + 1))}
+                    className={[
+                      "rounded-md px-1.5 py-0.5 font-medium transition-colors",
+                      isLast ? "text-text-primary" : "text-primary-700 hover:bg-primary-50",
+                    ].join(" ")}
+                  >
+                    {loading ? (
+                      <span
+                        className="inline-block min-h-[0.85rem] min-w-[5.5rem] rounded-sm bg-surface-muted align-middle"
+                        aria-hidden
+                      />
+                    ) : (
+                      label
+                    )}
+                  </button>
+                </span>
+              );
+            })}
+          </nav>
           <h1 className="text-[2.25rem] font-semibold tracking-tight text-text-primary sm:text-[2.35rem]">
-            Root Department
+            {workspaceHeading}
           </h1>
         </header>
 
@@ -922,6 +1203,16 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
 
         {shouldShowWorkspaceLoading ? (
           <WorkspaceLoadingShimmer />
+        ) : workspaceItemsQuery.isError ? (
+          <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-xl border border-border-default bg-surface-default px-6 py-12 text-center">
+            <p className="max-w-md text-sm text-text-secondary">
+              This folder could not be loaded (it may have been removed). Return to the school root and pick another
+              department.
+            </p>
+            <Button type="button" variant="primary" size="sm" onClick={navigateWorkspaceRoot}>
+              Back to root
+            </Button>
+          </div>
         ) : workspaceItems.length > 0 ? (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -964,7 +1255,21 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                   <Search className="size-4 text-text-tertiary" aria-hidden />
                   <SlidersHorizontal className="size-4 text-text-tertiary" aria-hidden />
                 </label>
-                <Button type="button" variant="primary" size="sm" className="h-10 px-5" onClick={onNewClick}>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="h-10 px-5"
+                  onClick={onNewClick}
+                  disabled={workspaceMutationLocked}
+                  title={
+                    workspaceMutationLocked
+                      ? accessGatingPending
+                        ? "Checking permissions…"
+                        : "You need school:manage (or org owner) to add workspace items."
+                      : undefined
+                  }
+                >
                   <Plus className="size-4" aria-hidden />
                   New
                 </Button>
@@ -980,8 +1285,16 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                       <div className="relative" data-card-menu-root="true">
                         <button
                           type="button"
-                          className="text-text-tertiary hover:text-text-secondary"
+                          className="text-text-tertiary hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label="More options"
+                          disabled={workspaceMutationLocked}
+                          title={
+                            workspaceMutationLocked
+                              ? accessGatingPending
+                                ? "Checking permissions…"
+                                : "You need school:manage to edit or delete workspace items."
+                              : undefined
+                          }
                           onClick={() => setOpenCardMenuId((prev) => (prev === item.id ? null : item.id))}
                         >
                           <EllipsisVertical className="size-4" aria-hidden />
@@ -991,8 +1304,12 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                             <button
                               type="button"
                               role="menuitem"
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary"
-                              onClick={() => onEditItem(item)}
+                              disabled={workspaceMutationLocked}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
+                              onClick={() => {
+                                if (workspaceMutationLocked) return;
+                                onEditItem(item);
+                              }}
                             >
                               <Pencil className="size-4" aria-hidden />
                               Edit
@@ -1000,8 +1317,12 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                             <button
                               type="button"
                               role="menuitem"
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50"
-                              onClick={() => onDeleteItem(item.id)}
+                              disabled={workspaceMutationLocked}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
+                              onClick={() => {
+                                if (workspaceMutationLocked) return;
+                                onDeleteItem(item.id);
+                              }}
                             >
                               <Trash2 className="size-4" aria-hidden />
                               Delete
@@ -1030,12 +1351,28 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                       <span className="text-[11px] text-text-tertiary">
                         {item.type === "resource" ? "2 minutes ago" : item.type === "course" ? "(4.8 Reviews)" : ""}
                       </span>
-                      <Button type="button" variant="primary" size="sm" className="h-9 px-4 text-xs">
-                        {item.type === "course"
-                          ? "Go to course"
-                          : item.type === "management-table"
-                              ? "Go to Tables"
-                              : "View"}
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        className="h-9 px-4 text-xs"
+                        disabled={!itemPrimaryOpens(item)}
+                        title={
+                          itemOpensAsFolder(item)
+                            ? "Open this folder"
+                            : itemOpensAsDepartmentRoute(item)
+                              ? cleanDepartmentRootId
+                                ? "Open nested department"
+                                : "Open department"
+                              : itemOpensAsClassDetail(item)
+                                ? "Open class workspace"
+                                : "Only departments, folders, and classes can be opened here."
+                        }
+                        onClick={() => {
+                          onPrimaryOpenWorkspaceItem(item);
+                        }}
+                      >
+                        {itemPrimaryOpens(item) ? "Open" : "View"}
                       </Button>
                     </div>
                   </article>
@@ -1050,12 +1387,30 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                       <p className="text-xs text-text-tertiary">{item.type.replace("-", " ")}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button type="button" variant="secondary" size="sm">Open</Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={!itemPrimaryOpens(item)}
+                        onClick={() => {
+                          onPrimaryOpenWorkspaceItem(item);
+                        }}
+                      >
+                        {itemPrimaryOpens(item) ? "Open" : "View"}
+                      </Button>
                       <div className="relative" data-card-menu-root="true">
                         <button
                           type="button"
-                          className="text-text-tertiary hover:text-text-secondary"
+                          className="text-text-tertiary hover:text-text-secondary disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label="More options"
+                          disabled={workspaceMutationLocked}
+                          title={
+                            workspaceMutationLocked
+                              ? accessGatingPending
+                                ? "Checking permissions…"
+                                : "You need school:manage to edit or delete workspace items."
+                              : undefined
+                          }
                           onClick={() => setOpenCardMenuId((prev) => (prev === item.id ? null : item.id))}
                         >
                           <EllipsisVertical className="size-4" aria-hidden />
@@ -1065,8 +1420,12 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                             <button
                               type="button"
                               role="menuitem"
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary"
-                              onClick={() => onEditItem(item)}
+                              disabled={workspaceMutationLocked}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
+                              onClick={() => {
+                                if (workspaceMutationLocked) return;
+                                onEditItem(item);
+                              }}
                             >
                               <Pencil className="size-4" aria-hidden />
                               Edit
@@ -1074,8 +1433,12 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
                             <button
                               type="button"
                               role="menuitem"
-                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50"
-                              onClick={() => onDeleteItem(item.id)}
+                              disabled={workspaceMutationLocked}
+                              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
+                              onClick={() => {
+                                if (workspaceMutationLocked) return;
+                                onDeleteItem(item.id);
+                              }}
                             >
                               <Trash2 className="size-4" aria-hidden />
                               Delete
@@ -1090,7 +1453,11 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
             )}
           </div>
         ) : (
-          <DepartmentEmptyState onCreate={onNewClick} />
+          <DepartmentEmptyState
+            onCreate={onNewClick}
+            canMutateWorkspace={canMutateWorkspace}
+            accessPending={accessGatingPending}
+          />
         )}
         <EditWorkspaceItemModal
           open={editingItemId !== null}
@@ -1121,14 +1488,21 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
           onClose={() => setDeleteTargetItemId(null)}
           onConfirm={() => {
             if (!deleteTargetItemId) return;
-            deleteWorkspaceItemMutation.mutate(deleteTargetItemId, {
-              onSuccess: () => setDeleteTargetItemId(null),
+            const removedId = deleteTargetItemId;
+            deleteWorkspaceItemMutation.mutate(removedId, {
+              onSuccess: () => {
+                setDeleteTargetItemId(null);
+                const idx = workspacePathIds.indexOf(removedId);
+                if (idx >= 0) pushWorkspacePath(workspacePathIds.slice(0, idx));
+              },
             });
           }}
         />
         <CreationChooserModal
           open={creationModalOpen}
           selected={selectedCreateTarget}
+          canMutateWorkspace={canMutateWorkspace}
+          accessPending={accessGatingPending}
           onClose={() => setCreationModalOpen(false)}
           onSelect={setSelectedCreateTarget}
           onNext={() => {
@@ -1167,9 +1541,29 @@ export function SchoolWorkspaceDetailView({ schoolId, schoolName, initialView }:
               title,
               ...(description ? { description } : {}),
               metadata,
+              ...(listParentId ? { parentId: listParentId } : {}),
             });
           }}
         />
+        {activeOrgId && pendingManagementTableItem ? (
+          <ManagementTableTemplatePickerModal
+            open={managementTablePickerOpen}
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            workspaceItem={pendingManagementTableItem}
+            onClose={() => {
+              setManagementTablePickerOpen(false);
+              setPendingManagementTableItem(null);
+            }}
+            onOpenedInstance={(instanceId) => {
+              setManagementTablePickerOpen(false);
+              setPendingManagementTableItem(null);
+              router.push(
+                `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(instanceId)}`,
+              );
+            }}
+          />
+        ) : null}
       </div>
     </section>
   );

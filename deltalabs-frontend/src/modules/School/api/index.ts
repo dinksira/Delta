@@ -170,6 +170,30 @@ export type SchoolWorkspaceListResponseDto = Readonly<{
   items: readonly SchoolWorkspaceItemDto[];
 }>;
 
+export type ClassSessionTypeDto = "virtual" | "in_person" | "hybrid";
+export type ClassSessionStatusDto = "draft" | "scheduled" | "live" | "completed";
+
+export type ClassSessionDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  classWorkspaceItemId: string;
+  title: string;
+  description?: string | null;
+  weight?: number | null;
+  durationMinutes?: number | null;
+  sessionType: ClassSessionTypeDto;
+  scheduledAt?: string | null;
+  status: ClassSessionStatusDto;
+  creationMode?: "single" | "multiple" | null;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type ClassSessionListResponseDto = Readonly<{
+  items: readonly ClassSessionDto[];
+}>;
+
 export type OfferDto = Readonly<{
   id: string;
   orgId: string;
@@ -222,6 +246,18 @@ export async function fetchMyOrgs(): Promise<MyOrgsResponseDto> {
   return apiClient.get<MyOrgsResponseDto>("/v1/orgs/me");
 }
 
+/** GET /v1/orgs/:orgId/access — requires org membership. */
+export type OrgAccessDto = Readonly<{
+  orgId: string;
+  roleKeys: readonly string[];
+  permissions: readonly string[];
+  membershipState: string;
+}>;
+
+export async function fetchOrgAccess(orgId: string): Promise<OrgAccessDto> {
+  return apiClient.get<OrgAccessDto>(`/v1/orgs/${encodeURIComponent(orgId)}/access`);
+}
+
 export async function fetchMySchools(): Promise<MySchoolsResponseDto> {
   return apiClient.get<MySchoolsResponseDto>("/v1/me/schools");
 }
@@ -268,10 +304,24 @@ export async function fetchSchoolWorkspaceItems(
   orgId: string,
   schoolId: string,
   itemType?: SchoolWorkspaceItemTypeDto,
+  parentId?: string | null,
 ): Promise<SchoolWorkspaceListResponseDto> {
+  const searchParams: Record<string, string> = {};
+  if (itemType) searchParams.type = itemType;
+  if (parentId) searchParams.parentId = parentId;
   return apiClient.get<SchoolWorkspaceListResponseDto>(
     `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items`,
-    { searchParams: { type: itemType } },
+    Object.keys(searchParams).length > 0 ? { searchParams } : undefined,
+  );
+}
+
+export async function fetchSchoolWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  itemId: string,
+): Promise<SchoolWorkspaceItemDto> {
+  return apiClient.get<SchoolWorkspaceItemDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items/${encodeURIComponent(itemId)}`,
   );
 }
 
@@ -283,6 +333,7 @@ export async function createSchoolWorkspaceItem(
     title: string;
     description?: string;
     metadata?: Record<string, unknown>;
+    parentId?: string;
   }>,
 ): Promise<SchoolWorkspaceItemDto> {
   return apiClient.post<SchoolWorkspaceItemDto>(
@@ -314,6 +365,68 @@ export async function deleteSchoolWorkspaceItem(
 ): Promise<{ status: string; itemId: string }> {
   return apiClient.delete<{ status: string; itemId: string }>(
     `/v1/orgs/${orgId}/schools/${schoolId}/workspace/items/${itemId}`,
+  );
+}
+
+export async function fetchClassSessions(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ClassSessionListResponseDto> {
+  return apiClient.get<ClassSessionListResponseDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/sessions`,
+  );
+}
+
+export async function createClassSession(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{
+    title: string;
+    description?: string;
+    weight?: number;
+    durationMinutes?: number;
+    sessionType?: ClassSessionTypeDto;
+    scheduledAt?: string;
+    creationMode?: "single" | "multiple";
+  }>,
+): Promise<ClassSessionDto> {
+  return apiClient.post<ClassSessionDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/sessions`,
+    { json: payload },
+  );
+}
+
+export async function updateClassSession(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  sessionId: string,
+  payload: Readonly<{
+    title?: string;
+    description?: string;
+    weight?: number;
+    durationMinutes?: number;
+    sessionType?: ClassSessionTypeDto;
+    scheduledAt?: string | null;
+    status?: ClassSessionStatusDto;
+  }>,
+): Promise<ClassSessionDto> {
+  return apiClient.patch<ClassSessionDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/sessions/${encodeURIComponent(sessionId)}`,
+    { json: payload },
+  );
+}
+
+export async function deleteClassSession(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  sessionId: string,
+): Promise<{ status: string; sessionId: string }> {
+  return apiClient.delete<{ status: string; sessionId: string }>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/sessions/${encodeURIComponent(sessionId)}`,
   );
 }
 
@@ -496,6 +609,252 @@ export async function createOrgMediaUploadIntent(
 
 export async function fetchOrgMedia(orgId: string, mediaId: string) {
   return apiClient.get(`/v1/orgs/${orgId}/media/${mediaId}`);
+}
+
+/** Management tables — flexible column templates and row data (Monday-style boards). */
+export type ManagementTableColumnTypeDto =
+  | "text"
+  | "textarea"
+  | "number"
+  | "date"
+  | "checkbox"
+  | "dropdown"
+  | "status"
+  | "link"
+  | "phone";
+
+export type ManagementTableColumnDto = Readonly<{
+  id: string;
+  title: string;
+  type: ManagementTableColumnTypeDto;
+  order: number;
+  settings: Readonly<Record<string, unknown>>;
+}>;
+
+export type ManagementTableDefinitionDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  title: string;
+  visibility: "self_owned" | "sharable";
+  sourceDefinitionId?: string | null;
+  version: number;
+  columns: readonly ManagementTableColumnDto[];
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type ManagementTableDefinitionListResponseDto = Readonly<{
+  items: readonly ManagementTableDefinitionDto[];
+}>;
+
+export type ManagementTableGroupDto = Readonly<{
+  id: string;
+  title: string;
+  order: number;
+}>;
+
+export type ManagementTableInstanceDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  definitionId: string;
+  definitionVersion: number;
+  workspaceItemId?: string | null;
+  title: string;
+  /** Present on API v2+; missing rows fall back to a single implicit main group. */
+  tableGroups?: readonly ManagementTableGroupDto[];
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type ManagementTableInstanceBundleDto = Readonly<{
+  instance: ManagementTableInstanceDto;
+  definition: ManagementTableDefinitionDto;
+}>;
+
+export type ManagementTableRowDto = Readonly<{
+  id: string;
+  instanceId: string;
+  groupId?: string | null;
+  position: number;
+  cells: Readonly<Record<string, unknown>>;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type ManagementTableRowListResponseDto = Readonly<{
+  items: readonly ManagementTableRowDto[];
+  total: number;
+}>;
+
+export type ManagementTableWorkspaceBootstrapDto = Readonly<{
+  instance: ManagementTableInstanceDto;
+  definition: ManagementTableDefinitionDto;
+  alreadyLinked: boolean;
+}>;
+
+export async function fetchManagementTableDefinitions(
+  orgId: string,
+  schoolId: string,
+  scope: "all" | "template" | "mine" = "all",
+): Promise<ManagementTableDefinitionListResponseDto> {
+  return apiClient.get<ManagementTableDefinitionListResponseDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions`,
+    { searchParams: { scope } },
+  );
+}
+
+export async function createManagementTableDefinition(
+  orgId: string,
+  schoolId: string,
+  payload: Readonly<{ title: string; visibility?: "self_owned" | "sharable" }>,
+): Promise<ManagementTableDefinitionDto> {
+  return apiClient.post<ManagementTableDefinitionDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions`,
+    { json: payload },
+  );
+}
+
+export async function appendManagementTableColumn(
+  orgId: string,
+  schoolId: string,
+  definitionId: string,
+  payload: Readonly<{ title: string; type: ManagementTableColumnTypeDto; settings?: Record<string, unknown> }>,
+): Promise<ManagementTableDefinitionDto> {
+  return apiClient.post<ManagementTableDefinitionDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions/${encodeURIComponent(definitionId)}/columns`,
+    { json: payload },
+  );
+}
+
+export async function patchManagementTableColumn(
+  orgId: string,
+  schoolId: string,
+  definitionId: string,
+  columnId: string,
+  payload: Readonly<{ title: string }>,
+): Promise<ManagementTableDefinitionDto> {
+  return apiClient.patch<ManagementTableDefinitionDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions/${encodeURIComponent(definitionId)}/columns/${encodeURIComponent(columnId)}`,
+    { json: payload },
+  );
+}
+
+export async function deleteManagementTableColumn(
+  orgId: string,
+  schoolId: string,
+  definitionId: string,
+  columnId: string,
+): Promise<ManagementTableDefinitionDto> {
+  return apiClient.delete<ManagementTableDefinitionDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions/${encodeURIComponent(definitionId)}/columns/${encodeURIComponent(columnId)}`,
+  );
+}
+
+export async function inheritManagementTableDefinition(
+  orgId: string,
+  schoolId: string,
+  sourceDefinitionId: string,
+  payload: Readonly<{ title: string; visibility?: "self_owned" | "sharable" }>,
+): Promise<ManagementTableDefinitionDto> {
+  return apiClient.post<ManagementTableDefinitionDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/definitions/${encodeURIComponent(sourceDefinitionId)}/inherit`,
+    { json: payload },
+  );
+}
+
+export async function createManagementTableInstance(
+  orgId: string,
+  schoolId: string,
+  payload: Readonly<{
+    definitionId: string;
+    title?: string;
+    workspaceItemId?: string;
+  }>,
+): Promise<ManagementTableInstanceBundleDto> {
+  return apiClient.post<ManagementTableInstanceBundleDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances`,
+    { json: payload },
+  );
+}
+
+export async function fetchManagementTableInstanceBundle(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+): Promise<ManagementTableInstanceBundleDto> {
+  return apiClient.get<ManagementTableInstanceBundleDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}`,
+  );
+}
+
+export async function fetchManagementTableRows(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  page = 1,
+  pageSize = 200,
+  groupId?: string,
+): Promise<ManagementTableRowListResponseDto> {
+  return apiClient.get<ManagementTableRowListResponseDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/rows`,
+    {
+      searchParams: {
+        page: String(page),
+        pageSize: String(pageSize),
+        ...(groupId ? { groupId } : {}),
+      },
+    },
+  );
+}
+
+export async function createManagementTableRow(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  groupId?: string,
+): Promise<ManagementTableRowDto> {
+  return apiClient.post<ManagementTableRowDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/rows`,
+    { searchParams: groupId ? { groupId } : {} },
+  );
+}
+
+export async function createManagementTableTableGroup(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  payload: Readonly<{ title: string }>,
+): Promise<ManagementTableGroupDto> {
+  return apiClient.post<ManagementTableGroupDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/table-groups`,
+    { json: payload },
+  );
+}
+
+export async function patchManagementTableRowCells(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  rowId: string,
+  cells: Readonly<Record<string, unknown>>,
+): Promise<ManagementTableRowDto> {
+  return apiClient.patch<ManagementTableRowDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/rows/${encodeURIComponent(rowId)}`,
+    { json: { cells } },
+  );
+}
+
+export async function bootstrapManagementTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  workspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/management-table/bootstrap`,
+  );
 }
 
 export async function uploadSchoolDocumentFile(

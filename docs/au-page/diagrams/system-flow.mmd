@@ -1,0 +1,40 @@
+flowchart LR
+  subgraph Client["Client (untrusted) — AU Page"]
+    UI["AU UI\nLoginPageView / SignupPageView / RecoverPageView\n(or modal via AuthModalGateway ?auth=...)"]
+    APIClient["apiClient.ts\nadds Authorization header\n+ X-Request-Id + error normalization"]
+    LS["localStorage key\n\"dl.auth.session.v1\"\n(session payload incl. accessToken)"]
+    CK["Cookie marker\nAUTH_SESSION_COOKIE=1\npresence only (no token)"]
+  end
+
+  subgraph Edge["Edge / Routing"]
+    MW["middleware.ts\nredirects unauthenticated users\nfrom protected routes"]
+  end
+
+  subgraph API["Backend (trusted boundary)"]
+    AuthAPI["/v1/auth/*\n(identity)\nlogin/signup/session/logout\nOTP + recover orchestration"]
+    AuthZ["AuthZ (RBAC)\norg_memberships gate\nrole_bindings + role_definitions → permissions"]
+  end
+
+  subgraph Stores["Data stores"]
+    Mongo["MongoDB (durable)\nusers + user_sessions\norg_memberships + role_*"]
+    Redis["Redis (TTL)\nOTP state + signup flow state + recover state\nthrottles/cooldowns"]
+  end
+
+  subgraph Providers["OTP delivery providers (not implemented yet)"]
+    SMS["SMS provider\nNOT wired"]
+    EMAIL["Email provider\nNOT wired"]
+  end
+
+  UI -->|React Query mutations| APIClient
+  APIClient -->|Authorization: Bearer <access_token>| AuthAPI
+  UI -->|AuthSessionProvider\nestablishSession/clearSession| LS
+  UI -->|presence marker only| CK
+  MW -->|reads cookie marker| CK
+  MW -->|redirects to /?auth=login&next=...| UI
+
+  AuthAPI --> Mongo
+  AuthAPI --> Redis
+  AuthZ --> Mongo
+  AuthAPI -. "future integration"\n(deliver OTP) .-> SMS
+  AuthAPI -. "future integration"\n(deliver OTP) .-> EMAIL
+

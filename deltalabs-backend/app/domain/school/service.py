@@ -30,6 +30,10 @@ from app.domain.school.schemas import (
     SchoolCreateInput,
     SchoolListResponse,
     SchoolPublic,
+    ClassSessionCreateInput,
+    ClassSessionListResponse,
+    ClassSessionPublic,
+    ClassSessionUpdateInput,
     SchoolWorkspaceCreateInput,
     SchoolWorkspaceItemPublic,
     SchoolWorkspaceListResponse,
@@ -128,17 +132,50 @@ class Service:
         org_id: str,
         school_id: str,
         item_type: str | None = None,
+        parent_item_id: str | None = None,
     ) -> SchoolWorkspaceListResponse:
         school = await self._repository.find_school(org_id=org_id, school_id=school_id)
         if school is None:
             raise NotFoundError("School not found.", code="school_not_found")
-        await self._repository.ensure_school_workspace_root(org_id=org_id, school_id=school_id)
+        root = await self._repository.ensure_school_workspace_root(org_id=org_id, school_id=school_id)
+        root_id = str(root["_id"])
+        list_parent_id = root_id
+        if isinstance(parent_item_id, str) and parent_item_id.strip():
+            raw = parent_item_id.strip()
+            parent_doc = await self._repository.find_school_workspace_item(
+                org_id=org_id,
+                school_id=school_id,
+                item_id=raw,
+            )
+            if parent_doc is None:
+                raise NotFoundError("Parent workspace folder not found.", code="workspace_parent_not_found")
+            list_parent_id = raw
         docs = await self._repository.list_school_workspace_items(
             org_id=org_id,
             school_id=school_id,
             item_type=item_type,
+            parent_id=list_parent_id,
         )
         return SchoolWorkspaceListResponse(items=[_map_workspace_item(doc) for doc in docs])
+
+    async def get_school_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        item_id: str,
+    ) -> SchoolWorkspaceItemPublic:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        doc = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=item_id,
+        )
+        if doc is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        return _map_workspace_item(doc)
 
     async def create_school_workspace_item(
         self,
@@ -151,6 +188,28 @@ class Service:
         if school is None:
             raise NotFoundError("School not found.", code="school_not_found")
         root = await self._repository.ensure_school_workspace_root(org_id=org_id, school_id=school_id)
+        root_id = str(root["_id"])
+        target_parent_id = root_id
+        raw_parent = payload.parent_id
+        if isinstance(raw_parent, str) and raw_parent.strip():
+            pid = raw_parent.strip()
+            parent_doc = await self._repository.find_school_workspace_item(
+                org_id=org_id,
+                school_id=school_id,
+                item_id=pid,
+            )
+            if parent_doc is None:
+                raise NotFoundError("Parent workspace folder not found.", code="workspace_parent_not_found")
+            if bool(parent_doc.get("is_root")):
+                target_parent_id = str(parent_doc["_id"])
+            else:
+                ptype = str(parent_doc.get("type", ""))
+                if ptype not in ("department", "folder"):
+                    raise ValidationError(
+                        "Items can only be created under the root department or under a department or folder.",
+                        code="workspace_parent_invalid_type",
+                    )
+                target_parent_id = pid
         metadata = payload.metadata if isinstance(payload.metadata, dict) else {}
         doc = await self._repository.create_school_workspace_item(
             org_id=org_id,
@@ -159,7 +218,7 @@ class Service:
             title=payload.title,
             description=payload.description,
             metadata=metadata,
-            parent_id=str(root["_id"]),
+            parent_id=target_parent_id,
         )
         return _map_workspace_item(doc)
 
@@ -228,6 +287,16 @@ class Service:
             raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
         if bool(existing.get("is_root", False)):
             raise ValidationError("Root workspace item cannot be deleted.", code="workspace_item_root_immutable")
+        child_count = await self._repository.count_school_workspace_children(
+            org_id=org_id,
+            school_id=school_id,
+            parent_id=item_id,
+        )
+        if child_count > 0:
+            raise ValidationError(
+                "This workspace folder still contains items. Move or delete them first.",
+                code="workspace_item_has_children",
+            )
         ok = await self._repository.delete_school_workspace_item(
             org_id=org_id,
             school_id=school_id,
@@ -235,6 +304,163 @@ class Service:
         )
         if not ok:
             raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+
+    async def list_class_sessions(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> ClassSessionListResponse:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        docs = await self._repository.list_class_sessions(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        return ClassSessionListResponse(items=[_map_class_session(doc) for doc in docs])
+
+    async def create_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: ClassSessionCreateInput,
+    ) -> ClassSessionPublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        status = "scheduled" if payload.scheduled_at is not None else "draft"
+        doc = await self._repository.create_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            title=payload.title,
+            description=payload.description,
+            weight=payload.weight,
+            duration_minutes=payload.duration_minutes,
+            session_type=payload.session_type,
+            scheduled_at=payload.scheduled_at,
+            creation_mode=payload.creation_mode or "single",
+            status=status,
+        )
+        return _map_class_session(doc)
+
+    async def update_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        session_id: str,
+        payload: ClassSessionUpdateInput,
+    ) -> ClassSessionPublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        existing = await self._repository.find_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=session_id,
+        )
+        if existing is None:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        if str(existing.get("class_workspace_item_id", "")) != class_workspace_item_id:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        updates: dict[str, object] = {}
+        if payload.title is not None:
+            updates["title"] = payload.title.strip()
+        if payload.description is not None:
+            updates["description"] = payload.description.strip() if payload.description.strip() else None
+        if payload.weight is not None:
+            updates["weight"] = payload.weight
+        if payload.duration_minutes is not None:
+            updates["duration_minutes"] = payload.duration_minutes
+        if payload.session_type is not None:
+            updates["session_type"] = payload.session_type
+        if payload.scheduled_at is not None:
+            updates["scheduled_at"] = payload.scheduled_at
+        if payload.status is not None:
+            updates["status"] = payload.status
+        if len(updates) == 0:
+            raise ValidationError("No changes were provided.", code="class_session_update_empty")
+        ok = await self._repository.update_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=session_id,
+            updates=updates,
+        )
+        if not ok:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        refreshed = await self._repository.find_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=session_id,
+        )
+        if refreshed is None:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        return _map_class_session(refreshed)
+
+    async def delete_class_session(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        session_id: str,
+    ) -> None:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        existing = await self._repository.find_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=session_id,
+        )
+        if existing is None or str(existing.get("class_workspace_item_id", "")) != class_workspace_item_id:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        ok = await self._repository.delete_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=session_id,
+        )
+        if not ok:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+
+    async def _require_class_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_item_id: str,
+    ) -> dict[str, object]:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        doc = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_item_id,
+        )
+        if doc is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        if str(doc.get("type", "")) != "class":
+            raise ValidationError(
+                "Sessions can only be managed for a workspace class item.",
+                code="class_session_parent_not_class",
+            )
+        return doc
 
     async def list_my_schools(self, *, user_id: str) -> MySchoolsResponse:
         """School-scoped view: memberships plus backfill for legacy creator rows."""
@@ -1520,6 +1746,29 @@ def _map_offer(doc: dict[str, object]) -> OfferPublic:
         amendment_data=amendment_data,  # type: ignore[arg-type]
         expires_at=(doc["expires_at"] if isinstance(doc.get("expires_at"), datetime) else None),  # type: ignore[arg-type]
         amendment_rounds=(int(doc["amendment_rounds"]) if isinstance(doc.get("amendment_rounds"), int) else 0),
+    )
+
+
+def _map_class_session(doc: dict[str, object]) -> ClassSessionPublic:
+    creation_raw = doc.get("creation_mode")
+    creation_mode = creation_raw if creation_raw in ("single", "multiple") else None
+    weight_val = doc.get("weight")
+    duration_val = doc.get("duration_minutes")
+    return ClassSessionPublic(
+        id=str(doc["_id"]),
+        org_id=str(doc["org_id"]),
+        school_id=str(doc["school_id"]),
+        class_workspace_item_id=str(doc["class_workspace_item_id"]),
+        title=str(doc["title"]),
+        description=(str(doc["description"]) if doc.get("description") is not None else None),
+        weight=(float(weight_val) if weight_val is not None else None),
+        duration_minutes=(int(duration_val) if isinstance(duration_val, int) else None),
+        session_type=str(doc.get("session_type", "virtual")),  # type: ignore[arg-type]
+        scheduled_at=(doc["scheduled_at"] if isinstance(doc.get("scheduled_at"), datetime) else None),  # type: ignore[arg-type]
+        status=str(doc.get("status", "draft")),  # type: ignore[arg-type]
+        creation_mode=creation_mode,  # type: ignore[arg-type]
+        created_at=doc["created_at"],  # type: ignore[arg-type]
+        updated_at=doc["updated_at"],  # type: ignore[arg-type]
     )
 
 

@@ -78,34 +78,21 @@ function landingCategoryItems(pathname: string): readonly TopNavCategoryItem[] {
   });
 }
 
-/** Isometric cube mark — gray/silver faces per unauthorized landing spec. */
-function BrandMarkCube() {
+/**
+ * Brand mark — sized like the old cube’s **drawing** (28×28 viewBox inside ~36px slot).
+ * Plain `img` so layout width/height always win (Next `<Image fill>` was still reading large for some PNGs).
+ */
+function BrandLogoMark() {
   return (
-    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center sm:h-11 sm:w-11" aria-hidden>
-      <svg viewBox="0 0 28 28" className="h-9 w-9 sm:h-11 sm:w-11" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M14 6 L20 9.5 L14 13 L8 9.5 Z"
-          fill="#E2E8F0"
-          stroke="#94A3B8"
-          strokeWidth={0.4}
-          strokeLinejoin="round"
-        />
-        <path
-          d="M20 9.5 L20 18.5 L14 22 L14 13 Z"
-          fill="#94A3B8"
-          stroke="#64748B"
-          strokeWidth={0.4}
-          strokeLinejoin="round"
-        />
-        <path
-          d="M8 9.5 L14 13 L14 22 L8 18.5 Z"
-          fill="#CBD5E1"
-          stroke="#64748B"
-          strokeWidth={0.4}
-          strokeLinejoin="round"
-        />
-      </svg>
-    </span>
+    <img
+      src="/delta-labs.png"
+      alt=""
+      width={28}
+      height={28}
+      decoding="async"
+      fetchPriority="high"
+      className="block h-7 w-7 max-h-7 max-w-7 shrink-0 object-contain sm:h-8 sm:w-8 sm:max-h-8 sm:max-w-8"
+    />
   );
 }
 
@@ -144,7 +131,7 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
             .filter(Boolean)
             .join(" ")}
         >
-          <BrandMarkCube />
+          <BrandLogoMark />
           <Typography
             as="span"
             variant="label"

@@ -8,19 +8,42 @@ from app.api.deps_authz import require_org_membership, require_org_permission
 from app.domain.authorization.repository import Repository as AuthorizationRepository
 from app.domain.authorization.schemas import PermissionCheckRequest
 from app.domain.authorization.service import Service as AuthorizationService
+from app.domain.management_table.repository import ManagementTableRepository
+from app.domain.management_table.schemas import (
+    ManagementTableColumnAppendInput,
+    ManagementTableColumnPatchInput,
+    ManagementTableDefinitionCreateInput,
+    ManagementTableDefinitionInheritInput,
+    ManagementTableDefinitionListResponse,
+    ManagementTableDefinitionPublic,
+    ManagementTableDefinitionUpdateInput,
+    ManagementTableGroupPublic,
+    ManagementTableInstanceBundleResponse,
+    ManagementTableInstanceCreateInput,
+    ManagementTableRowCellsPatchInput,
+    ManagementTableRowListResponse,
+    ManagementTableRowPublic,
+    ManagementTableTableGroupCreateInput,
+    ManagementTableWorkspaceBootstrapResponse,
+)
+from app.domain.management_table.service import ManagementTableService
 from app.domain.school.repository import Repository
 from app.domain.school.schemas import (
-    OfferListView,
+    ClassSessionCreateInput,
+    ClassSessionListResponse,
+    ClassSessionPublic,
+    ClassSessionUpdateInput,
     MarketplaceBidInput,
     MarketplaceBuyInput,
     MarketplaceCreateInput,
     MarketplaceListResponse,
-    MarketplaceViewResponse,
     MarketplaceSortBy,
     MarketplaceSortDirection,
     MarketplaceUpdateInput,
+    MarketplaceViewResponse,
     OfferCreateInput,
     OfferListResponse,
+    OfferListView,
     OfferPublic,
     OfferStatusUpdateInput,
     SchoolArchiveInput,
@@ -45,6 +68,16 @@ org_router = APIRouter(prefix="/orgs/{org_id}/schools", tags=["schools"])
 
 def _service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Service:
     return Service(Repository(db))
+
+
+def _management_table_service(
+    db: AsyncIOMotorDatabase[dict[str, object]],
+) -> ManagementTableService:
+    repo = Repository(db)
+    return ManagementTableService(
+        mt_repo=ManagementTableRepository(db),
+        school_repo=repo,
+    )
 
 
 def _authz_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> AuthorizationService:
@@ -322,6 +355,7 @@ async def get_org_school_workspace_items(
     org_id: str,
     school_id: str,
     item_type: str | None = Query(default=None, alias="type"),
+    parent_id: str | None = Query(default=None, alias="parentId"),
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> SchoolWorkspaceListResponse:
     service = _service(db)
@@ -330,6 +364,27 @@ async def get_org_school_workspace_items(
         org_id=org_id,
         school_id=school_id,
         item_type=item_type,
+        parent_item_id=parent_id,
+    )
+
+
+@org_router.get(
+    "/{school_id}/workspace/items/{item_id}",
+    response_model=SchoolWorkspaceItemPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school_workspace_item(
+    org_id: str,
+    school_id: str,
+    item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolWorkspaceItemPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=item_id,
     )
 
 
@@ -393,6 +448,94 @@ async def delete_org_school_workspace_item(
         item_id=item_id,
     )
     return {"status": "deleted", "itemId": item_id}
+
+
+@org_router.get(
+    "/{school_id}/classes/{class_workspace_item_id}/sessions",
+    response_model=ClassSessionListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_class_sessions(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassSessionListResponse:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.list_class_sessions(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/sessions",
+    response_model=ClassSessionPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def create_org_class_session(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: ClassSessionCreateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassSessionPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.create_class_session(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/classes/{class_workspace_item_id}/sessions/{session_id}",
+    response_model=ClassSessionPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def update_org_class_session(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    session_id: str,
+    payload: ClassSessionUpdateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassSessionPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_class_session(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        session_id=session_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/classes/{class_workspace_item_id}/sessions/{session_id}",
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def delete_org_class_session(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    session_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, str]:
+    service = _service(db)
+    await service.bootstrap()
+    await service.delete_class_session(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        session_id=session_id,
+    )
+    return {"status": "deleted", "sessionId": session_id}
 
 
 @org_router.patch(
@@ -705,6 +848,365 @@ async def unshortlist_org_school_offer(
         org_id=org_id,
         offer_id=offer_id,
         user_id=user.user_id,
+    )
+
+
+@org_router.get(
+    "/{school_id}/management-tables/definitions",
+    response_model=ManagementTableDefinitionListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_school_management_table_definitions(
+    org_id: str,
+    school_id: str,
+    scope: str = Query(default="all"),
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionListResponse:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.list_definitions(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        scope=scope,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/definitions",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def create_org_school_management_table_definition(
+    org_id: str,
+    school_id: str,
+    payload: ManagementTableDefinitionCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.create_definition(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
+    "/{school_id}/management-tables/definitions/{definition_id}",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school_management_table_definition(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.get_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+
+
+@org_router.patch(
+    "/{school_id}/management-tables/definitions/{definition_id}",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def patch_org_school_management_table_definition(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    payload: ManagementTableDefinitionUpdateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.update_definition(
+        org_id=org_id,
+        school_id=school_id,
+        definition_id=definition_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/definitions/{definition_id}/columns",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def append_org_school_management_table_column(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    payload: ManagementTableColumnAppendInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.append_column(
+        org_id=org_id,
+        school_id=school_id,
+        definition_id=definition_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/management-tables/definitions/{definition_id}/columns/{column_id}",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def patch_org_school_management_table_column(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    column_id: str,
+    payload: ManagementTableColumnPatchInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.patch_column(
+        org_id=org_id,
+        school_id=school_id,
+        definition_id=definition_id,
+        column_id=column_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/management-tables/definitions/{definition_id}/columns/{column_id}",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def delete_org_school_management_table_column(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    column_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.remove_column(
+        org_id=org_id,
+        school_id=school_id,
+        definition_id=definition_id,
+        column_id=column_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/definitions/{definition_id}/inherit",
+    response_model=ManagementTableDefinitionPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def inherit_org_school_management_table_definition(
+    org_id: str,
+    school_id: str,
+    definition_id: str,
+    payload: ManagementTableDefinitionInheritInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableDefinitionPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.inherit_definition(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        source_definition_id=definition_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/instances",
+    response_model=ManagementTableInstanceBundleResponse,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def create_org_school_management_table_instance(
+    org_id: str,
+    school_id: str,
+    payload: ManagementTableInstanceCreateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableInstanceBundleResponse:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.create_instance(org_id=org_id, school_id=school_id, payload=payload)
+
+
+@org_router.get(
+    "/{school_id}/management-tables/instances/{instance_id}",
+    response_model=ManagementTableInstanceBundleResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school_management_table_instance(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableInstanceBundleResponse:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.get_instance_bundle(org_id=org_id, school_id=school_id, instance_id=instance_id)
+
+
+@org_router.get(
+    "/{school_id}/management-tables/instances/{instance_id}/rows",
+    response_model=ManagementTableRowListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_school_management_table_rows(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    group_id: str | None = Query(default=None, alias="groupId"),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableRowListResponse:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.list_rows(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        group_id=group_id,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/instances/{instance_id}/rows",
+    response_model=ManagementTableRowPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def create_org_school_management_table_row(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    group_id: str | None = Query(default=None, alias="groupId"),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableRowPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.create_row(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        group_id=group_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/instances/{instance_id}/table-groups",
+    response_model=ManagementTableGroupPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def create_org_school_management_table_group(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    payload: ManagementTableTableGroupCreateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableGroupPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.create_table_group(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/management-tables/instances/{instance_id}/rows/{row_id}",
+    response_model=ManagementTableRowPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def patch_org_school_management_table_row(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    row_id: str,
+    payload: ManagementTableRowCellsPatchInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableRowPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.patch_row(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        row_id=row_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/management-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def bootstrap_org_school_workspace_management_table(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        workspace_item_id=workspace_item_id,
     )
 
 

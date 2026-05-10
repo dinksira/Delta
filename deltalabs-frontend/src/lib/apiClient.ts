@@ -83,13 +83,41 @@ function extractMessageFromBody(body: unknown, fallback: string): string {
       return err;
     }
   }
+  if (typeof body === "object" && "detail" in body) {
+    const detail = (body as { detail: unknown }).detail;
+    if (typeof detail === "string" && detail.trim().length > 0) {
+      if (detail === "Not Found" && fallback.startsWith("Request failed with status 404")) {
+        return "That API path was not found. If you just added backend routes, restart the API server (uvicorn) so it picks them up.";
+      }
+      return detail;
+    }
+    if (detail !== null && typeof detail === "object" && "message" in detail) {
+      const msg = (detail as { message: unknown }).message;
+      if (typeof msg === "string" && msg.length > 0) {
+        return msg;
+      }
+    }
+  }
   return fallback;
 }
 
 function extractCodeFromBody(body: unknown): string | undefined {
-  if (body !== null && typeof body === "object" && "code" in body) {
-    const code = (body as { code: unknown }).code;
-    return typeof code === "string" ? code : undefined;
+  if (body !== null && typeof body === "object") {
+    if ("code" in body) {
+      const code = (body as { code: unknown }).code;
+      if (typeof code === "string") {
+        return code;
+      }
+    }
+    if ("detail" in body) {
+      const detail = (body as { detail: unknown }).detail;
+      if (detail !== null && typeof detail === "object" && "code" in detail) {
+        const nested = (detail as { code: unknown }).code;
+        if (typeof nested === "string") {
+          return nested;
+        }
+      }
+    }
   }
   return undefined;
 }
