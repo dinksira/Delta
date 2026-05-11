@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../../logging/app_logger.dart';
+import 'package:deltalabs_mobile/core/logging/app_logger.dart';
 
 /// Automatically retries failed requests with exponential backoff.
 /// Only retries on network errors and 5xx server errors.

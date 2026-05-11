@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/routing/app_routes.dart';
-import '../../../../shared/widgets/auth/auth_scaffold.dart';
-import '../../../../shared/widgets/auth/auth_text_field.dart';
-import '../../../../shared/widgets/auth/auth_bottom_text.dart';
-import '../../../../shared/widgets/auth/primary_button.dart';
+import 'package:deltalabs_mobile/core/routing/app_routes.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/auth_scaffold.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/auth_text_field.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/auth_bottom_text.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/primary_button.dart';
 
 /// Reset Password — new password + confirm, "Recover" button.
 class ResetPasswordPage extends HookWidget {
@@ -19,7 +19,6 @@ class ResetPasswordPage extends HookWidget {
 
     return AuthScaffold(
       title: 'Recover your Account',
-      subtitle: 'Explore about our app',
       content: Column(
         children: [
           AuthTextField(

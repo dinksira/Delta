@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-import '../core/routing/app_router.dart';
-import '../core/theme/app_theme.dart';
-import '../core/localization/app_localizations.dart';
+import 'package:deltalabs_mobile/core/routing/app_router.dart';
+import 'package:deltalabs_mobile/core/theme/app_theme.dart';
+import 'package:deltalabs_mobile/core/localization/app_localizations.dart';
 
 class DeltaLabsApp extends ConsumerWidget {
   const DeltaLabsApp({super.key});

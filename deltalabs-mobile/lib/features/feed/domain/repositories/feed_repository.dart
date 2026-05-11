@@ -1,8 +1,8 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/error/failures.dart';
-import '../../../../core/network/pagination/paginated_response.dart';
-import '../entities/feed_item.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
+import 'package:deltalabs_mobile/core/network/pagination/paginated_response.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_item.dart';
 
 abstract class FeedRepository {
   /// Fetch the next page of feed items using cursor-based pagination.

@@ -4,9 +4,9 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
-import '../network/api_client.dart';
-import '../storage/local_database.dart';
-import '../logging/app_logger.dart';
+import 'package:deltalabs_mobile/core/network/api_client.dart';
+import 'package:deltalabs_mobile/core/storage/local_database.dart';
+import 'package:deltalabs_mobile/core/logging/app_logger.dart';
 
 enum SyncStatus { idle, syncing, error }
 

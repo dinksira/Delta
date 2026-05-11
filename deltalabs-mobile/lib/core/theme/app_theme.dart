@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import 'app_colors.dart';
+import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 
 part 'app_theme.g.dart';
 
@@ -28,14 +28,18 @@ abstract class AppTheme {
         scaffoldBackgroundColor: AppColors.background,
         colorScheme: const ColorScheme.light(
           primary: AppColors.primary,
-          surface: AppColors.background,
           error: AppColors.error,
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
-          systemOverlayStyle: SystemUiOverlayStyle.dark,
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarIconBrightness: Brightness.dark,
+          ),
           iconTheme: IconThemeData(color: AppColors.textPrimary),
         ),
         inputDecorationTheme: InputDecorationTheme(

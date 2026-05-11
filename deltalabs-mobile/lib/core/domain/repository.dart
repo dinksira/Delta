@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import '../error/failures.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
 
 /// Base repository interface.
 /// All feature repositories extend this for consistent CRUD contracts.

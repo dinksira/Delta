@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
-import '../config/app_config.dart';
+import 'package:deltalabs_mobile/core/config/app_config.dart';
 
 /// Centralized application logger.
 /// In production, logs are suppressed and errors are forwarded to Crashlytics
@@ -11,11 +11,7 @@ class AppLogger {
 
   static final Logger _logger = Logger(
     printer: PrettyPrinter(
-      methodCount: 2,
       errorMethodCount: 8,
-      lineLength: 120,
-      colors: true,
-      printEmojis: true,
     ),
     level: kDebugMode ? Level.trace : Level.warning,
     output: kDebugMode ? ConsoleOutput() : null,

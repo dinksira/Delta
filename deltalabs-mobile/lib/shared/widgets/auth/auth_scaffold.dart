@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
-import 'delta_logo.dart';
-import 'social_buttons_row.dart';
-import 'auth_bottom_text.dart';
+import 'package:deltalabs_mobile/core/theme/app_colors.dart';
+import 'package:deltalabs_mobile/core/theme/app_text_styles.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/delta_logo.dart';
+import 'package:deltalabs_mobile/shared/widgets/auth/social_buttons_row.dart';
 
 /// Shared scaffold for all auth screens.
-/// Provides consistent layout: logo → title → subtitle → content → button → OR → social → bottom link
+/// Provides consistent layout: logo → title → content → button → OR → social → bottom link
+/// Shows a back button automatically when the screen can be popped.
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
     super.key,
     required this.title,
-    required this.subtitle,
     required this.content,
     required this.primaryButton,
     required this.bottomText,
@@ -20,7 +19,6 @@ class AuthScaffold extends StatelessWidget {
   });
 
   final String title;
-  final String subtitle;
   final Widget content;
   final Widget primaryButton;
   final Widget bottomText;
@@ -28,6 +26,8 @@ class AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -36,18 +36,32 @@ class AuthScaffold extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // Back button — bare arrow, left-aligned, only when stack has a previous screen
+              if (canPop)
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  behavior: HitTestBehavior.opaque,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 16, bottom: 8, top: 4),
+                    child: Icon(
+                      Icons.arrow_back,
+                      size: 24,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+
+              if (!canPop) const SizedBox(height: 12),
+              if (canPop) const SizedBox(height: 20),
 
               // Logo
-              const DeltaLogo(size: 64),
-              const SizedBox(height: 24),
+              const DeltaLogo(),
+              const SizedBox(height: 32),
 
               // Title
               Text(title, style: AppTextStyles.heading1),
-              const SizedBox(height: 6),
-
-              // Subtitle
-              Text(subtitle, style: AppTextStyles.subtitle),
               const SizedBox(height: 36),
 
               // Screen-specific content (fields, pickers, etc.)
@@ -82,16 +96,16 @@ class _OrDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return const Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Divider(color: AppColors.divider, thickness: 1),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.symmetric(horizontal: 12),
           child: Text('OR', style: AppTextStyles.orDivider),
         ),
-        const Expanded(
+        Expanded(
           child: Divider(color: AppColors.divider, thickness: 1),
         ),
       ],

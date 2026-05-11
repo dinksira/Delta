@@ -1,14 +1,14 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../../core/di/service_locator.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/storage/secure_storage.dart';
-import '../../data/data_sources/auth_remote_data_source.dart';
-import '../../data/repositories/auth_repository_impl.dart';
-import '../../domain/entities/user.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../../domain/use_cases/sign_in_use_case.dart';
+import 'package:deltalabs_mobile/core/di/service_locator.dart';
+import 'package:deltalabs_mobile/core/network/api_client.dart';
+import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
+import 'package:deltalabs_mobile/features/auth/data/data_sources/auth_remote_data_source.dart';
+import 'package:deltalabs_mobile/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
+import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:deltalabs_mobile/features/auth/domain/use_cases/sign_in_use_case.dart';
 
 part 'auth_provider.g.dart';
 

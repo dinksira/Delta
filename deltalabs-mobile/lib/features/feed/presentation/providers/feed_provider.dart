@@ -1,8 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../../core/network/pagination/paginated_response.dart';
-import '../../domain/entities/feed_item.dart';
+import 'package:deltalabs_mobile/core/network/pagination/paginated_response.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_item.dart';
 
 part 'feed_provider.g.dart';
 
@@ -53,7 +53,7 @@ class FeedNotifier extends _$FeedNotifier {
 
   Future<void> loadInitial() async {
     if (state.isLoading) return;
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     // TODO: Call repository
     // final result = await ref.read(feedRepositoryProvider).getFeed(

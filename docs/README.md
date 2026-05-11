@@ -10,6 +10,8 @@ This folder is the **human-friendly entry point** for understanding the project.
 - **AU Page — System flow diagram**: `au-page/system-flow-diagram.md`
 - **AU Page — Backend design diagram**: `au-page/backend-design-diagram.md`
 - **AU Page — Frontend integration & optimization**: `au-page/frontend-integration-and-optimization.md`
+- **AU Page — Folder structure + diagrams + theme (brief)**: `au-page/folder-structure-and-diagrams-brief.md`
+- **AU Page — Login / signup / recovery (user-level brief)**: `au-page/auth-flows-user-brief.md`
 - **Auth overview (start here)**: `auth-overview.md`
 - **Database model**: `database-schema.md`
 - **Portal information architecture**: `information-architecture-portal.md`

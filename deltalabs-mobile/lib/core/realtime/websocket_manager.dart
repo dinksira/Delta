@@ -4,8 +4,8 @@ import 'dart:convert';
 import 'package:rxdart/rxdart.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../logging/app_logger.dart';
-import 'realtime_event.dart';
+import 'package:deltalabs_mobile/core/logging/app_logger.dart';
+import 'package:deltalabs_mobile/core/realtime/realtime_event.dart';
 
 enum WebSocketState { disconnected, connecting, connected, reconnecting }
 
@@ -94,7 +94,7 @@ class WebSocketManager {
   void _onMessage(dynamic raw) {
     try {
       final json = jsonDecode(raw as String) as Map<String, dynamic>;
-      final event = RealtimeEvent.fromJson(json);
+      final event = RealtimeEventJson.fromJson(json);
       _eventController.add(event);
     } catch (e) {
       AppLogger.warning('Failed to parse WebSocket message', error: e);

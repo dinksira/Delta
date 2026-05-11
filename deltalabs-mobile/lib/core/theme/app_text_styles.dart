@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'app_colors.dart';
+import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 
 /// DeltaLabs text style tokens.
 abstract class AppTextStyles {
   static const TextStyle heading1 = TextStyle(
-    fontSize: 26,
-    fontWeight: FontWeight.w700,
+    fontSize: 28,
+    fontWeight: FontWeight.w800,
     color: AppColors.textPrimary,
-    height: 1.3,
+    height: 1.25,
+    letterSpacing: -0.3,
   );
 
   static const TextStyle heading2 = TextStyle(

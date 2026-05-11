@@ -1,8 +1,8 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'realtime_event.freezed.dart';
+
 /// Typed realtime event envelope.
-/// Manual fromJson/toJson — avoids json_serializable null-aware-elements issue.
 @freezed
 abstract class RealtimeEvent with _$RealtimeEvent {
   const factory RealtimeEvent({
@@ -11,8 +11,12 @@ abstract class RealtimeEvent with _$RealtimeEvent {
     @Default({}) Map<String, dynamic> payload,
     DateTime? timestamp,
   }) = _RealtimeEvent;
+}
 
-  factory RealtimeEvent.fromJson(Map<String, dynamic> json) => RealtimeEvent(
+/// Manual JSON parsing — kept outside the Freezed class to avoid
+/// triggering json_serializable code generation.
+extension RealtimeEventJson on RealtimeEvent {
+  static RealtimeEvent fromJson(Map<String, dynamic> json) => RealtimeEvent(
         type: json['type'] as String,
         channel: json['channel'] as String? ?? '',
         payload: (json['payload'] as Map<String, dynamic>?) ?? {},
@@ -20,6 +24,13 @@ abstract class RealtimeEvent with _$RealtimeEvent {
             ? DateTime.tryParse(json['timestamp'] as String)
             : null,
       );
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        'channel': channel,
+        'payload': payload,
+        if (timestamp != null) 'timestamp': timestamp!.toIso8601String(),
+      };
 }
 
 /// Well-known realtime event type constants.

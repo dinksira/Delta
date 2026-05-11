@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:rxdart/rxdart.dart';
 
-import '../../../../core/error/error_handler.dart';
-import '../../../../core/error/failures.dart';
-import '../../../../core/storage/secure_storage.dart';
-import '../../domain/entities/user.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../data_sources/auth_remote_data_source.dart';
+import 'package:deltalabs_mobile/core/error/error_handler.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
+import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
+import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
+import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:deltalabs_mobile/features/auth/data/data_sources/auth_remote_data_source.dart';
 
 /// Concrete implementation of [AuthRepository].
 /// Coordinates between remote API and local secure storage.

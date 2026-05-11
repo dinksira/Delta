@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../../../core/domain/entity.dart';
+import 'package:deltalabs_mobile/core/domain/entity.dart';
 
 part 'feed_item.freezed.dart';
 

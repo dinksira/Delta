@@ -1,9 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-
-import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 
 /// Route guard that redirects unauthenticated users to login.
 /// Implements [Listenable] so GoRouter can react to auth state changes.

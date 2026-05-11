@@ -1,9 +1,9 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/domain/use_case.dart';
-import '../../../../core/error/failures.dart';
-import '../entities/user.dart';
-import '../repositories/auth_repository.dart';
+import 'package:deltalabs_mobile/core/domain/use_case.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
+import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
+import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
 
 class SignInParams {
   const SignInParams({

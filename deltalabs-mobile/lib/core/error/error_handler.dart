@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import 'exceptions.dart';
-import 'failures.dart';
-import '../logging/app_logger.dart';
+import 'package:deltalabs_mobile/core/error/exceptions.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
+import 'package:deltalabs_mobile/core/logging/app_logger.dart';
 
 /// Converts raw exceptions into typed [Failure] objects.
 /// Used in repository implementations to normalize errors across layers.

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../../storage/secure_storage.dart';
-import '../../logging/app_logger.dart';
+import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
+import 'package:deltalabs_mobile/core/logging/app_logger.dart';
 
 /// Attaches the Bearer token to every outgoing request.
 /// On 401, attempts a token refresh and retries the original request once.

@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
-import '../../../../core/error/failures.dart';
-import '../entities/user.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
+import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
 
 /// Auth repository contract.
 /// The data layer provides the concrete implementation.

@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 
-import '../error/failures.dart';
+import 'package:deltalabs_mobile/core/error/failures.dart';
 
 /// Base class for all use cases.
 /// [Type] is the return type, [Params] is the input parameter type.

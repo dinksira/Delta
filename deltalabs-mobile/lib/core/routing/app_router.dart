@@ -3,17 +3,17 @@ import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../features/auth/presentation/pages/splash_page.dart';
-import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/pages/register_step1_page.dart';
-import '../../features/auth/presentation/pages/register_step2_page.dart';
-import '../../features/auth/presentation/pages/register_otp_page.dart';
-import '../../features/auth/presentation/pages/register_dob_page.dart';
-import '../../features/auth/presentation/pages/register_password_page.dart';
-import '../../features/auth/presentation/pages/forgot_password_page.dart';
-import '../../features/auth/presentation/pages/forgot_otp_page.dart';
-import '../../features/auth/presentation/pages/reset_password_page.dart';
-import 'app_routes.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/splash_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step1_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step2_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_otp_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_dob_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_password_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_otp_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/reset_password_page.dart';
+import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 
 part 'app_router.g.dart';
 

@@ -2,9 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter/foundation.dart';
 
-import 'interceptors/auth_interceptor.dart';
-import 'interceptors/retry_interceptor.dart';
-import '../config/app_config.dart';
+import 'package:deltalabs_mobile/core/network/interceptors/auth_interceptor.dart';
+import 'package:deltalabs_mobile/core/network/interceptors/retry_interceptor.dart';
+import 'package:deltalabs_mobile/core/config/app_config.dart';
 
 /// Central HTTP client built on Dio.
 /// All feature-level API services use this as their Dio instance.
@@ -36,10 +36,6 @@ class ApiClient {
         PrettyDioLogger(
           requestHeader: true,
           requestBody: true,
-          responseBody: true,
-          responseHeader: false,
-          error: true,
-          compact: true,
         ),
     ]);
   }

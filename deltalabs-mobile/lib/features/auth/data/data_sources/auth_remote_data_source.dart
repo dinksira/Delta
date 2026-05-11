@@ -1,6 +1,6 @@
-import '../../../../core/network/api_client.dart';
-import '../../domain/repositories/auth_repository.dart';
-import '../models/user_model.dart';
+import 'package:deltalabs_mobile/core/network/api_client.dart';
+import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:deltalabs_mobile/features/auth/data/models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   Future<AuthTokens> signIn({
@@ -68,7 +68,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         'tenant_id': tenantId,
       },
     );
-    return UserModel.fromJson(response.data!);
+    return UserModelJson.fromJson(response.data!);
   }
 
   @override
@@ -79,7 +79,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<UserModel> getCurrentUser() async {
     final response = await apiClient.get<Map<String, dynamic>>('/auth/me');
-    return UserModel.fromJson(response.data!);
+    return UserModelJson.fromJson(response.data!);
   }
 
   @override

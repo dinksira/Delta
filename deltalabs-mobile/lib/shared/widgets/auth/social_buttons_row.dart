@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../../core/theme/app_colors.dart';
+import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 
 /// Row of 4 social login buttons: Google, Facebook, Apple, Phone.
 class SocialButtonsRow extends StatelessWidget {

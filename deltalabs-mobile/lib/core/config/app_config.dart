@@ -1,4 +1,4 @@
-import 'environment.dart';
+import 'package:deltalabs_mobile/core/config/environment.dart';
 
 /// Central application configuration.
 /// Populated at bootstrap time based on the active [Environment].
