@@ -543,7 +543,6 @@ export function LandingPageView() {
     if (!activeClipId || clips.length === 0) return;
     const stillVisible = clips.some((clip) => clip.id === activeClipId);
     if (!stillVisible) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync active clip when filtered list changes
       setActiveClipId(clips[0]?.id ?? "");
     }
   }, [activeClipId, clips]);

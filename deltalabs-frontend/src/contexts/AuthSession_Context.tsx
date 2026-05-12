@@ -78,7 +78,6 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
    * (useEffect runs after paint; useLayoutEffect does not).
    */
   useLayoutEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync hydrate before paint; useEffect flashes logged-out UI
     setSession(readStoredSession());
     setIsReady(true);
   }, []);

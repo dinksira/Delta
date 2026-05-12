@@ -90,7 +90,6 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
   // Hydrate once auth is ready, and rehydrate when account changes.
   useEffect(() => {
     if (!isReady) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-side storage hydration
     setOpenTabs(readStoredTabsForUser(userId));
     setHydratedUserId(userId);
   }, [isReady, userId]);
