@@ -1,5 +1,9 @@
 # Backend (FastAPI)
 
+## Code walkthrough (explanation docs)
+
+**Authentication:** markdown mirrors `app/` — see `deltalabs-explanation/README.md` (e.g. `deltalabs-explanation/app/api/v1/auth.md`, `deltalabs-explanation/app/domain/identity/*.md`, `deltalabs-explanation/app/core/security.md`).
+
 ## Run locally
 
 ```bash

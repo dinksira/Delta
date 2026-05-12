@@ -10,3 +10,14 @@ __pycache__/
 # Next.js
 /deltalabs-frontend/.next
 
+# Flutter (see deltalabs-mobile/.gitignore for detailed rules)
+/deltalabs-mobile/build/
+/deltalabs-mobile/.dart_tool/
+/deltalabs-mobile/.flutter-plugins
+/deltalabs-mobile/.flutter-plugins-dependencies
+
+# Kiro IDE specs (internal tooling, not source code)
+.kiro/
+
+# Misc
+test_write.txt

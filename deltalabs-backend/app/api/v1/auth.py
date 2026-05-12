@@ -98,7 +98,6 @@ async def signup_init(
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> AuthIssuedResponse:
     service = _service(db)
-    await service.bootstrap_indexes()
     return await service.signup_init(payload)
 
 
@@ -108,7 +107,6 @@ async def login(
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> AuthIssuedResponse:
     service = _service(db)
-    await service.bootstrap_indexes()
     return await service.login(payload)
 
 
@@ -215,9 +213,12 @@ async def signup_complete(
 @router.get("/signup/state", response_model=SignupFlowStateResponse)
 async def signup_state(
     flow_id: str,
+    authorization: str | None = Header(default=None, alias="Authorization"),
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
     redis: RedisDep = Depends(get_redis),  # noqa: B008
 ) -> SignupFlowStateResponse:
+    # Require a bearer token to prevent unauthenticated flow state enumeration
+    _extract_bearer_token(authorization)
     flow_service = _signup_flow_service(db, redis)
     return await flow_service.state(flow_id)
 

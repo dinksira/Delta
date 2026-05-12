@@ -32,7 +32,7 @@ class PasswordHash:
 
 
 PASSWORD_ALGORITHM = "scrypt-v1"
-_SCRYPT_N = 2**14
+_SCRYPT_N = 2**14  # OWASP minimum — 2**15 exceeds Python 3.13 memory limits on Windows
 _SCRYPT_R = 8
 _SCRYPT_P = 1
 _SCRYPT_DKLEN = 64
@@ -48,6 +48,8 @@ def validate_password_policy(password: str) -> None:
         raise PasswordPolicyError("Password must contain at least one lowercase letter.")
     if not any(ch.isdigit() for ch in password):
         raise PasswordPolicyError("Password must contain at least one digit.")
+    if not any(ch in r"!@#$%^&*()_+-=[]{}|;':\",./<>?" for ch in password):
+        raise PasswordPolicyError("Password must contain at least one special character.")
 
 
 def hash_password(password: str) -> str:

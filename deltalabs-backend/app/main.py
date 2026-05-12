@@ -26,7 +26,8 @@ from app.core.exceptions import (
 from app.core.logging import configure_logging
 from app.core.rate_limit import enforce_auth_post_rate_limit
 from app.core.readiness import run_readiness_checks
-from app.infra.database import connect_mongodb, disconnect_mongodb
+from app.domain.identity.repository import Repository
+from app.infra.database import connect_mongodb, disconnect_mongodb, get_database
 from app.infra.http_client import connect_http_client, disconnect_http_client
 from app.infra.redis_client import connect_redis, disconnect_redis
 
@@ -40,6 +41,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await connect_mongodb()
     await connect_redis()
     await connect_http_client()
+
+    # Bootstrap DB indexes once at startup — not on every request
+    try:
+        db = get_database()
+        await Repository(db).ensure_indexes()
+        logger.info("startup.indexes_bootstrapped")
+    except Exception as exc:
+        logger.error("startup.index_bootstrap_failed", extra={"error": str(exc)})
+        # Don't crash startup — indexes may already exist or Atlas may be temporarily slow
+
     try:
         yield
     finally:

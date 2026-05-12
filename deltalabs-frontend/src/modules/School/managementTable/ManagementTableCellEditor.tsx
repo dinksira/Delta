@@ -17,6 +17,86 @@ function optionList(settings: Readonly<Record<string, unknown>>): { id: string; 
     .filter((x): x is { id: string; label: string } => x !== null);
 }
 
+function NumberCellEditor({
+  value,
+  onCommit,
+}: Readonly<{
+  value: unknown;
+  onCommit: (next: unknown, immediate?: boolean) => void;
+}>) {
+  const numStr = value === null || value === undefined ? "" : String(value);
+  const [numDraft, setNumDraft] = useState(numStr);
+  useEffect(() => {
+    setNumDraft(numStr);
+  }, [numStr]);
+  return (
+    <input
+      type="number"
+      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+      value={numDraft}
+      onChange={(e) => setNumDraft(e.target.value)}
+      onBlur={() => {
+        const v = numDraft === "" ? null : Number(numDraft);
+        onCommit(v !== null && Number.isNaN(v) ? null : v, true);
+      }}
+    />
+  );
+}
+
+function TextareaCellEditor({
+  value,
+  onCommit,
+}: Readonly<{
+  value: unknown;
+  onCommit: (next: unknown, immediate?: boolean) => void;
+}>) {
+  const str =
+    typeof value === "string" || typeof value === "number" ? String(value) : value === null || value === undefined ? "" : String(value);
+  const [draft, setDraft] = useState(str);
+  useEffect(() => {
+    setDraft(str);
+  }, [str]);
+  return (
+    <textarea
+      className="min-h-[2rem] w-full min-w-0 resize-y rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+      rows={2}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== str) onCommit(draft, true);
+      }}
+    />
+  );
+}
+
+function DefaultTextCellEditor({
+  columnType,
+  value,
+  onCommit,
+}: Readonly<{
+  columnType: ManagementTableColumnDto["type"];
+  value: unknown;
+  onCommit: (next: unknown, immediate?: boolean) => void;
+}>) {
+  const str =
+    typeof value === "string" || typeof value === "number" ? String(value) : value === null || value === undefined ? "" : String(value);
+  const [draft, setDraft] = useState(str);
+  useEffect(() => {
+    setDraft(str);
+  }, [str]);
+  return (
+    <input
+      type={columnType === "link" ? "url" : "text"}
+      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== str) onCommit(draft, true);
+      }}
+    />
+  );
+}
+
 export function ManagementTableCellEditor({
   column,
   value,
@@ -38,23 +118,7 @@ export function ManagementTableCellEditor({
     );
   }
   if (t === "number") {
-    const numStr = value === null || value === undefined ? "" : String(value);
-    const [numDraft, setNumDraft] = useState(numStr);
-    useEffect(() => {
-      setNumDraft(numStr);
-    }, [numStr]);
-    return (
-      <input
-        type="number"
-        className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
-        value={numDraft}
-        onChange={(e) => setNumDraft(e.target.value)}
-        onBlur={() => {
-          const v = numDraft === "" ? null : Number(numDraft);
-          onCommit(v !== null && Number.isNaN(v) ? null : v, true);
-        }}
-      />
-    );
+    return <NumberCellEditor value={value} onCommit={onCommit} />;
   }
   if (t === "date") {
     return (
@@ -67,23 +131,7 @@ export function ManagementTableCellEditor({
     );
   }
   if (t === "textarea") {
-    const str =
-      typeof value === "string" || typeof value === "number" ? String(value) : value === null || value === undefined ? "" : String(value);
-    const [draft, setDraft] = useState(str);
-    useEffect(() => {
-      setDraft(str);
-    }, [str]);
-    return (
-      <textarea
-        className="min-h-[2rem] w-full min-w-0 resize-y rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
-        rows={2}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          if (draft !== str) onCommit(draft, true);
-        }}
-      />
-    );
+    return <TextareaCellEditor value={value} onCommit={onCommit} />;
   }
   if (t === "dropdown" || t === "status") {
     const opts = optionList(column.settings);
@@ -103,21 +151,5 @@ export function ManagementTableCellEditor({
       </select>
     );
   }
-  const str =
-    typeof value === "string" || typeof value === "number" ? String(value) : value === null || value === undefined ? "" : String(value);
-  const [draft, setDraft] = useState(str);
-  useEffect(() => {
-    setDraft(str);
-  }, [str]);
-  return (
-    <input
-      type={t === "link" ? "url" : "text"}
-      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
-      value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => {
-        if (draft !== str) onCommit(draft, true);
-      }}
-    />
-  );
+  return <DefaultTextCellEditor columnType={t} value={value} onCommit={onCommit} />;
 }
