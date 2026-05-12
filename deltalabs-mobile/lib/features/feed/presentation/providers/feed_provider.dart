@@ -1,8 +1,5 @@
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import 'package:deltalabs_mobile/core/network/pagination/paginated_response.dart';
 import 'package:deltalabs_mobile/features/feed/domain/entities/feed_item.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'feed_provider.g.dart';
 

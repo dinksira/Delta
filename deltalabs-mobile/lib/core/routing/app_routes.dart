@@ -1,8 +1,5 @@
 /// Centralized route path constants.
 abstract class AppRoutes {
-  // ── Core ───────────────────────────────────────────────────────────────────
-  static const String splash = '/';
-
   // ── Auth ───────────────────────────────────────────────────────────────────
   static const String login = '/auth/login';
   static const String forgotPassword = '/auth/forgot-password';

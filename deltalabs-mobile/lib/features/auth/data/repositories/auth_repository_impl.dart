@@ -1,17 +1,14 @@
-import 'dart:async';
-
 import 'package:dartz/dartz.dart';
-import 'package:rxdart/rxdart.dart';
-
 import 'package:deltalabs_mobile/core/error/error_handler.dart';
 import 'package:deltalabs_mobile/core/error/failures.dart';
 import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
-import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
-import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
 import 'package:deltalabs_mobile/features/auth/data/data_sources/auth_remote_data_source.dart';
+import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
+import 'package:rxdart/rxdart.dart';
 
 /// Concrete implementation of [AuthRepository].
-/// Coordinates between remote API and local secure storage.
+/// Coordinates between the remote API and local secure storage.
+/// The backend uses opaque session tokens — no refresh token.
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
     required this.remoteDataSource,
@@ -29,57 +26,23 @@ class AuthRepositoryImpl implements AuthRepository {
   Stream<AuthState> get authStateStream => _authStateController.stream;
 
   @override
-  Future<Either<Failure, AuthTokens>> signIn({
-    required String email,
+  Future<Either<Failure, AuthSession>> signIn({
+    required String identity,
     required String password,
-    required String tenantId,
   }) async {
     try {
-      final result = await remoteDataSource.signIn(
-        email: email,
+      final session = await remoteDataSource.signIn(
+        identity: identity,
         password: password,
-        tenantId: tenantId,
       );
 
-      // Persist tokens securely
-      await secureStorage.saveAccessToken(result.accessToken);
-      await secureStorage.saveRefreshToken(result.refreshToken);
-      await secureStorage.saveTenantId(tenantId);
+      // Persist session token and user id securely
+      await secureStorage.saveAccessToken(session.accessToken);
+      await secureStorage.saveUserId(session.userId);
 
-      // Fetch and cache user profile
-      final userResult = await getCurrentUser();
-      userResult.fold(
-        (_) => _authStateController.add(const AuthUnauthenticated()),
-        (user) {
-          if (user != null) {
-            _authStateController.add(AuthAuthenticated(user: user));
-          }
-        },
-      );
+      _authStateController.add(AuthAuthenticated(user: session.user));
 
-      return Right(result);
-    } catch (e, st) {
-      return Left(ErrorHandler.fromObject(e, st));
-    }
-  }
-
-  @override
-  Future<Either<Failure, User>> register({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String tenantId,
-  }) async {
-    try {
-      final userModel = await remoteDataSource.register(
-        email: email,
-        password: password,
-        firstName: firstName,
-        lastName: lastName,
-        tenantId: tenantId,
-      );
-      return Right(userModel.toDomain());
+      return Right(session);
     } catch (e, st) {
       return Left(ErrorHandler.fromObject(e, st));
     }
@@ -88,38 +51,28 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Either<Failure, void>> signOut() async {
     try {
-      await remoteDataSource.signOut();
-      await secureStorage.clearAll();
-      _authStateController.add(const AuthUnauthenticated());
-      return const Right(null);
-    } catch (e, st) {
+      final token = await secureStorage.getAccessToken();
+      if (token != null) {
+        await remoteDataSource.signOut(token);
+      }
+    } catch (_) {
       // Always clear local state even if remote call fails
+    } finally {
       await secureStorage.clearAll();
       _authStateController.add(const AuthUnauthenticated());
-      return Left(ErrorHandler.fromObject(e, st));
     }
+    return const Right(null);
   }
 
   @override
-  Future<Either<Failure, User?>> getCurrentUser() async {
+  Future<Either<Failure, AuthUser?>> getCurrentUser() async {
     try {
       final token = await secureStorage.getAccessToken();
       if (token == null) return const Right(null);
 
-      final userModel = await remoteDataSource.getCurrentUser();
-      return Right(userModel.toDomain());
-    } catch (e, st) {
-      return Left(ErrorHandler.fromObject(e, st));
-    }
-  }
-
-  @override
-  Future<Either<Failure, AuthTokens>> refreshToken(String refreshToken) async {
-    try {
-      final tokens = await remoteDataSource.refreshToken(refreshToken);
-      await secureStorage.saveAccessToken(tokens.accessToken);
-      await secureStorage.saveRefreshToken(tokens.refreshToken);
-      return Right(tokens);
+      final user = await remoteDataSource.getSession(token);
+      _authStateController.add(AuthAuthenticated(user: user));
+      return Right(user);
     } catch (e, st) {
       return Left(ErrorHandler.fromObject(e, st));
     }

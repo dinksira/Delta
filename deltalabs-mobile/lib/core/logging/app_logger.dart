@@ -11,7 +11,7 @@ class AppLogger {
 
   static final Logger _logger = Logger(
     printer: PrettyPrinter(
-      errorMethodCount: 8,
+      
     ),
     level: kDebugMode ? Level.trace : Level.warning,
     output: kDebugMode ? ConsoleOutput() : null,

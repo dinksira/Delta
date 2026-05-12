@@ -1,8 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/core/theme/app_text_styles.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Reusable labeled text field matching the design system.
 class AuthTextField extends StatefulWidget {

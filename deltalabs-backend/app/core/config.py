@@ -200,6 +200,46 @@ class Settings(BaseSettings):
         description="Comma-separated allowed CORS origins",
     )
 
+    # ── Email delivery (SMTP — Brevo recommended, Gmail fallback) ────────────
+    smtp_host: str = Field(
+        default="smtp-relay.brevo.com",
+        description="SMTP server hostname",
+    )
+    smtp_port: int = Field(
+        default=587,
+        description="SMTP port (587 for TLS/Brevo, 465 for SSL/Gmail)",
+    )
+    smtp_user: str = Field(
+        default="",
+        description="SMTP login username (Brevo: your email, Gmail: your gmail address)",
+    )
+    smtp_password: str = Field(
+        default="",
+        description="SMTP password (Brevo: SMTP key, Gmail: App Password)",
+    )
+    smtp_from_address: str = Field(
+        default="",
+        description="From email address shown to recipients",
+    )
+    email_from_name: str = Field(
+        default="DeltaLabs",
+        description="Display name shown in the From field",
+    )
+
+    # ── Session limits ────────────────────────────────────────────────────────
+    max_sessions_per_user: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum concurrent active sessions per user",
+    )
+
+    # ── Age validation ────────────────────────────────────────────────────────
+    min_user_age_years: int = Field(
+        default=13,
+        ge=1,
+        description="Minimum age in years required to register",
+    )
+
     app_name: str = Field(default="Delta Labs API")
     api_version: str = Field(default="0.1.0")
 

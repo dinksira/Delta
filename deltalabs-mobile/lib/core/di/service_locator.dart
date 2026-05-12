@@ -1,13 +1,12 @@
-import 'package:get_it/get_it.dart';
-
 import 'package:deltalabs_mobile/core/config/app_config.dart';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:deltalabs_mobile/core/network/interceptors/auth_interceptor.dart';
 import 'package:deltalabs_mobile/core/network/interceptors/retry_interceptor.dart';
-import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
-import 'package:deltalabs_mobile/core/storage/local_database.dart';
 import 'package:deltalabs_mobile/core/realtime/websocket_manager.dart';
+import 'package:deltalabs_mobile/core/storage/local_database.dart';
+import 'package:deltalabs_mobile/core/storage/secure_storage.dart';
 import 'package:deltalabs_mobile/core/sync/sync_engine.dart';
+import 'package:get_it/get_it.dart';
 
 final GetIt sl = GetIt.instance;
 

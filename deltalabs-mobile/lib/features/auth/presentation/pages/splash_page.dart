@@ -24,9 +24,9 @@ class _SplashPageState extends State<SplashPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: AppColors.background,
-      body: const Center(
+      body: Center(
         child: DeltaLogo(size: 120),
       ),
     );

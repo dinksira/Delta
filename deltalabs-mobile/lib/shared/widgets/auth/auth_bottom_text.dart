@@ -1,8 +1,7 @@
-import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/core/theme/app_text_styles.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 
 /// Bottom "Already have account? Login" style text with tappable link.
 class AuthBottomText extends StatelessWidget {

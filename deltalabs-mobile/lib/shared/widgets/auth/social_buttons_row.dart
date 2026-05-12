@@ -1,16 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 
-/// Row of 4 social login buttons: Google, Facebook, Apple, Phone.
+/// Row of 4 social login buttons: Google, Facebook, Apple, Fayda ID.
 class SocialButtonsRow extends StatelessWidget {
-  const SocialButtonsRow({super.key, this.onGoogle, this.onFacebook, this.onApple, this.onPhone});
+  const SocialButtonsRow({super.key, this.onGoogle, this.onFacebook, this.onApple, this.onFayda});
 
   final VoidCallback? onGoogle;
   final VoidCallback? onFacebook;
   final VoidCallback? onApple;
-  final VoidCallback? onPhone;
+  final VoidCallback? onFayda;
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +31,13 @@ class SocialButtonsRow extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         _SocialButton(
-          onTap: onPhone,
-          child: const Icon(Icons.phone_android_outlined, size: 20, color: Colors.black54),
+          onTap: onFayda,
+          child: Image.asset(
+            'assets/icons/Fayda ID.png',
+            width: 22,
+            height: 22,
+            fit: BoxFit.contain,
+          ),
         ),
       ],
     );

@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 
 /// Full-width primary action button used across all auth screens.
 class PrimaryButton extends StatelessWidget {

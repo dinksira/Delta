@@ -1,25 +1,19 @@
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
-import 'package:deltalabs_mobile/features/auth/data/models/user_model.dart';
+import 'package:dio/dio.dart';
 
 abstract class AuthRemoteDataSource {
-  Future<AuthTokens> signIn({
-    required String email,
+  /// POST /auth/login — { identity, password } → AuthSession
+  Future<AuthSession> signIn({
+    required String identity,
     required String password,
-    required String tenantId,
   });
 
-  Future<UserModel> register({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String tenantId,
-  });
+  /// POST /auth/logout — revokes the current session on the server
+  Future<void> signOut(String accessToken);
 
-  Future<void> signOut();
-  Future<UserModel> getCurrentUser();
-  Future<AuthTokens> refreshToken(String refreshToken);
+  /// GET /auth/session — resolves the current session from bearer token
+  Future<AuthUser> getSession(String accessToken);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -28,71 +22,61 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final ApiClient apiClient;
 
   @override
-  Future<AuthTokens> signIn({
-    required String email,
+  Future<AuthSession> signIn({
+    required String identity,
     required String password,
-    required String tenantId,
   }) async {
     final response = await apiClient.post<Map<String, dynamic>>(
       '/auth/login',
       data: {
-        'email': email,
+        'identity': identity,
         'password': password,
-        'tenant_id': tenantId,
       },
     );
 
     final data = response.data!;
-    return AuthTokens(
+    final session = data['session'] as Map<String, dynamic>;
+    final user = data['user'] as Map<String, dynamic>;
+
+    return AuthSession(
       accessToken: data['access_token'] as String,
-      refreshToken: data['refresh_token'] as String,
-      expiresAt: DateTime.parse(data['expires_at'] as String),
+      sessionId: session['session_id'] as String,
+      userId: session['user_id'] as String,
+      expiresAt: DateTime.parse(session['expires_at'] as String),
+      user: AuthUser(
+        userId: user['user_id'] as String,
+        username: user['username'] as String,
+        email: user['email'] as String?,
+        phoneE164: user['phone_e164'] as String?,
+        isVerified: user['is_verified'] as bool? ?? false,
+      ),
     );
   }
 
   @override
-  Future<UserModel> register({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String tenantId,
-  }) async {
-    final response = await apiClient.post<Map<String, dynamic>>(
-      '/auth/register',
-      data: {
-        'email': email,
-        'password': password,
-        'first_name': firstName,
-        'last_name': lastName,
-        'tenant_id': tenantId,
-      },
+  Future<void> signOut(String accessToken) async {
+    await apiClient.post<Map<String, dynamic>>(
+      '/auth/logout',
+      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
     );
-    return UserModelJson.fromJson(response.data!);
   }
 
   @override
-  Future<void> signOut() async {
-    await apiClient.post('/auth/logout');
-  }
-
-  @override
-  Future<UserModel> getCurrentUser() async {
-    final response = await apiClient.get<Map<String, dynamic>>('/auth/me');
-    return UserModelJson.fromJson(response.data!);
-  }
-
-  @override
-  Future<AuthTokens> refreshToken(String refreshToken) async {
-    final response = await apiClient.post<Map<String, dynamic>>(
-      '/auth/refresh',
-      data: {'refresh_token': refreshToken},
+  Future<AuthUser> getSession(String accessToken) async {
+    final response = await apiClient.get<Map<String, dynamic>>(
+      '/auth/session',
+      options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
     );
+
     final data = response.data!;
-    return AuthTokens(
-      accessToken: data['access_token'] as String,
-      refreshToken: data['refresh_token'] as String,
-      expiresAt: DateTime.parse(data['expires_at'] as String),
+    final user = data['user'] as Map<String, dynamic>;
+
+    return AuthUser(
+      userId: user['user_id'] as String,
+      username: user['username'] as String,
+      email: user['email'] as String?,
+      phoneE164: user['phone_e164'] as String?,
+      isVerified: user['is_verified'] as bool? ?? false,
     );
   }
 }

@@ -110,10 +110,27 @@ class Repository:
         user_id: str,
         token_hash: str,
         ttl_minutes: int,
+        max_sessions: int = 5,
     ) -> dict[str, Any]:
         now = datetime.now(UTC)
         expires_at = now + timedelta(minutes=ttl_minutes)
         session_id = str(uuid4())
+
+        # Enforce max concurrent sessions — revoke oldest if over the limit
+        active_sessions = await self._db["user_sessions"].find(
+            {"user_id": user_id, "revoked_at": None, "expires_at": {"$gt": now}},
+            sort=[("created_at", 1)],  # oldest first
+        ).to_list(length=max_sessions + 1)
+
+        if len(active_sessions) >= max_sessions:
+            # Revoke the oldest session(s) to stay within the limit
+            sessions_to_revoke = active_sessions[: len(active_sessions) - max_sessions + 1]
+            ids_to_revoke = [s["_id"] for s in sessions_to_revoke]
+            await self._db["user_sessions"].update_many(
+                {"_id": {"$in": ids_to_revoke}},
+                {"$set": {"revoked_at": now}},
+            )
+
         document: dict[str, Any] = {
             "_id": session_id,
             "user_id": user_id,

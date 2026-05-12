@@ -19,10 +19,10 @@ class AuthGuard extends ChangeNotifier {
   String? redirect(BuildContext context, GoRouterState state) {
     final isAuthenticated = _isAuthenticated();
     final isOnAuthRoute = _isAuthRoute(state.matchedLocation);
-    final isOnSplash = state.matchedLocation == AppRoutes.splash;
+    // final isOnSplash = state.matchedLocation == AppRoutes.splash;
 
     // Allow splash to handle its own navigation
-    if (isOnSplash) return null;
+    // if (isOnSplash) return null;
 
     // Redirect unauthenticated users to login
     if (!isAuthenticated && !isOnAuthRoute) {

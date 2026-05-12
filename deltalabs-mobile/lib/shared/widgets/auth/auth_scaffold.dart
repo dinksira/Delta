@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/core/theme/app_text_styles.dart';
 import 'package:deltalabs_mobile/shared/widgets/auth/delta_logo.dart';
 import 'package:deltalabs_mobile/shared/widgets/auth/social_buttons_row.dart';
+import 'package:flutter/material.dart';
 
 /// Shared scaffold for all auth screens.
 /// Provides consistent layout: logo → title → content → button → OR → social → bottom link
@@ -58,7 +57,7 @@ class AuthScaffold extends StatelessWidget {
 
               // Logo
               const DeltaLogo(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 56),
 
               // Title
               Text(title, style: AppTextStyles.heading1),

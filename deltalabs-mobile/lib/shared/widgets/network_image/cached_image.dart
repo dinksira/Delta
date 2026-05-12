@@ -1,7 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
-
 import 'package:deltalabs_mobile/shared/widgets/loading/shimmer_loader.dart';
+import 'package:flutter/material.dart';
 
 /// Cached network image with shimmer placeholder and error fallback.
 class CachedImage extends StatelessWidget {

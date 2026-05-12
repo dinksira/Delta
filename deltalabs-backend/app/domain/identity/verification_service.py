@@ -18,6 +18,7 @@ from app.domain.identity.schemas import (
     VerificationVerifyRequest,
     VerificationVerifyResponse,
 )
+from app.infra.email_client import send_otp_email
 
 RedisDep = AsyncRedis
 
@@ -70,6 +71,16 @@ class VerificationService:
             json.dumps(state),
             ex=self._ttl_seconds,
         )
+
+        # Deliver the code via the requested channel
+        if channel == "email":
+            await send_otp_email(
+                to=destination,
+                code=code,
+                purpose=payload.purpose.strip().lower(),
+            )
+        # SMS channel: wire Twilio/Africa's Talking here when ready
+
         return VerificationSendResponse(
             verification_id=verification_id,
             channel=channel,

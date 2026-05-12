@@ -25,9 +25,9 @@ class AppConfig {
 
     switch (env) {
       case Environment.development:
-        _instance.apiBaseUrl = 'https://api.dev.deltalabs.io/v1';
-        _instance.wsBaseUrl = 'wss://ws.dev.deltalabs.io';
-        _instance.cdnBaseUrl = 'https://cdn.dev.deltalabs.io';
+        _instance.apiBaseUrl = 'https://delta-labs.onrender.com/v1';
+        _instance.wsBaseUrl = 'wss://delta-labs.onrender.com/ws';
+        _instance.cdnBaseUrl = 'https://delta-labs.onrender.com';
         _instance.enableLogging = true;
         _instance.enableCrashReporting = false;
         _instance.enableAnalytics = false;

@@ -8,6 +8,7 @@ from typing import TypedDict
 from uuid import uuid4
 
 from app.compat.redis_typing import AsyncRedis
+from app.core.config import get_settings
 from app.core.exceptions import ConflictError, ValidationError
 from app.core.security import (
     hash_password,
@@ -146,6 +147,7 @@ class SignupFlowService:
             user_id=user.id,
             token_hash=hash_session_token(raw_token),
             ttl_minutes=self._session_ttl_minutes,
+            max_sessions=get_settings().max_sessions_per_user,
         )
         await self._redis.delete(self._flow_key(payload.flow_id))
 
@@ -212,9 +214,23 @@ class SignupFlowService:
     @staticmethod
     def _validate_dob(value: str) -> None:
         try:
-            datetime.strptime(value, "%Y-%m-%d")
+            dob = datetime.strptime(value, "%Y-%m-%d")
         except ValueError as exc:
             raise ValidationError("Invalid date_of_birth format, expected YYYY-MM-DD.") from exc
+
+        today = datetime.now(UTC).replace(tzinfo=None)
+        age_years = (today - dob).days // 365
+        min_age = get_settings().min_user_age_years
+        if age_years < min_age:
+            raise ValidationError(
+                f"You must be at least {min_age} years old to register.",
+                code="signup_age_requirement",
+            )
+        if age_years > 120:
+            raise ValidationError(
+                "Invalid date of birth.",
+                code="signup_dob_invalid",
+            )
 
     @staticmethod
     def _flow_key(flow_id: str) -> str:

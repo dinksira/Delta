@@ -123,6 +123,7 @@ class Service:
             user_id=user.id,
             token_hash=token_hash,
             ttl_minutes=settings.access_token_expire_minutes,
+            max_sessions=settings.max_sessions_per_user,
         )
         session = SessionPublic(
             session_id=str(session_doc["_id"]),

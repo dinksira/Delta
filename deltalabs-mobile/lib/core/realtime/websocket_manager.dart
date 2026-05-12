@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:rxdart/rxdart.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-
 import 'package:deltalabs_mobile/core/logging/app_logger.dart';
 import 'package:deltalabs_mobile/core/realtime/realtime_event.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 enum WebSocketState { disconnected, connecting, connected, reconnecting }
 

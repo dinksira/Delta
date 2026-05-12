@@ -22,6 +22,7 @@ from app.domain.identity.schemas import (
     RecoverVerifyRequest,
     RecoverVerifyResponse,
 )
+from app.infra.email_client import send_otp_email
 
 RedisDep = AsyncRedis
 
@@ -60,6 +61,17 @@ class RecoverService:
             "created_at_epoch": int(datetime.now(UTC).timestamp()),
         }
         await self._persist_state(state)
+
+        # Send the recovery code to the user's email or phone
+        # We need to find which contact to send to
+        if user.email is not None:
+            await send_otp_email(
+                to=user.email,
+                code=code,
+                purpose="recover",
+            )
+        # SMS fallback: wire Twilio/Africa's Talking here when ready
+
         return RecoverRequestResponse(
             recover_id=recover_id,
             debug_code=code if self._settings.env == "local" else None,

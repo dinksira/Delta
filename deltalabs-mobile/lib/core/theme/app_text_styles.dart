@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 
 /// DeltaLabs text style tokens.
 abstract class AppTextStyles {

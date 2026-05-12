@@ -1,54 +1,61 @@
 import 'package:dartz/dartz.dart';
 
 import 'package:deltalabs_mobile/core/error/failures.dart';
-import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
 
-/// Auth repository contract.
-/// The data layer provides the concrete implementation.
+/// Auth repository contract matching the DeltaLabs backend API.
+/// Uses opaque session tokens — no refresh token.
 abstract class AuthRepository {
-  /// Sign in with email and password.
-  Future<Either<Failure, AuthTokens>> signIn({
-    required String email,
+  /// Sign in with identity (username/email/phone) and password.
+  Future<Either<Failure, AuthSession>> signIn({
+    required String identity,
     required String password,
-    required String tenantId,
-  });
-
-  /// Register a new user.
-  Future<Either<Failure, User>> register({
-    required String email,
-    required String password,
-    required String firstName,
-    required String lastName,
-    required String tenantId,
   });
 
   /// Sign out and clear local session.
   Future<Either<Failure, void>> signOut();
 
-  /// Get the currently authenticated user.
-  Future<Either<Failure, User?>> getCurrentUser();
+  /// Get the currently authenticated user from the active session.
+  Future<Either<Failure, AuthUser?>> getCurrentUser();
 
-  /// Refresh the access token.
-  Future<Either<Failure, AuthTokens>> refreshToken(String refreshToken);
-
-  /// Check if a session is currently active.
+  /// Check if a session token is stored locally.
   Future<bool> isAuthenticated();
 
   /// Stream of auth state changes.
   Stream<AuthState> get authStateStream;
 }
 
-/// Auth token pair returned on successful sign-in.
-class AuthTokens {
-  const AuthTokens({
+/// Session issued on successful login.
+class AuthSession {
+  const AuthSession({
     required this.accessToken,
-    required this.refreshToken,
+    required this.sessionId,
+    required this.userId,
     required this.expiresAt,
+    required this.user,
   });
 
   final String accessToken;
-  final String refreshToken;
+  final String sessionId;
+  final String userId;
   final DateTime expiresAt;
+  final AuthUser user;
+}
+
+/// Public user data returned by the backend.
+class AuthUser {
+  const AuthUser({
+    required this.userId,
+    required this.username,
+    this.email,
+    this.phoneE164,
+    required this.isVerified,
+  });
+
+  final String userId;
+  final String username;
+  final String? email;
+  final String? phoneE164;
+  final bool isVerified;
 }
 
 /// Represents the current authentication state.
@@ -58,7 +65,7 @@ sealed class AuthState {
 
 class AuthAuthenticated extends AuthState {
   const AuthAuthenticated({required this.user});
-  final User user;
+  final AuthUser user;
 }
 
 class AuthUnauthenticated extends AuthState {

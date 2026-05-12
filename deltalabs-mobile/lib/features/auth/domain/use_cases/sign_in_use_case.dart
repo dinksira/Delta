@@ -2,33 +2,30 @@ import 'package:dartz/dartz.dart';
 
 import 'package:deltalabs_mobile/core/domain/use_case.dart';
 import 'package:deltalabs_mobile/core/error/failures.dart';
-import 'package:deltalabs_mobile/features/auth/domain/entities/user.dart';
 import 'package:deltalabs_mobile/features/auth/domain/repositories/auth_repository.dart';
 
 class SignInParams {
   const SignInParams({
-    required this.email,
+    required this.identity,
     required this.password,
-    required this.tenantId,
   });
 
-  final String email;
+  /// Username, email, or phone number — backend accepts any.
+  final String identity;
   final String password;
-  final String tenantId;
 }
 
-/// Signs in a user and persists the session tokens.
-class SignInUseCase extends UseCase<AuthTokens, SignInParams> {
+/// Signs in a user and persists the session token.
+class SignInUseCase extends UseCase<AuthSession, SignInParams> {
   SignInUseCase({required this.repository});
 
   final AuthRepository repository;
 
   @override
-  Future<Either<Failure, AuthTokens>> call(SignInParams params) {
+  Future<Either<Failure, AuthSession>> call(SignInParams params) {
     return repository.signIn(
-      email: params.email,
+      identity: params.identity,
       password: params.password,
-      tenantId: params.tenantId,
     );
   }
 }

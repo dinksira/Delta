@@ -1,9 +1,7 @@
+import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 
 part 'app_theme.g.dart';
 

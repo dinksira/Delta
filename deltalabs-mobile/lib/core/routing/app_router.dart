@@ -1,35 +1,60 @@
-import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import 'package:deltalabs_mobile/features/auth/presentation/pages/splash_page.dart';
+import 'package:deltalabs_mobile/bootstrap.dart';
+import 'package:deltalabs_mobile/core/routing/app_routes.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_otp_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/pages/login_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_dob_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_otp_page.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/pages/register_password_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step1_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step2_page.dart';
-import 'package:deltalabs_mobile/features/auth/presentation/pages/register_otp_page.dart';
-import 'package:deltalabs_mobile/features/auth/presentation/pages/register_dob_page.dart';
-import 'package:deltalabs_mobile/features/auth/presentation/pages/register_password_page.dart';
-import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_password_page.dart';
-import 'package:deltalabs_mobile/features/auth/presentation/pages/forgot_otp_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/pages/reset_password_page.dart';
-import 'package:deltalabs_mobile/core/routing/app_routes.dart';
+import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
+import 'package:deltalabs_mobile/features/home/presentation/pages/home_page.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'app_router.g.dart';
 
+// Auth-only routes — redirect to home if already logged in
+const _authRoutes = {
+  AppRoutes.login,
+  AppRoutes.registerStep1,
+  AppRoutes.registerStep2,
+  AppRoutes.registerOtp,
+  AppRoutes.registerDob,
+  AppRoutes.registerPassword,
+  AppRoutes.forgotPassword,
+  AppRoutes.forgotOtp,
+  AppRoutes.resetPassword,
+};
+
 @riverpod
 GoRouter appRouter(Ref ref) {
-  return GoRouter(
-    initialLocation: AppRoutes.splash,
-    debugLogDiagnostics: true,
-    routes: [
-      // ── Splash ─────────────────────────────────────────────────────────────
-      GoRoute(
-        path: AppRoutes.splash,
-        name: 'splash',
-        builder: (_, __) => const SplashPage(),
-      ),
+  final authState = ref.watch(authProvider);
 
+  return GoRouter(
+    initialLocation: initialAppRoute,
+    debugLogDiagnostics: true,
+    redirect: (context, state) {
+      // Auth is still resolving — don't redirect, initial route is already correct
+      if (authState.isLoading) return null;
+
+      final user = authState.when(
+        data: (u) => u,
+        loading: () => null,
+        error: (_, __) => null,
+      );
+      final isLoggedIn = user != null;
+      final isAuthRoute = _authRoutes.contains(state.matchedLocation);
+
+      if (isLoggedIn && isAuthRoute) return AppRoutes.home;
+      if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
+
+      return null;
+    },
+    routes: [
       // ── Auth ───────────────────────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.login,
@@ -79,28 +104,15 @@ GoRouter appRouter(Ref ref) {
         builder: (_, __) => const RegisterPasswordPage(),
       ),
 
-      // ── Main (placeholder until features are built) ────────────────────────
+      // ── Main ───────────────────────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (_, __) => const _PlaceholderPage(title: 'Home'),
+        builder: (_, __) => const HomePage(),
       ),
     ],
     errorBuilder: (_, state) => Scaffold(
       body: Center(child: Text('Route not found: ${state.uri}')),
     ),
   );
-}
-
-class _PlaceholderPage extends StatelessWidget {
-  const _PlaceholderPage({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(child: Text('$title — coming soon')),
-    );
-  }
 }

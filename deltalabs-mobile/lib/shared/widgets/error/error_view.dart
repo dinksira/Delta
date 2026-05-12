@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
-
 import 'package:deltalabs_mobile/core/theme/app_spacing.dart';
+import 'package:flutter/material.dart';
 
 /// Generic error state widget with retry support.
 class ErrorView extends StatelessWidget {
