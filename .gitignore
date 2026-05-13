@@ -19,5 +19,8 @@ __pycache__/
 # Kiro IDE specs (internal tooling, not source code)
 .kiro/
 
+# Documentation folder (local only, not tracked in git)
+/deltalabs-mobile-docs/
+
 # Misc
 test_write.txt
