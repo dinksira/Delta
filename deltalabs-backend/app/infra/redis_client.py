@@ -19,11 +19,18 @@ async def connect_redis() -> None:
     if _redis is not None:
         return
     settings = get_settings()
+
+    # Upstash and other managed Redis providers use TLS (rediss://).
+    # ssl_cert_reqs=None disables certificate verification — required for
+    # Upstash's self-signed certs on the free tier.
+    use_ssl = settings.redis_url.startswith("rediss://")
+
     _redis = redis.from_url(
         settings.redis_url,
         encoding="utf-8",
         decode_responses=True,
         max_connections=settings.redis_max_connections,
+        ssl_cert_reqs=None if use_ssl else "required",
     )
 
 
