@@ -1,35 +1,34 @@
-"""Transactional email delivery — SMTP (Brevo/Gmail/any provider)."""
+"""Transactional email delivery via Resend (HTTPS — works on all cloud providers)."""
 
 from __future__ import annotations
 
 import logging
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+
+import resend
 
 from app.core.config import get_settings
 
 logger = logging.getLogger("deltalabs.email")
 
 
-async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
-    """Send a 6-digit OTP code via SMTP.
+def configure_resend() -> None:
+    """Set the Resend API key from settings (called once at startup)."""
+    settings = get_settings()
+    if settings.resend_api_key:
+        resend.api_key = settings.resend_api_key
 
-    Supports Brevo, Gmail, or any SMTP provider configured in settings.
+
+async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
+    """Send a 6-digit OTP code via Resend.
+
+    Uses HTTPS — not blocked by any cloud provider (unlike SMTP).
     purpose: "signup" | "recover"
     """
     settings = get_settings()
 
-    # Support both Brevo (preferred) and Gmail fallback
-    smtp_host = settings.smtp_host
-    smtp_port = settings.smtp_port
-    smtp_user = settings.smtp_user
-    smtp_password = settings.smtp_password
-    from_address = settings.smtp_from_address
-
-    if not smtp_user or not smtp_password:
+    if not settings.resend_api_key:
         logger.warning(
-            "email.smtp_not_configured — skipping delivery",
+            "email.resend_api_key_missing — skipping delivery",
             extra={"to": to, "purpose": purpose},
         )
         return
@@ -64,8 +63,7 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
         </tr>
         <tr>
           <td align="center" style="padding:16px 0 32px">
-            <div style="background:#f0f4f8;border-radius:8px;padding:20px 40px;
-                        display:inline-block">
+            <div style="background:#f0f4f8;border-radius:8px;padding:20px 40px">
               <span style="font-size:40px;font-weight:700;letter-spacing:10px;
                            color:#1A3C4D;font-family:monospace">{code}</span>
             </div>
@@ -92,27 +90,19 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
 </body>
 </html>"""
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.email_from_name} <{from_address}>"
-    msg["To"] = to
-    # Plain text fallback — helps avoid spam filters
-    plain = f"Your DeltaLabs code is: {code}\n\nExpires in 5 minutes. Do not share."
-    msg.attach(MIMEText(plain, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    params: resend.Emails.SendParams = {
+        "from": f"{settings.email_from_name} <{settings.resend_from_address}>",
+        "to": [to],
+        "subject": subject,
+        "html": html_body,
+    }
 
     try:
-        if smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_host, smtp_port) as server:
-                server.login(smtp_user, smtp_password)
-                server.sendmail(from_address, to, msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_host, smtp_port) as server:
-                server.ehlo()
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(from_address, to, msg.as_string())
-        logger.info("email.sent", extra={"to": to, "purpose": purpose})
+        result = resend.Emails.send(params)
+        logger.info(
+            "email.sent",
+            extra={"to": to, "purpose": purpose, "id": result.get("id")},
+        )
     except Exception as exc:
         logger.error(
             "email.send_failed",

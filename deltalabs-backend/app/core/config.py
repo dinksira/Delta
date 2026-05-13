@@ -200,26 +200,14 @@ class Settings(BaseSettings):
         description="Comma-separated allowed CORS origins",
     )
 
-    # ── Email delivery (SMTP — Brevo recommended, Gmail fallback) ────────────
-    smtp_host: str = Field(
-        default="smtp-relay.brevo.com",
-        description="SMTP server hostname",
-    )
-    smtp_port: int = Field(
-        default=587,
-        description="SMTP port (587 for TLS/Brevo, 465 for SSL/Gmail)",
-    )
-    smtp_user: str = Field(
+    # ── Email delivery (Resend — HTTPS, works on all cloud providers) ────────
+    resend_api_key: str = Field(
         default="",
-        description="SMTP login username (Brevo: your email, Gmail: your gmail address)",
+        description="Resend API key — get from resend.com",
     )
-    smtp_password: str = Field(
-        default="",
-        description="SMTP password (Brevo: SMTP key, Gmail: App Password)",
-    )
-    smtp_from_address: str = Field(
-        default="",
-        description="From email address shown to recipients",
+    resend_from_address: str = Field(
+        default="onboarding@resend.dev",
+        description="From address — use onboarding@resend.dev for testing, or your verified domain",
     )
     email_from_name: str = Field(
         default="DeltaLabs",
