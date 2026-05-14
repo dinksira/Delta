@@ -8,11 +8,14 @@ import type { AuthenticatedUser } from "@/modules/Auth/types/auth";
 /** Main exported component logic for this file. */
 /** Two-letter avatar label from profile fields. */
 export function profileInitialsFromUser(user: AuthenticatedUser): string {
-  const first = user.firstName?.trim();
-  const last = user.lastName?.trim();
-  const a = first?.[0];
-  const b = last?.[0];
-  if (a && b) return `${a}${b}`.toUpperCase();
+  const full = user.fullName?.trim();
+  if (full) {
+    const parts = full.split(/\s+/);
+    const a = parts[0]?.[0];
+    const b = parts[1]?.[0];
+    if (a && b) return `${a}${b}`.toUpperCase();
+    if (a) return `${a}${a}`.toUpperCase();
+  }
   const handle = user.username?.trim();
   if (handle && handle.length >= 2) return handle.slice(0, 2).toUpperCase();
   if (handle && handle.length === 1) return `${handle}${handle}`.toUpperCase();

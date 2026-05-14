@@ -104,10 +104,10 @@ export function ClassSessionMeetView({
   const displayName = (() => {
     const u = session?.user;
     if (!u) return "You";
-    const full = `${u.firstName} ${u.lastName}`.trim();
+    const full = u.fullName?.trim();
     if (full) return full;
     if (u.username?.trim()) return u.username.trim();
-    return u.email.split("@")[0] ?? "You";
+    return u.email?.split("@")[0] ?? "You";
   })();
 
   const confirmLeaveSession = () => {
