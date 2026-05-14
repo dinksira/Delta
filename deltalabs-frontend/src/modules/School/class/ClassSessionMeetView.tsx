@@ -106,7 +106,7 @@ export function ClassSessionMeetView({
     if (!u) return "You";
     const full = `${u.firstName} ${u.lastName}`.trim();
     if (full) return full;
-    if (u.userName?.trim()) return u.userName.trim();
+    if (u.username?.trim()) return u.username.trim();
     return u.email.split("@")[0] ?? "You";
   })();
 

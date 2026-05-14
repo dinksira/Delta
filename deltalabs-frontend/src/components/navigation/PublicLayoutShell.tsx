@@ -35,6 +35,7 @@ export function PublicLayoutShell({ children, serverAuthenticated }: PublicLayou
   const sessionPending = !isReady && !serverAuthenticated;
   const profileInitials =
     session && isReady ? profileInitialsFromUser(session.user) : undefined;
+  const avatarUrl = session && isReady ? session.user.avatarUrl : null;
 
   return (
     <PersistentAudioPlayerProvider>
@@ -42,6 +43,7 @@ export function PublicLayoutShell({ children, serverAuthenticated }: PublicLayou
         <PublicHeader
           isAuthenticated={isAuthenticated}
           profileInitials={profileInitials}
+          avatarUrl={avatarUrl}
           sessionPending={sessionPending}
         />
         <AuthModalGateway enabled={!isAuthenticated} />

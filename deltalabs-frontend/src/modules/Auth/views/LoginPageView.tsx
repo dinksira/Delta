@@ -71,11 +71,35 @@ export function LoginPageView({
 
     setFieldErrors({});
     try {
-      await loginMutation.mutateAsync({
+      const result = await loginMutation.mutateAsync({
         identifier,
         password,
         rememberMe,
       });
+
+      // Update account history for switching
+      if (result?.user && result?.accessToken) {
+        try {
+          const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
+          let history: unknown[] = [];
+          if (rawHistory) history = JSON.parse(rawHistory);
+          
+          const accountData = {
+            user: result.user,
+            accessToken: result.accessToken,
+            expiresAt: result.expiresAt
+          };
+
+          const index = (history as any[]).findIndex(h => h.user.id === result.user.id);
+          if (index > -1) {
+            (history as any[])[index] = accountData;
+          } else {
+            (history as any[]).push(accountData);
+          }
+          localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
+        } catch { /* ignore storage errors */ }
+      }
+
       router.replace(redirectAfterLoginHref);
     } catch (error) {
       setBanner({

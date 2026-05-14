@@ -125,12 +125,12 @@ function shareAccessIcon(accessName: string) {
 function displayNameFromSessionUser(user: {
   firstName: string;
   lastName: string;
-  userName: string;
+  username: string;
   email: string;
 }): string {
   const combined = [user.firstName?.trim(), user.lastName?.trim()].filter(Boolean).join(" ").trim();
   if (combined.length > 0) return combined;
-  if (user.userName?.trim()) return user.userName.trim();
+  if (user.username?.trim()) return user.username.trim();
   if (user.email?.trim()) return user.email.trim();
   return "Account owner";
 }

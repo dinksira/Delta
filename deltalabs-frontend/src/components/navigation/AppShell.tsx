@@ -20,6 +20,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const variant = isFeaturesRoute ? "features_authorized" : "landing_authorized";
   const { session, isReady } = useAuthSession();
   const profileInitials = isReady && session ? profileInitialsFromUser(session.user) : undefined;
+  const avatarUrl = isReady && session ? session.user.avatarUrl : null;
 
   return (
     <FeatureTabsProvider>
@@ -28,6 +29,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           variant={variant}
           isAuthenticated
           profileInitials={profileInitials}
+          avatarUrl={avatarUrl}
           sessionPending={!isReady}
         />
         <main

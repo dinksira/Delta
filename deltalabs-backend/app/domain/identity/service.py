@@ -20,6 +20,7 @@ from app.domain.identity.schemas import (
     LoginRequest,
     SessionPublic,
     SignupInitRequest,
+    UserPasswordChange,
 )
 
 
@@ -98,8 +99,13 @@ class Service:
             user=AuthUserPublic(
                 user_id=user.id,
                 username=user.username,
+                full_name=user.full_name,
                 email=user.email,
                 phone_e164=user.phone_e164,
+                bio=user.bio,
+                avatar_url=user.avatar_url,
+                followers_count=user.followers_count,
+                following_count=user.following_count,
                 is_verified=user.is_verified,
             ),
         )
@@ -108,6 +114,66 @@ class Service:
         """Revoke session if present."""
         token_hash = hash_session_token(bearer_token)
         await self._repository.revoke_session(token_hash)
+
+    async def get_profile(self, user_id: str) -> AuthUserPublic:
+        """Fetch public profile for a user."""
+        user = await self._repository.find_user_by_id(user_id)
+        if user is None:
+            raise ValidationError("User not found.", code="user_not_found")
+        return AuthUserPublic(
+            user_id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            email=user.email,
+            phone_e164=user.phone_e164,
+            bio=user.bio,
+            avatar_url=user.avatar_url,
+            followers_count=user.followers_count,
+            following_count=user.following_count,
+            is_verified=user.is_verified,
+        )
+
+    async def update_profile(
+        self, user_id: str, payload: UserProfileUpdate
+    ) -> AuthUserPublic:
+        """Update user profile text fields."""
+        await self._repository.update_user_profile(
+            user_id=user_id,
+            full_name=payload.full_name,
+            bio=payload.bio,
+        )
+        return await self.get_profile(user_id)
+
+    async def update_avatar(self, user_id: str, avatar_url: str) -> AuthUserPublic:
+        """Update user avatar URL."""
+        await self._repository.update_user_profile(
+            user_id=user_id,
+            avatar_url=avatar_url,
+        )
+        return await self.get_profile(user_id)
+
+    async def delete_account(self, user_id: str) -> bool:
+        """Permanently remove user account and all session data."""
+        return await self._repository.delete_user(user_id)
+
+    async def change_password(self, user_id: str, payload: UserPasswordChange) -> bool:
+        """Verify current password and set new password hash."""
+        user = await self._repository.find_user_by_id(user_id)
+        if user is None:
+            raise ValidationError("User not found.", code="user_not_found")
+        if not verify_password(payload.current_password, user.password_hash):
+            raise ValidationError("Invalid current password.", code="invalid_password")
+        
+        try:
+            validate_password_policy(payload.new_password)
+        except PasswordPolicyError as exc:
+            raise ValidationError(str(exc), code="password_policy_failed") from exc
+        
+        await self._repository.update_password_hash(
+            user_id=user_id,
+            password_hash=hash_password(payload.new_password),
+        )
+        return True
 
     async def _issue_auth_response(self, *, user_id: str) -> AuthIssuedResponse:
         user = await self._repository.find_user_by_id(user_id)
@@ -136,8 +202,13 @@ class Service:
             user=AuthUserPublic(
                 user_id=user.id,
                 username=user.username,
+                full_name=user.full_name,
                 email=user.email,
                 phone_e164=user.phone_e164,
+                bio=user.bio,
+                avatar_url=user.avatar_url,
+                followers_count=user.followers_count,
+                following_count=user.following_count,
                 is_verified=user.is_verified,
             ),
         )
