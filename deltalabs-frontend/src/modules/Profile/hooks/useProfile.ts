@@ -14,7 +14,6 @@ import type { AuthenticatedUser } from '@/modules/Auth/types/auth';
 import { 
   loadUsers, 
   toPublicUser, 
-  findUserByIdentifier, 
   saveUsers 
 } from '@/modules/Auth/api/mockAuthStore';
 
@@ -47,14 +46,15 @@ export function useProfile(): UseProfileReturn {
       // 1. Try real API
       const response = await apiClient.get<AuthenticatedUser>('/v1/me/profile');
       setProfile(response);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // 2. Fallback to mock store
       const mockUsers = loadUsers();
       if (mockUsers.length > 0) {
         // Just pick the first mock user for the demo profile
         setProfile(toPublicUser(mockUsers[0]));
       } else {
-        setError(err?.response?.data?.message || err?.message || 'Failed to fetch profile');
+        const errorMsg = (err as any)?.response?.data?.message || (err as any)?.message || 'Failed to fetch profile';
+        setError(errorMsg);
       }
     } finally {
       setIsLoading(false);
@@ -72,7 +72,7 @@ export function useProfile(): UseProfileReturn {
         }
       });
       setProfile(response);
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Mock fallback: Update local storage
       if (profile) {
         const users = loadUsers();
@@ -84,13 +84,13 @@ export function useProfile(): UseProfileReturn {
             firstName: names[0] || users[idx].firstName,
             lastName: names.slice(1).join(" ") || users[idx].lastName,
             bio: data.bio ?? users[idx].bio,
-          } as any;
+          } as AuthenticatedUser;
           saveUsers(users);
           setProfile(toPublicUser(users[idx]));
         }
       }
       // Don't throw if it's just a connection error in dev
-      if (err.name !== 'ApiError') throw err;
+      if ((err as any).name !== 'ApiError') throw err;
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +107,7 @@ export function useProfile(): UseProfileReturn {
         body: formData,
       });
       setProfile(response);
-    } catch (err: any) {
+    } catch {
       // Mock fallback: create a local object URL
       if (profile) {
         const localUrl = URL.createObjectURL(file);
@@ -118,7 +118,7 @@ export function useProfile(): UseProfileReturn {
         const users = loadUsers();
         const idx = users.findIndex(u => u.id === profile.id || u.username === profile.username);
         if (idx !== -1) {
-          users[idx] = { ...users[idx], avatarUrl: localUrl } as any;
+          users[idx] = { ...users[idx], avatarUrl: localUrl } as AuthenticatedUser;
           saveUsers(users);
         }
       }

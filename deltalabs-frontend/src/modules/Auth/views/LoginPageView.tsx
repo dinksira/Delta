@@ -79,7 +79,7 @@ export function LoginPageView({
       if (result?.user && result?.accessToken) {
         try {
           const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
-          let history: any[] = [];
+          let history: unknown[] = [];
           if (rawHistory) history = JSON.parse(rawHistory);
           
           const accountData = {
@@ -88,14 +88,14 @@ export function LoginPageView({
             expiresAt: result.expiresAt
           };
 
-          const index = history.findIndex(h => h.user.id === result.user.id);
+          const index = (history as any[]).findIndex(h => h.user.id === result.user.id);
           if (index > -1) {
-            history[index] = accountData;
+            (history as any[])[index] = accountData;
           } else {
-            history.push(accountData);
+            (history as any[]).push(accountData);
           }
           localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
-        } catch (e) { /* ignore storage errors */ }
+        } catch { /* ignore storage errors */ }
       }
 
       router.replace(redirectAfterLoginHref);

@@ -25,10 +25,10 @@ import {
   ChevronRight,
   Loader2
 } from 'lucide-react';
-import { BackButton, Card, CardContent, CardHeader, CardTitle, Typography, Button, Input, Field } from '@/components/theme';
+import { BackButton, Card, CardContent, Typography, Button, Input, Field } from '@/components/theme';
 import { useAuthSession } from '@/contexts/AuthSession_Context';
 import { useProfile } from '@/modules/Profile/hooks/useProfile';
-import { loadUsers, toPublicUser, saveUsers } from '@/modules/Auth/api/mockAuthStore';
+import { loadUsers, saveUsers } from '@/modules/Auth/api/mockAuthStore';
 import { apiClient } from '@/lib/apiClient';
 import { AUTH_SESSION_COOKIE } from '@/lib/authSession';
 import { cx } from '@/components/theme/utils';
@@ -141,17 +141,17 @@ export const SettingsView: React.FC = () => {
     if (activeTab === 'account' && session) {
       // 1. Get history from localStorage
       const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
-      let history: any[] = [];
+      let history: unknown[] = [];
       try {
         if (rawHistory) history = JSON.parse(rawHistory);
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
 
       // 2. Ensure current session user is in history with real token
       const current = session.user;
-      const exists = history.some(h => h.user?.id === current.id);
+      const exists = (history as any[]).some(h => h.user?.id === current.id);
       
       if (!exists && session.accessToken) {
-        history.push({
+        (history as any[]).push({
           user: current,
           accessToken: session.accessToken,
           expiresAt: session.expiresAt || (Date.now() + 24 * 60 * 60 * 1000)
@@ -159,7 +159,7 @@ export const SettingsView: React.FC = () => {
         localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
       }
 
-      setAccounts(history.map(h => h.user).filter(Boolean));
+      setAccounts((history as any[]).map(h => h.user).filter(Boolean));
     }
   }, [activeTab, session]);
 
@@ -181,7 +181,7 @@ export const SettingsView: React.FC = () => {
           router.refresh();
           return;
         }
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     }
 
     // Fallback if no real token found (shouldn't happen with new logic)
@@ -267,20 +267,21 @@ export const SettingsView: React.FC = () => {
       setPasswordStatus({ type: 'success', message: 'Password updated successfully!' });
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setTimeout(() => setIsPasswordFormOpen(false), 2000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.warn('Backend password change failed:', error);
       
       // Extract specific validation message if available
-      let errorMessage = error.message || 'Failed to update password';
-      if (error.details?.details && Array.isArray(error.details.details)) {
-        const firstError = error.details.details[0];
+      const err = error as any;
+      let errorMessage = err.message || 'Failed to update password';
+      if (err.details?.details && Array.isArray(err.details.details)) {
+        const firstError = err.details.details[0];
         if (firstError?.msg) {
           errorMessage = firstError.msg;
         }
       }
 
       // 4. Mock Fallback (only if not a validation error)
-      if (profile && error.status !== 400) {
+      if (profile && err.status !== 400) {
         const users = loadUsers();
         const user = users.find(u => u.id === profile.id);
         if (user && user.password === passwordData.currentPassword) {
@@ -347,11 +348,8 @@ export const SettingsView: React.FC = () => {
     localStorage.setItem('dl-language', next);
   };
 
-  // Mock accounts for switching
-  const mockAccounts = [
-    { id: '1', name: profile?.fullName || profile?.username || 'Current User', email: profile?.email || 'user@deltalabs.ai', active: true },
-    { id: '2', name: 'Delta Team (Pro)', email: 'team@deltalabs.ai', active: false },
-  ];
+    }
+  };
 
   const handleLogout = async () => {
     try {
