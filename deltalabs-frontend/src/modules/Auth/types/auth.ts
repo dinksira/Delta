@@ -34,12 +34,17 @@ export type AuthenticatedUser = Readonly<{
   isVerified: boolean;
 }>;
 
-/** Issued on successful login or signup (mock JWT stand-in). */
 export type AuthSessionPayload = Readonly<{
   accessToken: string;
   expiresAt: number;
   user: AuthenticatedUser;
 }>;
+
+export type AccountHistoryItem = {
+  user: AuthenticatedUser;
+  accessToken: string;
+  expiresAt: number;
+};
 
 export type LoginInput = Readonly<{
   identifier: string;

@@ -29,6 +29,7 @@ import { BackButton, Card, CardContent, Typography, Button, Input, Field } from 
 import { useAuthSession } from '@/contexts/AuthSession_Context';
 import { useProfile } from '@/modules/Profile/hooks/useProfile';
 import { loadUsers, saveUsers } from '@/modules/Auth/api/mockAuthStore';
+import type { AuthenticatedUser, AccountHistoryItem } from '@/modules/Auth/types/auth';
 import { apiClient } from '@/lib/apiClient';
 import { AUTH_SESSION_COOKIE } from '@/lib/authSession';
 import { cx } from '@/components/theme/utils';
@@ -141,17 +142,17 @@ export const SettingsView: React.FC = () => {
     if (activeTab === 'account' && session) {
       // 1. Get history from localStorage
       const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
-      let history: unknown[] = [];
+      let history: AccountHistoryItem[] = [];
       try {
         if (rawHistory) history = JSON.parse(rawHistory);
       } catch { /* ignore */ }
 
       // 2. Ensure current session user is in history with real token
       const current = session.user;
-      const exists = (history as any[]).some(h => h.user?.id === current.id);
+      const exists = history.some(h => h.user?.id === current.id);
       
       if (!exists && session.accessToken) {
-        (history as any[]).push({
+        history.push({
           user: current,
           accessToken: session.accessToken,
           expiresAt: session.expiresAt || (Date.now() + 24 * 60 * 60 * 1000)
@@ -159,7 +160,7 @@ export const SettingsView: React.FC = () => {
         localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
       }
 
-      setAccounts((history as any[]).map(h => h.user).filter(Boolean));
+      setAccounts(history.map(h => h.user).filter(Boolean));
     }
   }, [activeTab, session]);
 
@@ -170,8 +171,8 @@ export const SettingsView: React.FC = () => {
     const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
     if (rawHistory) {
       try {
-        const history = JSON.parse(rawHistory);
-        const account = history.find((h: any) => h.user?.id === user.id);
+        const history: AccountHistoryItem[] = JSON.parse(rawHistory);
+        const account = history.find((h) => h.user?.id === user.id);
         if (account?.accessToken) {
           establishSession({
             accessToken: account.accessToken,
@@ -271,17 +272,17 @@ export const SettingsView: React.FC = () => {
       console.warn('Backend password change failed:', error);
       
       // Extract specific validation message if available
-      const err = error as any;
-      let errorMessage = err.message || 'Failed to update password';
-      if (err.details?.details && Array.isArray(err.details.details)) {
-        const firstError = err.details.details[0];
+      let errorMessage = error instanceof Error ? error.message : 'Failed to update password';
+      const apiErr = error as any;
+      if (apiErr.details?.details && Array.isArray(apiErr.details.details)) {
+        const firstError = apiErr.details.details[0];
         if (firstError?.msg) {
           errorMessage = firstError.msg;
         }
       }
 
       // 4. Mock Fallback (only if not a validation error)
-      if (profile && err.status !== 400) {
+      if (profile && apiErr.status !== 400) {
         const users = loadUsers();
         const user = users.find(u => u.id === profile.id);
         if (user && user.password === passwordData.currentPassword) {

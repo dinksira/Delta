@@ -21,6 +21,7 @@ import {
 import { authErrorMessage } from "@/lib/authErrors";
 import { useAuthMessages } from "@/i18n/LocaleContext";
 import { useLoginMutation } from "@/modules/Auth/hooks";
+import type { AccountHistoryItem } from "@/modules/Auth/types/auth";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
@@ -81,20 +82,26 @@ export function LoginPageView({
       if (result?.user && result?.accessToken) {
         try {
           const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
-          let history: unknown[] = [];
-          if (rawHistory) history = JSON.parse(rawHistory);
+          let history: AccountHistoryItem[] = [];
+          if (rawHistory) {
+            try {
+              history = JSON.parse(rawHistory);
+            } catch {
+              history = [];
+            }
+          }
           
-          const accountData = {
+          const accountData: AccountHistoryItem = {
             user: result.user,
             accessToken: result.accessToken,
             expiresAt: result.expiresAt
           };
 
-          const index = (history as any[]).findIndex(h => h.user.id === result.user.id);
+          const index = history.findIndex(h => h.user.id === result.user.id);
           if (index > -1) {
-            (history as any[])[index] = accountData;
+            history[index] = accountData;
           } else {
-            (history as any[]).push(accountData);
+            history.push(accountData);
           }
           localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
         } catch { /* ignore storage errors */ }

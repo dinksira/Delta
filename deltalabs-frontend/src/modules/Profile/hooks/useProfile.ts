@@ -53,7 +53,7 @@ export function useProfile(): UseProfileReturn {
         // Just pick the first mock user for the demo profile
         setProfile(toPublicUser(mockUsers[0]));
       } else {
-        const errorMsg = (err as any)?.response?.data?.message || (err as any)?.message || 'Failed to fetch profile';
+        const errorMsg = err instanceof Error ? err.message : 'Failed to fetch profile';
         setError(errorMsg);
       }
     } finally {
@@ -90,7 +90,7 @@ export function useProfile(): UseProfileReturn {
         }
       }
       // Don't throw if it's just a connection error in dev
-      if ((err as any).name !== 'ApiError') throw err;
+      if (err instanceof Error && (err as { name?: string }).name !== 'ApiError') throw err;
     } finally {
       setIsLoading(false);
     }
