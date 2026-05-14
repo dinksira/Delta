@@ -20,6 +20,8 @@ import {
 } from "@/components/navigation/TopNavCategoryTabs";
 import { TopNavUtilityActions } from "@/components/navigation/TopNavUtilityActions";
 
+import Image from "next/image";
+
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
 /** Type definitions used in this file. */
@@ -94,13 +96,12 @@ function landingCategoryItems(
  */
 function BrandLogoMark() {
   return (
-    <img
+    <Image
       src="/delta-labs.png"
-      alt=""
+      alt="Delta Labs"
       width={28}
       height={28}
-      decoding="async"
-      fetchPriority="high"
+      priority
       className="block h-7 w-7 max-h-7 max-w-7 shrink-0 object-contain sm:h-8 sm:w-8 sm:max-h-8 sm:max-w-8"
     />
   );
