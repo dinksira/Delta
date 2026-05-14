@@ -23,11 +23,15 @@ export type AuthErrorCode = (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CO
 
 export type AuthenticatedUser = Readonly<{
   id: string;
-  email: string;
-  phone: string;
-  userName: string;
-  firstName: string;
-  lastName: string;
+  username: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  followersCount: number;
+  followingCount: number;
+  isVerified: boolean;
 }>;
 
 /** Issued on successful login or signup (mock JWT stand-in). */
@@ -46,7 +50,7 @@ export type LoginInput = Readonly<{
 export type SignupInput = Readonly<{
   firstName: string;
   lastName: string;
-  userName: string;
+  username: string;
   email: string;
   phone: string;
   otp: string;

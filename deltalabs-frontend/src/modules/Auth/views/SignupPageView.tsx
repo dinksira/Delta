@@ -59,7 +59,7 @@ export function SignupPageView({
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
-    userName: "",
+    username: "",
     email: "",
     phone: "",
     otp: "",
@@ -145,7 +145,7 @@ export function SignupPageView({
     if (step === 0) {
       if (!values.firstName.trim()) nextFieldErrors.firstName = "Required";
       if (!values.lastName.trim()) nextFieldErrors.lastName = "Required";
-      if (!values.userName.trim()) nextFieldErrors.userName = "Required";
+      if (!values.username.trim()) nextFieldErrors.username = "Required";
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -264,7 +264,7 @@ export function SignupPageView({
       await signupMutation.mutateAsync({
         firstName: values.firstName,
         lastName: values.lastName,
-        userName: values.userName,
+        username: values.username,
         email: values.email,
         phone: values.phone,
         otp: values.otp,
@@ -317,13 +317,13 @@ export function SignupPageView({
               }}
             />
             <AuthTextField
-              id="user-name"
-              label="User Name"
-              placeholder="Enter User Name"
-              errorMessage={fieldErrors.userName}
+              id="username"
+              label="Username"
+              placeholder="Enter Username"
+              errorMessage={fieldErrors.username}
               inputProps={{
-                value: values.userName,
-                onChange: (e) => setValues((prev) => ({ ...prev, userName: e.target.value })),
+                value: values.username,
+                onChange: (e) => setValues((prev) => ({ ...prev, username: e.target.value })),
               }}
             />
           </>

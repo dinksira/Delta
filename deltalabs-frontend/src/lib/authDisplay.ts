@@ -13,7 +13,7 @@ export function profileInitialsFromUser(user: AuthenticatedUser): string {
   const a = first?.[0];
   const b = last?.[0];
   if (a && b) return `${a}${b}`.toUpperCase();
-  const handle = user.userName?.trim();
+  const handle = user.username?.trim();
   if (handle && handle.length >= 2) return handle.slice(0, 2).toUpperCase();
   if (handle && handle.length === 1) return `${handle}${handle}`.toUpperCase();
   const local = user.email?.split("@")[0]?.trim();

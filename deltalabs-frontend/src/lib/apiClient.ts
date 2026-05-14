@@ -158,12 +158,26 @@ async function request<T>(method: HttpMethod, path: string, init: ApiRequestInit
     headers.set("X-Request-Id", requestId);
   }
 
-  const token = accessTokenGetter?.();
+  let token = accessTokenGetter?.();
+  if (!token && typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("dl.auth.session.v1");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.accessToken && parsed.expiresAt > Date.now()) {
+          token = parsed.accessToken;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  let body: BodyInit | undefined;
+  let body = init.body;
   if (json !== undefined) {
     headers.set("Content-Type", headers.get("Content-Type") ?? "application/json");
     body = JSON.stringify(json);

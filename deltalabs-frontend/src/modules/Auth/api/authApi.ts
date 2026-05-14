@@ -29,8 +29,13 @@ type AuthIssuedResponseDto = Readonly<{
   user: {
     user_id: string;
     username: string;
+    full_name: string | null;
     email: string | null;
     phone_e164: string | null;
+    bio: string | null;
+    avatar_url: string | null;
+    followers_count: number;
+    following_count: number;
     is_verified: boolean;
   };
 }>;
@@ -90,11 +95,15 @@ function mapIssuedResponseToSession(dto: AuthIssuedResponseDto): AuthSessionPayl
     expiresAt: Date.parse(dto.session.expires_at) || Date.now() + 24 * 60 * 60 * 1000,
     user: {
       id: dto.user.user_id,
-      email: dto.user.email ?? "",
-      phone: dto.user.phone_e164 ?? "",
-      userName: dto.user.username,
-      firstName: dto.user.username,
-      lastName: "",
+      username: dto.user.username,
+      fullName: dto.user.full_name,
+      email: dto.user.email,
+      phone: dto.user.phone_e164,
+      bio: dto.user.bio,
+      avatarUrl: dto.user.avatar_url,
+      followersCount: dto.user.followers_count,
+      followingCount: dto.user.following_count,
+      isVerified: dto.user.is_verified,
     },
   };
 }
@@ -141,7 +150,7 @@ export const authApi = {
 
     const identity = await apiClient.post<SignupFlowStateResponseDto>("/v1/auth/signup/step/identity", {
       json: {
-        username: input.userName,
+        username: input.username,
       },
     });
 

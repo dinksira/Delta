@@ -30,6 +30,8 @@ type TopNavProps = Readonly<{
   isAuthenticated: boolean;
   /** Shown in the utility avatar when signed in (e.g. from session). */
   profileInitials?: string;
+  /** User avatar URL for the utility menu. */
+  avatarUrl?: string | null;
   /** App shell: session not hydrated yet (same placeholder as landing_pending, right rail only). */
   sessionPending?: boolean;
 }>;
@@ -99,7 +101,7 @@ function BrandLogoMark() {
 /** ################################ /HELPERS ############################# */
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
-export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
+export function TopNav({ variant, isAuthenticated, profileInitials, avatarUrl, sessionPending }: TopNavProps) {
   const pathname = usePathname();
   const landingTabs = useMemo(() => landingCategoryItems(pathname ?? ""), [pathname]);
   const showAuthActions = variant === "landing_unauthorized";
@@ -159,7 +161,7 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
           ) : showAuthActions ? (
             <TopNavAuthActions isAuthenticated={isAuthenticated} />
           ) : (
-            <TopNavUtilityActions profileInitials={profileInitials} />
+            <TopNavUtilityActions profileInitials={profileInitials} avatarUrl={avatarUrl} />
           )}
         </div>
       </div>

@@ -203,7 +203,7 @@ export function flatMapFeedPages(
 }
 
 function mapCommentDtoToPreview(row: FeedCommentDto) {
-  const displayName = getCommentDisplayName(row.userName || row.userId);
+  const displayName = getCommentDisplayName(row.username || row.userId);
   const initials = (displayName || "DL")
     .split(/[^a-zA-Z0-9]+/)
     .filter(Boolean)

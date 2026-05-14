@@ -33,12 +33,14 @@ export function PublicLayoutShell({ children, serverAuthenticated }: PublicLayou
   const sessionPending = !isReady && !serverAuthenticated;
   const profileInitials =
     session && isReady ? profileInitialsFromUser(session.user) : undefined;
+  const avatarUrl = session && isReady ? session.user.avatarUrl : null;
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface-canvas">
       <PublicHeader
         isAuthenticated={isAuthenticated}
         profileInitials={profileInitials}
+        avatarUrl={avatarUrl}
         sessionPending={sessionPending}
       />
       <AuthModalGateway enabled={!isAuthenticated} />
