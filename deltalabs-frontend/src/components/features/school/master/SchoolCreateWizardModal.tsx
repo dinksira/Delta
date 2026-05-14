@@ -123,13 +123,15 @@ function shareAccessIcon(accessName: string) {
 }
 
 function displayNameFromSessionUser(user: {
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string | null;
   username: string;
-  email: string;
+  email: string | null;
 }): string {
   const combined = [user.firstName?.trim(), user.lastName?.trim()].filter(Boolean).join(" ").trim();
   if (combined.length > 0) return combined;
+  if (user.fullName?.trim()) return user.fullName.trim();
   if (user.username?.trim()) return user.username.trim();
   if (user.email?.trim()) return user.email.trim();
   return "Account owner";
@@ -461,7 +463,7 @@ export function SchoolCreateWizardModal({
         ...filtered,
         {
           fullName: displayNameFromSessionUser(user),
-          email: user.email.trim(),
+          email: (user.email || "").trim(),
           ownershipPercentage: pctStr,
           shareAccesses: cloneDefaultShareAccesses(),
         },
