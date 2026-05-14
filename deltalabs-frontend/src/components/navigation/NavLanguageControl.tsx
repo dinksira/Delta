@@ -30,8 +30,8 @@ function GlobeIcon({ className }: Readonly<{ className?: string }>) {
 const utilityGlyphClass = "size-8 shrink-0";
 
 type NavLanguageControlProps = Readonly<{
-  /** Teal header rail (white glyphs). */
-  tone?: "onPrimary";
+  /** `onPrimary`: teal header. `surface`: light modal / cards (bordered control). */
+  tone?: "onPrimary" | "surface";
 }>;
 
 /** Header language picker: opens a menu and persists choice to `localStorage`. */
@@ -62,7 +62,7 @@ export function NavLanguageControl({ tone = "onPrimary" }: NavLanguageControlPro
   const triggerClass =
     tone === "onPrimary"
       ? "inline-flex h-10 items-center gap-2 rounded-md px-1.5 text-base leading-none text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:text-[17px]"
-      : "inline-flex h-10 items-center gap-2 rounded-md border border-border-default px-2 text-sm text-text-primary hover:bg-surface-muted";
+      : "inline-flex h-9 items-center gap-1.5 rounded-md border border-border-default px-1.5 text-sm text-text-primary transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-auth-modal-surface";
 
   return (
     <div className="relative" ref={rootRef}>

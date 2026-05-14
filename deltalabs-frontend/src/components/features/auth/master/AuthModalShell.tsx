@@ -5,8 +5,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
-
 /** ################################ /IMPORT ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
@@ -115,7 +113,7 @@ export function AuthModalShell({
   const hasResponseBanner = banner != null;
 
   const titleBlock = (
-    <div className="mb-6 text-center">
+    <div className="mb-5 text-center">
       <h1 className="text-2xl font-bold leading-tight tracking-tight text-text-primary">{title}</h1>
       <p className="mt-1.5 text-sm font-normal text-text-secondary">{subtitle}</p>
     </div>
@@ -130,15 +128,12 @@ export function AuthModalShell({
   );
 
   return (
-    <div className="flex w-full flex-1 items-start justify-center px-3 py-4 sm:px-4 sm:py-6">
+    <div className="flex w-full flex-1 items-start justify-center px-3 py-3 sm:px-4 sm:py-5">
       <section className="w-full max-w-[var(--dl-auth-modal-max-width)] overflow-hidden rounded-lg border border-auth-modal-border bg-auth-modal-surface shadow-auth-modal">
         {hasResponseBanner ? (
           <>
             <header className="rounded-t-lg bg-surface-muted">
-              <div className="px-4 py-3 sm:px-5">
-                <div className="mb-3 flex justify-end">
-                  <NavLanguageControl />
-                </div>
+              <div className="px-4 py-2.5 sm:px-5">
                 <NavControls
                   showBack={showBack}
                   backHref={backHref}
@@ -151,11 +146,8 @@ export function AuthModalShell({
             <div className="border-t border-border-subtle px-8 pb-8 pt-6">{main}</div>
           </>
         ) : (
-          <div className="px-8 pb-8 pt-5">
-            <div className="flex justify-end pb-3">
-              <NavLanguageControl />
-            </div>
-            <div className="mb-6">
+          <div className="px-8 pb-8 pt-4">
+            <div className="mb-4">
               <NavControls
                 showBack={showBack}
                 backHref={backHref}

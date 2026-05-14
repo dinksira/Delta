@@ -397,7 +397,7 @@ const am: AuthMessages = {
     navAria: "የፊድ ምድቦች",
     video: "ቪዲዮ",
     audio: "ኦድዮ",
-    ai: "AI",
+    ai: "ሰ.ሠ.አ",
     simulation: "ሲሙሌሽን",
     all: "ሁሉም",
     searchPlaceholder: "ፈልግ…",
