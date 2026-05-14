@@ -2,8 +2,10 @@
 
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
-import Link from "next/link";
+import { ButtonLink } from "@/components/theme";
+import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
@@ -16,6 +18,7 @@ type TopNavAuthActionsProps = Readonly<{
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
 export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
+  const a = useAuthMessages();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const next = new URLSearchParams(searchParams.toString());
@@ -24,25 +27,26 @@ export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
   next.set("auth", "signup");
   const signupHref = `${pathname}?${next.toString()}`;
 
-  const pillClass =
-    "inline-flex h-10 min-w-[5.5rem] items-center justify-center rounded-full border border-white bg-transparent px-5 text-[15px] font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:min-w-[5.75rem] sm:px-6 sm:text-base";
-
   if (isAuthenticated) {
     return (
-      <Link href="/dashboard" className={pillClass}>
-        Dashboard
-      </Link>
+      <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+        <NavLanguageControl tone="onPrimary" />
+        <ButtonLink variant="outlineInverse" size="md" href="/dashboard">
+          {a.nav.dashboard}
+        </ButtonLink>
+      </div>
     );
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <Link href={loginHref} className={pillClass}>
-        Login
-      </Link>
-      <Link href={signupHref} className={pillClass}>
-        Sign up
-      </Link>
+    <div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
+      <NavLanguageControl tone="onPrimary" />
+      <ButtonLink variant="outlineInverse" size="md" href={loginHref}>
+        {a.nav.login}
+      </ButtonLink>
+      <ButtonLink variant="outlineInverse" size="md" href={signupHref}>
+        {a.nav.signup}
+      </ButtonLink>
     </div>
   );
 }

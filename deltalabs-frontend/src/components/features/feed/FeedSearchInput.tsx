@@ -1,5 +1,6 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
+import type { ChangeEventHandler, FocusEventHandler, KeyboardEventHandler } from "react";
 import { SearchInput } from "@/components/theme/SearchInput";
 
 /** ################################ /IMPORT ############################# */
@@ -12,6 +13,12 @@ type FeedSearchInputProps = Readonly<{
   filterControlsId?: string;
   isFilterOpen?: boolean;
   onFilterToggle?: () => void;
+  /** Accessible name for the filter trigger (e.g. localized "Filters"). */
+  filterAriaLabel?: string;
+  value?: string;
+  onChange?: ChangeEventHandler<HTMLInputElement>;
+  onFocus?: FocusEventHandler<HTMLInputElement>;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
 }>;
 
 /** ################################ /TYPES ############################# */
@@ -48,6 +55,11 @@ export function FeedSearchInput({
   filterControlsId,
   isFilterOpen,
   onFilterToggle,
+  filterAriaLabel = "Filters",
+  value,
+  onChange,
+  onFocus,
+  onKeyDown,
 }: FeedSearchInputProps) {
   const showFilter = Boolean(filterControlsId && onFilterToggle);
 
@@ -55,11 +67,15 @@ export function FeedSearchInput({
     <SearchInput
       id={id}
       placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      onFocus={onFocus}
+      onKeyDown={onKeyDown}
       startSlot={
         showFilter ? (
           <button
             type="button"
-            aria-label="Filters"
+            aria-label={filterAriaLabel}
             aria-expanded={Boolean(isFilterOpen)}
             aria-controls={filterControlsId}
             onClick={onFilterToggle}

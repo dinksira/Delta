@@ -20,6 +20,7 @@ import {
 } from "@/components/features/auth";
 import { authApi } from "@/modules/Auth/api/authApi";
 import { authErrorMessage } from "@/lib/authErrors";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import { useSignupMutation } from "@/modules/Auth/hooks";
 
 /** ################################ /IMPORT ############################# */
@@ -49,6 +50,7 @@ export function SignupPageView({
   switchSigninHref = "/login",
   redirectAfterSignupHref = "/",
 }: SignupPageViewProps) {
+  const a = useAuthMessages();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [banner, setBanner] = useAuthResponseBanner();
@@ -77,22 +79,8 @@ export function SignupPageView({
     [],
   );
   const monthOptions = useMemo(
-    () =>
-      [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ].map((month, idx) => ({ value: String(idx + 1), label: month })),
-    [],
+    () => a.signup.months.map((month, idx) => ({ value: String(idx + 1), label: month })),
+    [a],
   );
   const yearOptions = useMemo(
     () =>
@@ -103,23 +91,11 @@ export function SignupPageView({
     [],
   );
 
-  const titleByStep = [
-    "Create Your Account",
-    "Enter your Date of birth",
-    "Phone and email",
-    "Verification code",
-    "Set your password",
-  ] as const;
-
-  const subtitleByStep = [
-    "Learn More, Do More",
-    "Your age information helps personalize your experience",
-    "We'll use these to send your verification code",
-    "Enter the code we sent to your phone and email",
-    "Secure your account",
-  ] as const;
-
-  const nextLabel = isLastStep ? "Create account" : step === 1 ? "Continue" : "Next";
+  const nextLabel = isLastStep
+    ? a.signup.nextLabelCreate
+    : step === 1
+      ? a.signup.nextLabelContinue
+      : a.signup.nextLabelNext;
   const backTarget = isFirstStep ? backHref : "#";
 
   const goBack = () => {
@@ -143,9 +119,9 @@ export function SignupPageView({
     const nextFieldErrors: Record<string, string> = {};
 
     if (step === 0) {
-      if (!values.firstName.trim()) nextFieldErrors.firstName = "Required";
-      if (!values.lastName.trim()) nextFieldErrors.lastName = "Required";
-      if (!values.userName.trim()) nextFieldErrors.userName = "Required";
+      if (!values.firstName.trim()) nextFieldErrors.firstName = a.common.required;
+      if (!values.lastName.trim()) nextFieldErrors.lastName = a.common.required;
+      if (!values.userName.trim()) nextFieldErrors.userName = a.common.required;
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -155,9 +131,9 @@ export function SignupPageView({
     }
 
     if (step === 1) {
-      if (!values.day) nextFieldErrors.day = "Required";
-      if (!values.month) nextFieldErrors.month = "Required";
-      if (!values.year) nextFieldErrors.year = "Required";
+      if (!values.day) nextFieldErrors.day = a.common.required;
+      if (!values.month) nextFieldErrors.month = a.common.required;
+      if (!values.year) nextFieldErrors.year = a.common.required;
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -170,8 +146,8 @@ export function SignupPageView({
       const phoneRaw = readForm("signup-phone");
       const emailRaw = readForm("signup-email");
       const phoneOk = /^\+?[0-9\s-]{9,15}$/.test(phoneRaw.trim());
-      if (!phoneOk) nextFieldErrors.phone = "Invalid phone number";
-      if (!emailValid(emailRaw)) nextFieldErrors.email = "Invalid email address";
+      if (!phoneOk) nextFieldErrors.phone = a.signup.invalidPhone;
+      if (!emailValid(emailRaw)) nextFieldErrors.email = a.signup.invalidEmail;
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -184,7 +160,7 @@ export function SignupPageView({
     if (step === 3) {
       const otpRaw = readForm("signup-otp");
       const otpOk = /^[0-9]{4,6}$/.test(otpRaw.trim());
-      if (!otpOk) nextFieldErrors.otp = "Invalid verification code";
+      if (!otpOk) nextFieldErrors.otp = a.signup.invalidOtp;
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -198,16 +174,16 @@ export function SignupPageView({
       const passwordRaw = readForm("signup-password");
       const confirmRaw = readForm("signup-confirm-password");
       if (passwordRaw.trim().length < 10) {
-        nextFieldErrors.password = "At least 10 characters";
+        nextFieldErrors.password = a.signup.passwordMin10;
       } else if (!/[a-z]/.test(passwordRaw)) {
-        nextFieldErrors.password = "Include a lowercase letter";
+        nextFieldErrors.password = a.signup.passwordLower;
       } else if (!/[A-Z]/.test(passwordRaw)) {
-        nextFieldErrors.password = "Include an uppercase letter";
+        nextFieldErrors.password = a.signup.passwordUpper;
       } else if (!/[0-9]/.test(passwordRaw)) {
-        nextFieldErrors.password = "Include a number";
+        nextFieldErrors.password = a.signup.passwordNumber;
       }
       if (passwordRaw !== confirmRaw) {
-        nextFieldErrors.confirmPassword = "Passwords do not match";
+        nextFieldErrors.confirmPassword = a.signup.passwordMismatch;
       }
 
       if (Object.keys(nextFieldErrors).length > 0) {
@@ -238,15 +214,15 @@ export function SignupPageView({
           if (issued.debugCode) {
             setBanner({
               type: "info",
-              message: `Verification code sent. Dev OTP: ${issued.debugCode}`,
+              message: `${a.signup.verificationSentDev} ${issued.debugCode}`,
             });
           } else {
-            setBanner({ type: "success", message: "Verification code sent. Check your inbox." });
+            setBanner({ type: "success", message: a.signup.verificationSent });
           }
         } catch (error) {
           setBanner({
             type: "error",
-            message: authErrorMessage(error, "Could not send verification code. Please try again."),
+            message: authErrorMessage(error, a.signup.verificationSendFailed),
           });
         } finally {
           setIsSendingVerification(false);
@@ -255,7 +231,7 @@ export function SignupPageView({
       }
       setStep((value) => value + 1);
       if (step === 3) {
-        setBanner({ type: "success", message: "Contact verified. Continue to the next step." });
+        setBanner({ type: "success", message: a.signup.contactVerified });
       }
       return;
     }
@@ -278,15 +254,15 @@ export function SignupPageView({
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, "Could not create your account. Please try again."),
+        message: authErrorMessage(error, a.signup.signupFailed),
       });
     }
   };
 
   return (
     <AuthModalShell
-      title={titleByStep[step]}
-      subtitle={subtitleByStep[step]}
+      title={a.signup.steps[step]!.title}
+      subtitle={a.signup.steps[step]!.subtitle}
       showBack={showBack}
       backHref={backTarget}
       closeHref={closeHref}
@@ -298,8 +274,8 @@ export function SignupPageView({
           <>
             <AuthTextField
               id="first-name"
-              label="First Name"
-              placeholder="Abel"
+              label={a.signup.firstName}
+              placeholder={a.signup.placeholderFirst}
               errorMessage={fieldErrors.firstName}
               inputProps={{
                 value: values.firstName,
@@ -308,8 +284,8 @@ export function SignupPageView({
             />
             <AuthTextField
               id="last-name"
-              label="Last Name"
-              placeholder="Bekele"
+              label={a.signup.lastName}
+              placeholder={a.signup.placeholderLast}
               errorMessage={fieldErrors.lastName}
               inputProps={{
                 value: values.lastName,
@@ -318,8 +294,8 @@ export function SignupPageView({
             />
             <AuthTextField
               id="user-name"
-              label="User Name"
-              placeholder="Enter User Name"
+              label={a.signup.userName}
+              placeholder={a.signup.placeholderUserName}
               errorMessage={fieldErrors.userName}
               inputProps={{
                 value: values.userName,
@@ -333,9 +309,9 @@ export function SignupPageView({
           <div className="grid grid-cols-3 gap-3">
             <AuthSelectField
               id="birth-day"
-              label="Day"
+              label={a.signup.day}
               options={dayOptions}
-              placeholder="Day"
+              placeholder={a.signup.placeholderDay}
               errorMessage={fieldErrors.day}
               selectProps={{
                 value: values.day,
@@ -344,9 +320,9 @@ export function SignupPageView({
             />
             <AuthSelectField
               id="birth-month"
-              label="Month"
+              label={a.signup.month}
               options={monthOptions}
-              placeholder="Month"
+              placeholder={a.signup.placeholderMonth}
               errorMessage={fieldErrors.month}
               selectProps={{
                 value: values.month,
@@ -355,9 +331,9 @@ export function SignupPageView({
             />
             <AuthSelectField
               id="birth-year"
-              label="Year"
+              label={a.signup.year}
               options={yearOptions}
-              placeholder="Year"
+              placeholder={a.signup.placeholderYear}
               errorMessage={fieldErrors.year}
               selectProps={{
                 value: values.year,
@@ -371,8 +347,8 @@ export function SignupPageView({
           <>
             <AuthPhoneField
               id="signup-phone"
-              label="Phone number"
-              placeholder="+251 9xx xxx xxx"
+              label={a.signup.phone}
+              placeholder={a.signup.phonePlaceholder}
               errorMessage={fieldErrors.phone}
               inputProps={{
                 name: "signup-phone",
@@ -385,9 +361,9 @@ export function SignupPageView({
             />
             <AuthTextField
               id="signup-email"
-              label="Email"
+              label={a.signup.email}
               type="email"
-              placeholder="mail@abc.com"
+              placeholder={a.login.emailPlaceholder}
               errorMessage={fieldErrors.email}
               inputProps={{
                 name: "signup-email",
@@ -405,8 +381,8 @@ export function SignupPageView({
         {step === 3 ? (
           <AuthTextField
             id="signup-otp"
-            label="Verification code"
-            placeholder="Enter 4-6 digit code"
+            label={a.signup.otp}
+            placeholder={a.signup.otpPlaceholder}
             errorMessage={fieldErrors.otp}
             inputProps={{
               name: "signup-otp",
@@ -422,8 +398,8 @@ export function SignupPageView({
           <>
             <AuthPasswordField
               id="signup-password"
-              label="Password"
-              placeholder="Create password"
+              label={a.signup.passwordCreate}
+              placeholder={a.signup.placeholderCreatePassword}
               errorMessage={fieldErrors.password}
               inputProps={{
                 name: "signup-password",
@@ -433,8 +409,8 @@ export function SignupPageView({
             />
             <AuthPasswordField
               id="signup-confirm-password"
-              label="Confirm Password"
-              placeholder="Confirm password"
+              label={a.signup.passwordConfirm}
+              placeholder={a.signup.placeholderConfirmPassword}
               errorMessage={fieldErrors.confirmPassword}
               inputProps={{
                 name: "signup-confirm-password",
@@ -451,7 +427,7 @@ export function SignupPageView({
       </form>
 
       <div className="mt-6 space-y-4">
-        <AuthDivider text="Or Sign up with" />
+        <AuthDivider text={a.common.orSignUpWith} />
         <SocialProvidersRow mode="signup" />
       </div>
 

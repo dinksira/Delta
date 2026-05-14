@@ -4,6 +4,8 @@ Usage (from `deltalabs-backend/`):
     python scripts/seed_public_feed_videos.py
     python scripts/seed_public_feed_videos.py --replace
 
+MongoDB URI and database name are read from the same `.env` as the API (`MONGODB_URI`, `MONGODB_DB_NAME`).
+
 This creates `content_items` documents that behave like normal posted videos,
 so likes/comments/saves/shares persist through the real backend APIs.
 """
@@ -11,11 +13,18 @@ so likes/comments/saves/shares persist through the real backend APIs.
 from __future__ import annotations
 
 import argparse
-import os
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from pymongo import MongoClient
+
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.core.config import get_settings
 
 VIDEO_ROWS: tuple[dict[str, Any], ...] = (
     {
@@ -111,10 +120,9 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-    mongo_db_name = os.getenv("MONGODB_DB_NAME", "deltalabs")
-    client = MongoClient(mongo_uri)
-    db = client[mongo_db_name]
+    settings = get_settings()
+    client = MongoClient(settings.mongodb_uri)
+    db = client[settings.mongodb_db_name]
     collection = db["content_items"]
 
     try:

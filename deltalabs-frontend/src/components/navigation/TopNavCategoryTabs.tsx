@@ -15,6 +15,8 @@ export type TopNavCategoryItem = Readonly<{
 
 type TopNavCategoryTabsProps = Readonly<{
   items: readonly TopNavCategoryItem[];
+  /** Localized label for the category strip (screen readers). */
+  ariaLabel?: string;
 }>;
 
 /** ################################ /TYPES ############################# */
@@ -23,11 +25,11 @@ type TopNavCategoryTabsProps = Readonly<{
  * Unauthorized landing center row: generous breathing room around labels and `|` dividers
  * (Figma / TikTok-style category strip).
  */
-export function TopNavCategoryTabs({ items }: TopNavCategoryTabsProps) {
+export function TopNavCategoryTabs({ items, ariaLabel = "Top navigation categories" }: TopNavCategoryTabsProps) {
   return (
     <nav
       className="hidden min-w-0 items-center justify-center sm:flex lg:-translate-x-4 xl:-translate-x-5"
-      aria-label="Top navigation categories"
+      aria-label={ariaLabel}
     >
       <ul className="flex max-w-full flex-nowrap items-center justify-center overflow-hidden">
         {items.map((item, index) => (

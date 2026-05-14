@@ -511,11 +511,9 @@ export function SchoolWorkspaceDetailView({
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
-  const pathParam = searchParams.get(WORKSPACE_PATH_QUERY);
-  const legacyParentParam = searchParams.get("parent");
   const workspacePathIds = useMemo(
     () => workspacePathIdsFromSearchParams(searchParams),
-    [pathParam, legacyParentParam],
+    [searchParams],
   );
   /** Previous builds used `?mt=` for the editor; migrate to the full-page route. */
   const managementTableLegacyMt = searchParams.get("mt")?.trim() ?? "";

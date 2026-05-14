@@ -25,13 +25,18 @@ async def connect_redis() -> None:
     # Upstash's self-signed certs on the free tier.
     use_ssl = settings.redis_url.startswith("rediss://")
 
-    _redis = redis.from_url(
-        settings.redis_url,
-        encoding="utf-8",
-        decode_responses=True,
-        max_connections=settings.redis_max_connections,
-        ssl_cert_reqs=None if use_ssl else "required",
-    )
+    # Only SSLConnection accepts ssl_cert_reqs; plain redis:// must not pass it or
+    # AbstractConnection raises: unexpected keyword argument 'ssl_cert_reqs'.
+    pool_kwargs: dict[str, object] = {
+        "encoding": "utf-8",
+        "decode_responses": True,
+        "max_connections": settings.redis_max_connections,
+    }
+    if use_ssl:
+        # Upstash and similar: relax verify for managed/self-signed TLS endpoints.
+        pool_kwargs["ssl_cert_reqs"] = None
+
+    _redis = redis.from_url(settings.redis_url, **pool_kwargs)
 
 
 async def disconnect_redis() -> None:

@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from "react";
 import { Provider } from "react-redux";
 
 import { AuthSessionProvider } from "@/contexts/AuthSession_Context";
+import { LocaleProvider } from "@/i18n/LocaleContext";
 import { store } from "@/store";
 
 /** ################################ /IMPORT ############################# */
@@ -29,7 +30,9 @@ export function renderWithAppProviders(ui: ReactElement, options?: Options) {
     return (
       <Provider store={store}>
         <QueryClientProvider client={client}>
-          <AuthSessionProvider>{children}</AuthSessionProvider>
+          <LocaleProvider>
+            <AuthSessionProvider>{children}</AuthSessionProvider>
+          </LocaleProvider>
         </QueryClientProvider>
       </Provider>
     );

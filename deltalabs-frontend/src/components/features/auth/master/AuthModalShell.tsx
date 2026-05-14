@@ -1,7 +1,11 @@
+"use client";
+
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import type { ReactNode } from "react";
 import Link from "next/link";
+
+import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
@@ -132,6 +136,9 @@ export function AuthModalShell({
           <>
             <header className="rounded-t-lg bg-surface-muted">
               <div className="px-4 py-3 sm:px-5">
+                <div className="mb-3 flex justify-end">
+                  <NavLanguageControl />
+                </div>
                 <NavControls
                   showBack={showBack}
                   backHref={backHref}
@@ -145,6 +152,9 @@ export function AuthModalShell({
           </>
         ) : (
           <div className="px-8 pb-8 pt-5">
+            <div className="flex justify-end pb-3">
+              <NavLanguageControl />
+            </div>
             <div className="mb-6">
               <NavControls
                 showBack={showBack}

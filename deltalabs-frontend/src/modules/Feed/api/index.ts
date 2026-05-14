@@ -2,6 +2,10 @@
 /** Imports used by this file. */
 import { apiClient } from "@/lib/apiClient";
 import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
+import {
+  feedClipFiltersToSearchParams,
+  type FeedClipFilterSelection,
+} from "@/modules/Feed/types/feedClipFilters";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */
@@ -67,6 +71,22 @@ export type FeedTelemetrySummaryDto = Readonly<{
   completionRate: number;
 }>;
 
+export type GlobalSearchResponseDto = Readonly<{
+  q: string;
+  tab: string;
+  algorithm_version: string;
+  users: readonly SearchUserHitDto[];
+  videos: readonly LandingVideoClip[];
+  audio: readonly LandingVideoClip[];
+  simulations: readonly LandingVideoClip[];
+}>;
+
+export type SearchUserHitDto = Readonly<{
+  id: string;
+  username: string;
+  relevance: number;
+}>;
+
 export type FeedWorkerHealthDto = Readonly<{
   stream_length: number;
   dead_letter_length: number;
@@ -126,12 +146,32 @@ export async function fetchFeedPage(params?: {
   readonly limit?: number;
   readonly cursor?: string | null;
   readonly contentType?: string | null;
+  readonly filters?: FeedClipFilterSelection;
 }): Promise<FeedPaginatedResponseDto> {
-  return apiClient.get<FeedPaginatedResponseDto>("/v1/feed", {
+  const filterParams = feedClipFiltersToSearchParams(params?.filters ?? {});
+  const defaultContentType = params?.contentType ?? "video";
+  const searchParams: Record<string, string | number | undefined> = {
+    limit: params?.limit ?? 24,
+    cursor: params?.cursor ?? undefined,
+    content_type: (filterParams.content_type as string | undefined) ?? defaultContentType,
+  };
+  if (filterParams.hashtag !== undefined) searchParams.hashtag = filterParams.hashtag;
+  if (filterParams.min_duration_s !== undefined) searchParams.min_duration_s = filterParams.min_duration_s;
+  if (filterParams.max_duration_s !== undefined) searchParams.max_duration_s = filterParams.max_duration_s;
+  if (filterParams.course_category !== undefined) searchParams.course_category = filterParams.course_category;
+  return apiClient.get<FeedPaginatedResponseDto>("/v1/feed", { searchParams });
+}
+
+export async function fetchGlobalSearch(params: {
+  readonly q: string;
+  readonly tab?: string;
+  readonly limit?: number;
+}): Promise<GlobalSearchResponseDto> {
+  return apiClient.get<GlobalSearchResponseDto>("/v1/search", {
     searchParams: {
-      limit: params?.limit ?? 24,
-      cursor: params?.cursor ?? undefined,
-      content_type: params?.contentType ?? "video",
+      q: params.q,
+      tab: params.tab ?? "top",
+      limit: params.limit ?? 24,
     },
   });
 }

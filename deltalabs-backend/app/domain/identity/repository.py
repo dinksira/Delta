@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -186,6 +187,30 @@ class Repository:
         if doc is None:
             return None
         return self._to_user_record(doc)
+
+    async def search_active_users_by_text(self, query: str, *, limit: int = 24) -> list[UserRecord]:
+        """Substring match on username for public discovery (active users only)."""
+        raw = query.strip()
+        if not raw:
+            return []
+        pattern = re.escape(raw)
+        rx: dict[str, str] = {"$regex": pattern, "$options": "i"}
+        cursor = (
+            self._db["users"]
+            .find(
+                {
+                    "is_active": True,
+                    "$or": [
+                        {"username_normalized": rx},
+                        {"username": rx},
+                    ],
+                },
+                limit=max(1, min(limit, 60)),
+            )
+            .sort([("username_normalized", ASCENDING)])
+        )
+        docs = await cursor.to_list(length=limit)
+        return [self._to_user_record(doc) for doc in docs]
 
     @staticmethod
     def _to_user_record(doc: dict[str, Any]) -> UserRecord:
