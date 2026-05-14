@@ -91,7 +91,7 @@ export function AudioExplorerView({ variant }: Readonly<{ variant: AudioExplorer
     refetch,
   } = useFeedClips(audioSelection);
 
-  const clips = clipsData ?? [];
+  const clips = useMemo(() => clipsData ?? [], [clipsData]);
 
   const byTopic = useMemo(() => {
     const map = new Map<string, LandingVideoClip[]>();

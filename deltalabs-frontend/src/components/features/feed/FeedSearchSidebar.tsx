@@ -110,7 +110,7 @@ export function FeedSearchSidebar({
   });
 
   const clips = useMemo(() => (searchQuery.data ? mergeClips(searchQuery.data) : []), [searchQuery.data]);
-  const users = searchQuery.data?.users ?? [];
+  const users = useMemo(() => searchQuery.data?.users ?? [], [searchQuery.data]);
 
   const suggestionRows = useMemo(
     () => (qEnabled && searchQuery.isSuccess ? buildSuggestionRows(users, clips, 14) : []),

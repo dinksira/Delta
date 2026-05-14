@@ -78,6 +78,7 @@ export function AudioDetailView() {
     clip?.durationS,
     clip?.mediaTone,
     clip?.contentType,
+    clip,
   ]);
 
   useEffect(() => {

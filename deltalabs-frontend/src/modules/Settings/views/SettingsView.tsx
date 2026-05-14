@@ -160,7 +160,7 @@ export const SettingsView: React.FC = () => {
         localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
       }
 
-      setAccounts(history.map(h => h.user).filter(Boolean));
+      setAccounts(history.map(h => h.user).filter((u): u is AuthenticatedUser => !!u));
     }
   }, [activeTab, session]);
 
@@ -273,7 +273,7 @@ export const SettingsView: React.FC = () => {
       
       // Extract specific validation message if available
       let errorMessage = error instanceof Error ? error.message : 'Failed to update password';
-      const apiErr = error as any;
+      const apiErr = error as { details?: { details?: Array<{ msg: string }> }; status?: number };
       if (apiErr.details?.details && Array.isArray(apiErr.details.details)) {
         const firstError = apiErr.details.details[0];
         if (firstError?.msg) {
