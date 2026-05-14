@@ -22,6 +22,7 @@ from app.api.v1.rent_lab import router as rent_lab_router
 from app.api.v1.research import router as research_router
 from app.api.v1.schools import org_router as org_schools_router
 from app.api.v1.schools import router as schools_router
+from app.api.v1.search import router as search_router
 from app.api.v1.specialization import router as specialization_router
 from app.api.v1.system import router as system_router
 from app.api.v1.tutorials import router as tutorials_router
@@ -34,6 +35,7 @@ api_router.include_router(auth_router)
 api_router.include_router(me_router)
 api_router.include_router(orgs_router)
 api_router.include_router(feed_router)
+api_router.include_router(search_router)
 api_router.include_router(features_router)
 api_router.include_router(org_features_router)
 api_router.include_router(media_router)

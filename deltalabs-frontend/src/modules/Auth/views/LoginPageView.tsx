@@ -19,6 +19,7 @@ import {
   useAuthResponseBanner,
 } from "@/components/features/auth";
 import { authErrorMessage } from "@/lib/authErrors";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import { useLoginMutation } from "@/modules/Auth/hooks";
 
 /** ################################ /IMPORT ############################# */
@@ -45,6 +46,7 @@ export function LoginPageView({
   switchSignupHref = "/signup",
   redirectAfterLoginHref = "/",
 }: LoginPageViewProps) {
+  const a = useAuthMessages();
   const router = useRouter();
   const [banner, setBanner] = useAuthResponseBanner();
   const [fieldErrors, setFieldErrors] = useState<{ identifier?: string; password?: string }>({});
@@ -59,8 +61,8 @@ export function LoginPageView({
     const rememberMe = formData.get("remember-me") === "on";
 
     const next: { identifier?: string; password?: string } = {};
-    if (!identifier) next.identifier = "Required";
-    if (!password) next.password = "Required";
+    if (!identifier) next.identifier = a.common.required;
+    if (!password) next.password = a.common.required;
     if (next.identifier || next.password) {
       setFieldErrors(next);
       setBanner(null);
@@ -78,15 +80,15 @@ export function LoginPageView({
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, "Sign-in failed. Please try again."),
+        message: authErrorMessage(error, a.login.signInFailed),
       });
     }
   };
 
   return (
     <AuthModalShell
-      title="Login to Your Account"
-      subtitle="Learn more and do more"
+      title={a.login.title}
+      subtitle={a.login.subtitle}
       showBack={showBack}
       backHref={backHref}
       closeHref={closeHref}
@@ -95,34 +97,34 @@ export function LoginPageView({
       <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
         <AuthTextField
           id="login-identifier"
-          label="Email or phone number"
-          placeholder="mail@abc.com"
+          label={a.login.emailOrPhone}
+          placeholder={a.login.emailPlaceholder}
           errorMessage={fieldErrors.identifier}
           inputProps={{ name: "login-identifier", disabled: isSubmitting }}
         />
         <AuthPasswordField
           id="login-password"
-          label="Password"
-          placeholder="********"
+          label={a.login.password}
+          placeholder={a.login.passwordPlaceholder}
           errorMessage={fieldErrors.password}
           inputProps={{ name: "login-password", disabled: isSubmitting }}
         />
         <div className="flex items-center justify-between gap-3 pt-0.5">
-          <AuthCheckboxField id="remember-me" label="Remember Me" />
+          <AuthCheckboxField id="remember-me" label={a.login.rememberMe} />
           <Link
             href={forgotHref}
             className="shrink-0 text-sm font-semibold text-auth-link-secondary transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-auth-modal-surface rounded-sm"
           >
-            Forgot Password?
+            {a.login.forgotPassword}
           </Link>
         </div>
         <AuthPrimaryButton type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Logging in..." : "Login"}
+          {isSubmitting ? a.common.loggingIn : a.login.submit}
         </AuthPrimaryButton>
       </form>
 
       <div className="mt-6 space-y-4">
-        <AuthDivider text="Or Sign in with" />
+        <AuthDivider text={a.common.orSignInWith} />
         <SocialProvidersRow mode="signin" />
       </div>
 

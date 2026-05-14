@@ -4,6 +4,18 @@ from app.main import app
 from fastapi.testclient import TestClient
 
 
+def test_get_feed_rejects_invalid_course_category() -> None:
+    with TestClient(app) as client:
+        response = client.get("/v1/feed?limit=1&course_category=nope")
+    assert response.status_code == 422
+
+
+def test_get_feed_rejects_inverted_duration_range() -> None:
+    with TestClient(app) as client:
+        response = client.get("/v1/feed?limit=1&min_duration_s=100&max_duration_s=50")
+    assert response.status_code == 422
+
+
 def test_get_feed_returns_paginated_shape() -> None:
     with TestClient(app) as client:
         response = client.get("/v1/feed?limit=3")

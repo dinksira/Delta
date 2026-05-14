@@ -23,6 +23,10 @@ class _Repo:
         cursor: tuple[datetime, str] | None,
         content_type: str | None,
         exclude_content_ids: set[str] | None = None,
+        hashtag: str | None = None,
+        min_duration_s: int | None = None,
+        max_duration_s: int | None = None,
+        course_category: str | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         base = datetime(2026, 1, 1, tzinfo=UTC)
         docs: list[dict[str, Any]] = []
@@ -43,8 +47,34 @@ class _Repo:
             docs = [doc for doc in docs if str(doc.get("_id", "")) not in exclude_content_ids]
         return docs[:limit], False
 
-    async def count_public_items(self, *, content_type: str | None) -> int:
+    async def count_public_items(
+        self,
+        *,
+        content_type: str | None,
+        hashtag: str | None = None,
+        min_duration_s: int | None = None,
+        max_duration_s: int | None = None,
+        course_category: str | None = None,
+    ) -> int:
         return 8
+
+    async def list_like_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        return {iid: 0 for iid in item_ids}
+
+    async def list_save_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        return {iid: 0 for iid in item_ids}
+
+    async def list_comment_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        return {iid: 0 for iid in item_ids}
+
+    async def list_share_counts(self, *, item_ids: list[str]) -> dict[str, int]:
+        return {iid: 0 for iid in item_ids}
+
+    async def list_user_liked_ids(self, *, user_id: str, item_ids: list[str]) -> set[str]:
+        return set()
+
+    async def list_user_saved_ids(self, *, user_id: str, item_ids: list[str]) -> set[str]:
+        return set()
 
     async def find_public_by_id(self, item_id: str) -> dict[str, Any] | None:
         return None

@@ -9,6 +9,9 @@ export default defineConfig({
       "@": srcPath,
     },
   },
+  esbuild: {
+    jsx: "automatic",
+  },
   test: {
     environment: "jsdom",
     globals: false,

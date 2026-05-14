@@ -16,6 +16,7 @@ import {
   useAuthResponseBanner,
 } from "@/components/features/auth";
 import { authErrorMessage } from "@/lib/authErrors";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import {
   useRecoverRequestMutation,
   useResetPasswordMutation,
@@ -52,6 +53,7 @@ export function RecoverPageView({
   closeHref = "/",
   switchSignupHref = "/signup",
 }: RecoverPageViewProps) {
+  const a = useAuthMessages();
   const router = useRouter();
   const recoverMutation = useRecoverRequestMutation();
   const resetMutation = useResetPasswordMutation();
@@ -61,21 +63,21 @@ export function RecoverPageView({
   const [banner, setBanner] = useAuthResponseBanner();
 
   const title = useMemo(() => {
-    if (stage === "request") return "Recover your account";
-    if (stage === "reset") return "Reset your password";
-    return "Password reset complete";
-  }, [stage]);
+    if (stage === "request") return a.recover.titleRequest;
+    if (stage === "reset") return a.recover.titleReset;
+    return a.recover.titleDone;
+  }, [stage, a]);
 
   const subtitle = useMemo(() => {
-    if (stage === "request") return "Learn more and do more";
-    if (stage === "reset") return "Create a new secure password";
-    return "You can now login with your new password";
-  }, [stage]);
+    if (stage === "request") return a.recover.subtitleRequest;
+    if (stage === "reset") return a.recover.subtitleReset;
+    return a.recover.subtitleDone;
+  }, [stage, a]);
 
   const handleRecover = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!identifier.trim()) {
-      setIdentifierError("Required");
+      setIdentifierError(a.common.required);
       setBanner(null);
       return;
     }
@@ -87,7 +89,7 @@ export function RecoverPageView({
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, "Could not send a recovery code. Please try again."),
+        message: authErrorMessage(error, a.recover.recoverFailed),
       });
     }
   };
@@ -111,7 +113,7 @@ export function RecoverPageView({
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, "Could not reset your password. Please try again."),
+        message: authErrorMessage(error, a.recover.resetFailed),
       });
     }
   };
@@ -142,8 +144,8 @@ export function RecoverPageView({
         <form className="flex flex-col gap-4" onSubmit={handleRecover}>
           <AuthTextField
             id="recover-identifier"
-            label="Email or phone number"
-            placeholder="mail@abc.com"
+            label={a.login.emailOrPhone}
+            placeholder={a.login.emailPlaceholder}
             errorMessage={identifierError}
             inputProps={{
               value: identifier,
@@ -155,39 +157,37 @@ export function RecoverPageView({
             }}
           />
           <AuthPrimaryButton type="submit" className="mt-1" disabled={recoverMutation.isPending}>
-            {recoverMutation.isPending ? "Sending…" : "Recover"}
+            {recoverMutation.isPending ? a.common.sending : a.recover.recover}
           </AuthPrimaryButton>
         </form>
       ) : null}
 
       {stage === "reset" ? (
         <form className="flex flex-col gap-4" onSubmit={handleReset}>
-          <AuthOtpField label="Verification code" name="reset-otp" />
+          <AuthOtpField label={a.recover.otpLabel} name="reset-otp" />
           <AuthPasswordField
             id="reset-password"
-            label="New password"
-            placeholder="Create new password"
+            label={a.recover.newPassword}
+            placeholder={a.recover.newPasswordPlaceholder}
             inputProps={{ name: "reset-password", disabled: resetMutation.isPending }}
           />
           <AuthPasswordField
             id="confirm-password"
-            label="Confirm password"
-            placeholder="Confirm your password"
+            label={a.recover.confirmPassword}
+            placeholder={a.recover.confirmPasswordPlaceholder}
             inputProps={{ name: "confirm-password", disabled: resetMutation.isPending }}
           />
           <AuthPrimaryButton type="submit" className="mt-1" disabled={resetMutation.isPending}>
-            {resetMutation.isPending ? "Updating…" : "Reset password"}
+            {resetMutation.isPending ? a.common.updating : a.recover.resetPassword}
           </AuthPrimaryButton>
         </form>
       ) : null}
 
       {stage === "done" ? (
         <div className="space-y-4">
-          <p className="text-center text-base text-text-secondary">
-            Your password has been updated. Continue to sign in and access your account.
-          </p>
+          <p className="text-center text-base text-text-secondary">{a.recover.doneBody}</p>
           <AuthPrimaryButton type="button" className="mt-1" onClick={() => router.push(backHref)}>
-            Go to login
+            {a.recover.goToLogin}
           </AuthPrimaryButton>
         </div>
       ) : null}

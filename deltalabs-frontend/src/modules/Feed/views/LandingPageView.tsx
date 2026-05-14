@@ -2,7 +2,7 @@
 
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, VideoOff } from "lucide-react";
@@ -12,9 +12,12 @@ import {
   FeedActionRail,
   FeedAuthGateModal,
   FeedCaption,
+  FeedClipFilterPanel,
   FeedCommentPanel,
   FeedHashtagList,
   FeedResourceLink,
+  FeedSearchInput,
+  FeedSearchSidebar,
   FeedShareSheet,
   FeedSnapScrollControls,
   FeedStatePanel,
@@ -22,7 +25,13 @@ import {
   type FeedActionItem,
 } from "@/components/features/feed";
 import { FeedLoadingState, FeedWorkerHealthDebugPanel } from "@/modules/Feed/features";
-import { FeedExplorerShell } from "@/modules/Feed/views/FeedExplorerShell";
+import { FeedExplorerShell, type FeedFilterPanelSlotContext } from "@/modules/Feed/views/FeedExplorerShell";
+import {
+  EMPTY_FEED_SELECTION,
+  normalizeFeedQuerySelection,
+  type FeedClipFilterSelection,
+} from "@/modules/Feed/types/feedClipFilters";
+import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
 import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
@@ -33,6 +42,7 @@ import {
   useFeedShareMutation,
 } from "@/modules/Feed/hooks";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import {
   selectCommentPanelOpen,
   setCommentPanelOpen,
@@ -247,14 +257,17 @@ export function LandingPageView() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { isAuthenticated, session } = useAuthSession();
+  const { browseCategories } = useAuthMessages();
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
+  const [appliedSelection, setAppliedSelection] = useState<FeedClipFilterSelection>(EMPTY_FEED_SELECTION);
+  const feedQuerySelection = useMemo(() => normalizeFeedQuerySelection(appliedSelection), [appliedSelection]);
   const {
     data: clipsData,
     isPending: isFeedPending,
     isError: isFeedError,
     refetch: refetchFeed,
     isFetching: isFeedFetching,
-  } = useFeedClips();
+  } = useFeedClips(feedQuerySelection);
   const feedEventMutation = useFeedEventMutation();
   const feedLikeMutation = useFeedLikeMutation();
   const feedSaveMutation = useFeedSaveMutation();
@@ -281,6 +294,8 @@ export function LandingPageView() {
   const [isOffline, setIsOffline] = useState(false);
   const [authGateOpen, setAuthGateOpen] = useState(false);
   const [shareSheetClipId, setShareSheetClipId] = useState<string | null>(null);
+  const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState("");
   const showWorkerHealthDebugPanel =
     (process.env.NEXT_PUBLIC_FEED_DEBUG_WORKER_HEALTH ?? "").toLowerCase() === "true";
   const feedScrollRef = useRef<HTMLDivElement>(null);
@@ -559,19 +574,107 @@ export function LandingPageView() {
     };
   }, []);
 
+  useEffect(() => {
+    const onBrandHomeClick = () => {
+      setAppliedSelection(EMPTY_FEED_SELECTION);
+      setSearchDraft("");
+      setSearchOverlayOpen(false);
+      feedScrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+      void refetchFeed();
+    };
+    window.addEventListener(LANDING_BRAND_CLICK_EVENT, onBrandHomeClick);
+    return () => window.removeEventListener(LANDING_BRAND_CLICK_EVENT, onBrandHomeClick);
+  }, [refetchFeed]);
+
+  const commitSearchToPage = useCallback(
+    (raw: string) => {
+      const next = raw.trim();
+      if (!next) return;
+      setSearchOverlayOpen(false);
+      router.push(`/search?q=${encodeURIComponent(next)}`);
+    },
+    [router],
+  );
+
+  const searchSidebarLabels = useMemo(
+    () => ({
+      aria: browseCategories.searchSidebarAria,
+      close: browseCategories.searchSidebarClose,
+      cancel: browseCategories.searchSidebarCancel,
+      viewAllTemplate: browseCategories.searchSidebarViewAllTemplate,
+      empty: browseCategories.searchSidebarEmpty,
+      loading: browseCategories.searchSidebarLoading,
+      error: browseCategories.searchSidebarError,
+    }),
+    [browseCategories],
+  );
+
+  const renderLeftSearch = useCallback(
+    (ctx: {
+      searchInputId: string;
+      filterPanelId: string;
+      isFilterOpen: boolean;
+      onFilterToggle: () => void;
+    }) => (
+      <div className="w-full max-w-full">
+        <FeedSearchInput
+          id={ctx.searchInputId}
+          filterControlsId={ctx.filterPanelId}
+          isFilterOpen={ctx.isFilterOpen}
+          onFilterToggle={ctx.onFilterToggle}
+          filterAriaLabel={browseCategories.filtersAria}
+          placeholder={browseCategories.searchPlaceholder}
+          value={searchDraft}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          onFocus={() => setSearchOverlayOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitSearchToPage(searchDraft);
+            }
+          }}
+        />
+      </div>
+    ),
+    [searchDraft, commitSearchToPage, browseCategories],
+  );
+
+  const landingFilterPanel = useMemo(
+    () => (ctx: FeedFilterPanelSlotContext) => (
+      <FeedClipFilterPanel
+        id={ctx.panelId}
+        open={ctx.isOpen}
+        appliedSelection={appliedSelection}
+        onDismiss={ctx.onDismiss}
+        onApply={(next) => setAppliedSelection(next)}
+      />
+    ),
+    [appliedSelection],
+  );
+
+  const explorerShellRails = useMemo(
+    () => ({
+      expandMainToFullWidth: true as const,
+      leftSearch: renderLeftSearch,
+      filterPanel: landingFilterPanel,
+      rightAside: <FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />,
+    }),
+    [renderLeftSearch, landingFilterPanel, showWorkerHealthDebugPanel, isAuthenticated],
+  );
+
   const noVideosAvailable = !isFeedPending && !isFeedError && clips.length === 0;
 
   return (
     <>
       {isFeedPending ? (
         <FeedExplorerShell
-          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+          {...explorerShellRails}
           center={<FeedLoadingState />}
         />
       ) : null}
       {isFeedError ? (
         <FeedExplorerShell
-          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+          {...explorerShellRails}
           center={
             <FeedStatePanel
               icon={CircleAlert}
@@ -592,7 +695,7 @@ export function LandingPageView() {
       ) : null}
       {noVideosAvailable ? (
         <FeedExplorerShell
-          rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+          {...explorerShellRails}
           center={
             <FeedStatePanel
               icon={VideoOff}
@@ -604,7 +707,7 @@ export function LandingPageView() {
       ) : null}
       {!isFeedPending && !isFeedError && clips.length > 0 ? (
       <FeedExplorerShell
-        rightAside={<FeedWorkerHealthDebugPanel enabled={showWorkerHealthDebugPanel && isAuthenticated} />}
+        {...explorerShellRails}
         afterGrid={
           <FeedSnapScrollControls
             scrollContainerRef={feedScrollRef}
@@ -707,6 +810,15 @@ export function LandingPageView() {
         open={shareSheetClipId != null}
         onClose={() => setShareSheetClipId(null)}
         onShareSelect={handleShareSelect}
+      />
+      <FeedSearchSidebar
+        open={searchOverlayOpen}
+        onClose={() => setSearchOverlayOpen(false)}
+        query={searchDraft}
+        onQueryChange={setSearchDraft}
+        onSubmitFullSearch={commitSearchToPage}
+        labels={searchSidebarLabels}
+        searchPlaceholder={browseCategories.searchPlaceholder}
       />
     </>
   );

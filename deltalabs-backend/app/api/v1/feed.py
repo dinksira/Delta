@@ -56,6 +56,20 @@ def _engagement_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Engageme
 
 # ################################ /HELPERS ################################
 
+_FEED_COURSE_CATEGORIES = frozenset({"research", "lab", "course"})
+
+
+def _normalize_feed_course_category(raw: str | None) -> str | None:
+    if raw is None or not str(raw).strip():
+        return None
+    value = str(raw).strip().lower()
+    if value not in _FEED_COURSE_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "feed_course_category_invalid", "allowed": sorted(_FEED_COURSE_CATEGORIES)},
+        )
+    return value
+
 
 # ################################ ROUTES ################################
 # Feed read and engagement write endpoints.
@@ -64,10 +78,24 @@ async def get_feed(
     limit: int = Query(12, ge=1, le=50),
     cursor: str | None = Query(None),
     content_type: str | None = Query(None, description="Optional filter, e.g. video"),
+    hashtag: str | None = Query(None, max_length=120, description="Match any hashtag (substring, case-insensitive)"),
+    min_duration_s: int | None = Query(None, ge=0, le=86_400),
+    max_duration_s: int | None = Query(None, ge=0, le=86_400),
+    course_category: str | None = Query(None, description="One of: research, lab, course"),
     user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> FeedPaginatedResponse:
     """Public landing feed with cursor pagination."""
+    if (
+        min_duration_s is not None
+        and max_duration_s is not None
+        and min_duration_s > max_duration_s
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "feed_duration_range_invalid", "message": "min_duration_s must be <= max_duration_s"},
+        )
+    course = _normalize_feed_course_category(course_category)
     service = _content_service(db)
     await service.bootstrap_indexes()
     return await service.list_feed(
@@ -75,6 +103,10 @@ async def get_feed(
         cursor_token=cursor,
         content_type=content_type,
         user_id=user.user_id if user is not None else None,
+        hashtag=hashtag,
+        min_duration_s=min_duration_s,
+        max_duration_s=max_duration_s,
+        course_category=course,
     )
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 /** ################################ IMPORT ############################# */
-/** React and local dependencies for the feed explorer shell. */
+/** React and local dependencies for the shared feed explorer shell. */
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
 
@@ -10,8 +10,24 @@ import { cx } from "@/components/theme/utils";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */
-/** Props used by the shared feed explorer layout wrapper. */
+/** Context for a custom filter block in the left rail (below search). */
+export type FeedFilterPanelSlotContext = Readonly<{
+  panelId: string;
+  isOpen: boolean;
+  onDismiss: () => void;
+}>;
+export type FeedSearchRailContext = Readonly<{
+  searchInputId: string;
+  filterPanelId: string;
+  isFilterOpen: boolean;
+  onFilterToggle: () => void;
+}>;
+
 type FeedExplorerShellProps = Readonly<{
+  /**
+   * Custom left-rail search (same filter panel wiring). When omitted, the default `FeedSearchInput` is used.
+   */
+  leftSearch?: (ctx: FeedSearchRailContext) => ReactNode;
   /** Main column (e.g. feed scroll region or hub content). */
   center: ReactNode;
   /** Extra controls under the shared filter panel (nav links, category pills, …). */
@@ -25,21 +41,24 @@ type FeedExplorerShellProps = Readonly<{
    * fills the rest of the viewport (no empty third track).
    */
   expandMainToFullWidth?: boolean;
+  /** When set, replaces default `FeedFilterPanel` (e.g. landing chip rail). */
+  filterPanel?: (ctx: FeedFilterPanelSlotContext) => ReactNode;
 }>;
 /** ################################ /TYPES ############################# */
 
 /** ################################ COMPONENT ############################# */
-/** Three-column shell with left controls, center content, and optional right rail. */
 /**
  * Three-column shell shared by the video landing and module hub routes:
  * left `FeedSearchInput` + `FeedFilterPanel`, center content, optional right rail.
  */
 export function FeedExplorerShell({
+  leftSearch,
   center,
   leftFooter,
   rightAside,
   afterGrid,
   expandMainToFullWidth = false,
+  filterPanel,
 }: FeedExplorerShellProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const uid = useId().replace(/:/g, "");
@@ -48,8 +67,21 @@ export function FeedExplorerShell({
 
   const twoColumnMain = expandMainToFullWidth && !rightAside;
 
+  const railCtx: FeedSearchRailContext = {
+    searchInputId,
+    filterPanelId,
+    isFilterOpen,
+    onFilterToggle: () => setIsFilterOpen((value) => !value),
+  };
+
+  const panelCtx: FeedFilterPanelSlotContext = {
+    panelId: filterPanelId,
+    isOpen: isFilterOpen,
+    onDismiss: () => setIsFilterOpen(false),
+  };
+
   return (
-    <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2 sm:px-3 lg:px-4">
+    <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden px-2 sm:px-3 lg:px-4">
       <div
         className={cx(
           "grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden sm:gap-4 lg:grid-rows-[minmax(0,1fr)] lg:items-stretch lg:gap-4",
@@ -58,14 +90,22 @@ export function FeedExplorerShell({
             : "lg:grid-cols-[minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))_auto_minmax(var(--dl-layout-shell-rail-min),var(--dl-layout-shell-rail-max))]",
         )}
       >
-        <aside className="w-full max-w-none justify-self-stretch pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:self-start">
-          <FeedSearchInput
-            id={searchInputId}
-            filterControlsId={filterPanelId}
-            isFilterOpen={isFilterOpen}
-            onFilterToggle={() => setIsFilterOpen((value) => !value)}
-          />
-          <FeedFilterPanel id={filterPanelId} isOpen={isFilterOpen} />
+        <aside className="flex min-h-0 w-full max-w-none flex-col justify-self-stretch pt-2 sm:pt-3 lg:sticky lg:top-0 lg:z-10 lg:max-h-[min(100dvh,100svh)] lg:w-full lg:max-w-[var(--dl-layout-shell-rail-aside-cap)] lg:overflow-y-auto lg:self-start">
+          {leftSearch ? (
+            leftSearch(railCtx)
+          ) : (
+            <FeedSearchInput
+              id={searchInputId}
+              filterControlsId={filterPanelId}
+              isFilterOpen={isFilterOpen}
+              onFilterToggle={railCtx.onFilterToggle}
+            />
+          )}
+          {filterPanel ? (
+            filterPanel(panelCtx)
+          ) : (
+            <FeedFilterPanel id={filterPanelId} isOpen={isFilterOpen} />
+          )}
           {leftFooter}
         </aside>
 
