@@ -84,7 +84,7 @@ export function useProfile(): UseProfileReturn {
             firstName: names[0] || users[idx].firstName,
             lastName: names.slice(1).join(" ") || users[idx].lastName,
             bio: data.bio ?? users[idx].bio,
-          } as any; // Cast as any for internal mock update to bypass rigid Readonly record constraints
+          } as import("@/modules/Auth/api/mockAuthStore").MockUserRecord;
           saveUsers(users);
           setProfile(toPublicUser(users[idx]));
         }
