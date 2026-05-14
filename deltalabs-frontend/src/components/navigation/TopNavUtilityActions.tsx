@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { HelpCircle, LogOut, Settings, UserRound, Users } from "lucide-react";
 
 import { LandingFeaturesIconSwitch } from "@/components/navigation/LandingFeaturesIconSwitch";
+import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { AUTH_SESSION_COOKIE } from "@/lib/authSession";
 import { DialogHeader, DialogOverlay, DialogPanel, DialogSection } from "@/components/theme/Dialog";
@@ -64,26 +65,6 @@ function NavRobotAssistantIcon({ className }: Readonly<{ className?: string }>) 
       <circle cx="15.05" cy="17.05" r="0.65" fill="currentColor" />
       <circle cx="16.75" cy="17.05" r="0.65" fill="currentColor" />
       <circle cx="18.45" cy="17.05" r="0.65" fill="currentColor" />
-    </svg>
-  );
-}
-
-function GlobeIcon({ className }: Readonly<{ className?: string }>) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r={9} stroke="currentColor" strokeWidth={ICON_STROKE} />
-      <path
-        d="M3 12h18M12 3c2.5 3 2.5 15 0 18M12 3c-2.5 3-2.5 15 0 18"
-        stroke="currentColor"
-        strokeWidth={ICON_STROKE}
-        strokeLinecap="round"
-      />
     </svg>
   );
 }
@@ -281,14 +262,7 @@ export function TopNavUtilityActions({ profileInitials, avatarUrl }: TopNavUtili
       >
         <NavRobotAssistantIcon className={utilityGlyphClass} />
       </button>
-      <button
-        type="button"
-        className="inline-flex h-10 items-center gap-2 rounded-md px-1.5 text-base leading-none text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 sm:text-[17px]"
-        aria-label="Language: English"
-      >
-        <GlobeIcon className={`${utilityGlyphClass} opacity-90`} />
-        <span className="leading-none">English</span>
-      </button>
+      <NavLanguageControl tone="onPrimary" />
       <button
         ref={triggerRef}
         type="button"

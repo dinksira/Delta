@@ -1,6 +1,7 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import type { InputHTMLAttributes, ReactNode } from "react";
+import { forwardRef } from "react";
 
 import { cx } from "@/components/theme/utils";
 
@@ -30,42 +31,52 @@ export type SearchInputProps = Readonly<{
   placeholder?: string;
   /** Leading control inside the pill (e.g. filter trigger). */
   startSlot?: ReactNode;
+  /** Trailing control inside the pill before the magnifier (e.g. Cancel). */
+  endSlot?: ReactNode;
   className?: string;
   inputClassName?: string;
 }> &
   Omit<InputHTMLAttributes<HTMLInputElement>, "className" | "type">;
 
 /** Figma-style pill search: optional start slot, field, magnifier. */
-export function SearchInput({
-  id,
-  placeholder = "Search...",
-  startSlot,
-  className,
-  inputClassName,
-  ...inputProps
-}: SearchInputProps) {
+export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(function SearchInput(
+  {
+    id,
+    placeholder = "Search...",
+    startSlot,
+    endSlot,
+    className,
+    inputClassName,
+    ...inputProps
+  },
+  ref,
+) {
   return (
     <div
       className={cx(
-        "flex h-11 w-full max-w-full items-center gap-2 rounded-full border border-border-default bg-surface-default px-2.5 py-1 shadow-sm",
+        "flex h-11 w-full max-w-full cursor-pointer items-center gap-2 rounded-full border border-border-default bg-surface-default px-2.5 py-1 shadow-sm",
         className,
       )}
     >
       {startSlot}
       <input
+        ref={ref}
         id={id}
         type="search"
         placeholder={placeholder}
+        enterKeyHint="search"
         className={cx(
-          "min-w-0 flex-1 border-0 bg-transparent py-1.5 text-sm text-text-primary outline-none placeholder:text-text-secondary",
+          "min-w-0 flex-1 cursor-pointer border-0 bg-transparent py-1.5 text-sm text-text-primary outline-none placeholder:text-text-secondary focus:cursor-text",
           inputClassName,
         )}
         {...inputProps}
       />
-      <span className="inline-flex shrink-0 items-center justify-center p-1 text-slate-600 dark:text-slate-300">
-        <IconSearch className="shrink-0" />
+      {endSlot}
+      <span className="pointer-events-none inline-flex shrink-0 cursor-pointer items-center justify-center p-1 text-slate-600 dark:text-slate-300">
+        <IconSearch className="shrink-0 cursor-pointer" />
       </span>
     </div>
   );
-}
+});
+SearchInput.displayName = "SearchInput";
 /** ################################ /COMPONENT ############################# */

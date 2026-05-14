@@ -1,8 +1,9 @@
-/** ################################ IMPORT ############################# */
-/** Imports used by this file. */
+"use client";
+
 import Link from "next/link";
 
 import { Typography } from "@/components/theme";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
@@ -16,10 +17,11 @@ type AuthBottomSwitchLinkProps = Readonly<{
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
 export function AuthBottomSwitchLink({ mode, href }: AuthBottomSwitchLinkProps) {
+  const a = useAuthMessages();
   const isToSignup = mode === "to_signup";
   const targetHref = href ?? (isToSignup ? "/signup" : "/login");
-  const prefix = isToSignup ? "Not Registered Yet?" : "Already Registered ?";
-  const action = isToSignup ? "Create an account" : "Sign in";
+  const prefix = isToSignup ? a.bottomLink.notRegistered : a.bottomLink.alreadyRegistered;
+  const action = isToSignup ? a.bottomLink.createAccount : a.bottomLink.signIn;
 
   return (
     <div className="text-center">

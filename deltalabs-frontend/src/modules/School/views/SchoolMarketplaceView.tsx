@@ -2,7 +2,7 @@
 
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -608,7 +608,7 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
     });
   }, [dealRoomOffersData?.items]);
   const normalizedSessionEmail = session?.user?.email?.trim().toLowerCase() ?? "";
-  const canRespondToOffer = (offer: OfferDto) => {
+  const canRespondToOffer = useCallback((offer: OfferDto) => {
     if (!normalizedSessionEmail) return false;
     const turn = offer.negotiationTurn ?? "recipient";
     const expected =
@@ -616,9 +616,12 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
         ? offer.recipientEmail?.trim().toLowerCase()
         : offer.senderEmail?.trim().toLowerCase();
     return expected === normalizedSessionEmail;
-  };
-  const canDealRoomSellerRespond = (offer: OfferDto) =>
-    offer.offerKind === "marketplace_transfer" && (offer.status === "requested" || offer.status === "amendment");
+  }, [normalizedSessionEmail]);
+  const canDealRoomSellerRespond = useCallback(
+    (offer: OfferDto) =>
+      offer.offerKind === "marketplace_transfer" && (offer.status === "requested" || offer.status === "amendment"),
+    [],
+  );
   const dealRoomColumns = useMemo<readonly TableColumn<OfferDto>[]>(
     () => [
       {

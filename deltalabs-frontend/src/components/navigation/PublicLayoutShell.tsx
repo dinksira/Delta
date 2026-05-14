@@ -4,8 +4,10 @@
 /** React, auth session, and public navigation dependencies. */
 import type { ReactNode } from "react";
 
+import { GlobalAudioDock, PublicScrollAreaWithAudioDockPadding } from "@/components/audio/GlobalAudioDock";
 import { AuthModalGateway } from "@/components/features/auth";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { PersistentAudioPlayerProvider } from "@/contexts/PersistentAudioPlayer_Context";
 import { PublicHeader } from "@/components/navigation/PublicHeader";
 import { profileInitialsFromUser } from "@/lib/authDisplay";
 /** ################################ /IMPORT ############################# */
@@ -36,16 +38,21 @@ export function PublicLayoutShell({ children, serverAuthenticated }: PublicLayou
   const avatarUrl = session && isReady ? session.user.avatarUrl : null;
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface-canvas">
-      <PublicHeader
-        isAuthenticated={isAuthenticated}
-        profileInitials={profileInitials}
-        avatarUrl={avatarUrl}
-        sessionPending={sessionPending}
-      />
-      <AuthModalGateway enabled={!isAuthenticated} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
-    </div>
+    <PersistentAudioPlayerProvider>
+      <div className="flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface-canvas">
+        <PublicHeader
+          isAuthenticated={isAuthenticated}
+          profileInitials={profileInitials}
+          avatarUrl={avatarUrl}
+          sessionPending={sessionPending}
+        />
+        <AuthModalGateway enabled={!isAuthenticated} />
+        <PublicScrollAreaWithAudioDockPadding>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</div>
+        </PublicScrollAreaWithAudioDockPadding>
+        <GlobalAudioDock />
+      </div>
+    </PersistentAudioPlayerProvider>
   );
 }
 /** ################################ /COMPONENT ############################# */

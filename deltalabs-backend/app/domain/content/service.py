@@ -44,6 +44,10 @@ class Service:
         cursor_token: str | None,
         content_type: str | None,
         user_id: str | None = None,
+        hashtag: str | None = None,
+        min_duration_s: int | None = None,
+        max_duration_s: int | None = None,
+        course_category: str | None = None,
     ) -> FeedPaginatedResponse:
         """Cursor-paginated public feed."""
         cursor_tuple = None
@@ -63,6 +67,10 @@ class Service:
             cursor=cursor_tuple,
             content_type=content_type,
             exclude_content_ids=exclude_content_ids,
+            hashtag=hashtag,
+            min_duration_s=min_duration_s,
+            max_duration_s=max_duration_s,
+            course_category=course_category,
         )
         if not docs and exclude_content_ids:
             docs, has_more = await self._repository.list_public_items(
@@ -70,6 +78,10 @@ class Service:
                 cursor=cursor_tuple,
                 content_type=content_type,
                 exclude_content_ids=None,
+                hashtag=hashtag,
+                min_duration_s=min_duration_s,
+                max_duration_s=max_duration_s,
+                course_category=course_category,
             )
         docs = await self._personalize_docs(
             docs=docs,
@@ -93,13 +105,36 @@ class Service:
                 item_id=str(last["_id"]),
             )
 
-        total = await self._repository.count_public_items(content_type=content_type)
+        total = await self._repository.count_public_items(
+            content_type=content_type,
+            hashtag=hashtag,
+            min_duration_s=min_duration_s,
+            max_duration_s=max_duration_s,
+            course_category=course_category,
+        )
         return FeedPaginatedResponse(
             items=items,
             total=total,
             next_cursor=next_cursor,
             has_more=has_more,
         )
+
+    async def project_feed_items_with_engagement(
+        self,
+        *,
+        docs: list[dict[str, Any]],
+        user_id: str | None,
+    ) -> list[FeedItemPublic]:
+        """Map raw content docs to `FeedItemPublic` with live engagement snapshots."""
+        if not docs:
+            return []
+        item_ids = [str(doc.get("_id", "")) for doc in docs]
+        await self._apply_engagement_snapshot_to_docs(
+            docs=docs,
+            item_ids=item_ids,
+            user_id=user_id,
+        )
+        return [Repository.doc_to_feed_item(doc) for doc in docs]
 
     async def get_feed_item(self, item_id: str) -> FeedItemPublic:
         """Return a single public feed item."""

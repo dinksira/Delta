@@ -17,7 +17,7 @@ import {
   Sparkles,
   Table2,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 type ManagementTableBoardViewsPopoverProps = Readonly<{
@@ -79,14 +79,14 @@ export function ManagementTableBoardViewsPopover({ open, onClose, anchorRef }: M
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  const syncPos = () => {
+  const syncPos = useCallback(() => {
     const el = anchorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const width = 300;
     const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
     setPos({ top: r.bottom + 8, left });
-  };
+  }, [anchorRef]);
 
   useEffect(() => {
     if (!open) {
@@ -94,7 +94,7 @@ export function ManagementTableBoardViewsPopover({ open, onClose, anchorRef }: M
       return;
     }
     syncPos();
-  }, [open, anchorRef]);
+  }, [open, syncPos]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +105,7 @@ export function ManagementTableBoardViewsPopover({ open, onClose, anchorRef }: M
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [open, anchorRef]);
+  }, [open, syncPos]);
 
   useEffect(() => {
     if (!open) return;

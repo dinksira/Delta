@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import UTC, datetime
 from typing import Any
@@ -34,6 +35,32 @@ def decode_feed_cursor(value: str) -> tuple[datetime, str] | None:
         return None
 
 
+def build_public_feed_match(
+    *,
+    content_type: str | None,
+    hashtag: str | None = None,
+    min_duration_s: int | None = None,
+    max_duration_s: int | None = None,
+    course_category: str | None = None,
+) -> dict[str, Any]:
+    """Shared Mongo filter for public feed listing and counts."""
+    spec: dict[str, Any] = {"visibility": "public"}
+    if content_type:
+        spec["content_type"] = content_type
+    if hashtag and str(hashtag).strip():
+        spec["hashtags"] = re.compile(re.escape(hashtag.strip()), re.IGNORECASE)
+    if course_category and str(course_category).strip():
+        spec["course_category"] = str(course_category).strip().lower()
+    if min_duration_s is not None or max_duration_s is not None:
+        bounds: dict[str, Any] = {}
+        if min_duration_s is not None:
+            bounds["$gte"] = int(min_duration_s)
+        if max_duration_s is not None:
+            bounds["$lte"] = int(max_duration_s)
+        spec["duration_s"] = bounds
+    return spec
+
+
 class Repository:
     """MongoDB access for content_items."""
 
@@ -55,11 +82,23 @@ class Repository:
             name="ix_content_items_type_created",
         )
 
-    async def count_public_items(self, *, content_type: str | None) -> int:
+    async def count_public_items(
+        self,
+        *,
+        content_type: str | None,
+        hashtag: str | None = None,
+        min_duration_s: int | None = None,
+        max_duration_s: int | None = None,
+        course_category: str | None = None,
+    ) -> int:
         """Count items visible on the public feed."""
-        query: dict[str, Any] = {"visibility": "public"}
-        if content_type:
-            query["content_type"] = content_type
+        query = build_public_feed_match(
+            content_type=content_type,
+            hashtag=hashtag,
+            min_duration_s=min_duration_s,
+            max_duration_s=max_duration_s,
+            course_category=course_category,
+        )
         return int(await self._db["content_items"].count_documents(query))
 
     async def list_public_items(
@@ -69,11 +108,19 @@ class Repository:
         cursor: tuple[datetime, str] | None,
         content_type: str | None,
         exclude_content_ids: set[str] | None = None,
+        hashtag: str | None = None,
+        min_duration_s: int | None = None,
+        max_duration_s: int | None = None,
+        course_category: str | None = None,
     ) -> tuple[list[dict[str, Any]], bool]:
         """Return up to `limit` items; bool indicates more rows exist."""
-        query: dict[str, Any] = {"visibility": "public"}
-        if content_type:
-            query["content_type"] = content_type
+        query: dict[str, Any] = build_public_feed_match(
+            content_type=content_type,
+            hashtag=hashtag,
+            min_duration_s=min_duration_s,
+            max_duration_s=max_duration_s,
+            course_category=course_category,
+        )
         if exclude_content_ids:
             query["_id"] = {"$nin": sorted(exclude_content_ids)}
 
@@ -104,6 +151,38 @@ class Repository:
         if has_more:
             docs = docs[:limit]
         return docs, has_more
+
+    async def search_public_items_by_text(
+        self,
+        *,
+        query: str,
+        content_type: str | None,
+        max_scan: int,
+    ) -> list[dict[str, Any]]:
+        """Return public items whose caption, hashtags, or id match `query` (case-insensitive)."""
+        raw = query.strip()
+        if not raw:
+            return []
+        pattern = re.escape(raw)
+        rx: dict[str, str] = {"$regex": pattern, "$options": "i"}
+        mongo_query: dict[str, Any] = {
+            "visibility": "public",
+            "$or": [
+                {"caption": rx},
+                {"hashtags": rx},
+                {"_id": rx},
+            ],
+        }
+        if content_type:
+            mongo_query["content_type"] = content_type
+
+        cursor_mongo = (
+            self._db["content_items"]
+            .find(mongo_query)
+            .sort([("created_at", DESCENDING), ("_id", DESCENDING)])
+            .limit(max(1, min(max_scan, 800)))
+        )
+        return await cursor_mongo.to_list(length=max_scan)
 
     async def find_public_by_id(self, item_id: str) -> dict[str, Any] | None:
         """Load one public feed item by id."""
@@ -248,8 +327,13 @@ class Repository:
             return
         now = datetime.now(UTC)
         demos: list[dict[str, Any]] = []
+        categories = ("research", "lab", "course")
+        durations = (45, 75, 150, 240, 420, 600, 90, 110, 180, 360, 55, 200, 480)
         for idx in range(1, 14):
             item_id = f"c{idx}"
+            cat = categories[(idx - 1) % len(categories)]
+            duration_s = int(durations[(idx - 1) % len(durations)])
+            tag_extra = "NeuroTech" if idx == 1 else ("LabSkills" if idx == 2 else "Feed")
             demos.append(
                 {
                     "_id": item_id,
@@ -257,10 +341,12 @@ class Repository:
                     "content_type": "video",
                     "created_at": now,
                     "updated_at": now,
+                    "duration_s": duration_s,
+                    "course_category": cat,
                     "video_src": f"/mock-feed-videos/video-{idx:02d}.mp4",
                     "media_tone": (idx - 1) % 6,
                     "caption": f"Demo feed item {idx} — replace with curated content.",
-                    "hashtags": ["DeltaLabs", "Feed"],
+                    "hashtags": ["DeltaLabs", tag_extra],
                     "pdf_label": "Open resource (PDF)",
                     "like_count": f"{idx * 1000}",
                 }
@@ -274,6 +360,8 @@ class Repository:
         return FeedItemPublic(
             id=str(doc["_id"]),
             videoSrc=str(doc.get("video_src", "")),
+            contentType=str(doc.get("content_type", "video") or "video"),
+            durationS=int(doc.get("duration_s", 0) or 0),
             mediaTone=int(doc.get("media_tone", 0)),
             caption=str(doc.get("caption", "")),
             hashtags=[str(h) for h in doc.get("hashtags", [])],

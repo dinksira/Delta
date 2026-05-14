@@ -26,6 +26,11 @@ import {
   type LandingVideoClip,
 } from "@/modules/Feed/data/mockVideoFeed";
 import { feedQueryKeys } from "@/modules/Feed/hooks/feedQueryKeys";
+import {
+  EMPTY_FEED_SELECTION,
+  normalizeFeedQuerySelection,
+  type FeedClipFilterSelection,
+} from "@/modules/Feed/types/feedClipFilters";
 
 /** ################################ /IMPORT ############################# */
 
@@ -37,7 +42,7 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-async function fetchFeedClips(): Promise<readonly LandingVideoClip[]> {
+async function fetchFeedClips(filters: FeedClipFilterSelection): Promise<readonly LandingVideoClip[]> {
   const useLocalDebugVideosWhenEmpty =
     (process.env.NEXT_PUBLIC_FEED_DEBUG_USE_LOCAL_VIDEOS_WHEN_EMPTY ?? "").toLowerCase() === "true";
   const debugLoadingMsRaw = process.env.NEXT_PUBLIC_FEED_DEBUG_LOADING_MS ?? "";
@@ -45,7 +50,8 @@ async function fetchFeedClips(): Promise<readonly LandingVideoClip[]> {
   if (Number.isFinite(debugLoadingMs) && debugLoadingMs > 0) {
     await delay(debugLoadingMs);
   }
-  const response = await fetchFeedPage({ limit: 24, contentType: "video" });
+  const normalized = normalizeFeedQuerySelection(filters);
+  const response = await fetchFeedPage({ limit: 24, filters: normalized });
   if (useLocalDebugVideosWhenEmpty && response.items.length === 0) {
     return MOCK_VIDEO_FEED.map((clip, index) => ({
       ...clip,
@@ -55,11 +61,12 @@ async function fetchFeedClips(): Promise<readonly LandingVideoClip[]> {
   return response.items;
 }
 
-/** Landing / feed stream; swap `queryFn` for real API while keeping this hook name. */
-export function useFeedClips() {
+/** Landing / feed stream; `selection` drives `GET /v1/feed` filters (main vertical feed uses same UI). */
+export function useFeedClips(selection: FeedClipFilterSelection = EMPTY_FEED_SELECTION) {
+  const queryFilters = normalizeFeedQuerySelection(selection);
   return useQuery({
-    queryKey: feedQueryKeys.clips(),
-    queryFn: fetchFeedClips,
+    queryKey: feedQueryKeys.clips(queryFilters),
+    queryFn: () => fetchFeedClips(queryFilters),
     staleTime: Infinity,
   });
 }
