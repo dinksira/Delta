@@ -360,6 +360,8 @@ class Repository:
         return FeedItemPublic(
             id=str(doc["_id"]),
             videoSrc=str(doc.get("video_src", "")),
+            contentType=str(doc.get("content_type", "video") or "video"),
+            durationS=int(doc.get("duration_s", 0) or 0),
             mediaTone=int(doc.get("media_tone", 0)),
             caption=str(doc.get("caption", "")),
             hashtags=[str(h) for h in doc.get("hashtags", [])],

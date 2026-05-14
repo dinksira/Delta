@@ -3,10 +3,13 @@
 /** ################################ IMPORT ############################# */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { X } from "lucide-react";
 
 import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
+import { feedItemDetailPath, isLikelyAudioMediaUrl } from "@/lib/feedItemRoutes";
 import { useAuthMessages } from "@/i18n/LocaleContext";
 import { fetchGlobalSearch, type SearchUserHitDto } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
@@ -68,17 +71,41 @@ function SearchUsersResultsSkeleton({ loadingLabel }: Readonly<{ loadingLabel: s
   );
 }
 
+const AUDIO_CARD_GRADIENTS = [
+  "from-slate-600 via-slate-700 to-slate-900",
+  "from-primary-600 via-primary-800 to-slate-900",
+  "from-emerald-600 via-teal-800 to-slate-900",
+  "from-violet-600 via-indigo-800 to-slate-900",
+  "from-amber-600 via-orange-800 to-slate-900",
+  "from-rose-600 via-pink-900 to-slate-950",
+] as const;
+
 export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) {
-  return (
+  const href = feedItemDetailPath(clip);
+  const isAudio = clip.contentType === "audio" || isLikelyAudioMediaUrl(clip.videoSrc);
+  const grad = AUDIO_CARD_GRADIENTS[Math.abs(clip.mediaTone) % AUDIO_CARD_GRADIENTS.length];
+
+  const inner = (
     <article className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg">
-      <video
-        src={clip.videoSrc}
-        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-        muted
-        playsInline
-        preload="metadata"
-        aria-label={clip.caption}
-      />
+      {isAudio ? (
+        <div
+          className={cx("flex h-full w-full items-center justify-center bg-gradient-to-br", grad)}
+          aria-hidden
+        >
+          <span className="rounded-full bg-black/35 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-white/95 ring-1 ring-white/25">
+            Audio
+          </span>
+        </div>
+      ) : (
+        <video
+          src={clip.videoSrc}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          muted
+          playsInline
+          preload="metadata"
+          aria-label={clip.caption}
+        />
+      )}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-2 text-white">
         {typeof clip.likeCount === "number" && clip.likeCount > 0 ? (
@@ -88,6 +115,15 @@ export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) 
       </div>
     </article>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2">
+        {inner}
+      </Link>
+    );
+  }
+  return inner;
 }
 
 function SearchUserRow({ user }: Readonly<{ user: SearchUserHitDto }>) {
@@ -158,6 +194,10 @@ export function SearchResultsView() {
     [q, router],
   );
 
+  const closeSearchAndGoBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
   const searchSidebarLabels = useMemo(
     () => ({
       aria: browseCategories.searchSidebarAria,
@@ -215,43 +255,61 @@ export function SearchResultsView() {
   const center = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-2 sm:pt-3">
       {!q ? (
-        <p className="mt-4 px-2 text-sm text-text-secondary sm:px-3 lg:px-4">
-          {browseCategories.searchHintNoQuery}
-        </p>
+        <div className="mt-2 flex shrink-0 items-start justify-between gap-3 border-b border-border-default px-2 pb-3 sm:mt-3 sm:px-3 lg:px-4">
+          <p className="min-w-0 flex-1 pt-1 text-sm text-text-secondary">{browseCategories.searchHintNoQuery}</p>
+          <button
+            type="button"
+            onClick={closeSearchAndGoBack}
+            className="shrink-0 rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
+            aria-label={browseCategories.searchCloseReturnAria}
+          >
+            <X className="size-5" strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
       ) : (
         <>
-          <div
-            role="tablist"
-            aria-label={browseCategories.searchResultsTabsAria}
-            className="mt-2 flex shrink-0 gap-8 border-b border-border-default px-2 sm:mt-3 sm:px-3 lg:px-4"
-          >
+          <div className="relative mt-2 shrink-0 border-b border-border-default px-2 sm:mt-3 sm:px-3 lg:px-4">
+            <div
+              role="tablist"
+              aria-label={browseCategories.searchResultsTabsAria}
+              className="flex shrink-0 gap-8 pr-11 sm:pr-12"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={searchTab === "top"}
+                className={cx(
+                  "relative shrink-0 pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2",
+                  searchTab === "top"
+                    ? "text-text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-text-primary"
+                    : "text-text-secondary hover:text-text-primary",
+                )}
+                onClick={() => goTab("top")}
+              >
+                {browseCategories.searchTabTop}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={searchTab === "users"}
+                className={cx(
+                  "relative shrink-0 pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2",
+                  searchTab === "users"
+                    ? "text-text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-text-primary"
+                    : "text-text-secondary hover:text-text-primary",
+                )}
+                onClick={() => goTab("users")}
+              >
+                {browseCategories.searchTabUsers}
+              </button>
+            </div>
             <button
               type="button"
-              role="tab"
-              aria-selected={searchTab === "top"}
-              className={cx(
-                "relative pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2",
-                searchTab === "top"
-                  ? "text-text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-text-primary"
-                  : "text-text-secondary hover:text-text-primary",
-              )}
-              onClick={() => goTab("top")}
+              onClick={closeSearchAndGoBack}
+              className="absolute inset-y-0 right-2 flex items-center rounded-lg p-2 text-text-secondary transition-colors hover:bg-surface-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2 sm:right-3 lg:right-4"
+              aria-label={browseCategories.searchCloseReturnAria}
             >
-              {browseCategories.searchTabTop}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={searchTab === "users"}
-              className={cx(
-                "relative pb-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2",
-                searchTab === "users"
-                  ? "text-text-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:rounded-full after:bg-text-primary"
-                  : "text-text-secondary hover:text-text-primary",
-              )}
-              onClick={() => goTab("users")}
-            >
-              {browseCategories.searchTabUsers}
+              <X className="size-5" strokeWidth={2.25} aria-hidden />
             </button>
           </div>
 

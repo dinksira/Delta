@@ -3,6 +3,10 @@
 export type LandingVideoClip = Readonly<{
   id: string;
   videoSrc: string;
+  /** From API: `video` | `audio` | `simulation`. Defaults to video in UI when absent. */
+  contentType?: "video" | "audio" | "simulation";
+  /** Seconds; from API `durationS`. */
+  durationS?: number;
   mediaTone: number;
   caption: string;
   hashtags: readonly string[];

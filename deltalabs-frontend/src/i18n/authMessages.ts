@@ -122,6 +122,8 @@ export type AuthMessages = {
     searchLoading: string;
     searchError: string;
     searchResultsTabsAria: string;
+    /** Close full-page search and return to the previous screen (e.g. Video or Audio). */
+    searchCloseReturnAria: string;
   };
 };
 
@@ -265,6 +267,7 @@ const en: AuthMessages = {
     searchLoading: "Loading…",
     searchError: "Something went wrong while searching. Try again.",
     searchResultsTabsAria: "Search result categories",
+    searchCloseReturnAria: "Close search and go back",
   },
 };
 
@@ -414,6 +417,7 @@ const am: AuthMessages = {
     searchLoading: "በመጫን ላይ…",
     searchError: "ፍለጋ በሂደት ላይ ስህተት ተፈጥሯል። እንደገና ይሞክሩ።",
     searchResultsTabsAria: "የፍለጋ ውጤት አይነቶች",
+    searchCloseReturnAria: "ፍለጋን ዝጋ እና ወደ ኋላ ተመለስ",
   },
 };
 

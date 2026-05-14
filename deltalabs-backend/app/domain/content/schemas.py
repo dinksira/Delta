@@ -15,6 +15,8 @@ class FeedItemPublic(BaseModel):
 
     id: str
     videoSrc: str
+    contentType: str = "video"
+    durationS: int = Field(default=0, ge=0, description="Playback length in seconds")
     mediaTone: int = Field(ge=0, le=10)
     caption: str
     hashtags: list[str]
