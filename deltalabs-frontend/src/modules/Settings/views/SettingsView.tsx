@@ -468,7 +468,7 @@ export const SettingsView: React.FC = () => {
                     key={acc.id}
                     icon={Users}
                     title={acc.fullName || acc.username}
-                    description={acc.email}
+                    description={acc.email ?? undefined}
                     action={acc.id === session?.user.id ? <CheckCircle2 className="size-5 text-success-500" /> : null}
                     onClick={() => handleSwitchAccount(acc)}
                   />
