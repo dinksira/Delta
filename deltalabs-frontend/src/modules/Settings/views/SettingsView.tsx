@@ -348,9 +348,6 @@ export const SettingsView: React.FC = () => {
     localStorage.setItem('dl-language', next);
   };
 
-    }
-  };
-
   const handleLogout = async () => {
     try {
       await apiClient.post('/v1/auth/logout').catch(() => {});
