@@ -83,7 +83,6 @@ export function useProfile(): UseProfileReturn {
             ...users[idx],
             firstName: names[0] || users[idx].firstName,
             lastName: names.slice(1).join(" ") || users[idx].lastName,
-            bio: data.bio ?? users[idx].bio,
           } as import("@/modules/Auth/api/mockAuthStore").MockUserRecord;
           saveUsers(users);
           setProfile(toPublicUser(users[idx]));
