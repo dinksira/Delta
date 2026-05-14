@@ -54,3 +54,62 @@ export function normalizeFeedQuerySelection(filters: FeedClipFilterSelection): F
   const p = feedClipFiltersToSearchParams(filters);
   return Object.keys(p).length === 0 ? EMPTY_FEED_SELECTION : filters;
 }
+
+/** UI-only: `fp=1` keeps the clip filter drawer open after Apply / deep links. */
+export const FEED_FILTER_PANEL_OPEN_PARAM = "fp" as const;
+
+/** Serialize filter fields to `content_type`, `hashtag`, … (no `fp`). */
+export function feedClipFiltersToUrlQueryString(filters: FeedClipFilterSelection): string {
+  const normalized = normalizeFeedQuerySelection(filters);
+  const p = feedClipFiltersToSearchParams(normalized);
+  const usp = new URLSearchParams();
+  for (const [key, value] of Object.entries(p)) {
+    if (value === undefined) continue;
+    usp.set(key, String(value));
+  }
+  return usp.toString();
+}
+
+export function appendFeedFilterPanelOpenQuery(queryWithoutLeadingQuestion: string, open: boolean): string {
+  const usp = new URLSearchParams(queryWithoutLeadingQuestion);
+  if (open) usp.set(FEED_FILTER_PANEL_OPEN_PARAM, "1");
+  else usp.delete(FEED_FILTER_PANEL_OPEN_PARAM);
+  return usp.toString();
+}
+
+/** Read filter chips from the URL (strips `fp`, `q`, `tab`). */
+export function parseFeedClipFiltersFromUrlSearchParams(params: URLSearchParams): FeedClipFilterSelection {
+  const sp = new URLSearchParams(params.toString());
+  sp.delete(FEED_FILTER_PANEL_OPEN_PARAM);
+  sp.delete("q");
+  sp.delete("tab");
+
+  const contentType = sp.get("content_type");
+  const modality =
+    contentType === "video" || contentType === "audio" || contentType === "simulation" ? contentType : undefined;
+
+  const hashtagRaw = sp.get("hashtag")?.trim();
+  const hashtag = hashtagRaw && hashtagRaw.length > 0 ? hashtagRaw : undefined;
+
+  const course = sp.get("course_category");
+  const courseCategory =
+    course === "research" || course === "lab" || course === "course" ? course : undefined;
+
+  const minRaw = sp.get("min_duration_s");
+  const maxRaw = sp.get("max_duration_s");
+  let duration: FeedDurationBucket | undefined;
+  if (minRaw != null && maxRaw != null) {
+    const min = Number(minRaw);
+    const max = Number(maxRaw);
+    if (min === 0 && max === 90) duration = "short";
+    else if (min === 90 && max === 300) duration = "medium";
+    else if (min === 300 && max === 86_400) duration = "long";
+  }
+
+  return {
+    ...(modality ? { modality } : {}),
+    ...(hashtag ? { hashtag } : {}),
+    ...(courseCategory ? { courseCategory } : {}),
+    ...(duration ? { duration } : {}),
+  };
+}

@@ -28,6 +28,8 @@ import { FeedLoadingState, FeedWorkerHealthDebugPanel } from "@/modules/Feed/fea
 import { FeedExplorerShell, type FeedFilterPanelSlotContext } from "@/modules/Feed/views/FeedExplorerShell";
 import {
   EMPTY_FEED_SELECTION,
+  appendFeedFilterPanelOpenQuery,
+  feedClipFiltersToUrlQueryString,
   normalizeFeedQuerySelection,
   type FeedClipFilterSelection,
 } from "@/modules/Feed/types/feedClipFilters";
@@ -646,10 +648,13 @@ export function LandingPageView() {
         open={ctx.isOpen}
         appliedSelection={appliedSelection}
         onDismiss={ctx.onDismiss}
-        onApply={(next) => setAppliedSelection(next)}
+        onApply={(next) => {
+          const qs = feedClipFiltersToUrlQueryString(next);
+          router.push(`/feed/filter?${appendFeedFilterPanelOpenQuery(qs, true)}`);
+        }}
       />
     ),
-    [appliedSelection],
+    [appliedSelection, router],
   );
 
   const explorerShellRails = useMemo(

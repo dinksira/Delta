@@ -3,7 +3,7 @@
 /** ################################ IMPORT ############################# */
 /** React and local dependencies for the shared feed explorer shell. */
 import type { ReactNode } from "react";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 
 import { FeedFilterPanel, FeedSearchInput } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
@@ -43,6 +43,11 @@ type FeedExplorerShellProps = Readonly<{
   expandMainToFullWidth?: boolean;
   /** When set, replaces default `FeedFilterPanel` (e.g. landing chip rail). */
   filterPanel?: (ctx: FeedFilterPanelSlotContext) => ReactNode;
+  /**
+   * Optional controlled filter panel visibility (e.g. `/feed/filter?fp=1`).
+   * When omitted, visibility is toggled only inside this shell.
+   */
+  filterOpenState?: Readonly<{ open: boolean; onOpenChange: (open: boolean) => void }>;
 }>;
 /** ################################ /TYPES ############################# */
 
@@ -59,11 +64,24 @@ export function FeedExplorerShell({
   afterGrid,
   expandMainToFullWidth = false,
   filterPanel,
+  filterOpenState,
 }: FeedExplorerShellProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [internalFilterOpen, setInternalFilterOpen] = useState(false);
   const uid = useId().replace(/:/g, "");
   const filterPanelId = `feed-explorer-filter-${uid}`;
   const searchInputId = `feed-search-${uid}`;
+
+  const isFilterOpen = filterOpenState?.open ?? internalFilterOpen;
+  const setFilterOpen = useCallback(
+    (next: boolean) => {
+      if (filterOpenState) {
+        filterOpenState.onOpenChange(next);
+      } else {
+        setInternalFilterOpen(next);
+      }
+    },
+    [filterOpenState],
+  );
 
   const twoColumnMain = expandMainToFullWidth && !rightAside;
 
@@ -71,13 +89,13 @@ export function FeedExplorerShell({
     searchInputId,
     filterPanelId,
     isFilterOpen,
-    onFilterToggle: () => setIsFilterOpen((value) => !value),
+    onFilterToggle: () => setFilterOpen(!isFilterOpen),
   };
 
   const panelCtx: FeedFilterPanelSlotContext = {
     panelId: filterPanelId,
     isOpen: isFilterOpen,
-    onDismiss: () => setIsFilterOpen(false),
+    onDismiss: () => setFilterOpen(false),
   };
 
   return (

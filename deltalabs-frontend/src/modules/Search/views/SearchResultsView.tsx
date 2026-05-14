@@ -5,11 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
+import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
 import { useAuthMessages } from "@/i18n/LocaleContext";
 import { fetchGlobalSearch, type SearchUserHitDto } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
+import {
+  EMPTY_FEED_SELECTION,
+  appendFeedFilterPanelOpenQuery,
+  feedClipFiltersToUrlQueryString,
+} from "@/modules/Feed/types/feedClipFilters";
 import {
   FeedExplorerShell,
   type FeedFilterPanelSlotContext,
@@ -35,7 +40,7 @@ function normalizeSearchTab(raw: string | null): SearchResultsTab {
   return t === "users" ? "users" : "top";
 }
 
-function SearchTopResultsSkeleton({ loadingLabel }: Readonly<{ loadingLabel: string }>) {
+export function SearchTopResultsSkeleton({ loadingLabel }: Readonly<{ loadingLabel: string }>) {
   return (
     <div
       role="status"
@@ -63,7 +68,7 @@ function SearchUsersResultsSkeleton({ loadingLabel }: Readonly<{ loadingLabel: s
   );
 }
 
-function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) {
+export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) {
   return (
     <article className="group relative aspect-[3/4] w-full overflow-hidden rounded-lg">
       <video
@@ -166,11 +171,31 @@ export function SearchResultsView() {
     [browseCategories],
   );
 
+  const filterPanel = useCallback(
+    (ctx: FeedFilterPanelSlotContext) => (
+      <FeedClipFilterPanel
+        id={ctx.panelId}
+        open={ctx.isOpen}
+        appliedSelection={EMPTY_FEED_SELECTION}
+        onDismiss={ctx.onDismiss}
+        onApply={(next) => {
+          const qs = feedClipFiltersToUrlQueryString(next);
+          router.push(`/feed/filter?${appendFeedFilterPanelOpenQuery(qs, true)}`);
+        }}
+      />
+    ),
+    [router],
+  );
+
   const renderLeftSearch = useCallback(
     (ctx: FeedSearchRailContext) => (
       <div className="w-full max-w-full">
         <FeedSearchInput
           id={ctx.searchInputId}
+          filterControlsId={ctx.filterPanelId}
+          isFilterOpen={ctx.isFilterOpen}
+          onFilterToggle={ctx.onFilterToggle}
+          filterAriaLabel={browseCategories.filtersAria}
           placeholder={browseCategories.searchPlaceholder}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -184,10 +209,8 @@ export function SearchResultsView() {
         />
       </div>
     ),
-    [browseCategories.searchPlaceholder, draft, submitSearchQuery],
+    [browseCategories.searchPlaceholder, browseCategories.filtersAria, draft, submitSearchQuery],
   );
-
-  const filterPanel = useCallback((_ctx: FeedFilterPanelSlotContext) => null, []);
 
   const center = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pt-2 sm:pt-3">
