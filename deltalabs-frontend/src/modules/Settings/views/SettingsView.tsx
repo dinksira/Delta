@@ -398,14 +398,14 @@ export const SettingsView: React.FC = () => {
               <SettingsSection title="Personal Information" description="Update your public profile and contact details.">
                 <div className="p-4 flex flex-col gap-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Field label="Full Name">
+                    <Field id="settings-full-name" label="Full Name">
                       <Input 
                         value={formData.fullName} 
                         onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                         placeholder="Your name" 
                       />
                     </Field>
-                    <Field label="Bio">
+                    <Field id="settings-bio" label="Bio">
                       <Input 
                         value={formData.bio} 
                         onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
@@ -517,7 +517,7 @@ export const SettingsView: React.FC = () => {
                       </div>
                     )}
                     <div className="grid grid-cols-1 gap-4">
-                      <Field label="Current Password">
+                      <Field id="settings-current-password" label="Current Password">
                         <Input 
                           type="password"
                           value={passwordData.currentPassword}
@@ -525,7 +525,7 @@ export const SettingsView: React.FC = () => {
                           placeholder="••••••••"
                         />
                       </Field>
-                      <Field label="New Password">
+                      <Field id="settings-new-password" label="New Password">
                         <Input 
                           type="password"
                           value={passwordData.newPassword}
@@ -533,7 +533,7 @@ export const SettingsView: React.FC = () => {
                           placeholder="Min. 10 characters"
                         />
                       </Field>
-                      <Field label="Confirm New Password">
+                      <Field id="settings-confirm-password" label="Confirm New Password">
                         <Input 
                           type="password"
                           value={passwordData.confirmPassword}
