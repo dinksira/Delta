@@ -21,6 +21,8 @@ export type MockUserRecord = Readonly<{
   day: string;
   month: string;
   year: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
 }>;
 
 type RecoveryRecord = Readonly<{
@@ -113,8 +115,8 @@ export function toPublicUser(row: MockUserRecord): AuthenticatedUser {
     phone: row.phone,
     username: row.username,
     fullName: `${row.firstName} ${row.lastName}`.trim(),
-    bio: null,
-    avatarUrl: null,
+    bio: row.bio ?? null,
+    avatarUrl: row.avatarUrl ?? null,
     followersCount: 0,
     followingCount: 0,
     isVerified: true,

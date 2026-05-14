@@ -83,6 +83,7 @@ export function useProfile(): UseProfileReturn {
             ...users[idx],
             firstName: names[0] || users[idx].firstName,
             lastName: names.slice(1).join(" ") || users[idx].lastName,
+            bio: data.bio ?? users[idx].bio,
           } as import("@/modules/Auth/api/mockAuthStore").MockUserRecord;
           saveUsers(users);
           setProfile(toPublicUser(users[idx]));
@@ -117,7 +118,7 @@ export function useProfile(): UseProfileReturn {
         const users = loadUsers();
         const idx = users.findIndex(u => u.id === profile.id || u.username === profile.username);
         if (idx !== -1) {
-          users[idx] = { ...users[idx], avatarUrl: localUrl } as AuthenticatedUser;
+          users[idx] = { ...users[idx], avatarUrl: localUrl } as import("@/modules/Auth/api/mockAuthStore").MockUserRecord;
           saveUsers(users);
         }
       }
