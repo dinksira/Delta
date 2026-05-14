@@ -447,7 +447,8 @@ export function SchoolCreateWizardModal({
     const user = session?.user;
     if (!user) return;
     setPartners((prev) => {
-      const creatorEmail = user.email.trim().toLowerCase();
+      const emailValue = user.email || "";
+      const creatorEmail = emailValue.trim().toLowerCase();
       const filtered =
         creatorEmail.length > 0
           ? prev.filter((p) => p.email.trim().toLowerCase() !== creatorEmail)
