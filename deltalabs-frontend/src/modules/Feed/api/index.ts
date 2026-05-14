@@ -246,7 +246,7 @@ export async function postFeedComment(
     const created: FeedCommentDto = {
       id: `${itemId}-comment-${Date.now()}`,
       userId: "Debug User",
-      username: "Debug User",
+      userName: "Debug User",
       body: payload.body,
       createdAt: new Date().toISOString(),
     };
