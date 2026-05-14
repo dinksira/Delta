@@ -79,7 +79,8 @@ export function LoginPageView({
       });
 
       // Update account history for switching
-      if (result?.user && result?.accessToken) {
+      const sess = result?.session;
+      if (sess?.user && sess?.accessToken) {
         try {
           const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
           let history: AccountHistoryItem[] = [];
@@ -92,12 +93,12 @@ export function LoginPageView({
           }
           
           const accountData: AccountHistoryItem = {
-            user: result.user,
-            accessToken: result.accessToken,
-            expiresAt: result.expiresAt
+            user: sess.user,
+            accessToken: sess.accessToken,
+            expiresAt: sess.expiresAt
           };
 
-          const index = history.findIndex(h => h.user.id === result.user.id);
+          const index = history.findIndex(h => h.user.id === sess.user.id);
           if (index > -1) {
             history[index] = accountData;
           } else {
