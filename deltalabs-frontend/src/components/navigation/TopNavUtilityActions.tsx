@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HelpCircle, LogOut, Settings, UserRound, Users } from "lucide-react";
+import Image from "next/image";
 
 import { LandingFeaturesIconSwitch } from "@/components/navigation/LandingFeaturesIconSwitch";
 import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
@@ -140,7 +141,7 @@ function ProfileMenuModal({ initials, avatarUrl, onClose, onLogout }: ProfileMen
             <div className="flex items-center gap-3">
               <span className="inline-flex size-11 items-center justify-center overflow-hidden rounded-full border border-amber-200/90 bg-amber-100 text-sm font-semibold text-slate-800 shadow-sm">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="size-full object-cover" />
+                  <Image src={avatarUrl} alt="" width={44} height={44} className="size-full object-cover" />
                 ) : (
                   initials
                 )}
@@ -273,7 +274,7 @@ export function TopNavUtilityActions({ profileInitials, avatarUrl }: TopNavUtili
         onClick={() => setMenuOpen((prev) => !prev)}
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt="" className="size-full object-cover" />
+          <Image src={avatarUrl} alt="" width={32} height={32} className="size-full object-cover" />
         ) : (
           initials
         )}

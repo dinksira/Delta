@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { DialogOverlay } from '@/components/theme/Dialog';
 import { cx } from '@/components/theme/utils';
+import Image from 'next/image';
 
 import type { AiAssistantModalProps, ChatMessage } from './AiAssistantModal.types';
 
@@ -205,7 +206,7 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
         {showGreeting ? (
           <div className="flex flex-col items-center px-6 pb-4 pt-10">
             <div className="mb-4 size-40">
-              <img src="/Ai Bot.svg" alt="AI Assistant" className="size-full object-contain" draggable={false} />
+              <Image src="/Ai Bot.svg" alt="AI Assistant" width={160} height={160} className="size-full object-contain" draggable={false} />
             </div>
             <h2 className="mb-3 text-center text-lg font-semibold text-text-primary">{GREETING_TEXT}</h2>
             <button

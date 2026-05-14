@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { Play, BookOpen, Layers, Users, Star, Settings as SettingsIcon, Camera, Loader2, Heart, Bookmark, LayoutGrid } from 'lucide-react';
 import { BackButton, Card, CardContent, CardHeader, CardTitle, Typography } from '@/components/theme';
 import { useProfile } from '../hooks/useProfile';
+import Image from 'next/image';
 import { cx } from '@/components/theme/utils';
 
 // ============================================================================
@@ -110,7 +111,7 @@ export const ProfileView: React.FC = () => {
             <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary-500 to-amber-500 opacity-20 blur-sm transition-opacity group-hover:opacity-40" />
             <div className="relative flex size-24 items-center justify-center overflow-hidden rounded-full border-4 border-surface-default bg-amber-100 text-3xl font-bold text-slate-800 shadow-xl md:size-32">
               {profile?.avatarUrl ? (
-                <img src={profile.avatarUrl} alt={profile.username} className="size-full object-cover" />
+                <Image src={profile.avatarUrl} alt={profile.username} width={128} height={128} className="size-full object-cover" />
               ) : (
                 profile?.username?.[0]?.toUpperCase() || 'U'
               )}
@@ -183,7 +184,7 @@ export const ProfileView: React.FC = () => {
               {(activeTab === 'recent' ? mockVideos : activeTab === 'liked' ? mockLikedVideos : mockSavedVideos).map((video) => (
                 <div key={video.id} className="group relative flex flex-col gap-3 rounded-2xl bg-surface-default border border-border-default p-3 transition-all hover:shadow-md">
                   <div className="relative aspect-video overflow-hidden rounded-xl">
-                    <img src={video.thumbnail} alt={video.title} className="size-full object-cover transition-transform group-hover:scale-105" />
+                    <Image src={video.thumbnail} alt={video.title} width={400} height={225} className="size-full object-cover transition-transform group-hover:scale-105" />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
                       <div className="flex size-10 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-xl">
                         <Play className="ml-0.5 size-5 fill-current" />
