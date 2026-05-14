@@ -101,7 +101,7 @@ function toggleField<T extends string>(
 
 /** ################################ COMPONENT ############################# */
 /** Chip rail; Apply updates the main feed query (vertical feed stays). */
-export function FeedClipFilterPanel({ id, open, appliedSelection, onApply, onDismiss: _onDismiss }: FeedClipFilterPanelProps) {
+export function FeedClipFilterPanel({ id, open, appliedSelection, onApply, onDismiss }: FeedClipFilterPanelProps) {
   const [draft, setDraft] = useState<FeedClipFilterSelection>(() => cloneSelection(appliedSelection));
 
   useEffect(() => {
@@ -204,6 +204,13 @@ export function FeedClipFilterPanel({ id, open, appliedSelection, onApply, onDis
       </div>
 
       <div className="flex shrink-0 flex-col gap-2 border-t border-border-default bg-surface-default px-4 py-3">
+        <button
+          type="button"
+          className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border-default text-sm font-semibold text-text-primary transition-colors hover:bg-surface-muted"
+          onClick={onDismiss}
+        >
+          Cancel
+        </button>
         <button
           type="button"
           className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border-default text-sm font-semibold text-text-primary transition-colors hover:bg-surface-muted"

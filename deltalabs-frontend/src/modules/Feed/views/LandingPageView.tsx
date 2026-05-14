@@ -641,21 +641,24 @@ export function LandingPageView() {
     [searchDraft, commitSearchToPage, browseCategories],
   );
 
-  const landingFilterPanel = useMemo(
-    () => (ctx: FeedFilterPanelSlotContext) => (
-      <FeedClipFilterPanel
-        id={ctx.panelId}
-        open={ctx.isOpen}
-        appliedSelection={appliedSelection}
-        onDismiss={ctx.onDismiss}
-        onApply={(next) => {
-          const qs = feedClipFiltersToUrlQueryString(next);
-          router.push(`/feed/filter?${appendFeedFilterPanelOpenQuery(qs, true)}`);
-        }}
-      />
-    ),
-    [appliedSelection, router],
-  );
+  const landingFilterPanel = useMemo(() => {
+    function LandingFilterPanelSlot(ctx: FeedFilterPanelSlotContext) {
+      return (
+        <FeedClipFilterPanel
+          id={ctx.panelId}
+          open={ctx.isOpen}
+          appliedSelection={appliedSelection}
+          onDismiss={ctx.onDismiss}
+          onApply={(next) => {
+            const qs = feedClipFiltersToUrlQueryString(next);
+            router.push(`/feed/filter?${appendFeedFilterPanelOpenQuery(qs, true)}`);
+          }}
+        />
+      );
+    }
+    LandingFilterPanelSlot.displayName = "LandingFilterPanelSlot";
+    return LandingFilterPanelSlot;
+  }, [appliedSelection, router]);
 
   const explorerShellRails = useMemo(
     () => ({

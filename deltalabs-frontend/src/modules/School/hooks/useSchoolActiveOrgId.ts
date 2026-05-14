@@ -50,8 +50,8 @@ export function useSchoolActiveOrgId() {
     return orgData?.items?.[0]?.id ?? null;
   }, [mySchoolsData?.items, orgData?.items]);
 
-  const orgs = orgData?.items ?? [];
-  const mySchools = mySchoolsData?.items ?? [];
+  const orgs = useMemo(() => orgData?.items ?? [], [orgData?.items]);
+  const mySchools = useMemo(() => mySchoolsData?.items ?? [], [mySchoolsData?.items]);
 
   const activeOrgName = useMemo(() => {
     if (!activeOrgId) return null;

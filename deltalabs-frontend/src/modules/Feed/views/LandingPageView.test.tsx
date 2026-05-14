@@ -83,8 +83,10 @@ class StubIntersectionObserver implements IntersectionObserver {
 
   constructor(
     private readonly callback: IntersectionObserverCallback,
-    _options?: IntersectionObserverInit,
-  ) {}
+    options?: IntersectionObserverInit,
+  ) {
+    void options;
+  }
 
   disconnect(): void {
     this.targets.clear();
