@@ -18,6 +18,14 @@ This folder is the **human-friendly entry point** for understanding the project.
 
 ## Product / feature docs
 
+- **Feed / FYP (web + backend) — start here**: `feed-page/README.md`
+- Feed system architecture: `feed-page/feed-system-architecture.md`
+- Feed backend design: `feed-page/feed-backend-design.md`
+- Feed data model: `feed-page/feed-backend-data-model-and-diagrams.md`
+- Feed ranking algorithms: `feed-page/feed-ranking-algorithms.md`
+- Feed user flows: `feed-page/feed-user-flows.md`
+- Feed frontend hierarchy (detailed): `feed-page/feed-frontend-component-hierarchy.md`
+- Feed frontend hierarchy (simple): `feed-page/feed-frontend-component-hierarchy-simple.md`
 - Marketplace offers details: `school-marketplace-offers-implementation-details.md`
 
 ## Documentation organization guidance

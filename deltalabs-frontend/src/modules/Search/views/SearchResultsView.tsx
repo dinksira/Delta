@@ -10,7 +10,7 @@ import { X } from "lucide-react";
 import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
 import { feedItemDetailPath, isLikelyAudioMediaUrl } from "@/lib/feedItemRoutes";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import { fetchGlobalSearch, type SearchUserHitDto } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
@@ -148,7 +148,7 @@ function SearchUserRow({ user }: Readonly<{ user: SearchUserHitDto }>) {
 export function SearchResultsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const browseCategories = useAuthMessages().browseCategories;
+  const browseCategories = useFeedMessages().browseCategories;
 
   const qRaw = searchParams.get("q") ?? "";
   const q = qRaw.trim();

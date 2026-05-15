@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import { useFeedClips } from "@/modules/Feed/hooks/useFeedQueries";
 import {
   appendFeedFilterPanelOpenQuery,
@@ -31,7 +31,7 @@ import { SearchTopResultsSkeleton, SearchVideoTile } from "@/modules/Search/view
 export function FilterResultsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const browseCategories = useAuthMessages().browseCategories;
+  const browseCategories = useFeedMessages().browseCategories;
 
   const selection = useMemo(
     () => normalizeFeedQuerySelection(parseFeedClipFiltersFromUrlSearchParams(searchParams)),

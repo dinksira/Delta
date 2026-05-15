@@ -44,7 +44,7 @@ import {
   useFeedShareMutation,
 } from "@/modules/Feed/hooks";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import {
   selectCommentPanelOpen,
   setCommentPanelOpen,
@@ -259,7 +259,7 @@ export function LandingPageView() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { isAuthenticated, session } = useAuthSession();
-  const { browseCategories } = useAuthMessages();
+  const { browseCategories } = useFeedMessages();
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
   const [appliedSelection, setAppliedSelection] = useState<FeedClipFilterSelection>(EMPTY_FEED_SELECTION);
   const feedQuerySelection = useMemo(() => normalizeFeedQuerySelection(appliedSelection), [appliedSelection]);

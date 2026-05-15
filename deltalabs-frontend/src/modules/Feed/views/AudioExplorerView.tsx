@@ -9,7 +9,7 @@ import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/compo
 import { Typography } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 import { feedItemDetailPath } from "@/lib/feedItemRoutes";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import { useFeedClips } from "@/modules/Feed/hooks/useFeedQueries";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
@@ -81,7 +81,7 @@ type AudioExplorerVariant = "home" | "library";
  */
 export function AudioExplorerView({ variant }: Readonly<{ variant: AudioExplorerVariant }>) {
   const router = useRouter();
-  const browseCategories = useAuthMessages().browseCategories;
+  const browseCategories = useFeedMessages().browseCategories;
 
   const audioSelection = useMemo<FeedClipFilterSelection>(() => ({ modality: "audio" }), []);
   const {

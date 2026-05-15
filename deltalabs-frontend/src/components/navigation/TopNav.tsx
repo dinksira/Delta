@@ -8,8 +8,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Typography } from "@/components/theme";
-import type { AuthMessages } from "@/i18n/authMessages";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import type { FeedMessages } from "@/i18n/feedMessages";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
 import { FeatureBrowserTabBar } from "@/components/navigation/FeatureBrowserTabBar";
 import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
@@ -75,7 +75,7 @@ const LANDING_CATEGORY_PATHS = [
 /** Helper utilities used by this file. */
 function landingCategoryItems(
   pathname: string,
-  browse: AuthMessages["browseCategories"],
+  browse: FeedMessages["browseCategories"],
 ): readonly TopNavCategoryItem[] {
   return LANDING_CATEGORY_PATHS.map((item) => {
     const active =
@@ -110,7 +110,7 @@ function BrandLogoMark() {
 export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { browseCategories } = useAuthMessages();
+  const { browseCategories } = useFeedMessages();
   const landingTabs = useMemo(
     () => landingCategoryItems(pathname ?? "", browseCategories),
     [pathname, browseCategories],
