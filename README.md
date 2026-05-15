@@ -1,17 +1,32 @@
-# Delta Labs (monorepo)
+<p align="center">
+  <img src="deltalabs-frontend/public/delta-labs.png" alt="Delta Labs Logo" width="120" />
+</p>
 
-This repository contains multiple apps (frontend, backend, admin, mobile, desktop) plus shared documentation.
+# Delta Labs
 
-## Start here (non-engineers / stakeholders)
+**Delta Labs** is an enterprise-grade, multi-tenant educational ecosystem designed to provide a seamless learning experience across Web, Mobile, and Desktop platforms.
 
-- **Auth & security overview**: `docs/auth-overview.md`
-- **Docs index**: `docs/README.md`
+## 🚀 The Ecosystem
 
-## Apps
+- **[Frontend](./deltalabs-frontend)**: Modern Next.js 15 web application.
+- **[Backend](./deltalabs-backend)**: High-performance FastAPI (Python) service.
+- **[Mobile](./deltalabs-mobile)**: Offline-first Flutter app for iOS and Android.
+- **[Desktop](./deltalabs-desktop)**: Electron-based desktop application.
+- **[Admin](./deltalabs-admin)**: Management dashboard for system orchestration.
 
-- **Backend (FastAPI)**: `deltalabs-backend/README.md`
-- **Frontend (Next.js)**: `deltalabs-frontend/README.md`
-- **Admin**: `deltalabs-admin/README.md`
-- **Mobile**: `deltalabs-mobile/README.md`
-- **Desktop**: `deltalabs-desktop/README.md`
+## 🛠️ Technology Stack
 
+| Platform | Core Tech |
+| :--- | :--- |
+| **Web** | React 19, Next.js 15, Tailwind CSS |
+| **Mobile** | Flutter, Riverpod, Drift (SQLite) |
+| **Backend** | FastAPI, MongoDB, Redis |
+| **Desktop** | Electron, TypeScript |
+
+## 📚 Documentation
+
+- **[Architecture Overview](./docs/README.md)**
+- **[Authentication System](./docs/auth-overview.md)**
+
+---
+*Empowering education through technology.*
