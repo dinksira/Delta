@@ -42,7 +42,7 @@ function setAuthModeInQuery(pathname: string, searchParams: URLSearchParams, mod
 export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
 
   const mode = useMemo<AuthMode | null>(() => {
     const raw = searchParams.get("auth");

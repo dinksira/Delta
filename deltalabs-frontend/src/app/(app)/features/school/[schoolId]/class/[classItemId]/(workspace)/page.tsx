@@ -2,6 +2,10 @@
 import { Suspense } from "react";
 
 import { SchoolClassDetailView } from "@/modules/School/views/SchoolClassDetailView";
+
+export function generateStaticParams() {
+  return [{ schoolId: "default", classItemId: "default" }];
+}
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */

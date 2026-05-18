@@ -72,7 +72,7 @@ function parseClassNav(raw: string | null): NavId {
  */
 export function ClassBottomNav() {
   const params = useParams<{ schoolId: string; classItemId: string }>();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const startButtonRef = useRef<HTMLButtonElement>(null);
   const [startOpen, setStartOpen] = useState(false);
 

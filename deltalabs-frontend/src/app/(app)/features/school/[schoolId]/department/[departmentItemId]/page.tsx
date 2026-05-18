@@ -2,6 +2,10 @@
 import { Suspense } from "react";
 
 import { SchoolDepartmentWorkspaceView } from "@/modules/School/department";
+
+export function generateStaticParams() {
+  return [{ schoolId: "default", departmentItemId: "default" }];
+}
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */

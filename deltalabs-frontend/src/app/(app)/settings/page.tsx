@@ -3,7 +3,7 @@
  * Page wrapper for the Settings module.
  */
 
-import React, { Suspense } from 'react';
+import { Suspense } from 'react';
 import { SettingsView } from '@/modules/Settings';
 
 export default function SettingsPage() {

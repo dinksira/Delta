@@ -147,7 +147,7 @@ function SearchUserRow({ user }: Readonly<{ user: SearchUserHitDto }>) {
 /** ################################ COMPONENT ############################# */
 export function SearchResultsView() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const browseCategories = useAuthMessages().browseCategories;
 
   const qRaw = searchParams.get("q") ?? "";

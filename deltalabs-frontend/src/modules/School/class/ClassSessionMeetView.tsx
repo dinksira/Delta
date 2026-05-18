@@ -57,7 +57,7 @@ export function ClassSessionMeetView({
   sessionId: string;
 }>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const { session } = useAuthSession();
   const { mySchools } = useSchoolActiveOrgId();
 

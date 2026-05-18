@@ -1,24 +1,33 @@
-/** ################################ IMPORT ############################# */
-/** Imports used by this file. */
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SchoolMarketplaceView } from "@/modules/School/views/SchoolMarketplaceView";
 import { isMarketplaceView } from "@/modules/School/types/marketplace";
 
-/** ################################ /IMPORT ############################# */
+function SchoolMarketplaceClientPage() {
+  const router = useRouter();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const view = searchParams.get("view");
 
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-type PageProps = Readonly<{ searchParams: Promise<{ view?: string }> }>;
+  useEffect(() => {
+    if (!isMarketplaceView(view)) {
+      router.replace("/features/school/marketplace?view=community");
+    }
+  }, [view, router]);
 
-/** School Buy/Sell — validates `view` query then delegates to `SchoolMarketplaceView`. */
-export default async function SchoolMarketplacePage({ searchParams }: PageProps) {
-  const p = await searchParams;
-  const view = p.view;
   if (!isMarketplaceView(view)) {
-    redirect("/features/school/marketplace?view=community");
+    return null;
   }
 
   return <SchoolMarketplaceView view={view} />;
 }
-/** ################################ /COMPONENT ############################# */
+
+export default function SchoolMarketplacePage() {
+  return (
+    <Suspense fallback={null}>
+      <SchoolMarketplaceClientPage />
+    </Suspense>
+  );
+}

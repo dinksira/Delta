@@ -127,7 +127,7 @@ const Toggle: React.FC<{ enabled: boolean; onToggle: () => void }> = ({ enabled,
 
 export const SettingsView: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const initialTab = (searchParams.get('tab') as 'general' | 'account' | 'security') || 'general';
   
   const { session, establishSession, clearSession } = useAuthSession();
