@@ -8,10 +8,12 @@ import { TopNav } from "@/components/navigation/TopNav";
 export function PublicHeader({
   isAuthenticated,
   profileInitials,
+  avatarUrl,
   sessionPending,
 }: Readonly<{
   isAuthenticated: boolean;
   profileInitials?: string;
+  avatarUrl?: string | null;
   sessionPending?: boolean;
 }>) {
   const variant = sessionPending
@@ -21,7 +23,12 @@ export function PublicHeader({
       : "landing_unauthorized";
 
   return (
-    <TopNav variant={variant} isAuthenticated={isAuthenticated} profileInitials={profileInitials} />
+    <TopNav
+      variant={variant}
+      isAuthenticated={isAuthenticated}
+      profileInitials={profileInitials}
+      avatarUrl={avatarUrl}
+    />
   );
 }
 /** ################################ /COMPONENT ############################# */

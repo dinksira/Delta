@@ -79,6 +79,7 @@ export function AudioDetailView() {
     clip?.mediaTone,
     clip?.contentType,
   ]);
+  }, [loaded, clip]);
 
   useEffect(() => {
     if (!audioPayload) return;

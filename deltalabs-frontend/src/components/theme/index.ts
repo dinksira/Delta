@@ -37,4 +37,8 @@ export { Typography } from "@/components/theme/Typography";
 export type { TypographyProps } from "@/components/theme/Typography";
 export { Table } from "@/components/theme/Table";
 export type { TableColumn, TableProps } from "@/components/theme/Table";
+export { BackButton } from "@/components/theme/BackButton";
+export type { BackButtonProps } from "@/components/theme/BackButton";
+export { AiAssistantModal } from "@/components/theme/AiAssistantModal";
+export type { AiAssistantModalProps } from "@/components/theme/AiAssistantModal";
 /** ################################ /COMPONENT ############################# */

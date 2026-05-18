@@ -18,9 +18,14 @@ class UserRecord(BaseModel):
     id: str
     username: str
     username_normalized: str
+    full_name: str | None = None
     email: str | None = None
     email_normalized: str | None = None
     phone_e164: str | None = None
+    bio: str | None = None
+    avatar_url: str | None = None
+    followers_count: int = 0
+    following_count: int = 0
     is_active: bool = True
     is_verified: bool = False
     created_at: datetime
@@ -59,9 +64,28 @@ class AuthUserPublic(BaseModel):
 
     user_id: str
     username: str
+    full_name: str | None = None
     email: str | None = None
     phone_e164: str | None = None
+    bio: str | None = None
+    avatar_url: str | None = None
+    followers_count: int = 0
+    following_count: int = 0
     is_verified: bool
+
+
+class UserProfileUpdate(BaseModel):
+    """Payload for updating user profile fields."""
+
+    full_name: str | None = Field(None, max_length=100)
+    bio: str | None = Field(None, max_length=1000)
+
+
+class UserPasswordChange(BaseModel):
+    """Payload for authenticated password change."""
+
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=10, max_length=256)
 
 
 class AuthSuccessResponse(BaseModel):

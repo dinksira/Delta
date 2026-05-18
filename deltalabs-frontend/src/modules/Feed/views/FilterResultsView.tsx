@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
 import { useFeedMessages } from "@/i18n/LocaleContext";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import { useFeedClips } from "@/modules/Feed/hooks/useFeedQueries";
 import {
   appendFeedFilterPanelOpenQuery,
@@ -32,6 +33,8 @@ export function FilterResultsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const browseCategories = useFeedMessages().browseCategories;
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const browseCategories = useAuthMessages().browseCategories;
 
   const selection = useMemo(
     () => normalizeFeedQuerySelection(parseFeedClipFiltersFromUrlSearchParams(searchParams)),

@@ -182,6 +182,43 @@ class Repository:
         )
         return result.modified_count > 0
 
+    async def update_user_profile(
+        self,
+        user_id: str,
+        *,
+        full_name: str | None = None,
+        bio: str | None = None,
+        avatar_url: str | None = None,
+        followers_count: int | None = None,
+        following_count: int | None = None,
+    ) -> bool:
+        """Update profile-related fields for a user."""
+        now = datetime.now(UTC)
+        update_data: dict[str, Any] = {"updated_at": now}
+
+        if full_name is not None:
+            update_data["full_name"] = full_name
+        if bio is not None:
+            update_data["bio"] = bio
+        if avatar_url is not None:
+            update_data["avatar_url"] = avatar_url
+        if followers_count is not None:
+            update_data["followers_count"] = followers_count
+        if following_count is not None:
+            update_data["following_count"] = following_count
+
+        result = await self._db["users"].update_one(
+            {"_id": user_id},
+            {"$set": update_data},
+        )
+        return result.modified_count > 0
+
+    async def delete_user(self, user_id: str) -> bool:
+        """Permanently delete a user and all their sessions."""
+        await self._db["user_sessions"].delete_many({"user_id": user_id})
+        result = await self._db["users"].delete_one({"_id": user_id})
+        return result.deleted_count > 0
+
     async def find_user_by_id(self, user_id: str) -> UserRecord | None:
         doc = await self._db["users"].find_one({"_id": user_id})
         if doc is None:
@@ -218,9 +255,14 @@ class Repository:
             id=str(doc["_id"]),
             username=str(doc["username"]),
             username_normalized=str(doc["username_normalized"]),
+            full_name=doc.get("full_name"),
             email=doc.get("email"),
             email_normalized=doc.get("email_normalized"),
             phone_e164=doc.get("phone_e164"),
+            bio=doc.get("bio"),
+            avatar_url=doc.get("avatar_url"),
+            followers_count=int(doc.get("followers_count") or 0),
+            following_count=int(doc.get("following_count") or 0),
             is_active=bool(doc.get("is_active", True)),
             is_verified=bool(doc.get("is_verified", False)),
             created_at=doc["created_at"],

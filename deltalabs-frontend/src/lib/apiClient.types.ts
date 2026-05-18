@@ -26,7 +26,7 @@ export class ApiError extends Error {
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
-export interface ApiRequestInit extends Omit<RequestInit, "body"> {
+export interface ApiRequestInit extends RequestInit {
   /** JSON-serializable body for non-GET requests. */
   readonly json?: unknown;
   /** Query parameters appended to the URL. */

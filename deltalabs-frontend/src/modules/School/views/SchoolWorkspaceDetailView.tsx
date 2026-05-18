@@ -485,10 +485,15 @@ export function SchoolWorkspaceDetailView({
   const { isAuthenticated, isReady, session } = useAuthSession();
   const userId = session?.user?.id ?? "anon";
   const { mySchools, mySchoolsPending, orgsPending } = useSchoolActiveOrgId();
+  
+  const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+
   const cleanSchoolId = (schoolId ?? "").trim();
-  const displaySchoolName = (schoolName ?? "").trim();
+  const displaySchoolName = (schoolName ?? searchParams.get("name") ?? "").trim();
   const workspaceLabel = displaySchoolName.length > 0 ? displaySchoolName : cleanSchoolId;
-  const viewFromRoute = (initialView ?? "all").trim().toLowerCase();
+  const viewFromRoute = (initialView ?? searchParams.get("view") ?? "all").trim().toLowerCase();
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
 

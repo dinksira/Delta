@@ -1,25 +1,34 @@
-/** ################################ IMPORT ############################# */
-/** Imports used by this file. */
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SchoolOffersView } from "@/modules/School/views/SchoolOffersView";
 import { isOfferStatus, isOfferView } from "@/modules/School/types/offers";
 
-/** ################################ /IMPORT ############################# */
+function SchoolOffersClientPage() {
+  const router = useRouter();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const status = searchParams.get("status");
+  const view = searchParams.get("view");
 
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-type PageProps = Readonly<{ searchParams: Promise<{ status?: string; view?: string }> }>;
+  useEffect(() => {
+    if (!isOfferStatus(status) || !isOfferView(view)) {
+      router.replace("/features/school/offers?status=requested&view=received");
+    }
+  }, [status, view, router]);
 
-/** Offers — validates `status` query then delegates to `SchoolOffersView`. */
-export default async function SchoolOffersPage({ searchParams }: PageProps) {
-  const p = await searchParams;
-  const status = p.status;
-  const view = p.view;
   if (!isOfferStatus(status) || !isOfferView(view)) {
-    redirect("/features/school/offers?status=requested&view=received");
+    return null;
   }
 
   return <SchoolOffersView status={status} view={view} />;
 }
-/** ################################ /COMPONENT ############################# */
+
+export default function SchoolOffersPage() {
+  return (
+    <Suspense fallback={null}>
+      <SchoolOffersClientPage />
+    </Suspense>
+  );
+}

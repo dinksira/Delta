@@ -2,6 +2,7 @@
 /** Imports used by this file. */
 import type { ChangeEventHandler, FocusEventHandler, KeyboardEventHandler } from "react";
 import { SearchInput } from "@/components/features/feed/primitives";
+import { SearchInput } from "@/components/theme/SearchInput";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */

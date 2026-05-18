@@ -11,6 +11,8 @@ import { Typography } from "@/components/theme";
 import type { FeedMessages } from "@/i18n/feedMessages";
 import { useFeedMessages } from "@/i18n/LocaleContext";
 import { useCustomFeedTab } from "@/modules/Feed/hooks/useCustomFeedTab";
+import type { AuthMessages } from "@/i18n/authMessages";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
 import { FeatureBrowserTabBar } from "@/components/navigation/FeatureBrowserTabBar";
 import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
@@ -22,6 +24,8 @@ import {
   TopNavCategoryTabs,
 } from "@/components/navigation/TopNavCategoryTabs";
 import { TopNavUtilityActions } from "@/components/navigation/TopNavUtilityActions";
+
+import Image from "next/image";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
@@ -38,6 +42,8 @@ type TopNavProps = Readonly<{
   isAuthenticated: boolean;
   /** Shown in the utility avatar when signed in (e.g. from session). */
   profileInitials?: string;
+  /** User avatar URL for the utility menu. */
+  avatarUrl?: string | null;
   /** App shell: session not hydrated yet (same placeholder as landing_pending, right rail only). */
   sessionPending?: boolean;
 }>;
@@ -81,6 +87,7 @@ function landingCategoryItems(
   pathname: string,
   browse: FeedMessages["browseCategories"],
   customTabLabel: string | undefined,
+  browse: AuthMessages["browseCategories"],
 ): readonly TopNavCategoryItem[] {
   return LANDING_CATEGORY_PATHS.map((item) => {
     const active =
@@ -92,6 +99,7 @@ function landingCategoryItems(
         ? customTabLabel ?? browse[item.labelKey]
         : browse[item.labelKey];
     return { label, href: item.href, active };
+    return { label: browse[item.labelKey], href: item.href, active };
   });
 }
 
@@ -101,13 +109,12 @@ function landingCategoryItems(
  */
 function BrandLogoMark() {
   return (
-    <img
+    <Image
       src="/delta-labs.png"
-      alt=""
+      alt="Delta Labs"
       width={28}
       height={28}
-      decoding="async"
-      fetchPriority="high"
+      priority
       className="block h-7 w-7 max-h-7 max-w-7 shrink-0 object-contain sm:h-8 sm:w-8 sm:max-h-8 sm:max-w-8"
     />
   );
@@ -124,6 +131,13 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
   const landingTabs = useMemo(
     () => landingCategoryItems(pathname ?? "", browseCategories, customTab?.label),
     [pathname, browseCategories, customTab?.label],
+export function TopNav({ variant, isAuthenticated, profileInitials, avatarUrl, sessionPending }: TopNavProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { browseCategories } = useAuthMessages();
+  const landingTabs = useMemo(
+    () => landingCategoryItems(pathname ?? "", browseCategories),
+    [pathname, browseCategories],
   );
   const showAuthActions = variant === "landing_unauthorized";
   const showFeatureBrowserTabs = variant === "features_authorized";
@@ -200,7 +214,7 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
           ) : showAuthActions ? (
             <TopNavAuthActions isAuthenticated={isAuthenticated} />
           ) : (
-            <TopNavUtilityActions profileInitials={profileInitials} />
+            <TopNavUtilityActions profileInitials={profileInitials} avatarUrl={avatarUrl} />
           )}
         </div>
       </div>

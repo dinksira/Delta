@@ -13,7 +13,7 @@ export type MockUserRecord = Readonly<{
   id: string;
   email: string;
   phone: string;
-  userName: string;
+  username: string;
   firstName: string;
   lastName: string;
   /** MOCK ONLY — never store plain passwords in production. */
@@ -21,6 +21,8 @@ export type MockUserRecord = Readonly<{
   day: string;
   month: string;
   year: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
 }>;
 
 type RecoveryRecord = Readonly<{
@@ -58,7 +60,7 @@ function seedUsers(): MockUserRecord[] {
       id: "mock_user_success",
       email: "success@demo.com",
       phone: "+251911000000",
-      userName: "demo_user",
+      username: "demo_user",
       firstName: "Demo",
       lastName: "User",
       password: "Password123!",
@@ -70,7 +72,7 @@ function seedUsers(): MockUserRecord[] {
       id: "mock_user_fail",
       email: "fail@demo.com",
       phone: "+251922000000",
-      userName: "fail_user",
+      username: "fail_user",
       firstName: "Fail",
       lastName: "Case",
       password: "WrongPassword1!",
@@ -111,9 +113,13 @@ export function toPublicUser(row: MockUserRecord): AuthenticatedUser {
     id: row.id,
     email: row.email,
     phone: row.phone,
-    userName: row.userName,
-    firstName: row.firstName,
-    lastName: row.lastName,
+    username: row.username,
+    fullName: `${row.firstName} ${row.lastName}`.trim(),
+    bio: row.bio ?? null,
+    avatarUrl: row.avatarUrl ?? null,
+    followersCount: 0,
+    followingCount: 0,
+    isVerified: true,
   };
 }
 
@@ -133,9 +139,9 @@ export function findUserByEmail(email: string): MockUserRecord | undefined {
   return loadUsers().find((u) => normalizeEmail(u.email) === key);
 }
 
-export function findUserByUserName(userName: string): MockUserRecord | undefined {
-  const key = userName.trim().toLowerCase();
-  return loadUsers().find((u) => u.userName.toLowerCase() === key);
+export function findUserByUsername(username: string): MockUserRecord | undefined {
+  const key = username.trim().toLowerCase();
+  return loadUsers().find((u) => u.username.toLowerCase() === key);
 }
 
 export function createUserFromSignup(input: SignupInput): MockUserRecord {
@@ -145,7 +151,7 @@ export function createUserFromSignup(input: SignupInput): MockUserRecord {
     id,
     email: normalizeEmail(input.email),
     phone: normalizePhone(input.phone),
-    userName: input.userName.trim(),
+    username: input.username.trim(),
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     password: input.password,

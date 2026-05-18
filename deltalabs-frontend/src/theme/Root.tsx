@@ -5,6 +5,8 @@
 import { Provider } from "react-redux";
 
 import { GlobalAuthPendingBar } from "@/components/system/GlobalAuthPendingBar";
+import { DesktopSplashGate } from "@/components/system/DesktopSplashGate";
+import { NativeTitleBar } from "@/components/atoms/NativeTitleBar";
 import { AuthSessionProvider } from "@/contexts/AuthSession_Context";
 import { ThemeProvider } from "@/contexts/Theme_Context";
 import { LocaleProvider } from "@/i18n/LocaleContext";
@@ -23,6 +25,12 @@ export function Root({ children }: Readonly<{ children: React.ReactNode }>) {
           <GlobalAuthPendingBar />
           <ThemeProvider>
             <Provider store={store}>{children}</Provider>
+            <Provider store={store}>
+              <DesktopSplashGate>
+                <NativeTitleBar />
+                {children}
+              </DesktopSplashGate>
+            </Provider>
           </ThemeProvider>
         </AuthSessionProvider>
       </LocaleProvider>
@@ -30,3 +38,4 @@ export function Root({ children }: Readonly<{ children: React.ReactNode }>) {
   );
 }
 /** ################################ /COMPONENT ############################# */
+

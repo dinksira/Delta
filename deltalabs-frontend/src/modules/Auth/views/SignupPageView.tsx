@@ -61,7 +61,7 @@ export function SignupPageView({
   const [values, setValues] = useState({
     firstName: "",
     lastName: "",
-    userName: "",
+    username: "",
     email: "",
     phone: "",
     otp: "",
@@ -122,6 +122,7 @@ export function SignupPageView({
       if (!values.firstName.trim()) nextFieldErrors.firstName = a.common.required;
       if (!values.lastName.trim()) nextFieldErrors.lastName = a.common.required;
       if (!values.userName.trim()) nextFieldErrors.userName = a.common.required;
+      if (!values.username.trim()) nextFieldErrors.username = a.common.required;
 
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -240,7 +241,7 @@ export function SignupPageView({
       await signupMutation.mutateAsync({
         firstName: values.firstName,
         lastName: values.lastName,
-        userName: values.userName,
+        username: values.username,
         email: values.email,
         phone: values.phone,
         otp: values.otp,
@@ -297,9 +298,13 @@ export function SignupPageView({
               label={a.signup.userName}
               placeholder={a.signup.placeholderUserName}
               errorMessage={fieldErrors.userName}
+              id="username"
+              label={a.signup.userName}
+              placeholder={a.signup.placeholderUserName}
+              errorMessage={fieldErrors.username}
               inputProps={{
-                value: values.userName,
-                onChange: (e) => setValues((prev) => ({ ...prev, userName: e.target.value })),
+                value: values.username,
+                onChange: (e) => setValues((prev) => ({ ...prev, username: e.target.value })),
               }}
             />
           </>

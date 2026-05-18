@@ -2,6 +2,10 @@
 import { Suspense } from "react";
 
 import { ManagementTableEditorView } from "@/modules/School/managementTable/ManagementTableEditorView";
+
+export function generateStaticParams() {
+  return [{ schoolId: "default", instanceId: "default" }];
+}
 /** ################################ /IMPORT ############################# */
 
 /** ################################ COMPONENT ############################# */

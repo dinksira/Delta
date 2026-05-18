@@ -42,7 +42,7 @@ function setAuthModeInQuery(pathname: string, searchParams: URLSearchParams, mod
 export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
 
   const mode = useMemo<AuthMode | null>(() => {
     const raw = searchParams.get("auth");
@@ -50,13 +50,7 @@ export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!enabled && mode) {
-      router.replace(setAuthModeInQuery(pathname, new URLSearchParams(searchParams.toString())));
-    }
-  }, [enabled, mode, pathname, router, searchParams]);
-
-  useEffect(() => {
-    if (!enabled || !mode) return;
+    if (!mode) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         router.replace(setAuthModeInQuery(pathname, new URLSearchParams(searchParams.toString())));
@@ -66,7 +60,7 @@ export function AuthModalGateway({ enabled }: AuthModalGatewayProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [enabled, mode, pathname, router, searchParams]);
 
-  if (!enabled || !mode) {
+  if (!mode) {
     return null;
   }
 

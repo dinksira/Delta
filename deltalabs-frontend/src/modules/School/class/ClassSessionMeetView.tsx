@@ -57,7 +57,7 @@ export function ClassSessionMeetView({
   sessionId: string;
 }>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const { session } = useAuthSession();
   const { mySchools } = useSchoolActiveOrgId();
 
@@ -104,10 +104,10 @@ export function ClassSessionMeetView({
   const displayName = (() => {
     const u = session?.user;
     if (!u) return "You";
-    const full = `${u.firstName} ${u.lastName}`.trim();
+    const full = u.fullName?.trim();
     if (full) return full;
-    if (u.userName?.trim()) return u.userName.trim();
-    return u.email.split("@")[0] ?? "You";
+    if (u.username?.trim()) return u.username.trim();
+    return u.email?.split("@")[0] ?? "You";
   })();
 
   const confirmLeaveSession = () => {

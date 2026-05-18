@@ -19,7 +19,7 @@ type SchoolDepartmentWorkspaceViewProps = Readonly<{
 
 /** Department-scoped workspace: own URL segment; reuses {@link SchoolWorkspaceDetailView} with `departmentRootItemId`. */
 export function SchoolDepartmentWorkspaceView({ schoolId, departmentItemId }: SchoolDepartmentWorkspaceViewProps) {
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const { mySchools } = useSchoolActiveOrgId();
   const cleanSchoolId = schoolId.trim();
   const cleanDeptId = departmentItemId.trim();

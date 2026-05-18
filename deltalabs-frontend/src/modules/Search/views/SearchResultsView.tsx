@@ -11,6 +11,7 @@ import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/compo
 import { cx } from "@/components/theme/utils";
 import { feedItemDetailPath, isLikelyAudioMediaUrl } from "@/lib/feedItemRoutes";
 import { useFeedMessages } from "@/i18n/LocaleContext";
+import { useAuthMessages } from "@/i18n/LocaleContext";
 import { fetchGlobalSearch, type SearchUserHitDto } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
@@ -89,6 +90,8 @@ export function SearchVideoTile({
   onSelect?: (clip: LandingVideoClip) => void;
 }>) {
   const href = onSelect ? null : feedItemDetailPath(clip);
+export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) {
+  const href = feedItemDetailPath(clip);
   const isAudio = clip.contentType === "audio" || isLikelyAudioMediaUrl(clip.videoSrc);
   const grad = AUDIO_CARD_GRADIENTS[Math.abs(clip.mediaTone) % AUDIO_CARD_GRADIENTS.length];
 
@@ -167,6 +170,8 @@ export function SearchResultsView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const browseCategories = useFeedMessages().browseCategories;
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const browseCategories = useAuthMessages().browseCategories;
 
   const qRaw = searchParams.get("q") ?? "";
   const q = qRaw.trim();

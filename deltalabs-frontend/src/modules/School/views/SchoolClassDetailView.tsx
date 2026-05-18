@@ -40,7 +40,7 @@ type SchoolClassDetailViewProps = Readonly<{
 /** Class workspace page: data + mutations; layout and chrome live in `modules/School/class`. */
 export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDetailViewProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const queryClient = useQueryClient();
   const { isAuthenticated, isReady, session } = useAuthSession();
   const userId = session?.user?.id ?? "anon";

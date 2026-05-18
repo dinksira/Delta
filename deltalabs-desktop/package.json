@@ -1,0 +1,43 @@
+{
+  "name": "deltalabs-desktop",
+  "version": "1.0.0",
+  "description": "Desktop application workspace for Delta Labs.",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "npm run build && electron .",
+    "build": "..\\deltalabs-frontend\\node_modules\\.bin\\tsc && node scripts/copy-frontend.js",
+    "dist": "npm run build && npx electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-is-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "build": {
+    "appId": "com.deltalabs.desktop",
+    "productName": "Delta Labs",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "../deltalabs-frontend/public/delta-logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Delta Labs"
+    }
+  }
+}

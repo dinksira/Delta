@@ -58,7 +58,7 @@ export function assertSignupInput(input: SignupInput): void {
   const fields: string[] = [];
   if (!input.firstName.trim()) fields.push("firstName");
   if (!input.lastName.trim()) fields.push("lastName");
-  if (!input.userName.trim()) fields.push("userName");
+  if (!input.username.trim()) fields.push("username");
   if (!input.email.trim()) fields.push("email");
   if (!input.phone.trim()) fields.push("phone");
   if (!input.day || !input.month || !input.year) fields.push("dateOfBirth");

@@ -21,6 +21,7 @@ import {
 import { authErrorMessage } from "@/lib/authErrors";
 import { useAuthMessages } from "@/i18n/LocaleContext";
 import { useLoginMutation } from "@/modules/Auth/hooks";
+import type { AccountHistoryItem } from "@/modules/Auth/types/auth";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */
@@ -71,11 +72,42 @@ export function LoginPageView({
 
     setFieldErrors({});
     try {
-      await loginMutation.mutateAsync({
+      const result = await loginMutation.mutateAsync({
         identifier,
         password,
         rememberMe,
       });
+
+      // Update account history for switching
+      const sess = result?.session;
+      if (sess?.user && sess?.accessToken) {
+        try {
+          const rawHistory = localStorage.getItem('dl.auth.account_history.v1');
+          let history: AccountHistoryItem[] = [];
+          if (rawHistory) {
+            try {
+              history = JSON.parse(rawHistory);
+            } catch {
+              history = [];
+            }
+          }
+          
+          const accountData: AccountHistoryItem = {
+            user: sess.user,
+            accessToken: sess.accessToken,
+            expiresAt: sess.expiresAt
+          };
+
+          const index = history.findIndex(h => h.user.id === sess.user.id);
+          if (index > -1) {
+            history[index] = accountData;
+          } else {
+            history.push(accountData);
+          }
+          localStorage.setItem('dl.auth.account_history.v1', JSON.stringify(history));
+        } catch { /* ignore storage errors */ }
+      }
+
       router.replace(redirectAfterLoginHref);
     } catch (error) {
       setBanner({

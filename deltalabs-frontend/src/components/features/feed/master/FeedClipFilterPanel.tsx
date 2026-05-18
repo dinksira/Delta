@@ -5,6 +5,8 @@
 import { useEffect, useState } from "react";
 
 import { Typography, cx } from "@/components/features/feed/primitives";
+import { Typography } from "@/components/theme";
+import { cx } from "@/components/theme/utils";
 import type {
   FeedClipFilterSelection,
   FeedContentModality,
