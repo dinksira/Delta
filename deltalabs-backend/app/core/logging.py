@@ -41,6 +41,38 @@ class JsonFormatter(logging.Formatter):
         if isinstance(method, str):
             payload["method"] = method
 
+        skip = {
+            "name",
+            "msg",
+            "args",
+            "created",
+            "filename",
+            "funcName",
+            "levelname",
+            "levelno",
+            "lineno",
+            "module",
+            "msecs",
+            "message",
+            "pathname",
+            "process",
+            "processName",
+            "relativeCreated",
+            "stack_info",
+            "exc_info",
+            "exc_text",
+            "thread",
+            "threadName",
+            "taskName",
+        }
+        for key, value in record.__dict__.items():
+            if key in skip or key.startswith("_"):
+                continue
+            if key in payload:
+                continue
+            if value is not None:
+                payload[key] = value
+
         return json.dumps(payload, separators=(",", ":"))
 
 
