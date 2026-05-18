@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 from datetime import UTC, datetime
 from typing import TypedDict
@@ -22,9 +23,10 @@ from app.domain.identity.schemas import (
     RecoverVerifyRequest,
     RecoverVerifyResponse,
 )
-from app.infra.email_client import send_otp_email
+from app.infra.email_client import EmailSendResult, send_otp_email
 
 RedisDep = AsyncRedis
+logger = logging.getLogger("deltalabs.recover")
 
 
 class RecoverService:
@@ -62,20 +64,42 @@ class RecoverService:
         }
         await self._persist_state(state)
 
-        # Send the recovery code to the user's email or phone
-        if user.email is not None:
-            sent = await send_otp_email(
-                to=user.email,
-                code=code,
-                purpose="recover",
+        if user.email is None:
+            await self._redis.delete(self._state_key(recover_id))
+            logger.error(
+                "recover.request_failed",
+                extra={
+                    "user_id": user.id,
+                    "reason": "no_email_on_file",
+                },
             )
-            if not sent:
-                await self._redis.delete(self._state_key(recover_id))
-                raise ValidationError(
-                    "Could not send recovery email. Please try again later.",
-                    code="recover_email_delivery_failed",
-                )
-        # SMS fallback: wire Twilio/Africa's Talking here when ready
+            raise ValidationError(
+                "This account has no email address on file. Contact support for help.",
+                code="recover_no_email_on_file",
+            )
+
+        delivery = await send_otp_email(
+            to=user.email,
+            code=code,
+            purpose="recover",
+        )
+        if not delivery.ok:
+            await self._redis.delete(self._state_key(recover_id))
+            message, code = _recover_email_failure_response(delivery)
+            logger.error(
+                "recover.request_failed",
+                extra={
+                    "user_id": user.id,
+                    "reason": delivery.failure_reason,
+                    "detail": delivery.failure_detail,
+                },
+            )
+            raise ValidationError(message, code=code)
+
+        logger.info(
+            "recover.code_sent",
+            extra={"user_id": user.id, "recover_id": recover_id},
+        )
 
         return RecoverRequestResponse(
             recover_id=recover_id,
@@ -175,6 +199,18 @@ class RecoverService:
     @staticmethod
     def _state_key(recover_id: str) -> str:
         return f"recover:state:{recover_id}"
+
+
+def _recover_email_failure_response(delivery: EmailSendResult) -> tuple[str, str]:
+    if delivery.failure_reason == "missing_api_key":
+        return (
+            "Recovery email could not be sent because email is not configured on the server.",
+            "recover_email_not_configured",
+        )
+    return (
+        "Recovery email could not be sent. Please try again in a few minutes.",
+        "recover_email_delivery_failed",
+    )
 
 
 class RecoverState(TypedDict):
