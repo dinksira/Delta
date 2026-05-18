@@ -34,6 +34,8 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> EmailSendResult
 
     Uses HTTPS — not blocked by any cloud provider (unlike SMTP).
     purpose: "signup" | "recover"
+
+    Returns True when the provider accepted the send request.
     """
     settings = get_settings()
 
