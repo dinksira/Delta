@@ -18,11 +18,13 @@ def configure_resend() -> None:
         resend.api_key = settings.resend_api_key
 
 
-async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
+async def send_otp_email(*, to: str, code: str, purpose: str) -> bool:
     """Send a 6-digit OTP code via Resend.
 
     Uses HTTPS — not blocked by any cloud provider (unlike SMTP).
     purpose: "signup" | "recover"
+
+    Returns True when the provider accepted the send request.
     """
     settings = get_settings()
 
@@ -31,7 +33,7 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
             "email.resend_api_key_missing — skipping delivery",
             extra={"to": to, "purpose": purpose},
         )
-        return
+        return False
 
     subject_map = {
         "signup": "Your DeltaLabs verification code",
@@ -103,10 +105,10 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> None:
             "email.sent",
             extra={"to": to, "purpose": purpose, "id": result.get("id")},
         )
+        return True
     except Exception as exc:
         logger.error(
             "email.send_failed",
             extra={"to": to, "purpose": purpose, "error": str(exc)},
         )
-        if settings.env == "production":
-            raise
+        return False

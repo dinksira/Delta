@@ -63,13 +63,18 @@ class RecoverService:
         await self._persist_state(state)
 
         # Send the recovery code to the user's email or phone
-        # We need to find which contact to send to
         if user.email is not None:
-            await send_otp_email(
+            sent = await send_otp_email(
                 to=user.email,
                 code=code,
                 purpose="recover",
             )
+            if not sent:
+                await self._redis.delete(self._state_key(recover_id))
+                raise ValidationError(
+                    "Could not send recovery email. Please try again later.",
+                    code="recover_email_delivery_failed",
+                )
         # SMS fallback: wire Twilio/Africa's Talking here when ready
 
         return RecoverRequestResponse(

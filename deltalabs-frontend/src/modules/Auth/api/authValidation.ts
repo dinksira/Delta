@@ -4,7 +4,12 @@
  * Server-shaped validation for mock auth API (mirror future backend rules).
  */
 import { ApiError } from "@/lib/apiClient";
-import type { LoginInput, ResetPasswordInput, SignupInput } from "@/modules/Auth/types/auth";
+import type {
+  LoginInput,
+  RecoverVerifyInput,
+  ResetPasswordInput,
+  SignupInput,
+} from "@/modules/Auth/types/auth";
 import { AUTH_ERROR_CODES } from "@/modules/Auth/types/auth";
 
 const EMAIL_LIKE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -119,7 +124,7 @@ export function assertRecoverRequestInput(identifier: string): void {
   assertValidIdentifier(identifier, "identifier");
 }
 
-export function assertResetPasswordInput(input: ResetPasswordInput): void {
+export function assertRecoverVerifyInput(input: RecoverVerifyInput): void {
   assertValidIdentifier(input.identifier, "identifier");
   if (!input.otp.trim()) {
     throw new ApiError("Verification code is required.", {
@@ -135,6 +140,10 @@ export function assertResetPasswordInput(input: ResetPasswordInput): void {
       details: { field: "otp" },
     });
   }
+}
+
+export function assertResetPasswordInput(input: ResetPasswordInput): void {
+  assertValidIdentifier(input.identifier, "identifier");
   const np = input.newPassword ?? "";
   const cp = input.confirmPassword ?? "";
   if (!np || !cp) {

@@ -70,10 +70,13 @@ export type RecoverRequestInput = Readonly<{
   identifier: string;
 }>;
 
-export type ResetPasswordInput = Readonly<{
-  /** Required to resolve the pending recovery code (same as recover step). */
+export type RecoverVerifyInput = Readonly<{
   identifier: string;
   otp: string;
+}>;
+
+export type ResetPasswordInput = Readonly<{
+  identifier: string;
   newPassword: string;
   confirmPassword: string;
 }>;
@@ -83,5 +86,7 @@ export type AuthResult = Readonly<{
   message: string;
   /** Present after login and signup when the user is signed in. */
   session?: AuthSessionPayload;
+  /** Present when recover/request created a pending recovery (code was sent). */
+  recoverId?: string;
 }>;
 /** ################################ /COMPONENT ############################# */

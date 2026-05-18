@@ -9,6 +9,7 @@ export type {
   AuthenticatedUser,
   LoginInput,
   RecoverRequestInput,
+  RecoverVerifyInput,
   ResetPasswordInput,
   SignupInput,
 } from "@/modules/Auth/types/auth";

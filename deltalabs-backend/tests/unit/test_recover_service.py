@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from app.core.exceptions import ValidationError
@@ -68,6 +69,18 @@ class FakeRepository:
         return 1
 
 
+@pytest.fixture(autouse=True)
+def _mock_recover_email(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core.config import get_settings
+
+    monkeypatch.setenv("ENV", "local")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.domain.identity.recover_service.send_otp_email",
+        AsyncMock(return_value=True),
+    )
+
+
 @pytest.mark.asyncio
 async def test_recover_request_for_missing_user_is_generic() -> None:
     service = RecoverService(FakeRepository(), FakeRedis())  # type: ignore[arg-type]
@@ -102,7 +115,7 @@ async def test_recover_verify_and_reset_happy_path() -> None:
         RecoverResetRequest(
             recover_id=requested.recover_id,
             reset_token=verify.reset_token,
-            new_password="StrongReset123",
+            new_password="StrongReset123!",
         )
     )
     assert reset.status == "password_reset"
