@@ -11,8 +11,6 @@ import { Typography } from "@/components/theme";
 import type { FeedMessages } from "@/i18n/feedMessages";
 import { useFeedMessages } from "@/i18n/LocaleContext";
 import { useCustomFeedTab } from "@/modules/Feed/hooks/useCustomFeedTab";
-import type { AuthMessages } from "@/i18n/authMessages";
-import { useAuthMessages } from "@/i18n/LocaleContext";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
 import { FeatureBrowserTabBar } from "@/components/navigation/FeatureBrowserTabBar";
 import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
@@ -87,7 +85,6 @@ function landingCategoryItems(
   pathname: string,
   browse: FeedMessages["browseCategories"],
   customTabLabel: string | undefined,
-  browse: AuthMessages["browseCategories"],
 ): readonly TopNavCategoryItem[] {
   return LANDING_CATEGORY_PATHS.map((item) => {
     const active =
@@ -99,7 +96,6 @@ function landingCategoryItems(
         ? customTabLabel ?? browse[item.labelKey]
         : browse[item.labelKey];
     return { label, href: item.href, active };
-    return { label: browse[item.labelKey], href: item.href, active };
   });
 }
 
@@ -123,7 +119,7 @@ function BrandLogoMark() {
 /** ################################ /HELPERS ############################# */
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
-export function TopNav({ variant, isAuthenticated, profileInitials, sessionPending }: TopNavProps) {
+export function TopNav({ variant, isAuthenticated, profileInitials, avatarUrl, sessionPending }: TopNavProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { browseCategories } = useFeedMessages();
@@ -131,13 +127,6 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
   const landingTabs = useMemo(
     () => landingCategoryItems(pathname ?? "", browseCategories, customTab?.label),
     [pathname, browseCategories, customTab?.label],
-export function TopNav({ variant, isAuthenticated, profileInitials, avatarUrl, sessionPending }: TopNavProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { browseCategories } = useAuthMessages();
-  const landingTabs = useMemo(
-    () => landingCategoryItems(pathname ?? "", browseCategories),
-    [pathname, browseCategories],
   );
   const showAuthActions = variant === "landing_unauthorized";
   const showFeatureBrowserTabs = variant === "features_authorized";

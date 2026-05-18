@@ -488,7 +488,7 @@ export function SchoolWorkspaceDetailView({
   
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const searchParams = useSearchParams();
 
   const cleanSchoolId = (schoolId ?? "").trim();
   const displaySchoolName = (schoolName ?? searchParams.get("name") ?? "").trim();
@@ -513,9 +513,6 @@ export function SchoolWorkspaceDetailView({
   );
   const workspaceMutationLocked = accessGatingPending || !canMutateWorkspace;
 
-  const router = useRouter();
-  const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams();
   const workspacePathIds = useMemo(
     () => workspacePathIdsFromSearchParams(searchParams),
     [searchParams],

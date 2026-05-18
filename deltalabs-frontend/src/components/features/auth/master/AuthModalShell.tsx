@@ -135,7 +135,6 @@ export function AuthModalShell({
         {hasResponseBanner ? (
           <>
             <header className="rounded-t-lg bg-surface-muted">
-              <div className="px-4 py-2.5 sm:px-5">
               <div className="px-4 py-3 sm:px-5">
                 <div className="mb-3 flex justify-end">
                   <NavLanguageControl />
@@ -152,8 +151,6 @@ export function AuthModalShell({
             <div className="border-t border-border-subtle px-8 pb-8 pt-6">{main}</div>
           </>
         ) : (
-          <div className="px-8 pb-8 pt-4">
-            <div className="mb-4">
           <div className="px-8 pb-8 pt-5">
             <div className="flex justify-end pb-3">
               <NavLanguageControl />

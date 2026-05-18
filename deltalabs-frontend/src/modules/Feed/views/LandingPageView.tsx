@@ -3,18 +3,12 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, VideoOff } from "lucide-react";
 
 import {
   FeedAuthGateModal,
   FeedClipFilterPanel,
-  FeedCaption,
-  FeedClipFilterPanel,
-  FeedCommentPanel,
-  FeedHashtagList,
-  FeedResourceLink,
   FeedSearchInput,
   FeedSearchSidebar,
   FeedShareSheet,
@@ -35,8 +29,6 @@ import {
   type FeedClipFilterSelection,
 } from "@/modules/Feed/types/feedClipFilters";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
-import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
-import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
   useFeedClips,
   useFeedEventMutation,
@@ -46,7 +38,6 @@ import {
 } from "@/modules/Feed/hooks";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { useFeedMessages } from "@/i18n/LocaleContext";
-import { useAuthMessages } from "@/i18n/LocaleContext";
 import {
   selectCommentPanelOpen,
   setCommentPanelOpen,
@@ -60,11 +51,10 @@ import {
 export function LandingPageView() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { isAuthenticated, session } = useAuthSession();
   const { browseCategories } = useFeedMessages();
-  const { browseCategories } = useAuthMessages();
   const commentPanelOpen = useAppSelector(selectCommentPanelOpen);
   const [appliedSelection, setAppliedSelection] = useState<FeedClipFilterSelection>(EMPTY_FEED_SELECTION);
   const feedQuerySelection = useMemo(() => normalizeFeedQuerySelection(appliedSelection), [appliedSelection]);

@@ -1,8 +1,5 @@
-import { AudioDetailView } from "@/modules/Feed/views/AudioDetailView";
-
-export default function AudioDetailPage() {
-  return <AudioDetailView />;
 import { Suspense } from "react";
+
 import { AudioDetailView } from "@/modules/Feed/views/AudioDetailView";
 
 export function generateStaticParams() {
@@ -11,7 +8,7 @@ export function generateStaticParams() {
 
 export default function AudioDetailPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-text-secondary text-sm">Loading details…</div>}>
+    <Suspense fallback={<div className="p-8 text-center text-sm text-text-secondary">Loading details…</div>}>
       <AudioDetailView />
     </Suspense>
   );

@@ -178,14 +178,6 @@ export async function fetchFeedPage(params?: {
   if (resolvedContentType !== undefined) {
     searchParams.content_type = resolvedContentType;
   }
-}): Promise<FeedPaginatedResponseDto> {
-  const filterParams = feedClipFiltersToSearchParams(params?.filters ?? {});
-  const defaultContentType = params?.contentType ?? "video";
-  const searchParams: Record<string, string | number | undefined> = {
-    limit: params?.limit ?? 24,
-    cursor: params?.cursor ?? undefined,
-    content_type: (filterParams.content_type as string | undefined) ?? defaultContentType,
-  };
   if (filterParams.hashtag !== undefined) searchParams.hashtag = filterParams.hashtag;
   if (filterParams.min_duration_s !== undefined) searchParams.min_duration_s = filterParams.min_duration_s;
   if (filterParams.max_duration_s !== undefined) searchParams.max_duration_s = filterParams.max_duration_s;
