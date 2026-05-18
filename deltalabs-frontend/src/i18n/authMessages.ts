@@ -86,6 +86,7 @@ export type AuthMessages = {
     goToLogin: string;
     doneBody: string;
     recoverFailed: string;
+    emailDeliveryFailed: string;
     verifyFailed: string;
     resetFailed: string;
     newPassword: string;
@@ -237,6 +238,7 @@ const en: AuthMessages = {
     doneBody:
       "Your password has been updated. Continue to sign in and access your account.",
     recoverFailed: "Could not send a recovery code. Please try again.",
+    emailDeliveryFailed: "Could not send the recovery email. Check your email settings or try again later.",
     verifyFailed: "Invalid or expired verification code.",
     resetFailed: "Could not reset your password. Please try again.",
     newPassword: "New password",
@@ -391,6 +393,7 @@ const am: AuthMessages = {
     doneBody:
       "የይለፍ ቃልዎ ተዘምኗል። ለመግባት እና መለያዎን ለመጠቀም ይቀጥሉ።",
     recoverFailed: "የመልሻ ኮድ መላክ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
+    emailDeliveryFailed: "የመልሻ ኢሜይል መላክ አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።",
     verifyFailed: "ልክ ያልሆነ ወይም ጊዜው ያለፈ የማረጋገጫ ኮድ።",
     resetFailed: "የይለፍ ቃል መቀየር አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
     newPassword: "አዲስ የይለፍ ቃል",

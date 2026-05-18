@@ -90,12 +90,16 @@ export function RecoverPageView({
     setIdentifierError(undefined);
     try {
       const result = await recoverMutation.mutateAsync({ identifier });
+      if (!result.recoverId) {
+        setBanner({ type: "success", message: result.message });
+        return;
+      }
       setBanner({ type: "success", message: result.message });
       setStage("verify");
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, a.recover.recoverFailed),
+        message: authErrorMessage(error, a.recover.emailDeliveryFailed),
       });
     }
   };

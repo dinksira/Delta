@@ -228,6 +228,7 @@ export const authApi = {
     return {
       ok: true,
       message: data.message || "If an account exists, recovery instructions were sent.",
+      recoverId: data.recover_id ?? undefined,
     };
   },
 

@@ -86,5 +86,7 @@ export type AuthResult = Readonly<{
   message: string;
   /** Present after login and signup when the user is signed in. */
   session?: AuthSessionPayload;
+  /** Present when recover/request created a pending recovery (code was sent). */
+  recoverId?: string;
 }>;
 /** ################################ /COMPONENT ############################# */

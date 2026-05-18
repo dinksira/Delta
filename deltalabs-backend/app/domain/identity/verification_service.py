@@ -74,11 +74,17 @@ class VerificationService:
 
         # Deliver the code via the requested channel
         if channel == "email":
-            await send_otp_email(
+            sent = await send_otp_email(
                 to=destination,
                 code=code,
                 purpose=payload.purpose.strip().lower(),
             )
+            if not sent:
+                await self._redis.delete(self._verification_key(verification_id))
+                raise ValidationError(
+                    "Could not send verification email. Please try again later.",
+                    code="verification_email_delivery_failed",
+                )
         # SMS channel: wire Twilio/Africa's Talking here when ready
 
         return VerificationSendResponse(
