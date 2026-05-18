@@ -70,10 +70,13 @@ export type RecoverRequestInput = Readonly<{
   identifier: string;
 }>;
 
-export type ResetPasswordInput = Readonly<{
-  /** Required to resolve the pending recovery code (same as recover step). */
+export type RecoverVerifyInput = Readonly<{
   identifier: string;
   otp: string;
+}>;
+
+export type ResetPasswordInput = Readonly<{
+  identifier: string;
   newPassword: string;
   confirmPassword: string;
 }>;

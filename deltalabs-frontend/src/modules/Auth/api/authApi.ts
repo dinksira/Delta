@@ -4,6 +4,7 @@ import { ApiError, apiClient } from "@/lib/apiClient";
 import {
   assertLoginInput,
   assertRecoverRequestInput,
+  assertRecoverVerifyInput,
   assertResetPasswordInput,
   assertSignupInput,
 } from "@/modules/Auth/api/authValidation";
@@ -12,6 +13,7 @@ import type {
   AuthSessionPayload,
   LoginInput,
   RecoverRequestInput,
+  RecoverVerifyInput,
   ResetPasswordInput,
   SignupInput,
 } from "@/modules/Auth/types/auth";
@@ -77,6 +79,7 @@ type VerificationVerifyResponseDto = Readonly<{
 
 /** ################################ HELPERS ############################# */
 const recoverIdByIdentifier = new Map<string, string>();
+const resetTokenByIdentifier = new Map<string, string>();
 
 function normalizePhoneE164Like(value: string): string {
   return value.replace(/\s+/g, "");
@@ -228,8 +231,8 @@ export const authApi = {
     };
   },
 
-  async resetPassword(input: ResetPasswordInput): Promise<AuthResult> {
-    assertResetPasswordInput(input);
+  async verifyRecover(input: RecoverVerifyInput): Promise<AuthResult> {
+    assertRecoverVerifyInput(input);
     const key = input.identifier.trim().toLowerCase();
     const recoverId = recoverIdByIdentifier.get(key);
     if (!recoverId) {
@@ -247,14 +250,33 @@ export const authApi = {
         code: AUTH_ERROR_CODES.INVALID_OTP,
       });
     }
+    resetTokenByIdentifier.set(key, verify.reset_token);
+    return {
+      ok: true,
+      message: "Code verified. You can set a new password.",
+    };
+  },
+
+  async resetPassword(input: ResetPasswordInput): Promise<AuthResult> {
+    assertResetPasswordInput(input);
+    const key = input.identifier.trim().toLowerCase();
+    const recoverId = recoverIdByIdentifier.get(key);
+    const resetToken = resetTokenByIdentifier.get(key);
+    if (!recoverId || !resetToken) {
+      throw new ApiError("Verify your recovery code before setting a new password.", {
+        status: 400,
+        code: AUTH_ERROR_CODES.VALIDATION_FAILED,
+      });
+    }
     await apiClient.post<{ status: string }>("/v1/auth/recover/reset", {
       json: {
         recover_id: recoverId,
-        reset_token: verify.reset_token,
+        reset_token: resetToken,
         new_password: input.newPassword,
       },
     });
     recoverIdByIdentifier.delete(key);
+    resetTokenByIdentifier.delete(key);
     return {
       ok: true,
       message: "Password updated. You can sign in with your new password.",
