@@ -121,6 +121,7 @@ export function SignupPageView({
     if (step === 0) {
       if (!values.firstName.trim()) nextFieldErrors.firstName = a.common.required;
       if (!values.lastName.trim()) nextFieldErrors.lastName = a.common.required;
+      if (!values.userName.trim()) nextFieldErrors.userName = a.common.required;
       if (!values.username.trim()) nextFieldErrors.username = a.common.required;
 
       if (Object.keys(nextFieldErrors).length > 0) {
@@ -293,6 +294,10 @@ export function SignupPageView({
               }}
             />
             <AuthTextField
+              id="user-name"
+              label={a.signup.userName}
+              placeholder={a.signup.placeholderUserName}
+              errorMessage={fieldErrors.userName}
               id="username"
               label={a.signup.userName}
               placeholder={a.signup.placeholderUserName}

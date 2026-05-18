@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { authMessagesFor, type AuthMessages } from "@/i18n/authMessages";
+import { feedMessagesFor, type FeedMessages } from "@/i18n/feedMessages";
 import {
   DEFAULT_LOCALE,
   LOCALE_STORAGE_KEY,
@@ -21,6 +22,7 @@ type LocaleContextValue = Readonly<{
   locale: AppLocale;
   setLocale: (next: AppLocale) => void;
   auth: AuthMessages;
+  feed: FeedMessages;
 }>;
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
@@ -49,6 +51,7 @@ export function LocaleProvider({ children }: Readonly<{ children: React.ReactNod
       locale,
       setLocale,
       auth: authMessagesFor(locale),
+      feed: feedMessagesFor(locale),
     }),
     [locale, setLocale],
   );
@@ -72,4 +75,9 @@ export function useLocale(): Pick<LocaleContextValue, "locale" | "setLocale"> {
 /** Auth copy for the current locale (convenience). */
 export function useAuthMessages(): AuthMessages {
   return useLocaleContext().auth;
+}
+
+/** Feed / browse / search copy for the current locale (convenience). */
+export function useFeedMessages(): FeedMessages {
+  return useLocaleContext().feed;
 }

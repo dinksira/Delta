@@ -69,7 +69,16 @@ export function AudioDetailView() {
       durationS: clip.durationS,
       mediaTone: clip.mediaTone,
     };
-  }, [loaded, clip]);
+  }, [
+    loaded,
+    clip?.id,
+    clip?.videoSrc,
+    clip?.caption,
+    clip?.hashtags?.join("|"),
+    clip?.durationS,
+    clip?.mediaTone,
+    clip?.contentType,
+  ]);
 
   useEffect(() => {
     if (!audioPayload) return;

@@ -115,7 +115,7 @@ export function AuthModalShell({
   const hasResponseBanner = banner != null;
 
   const titleBlock = (
-    <div className="mb-6 text-center">
+    <div className="mb-5 text-center">
       <h1 className="text-2xl font-bold leading-tight tracking-tight text-text-primary">{title}</h1>
       <p className="mt-1.5 text-sm font-normal text-text-secondary">{subtitle}</p>
     </div>
@@ -130,7 +130,7 @@ export function AuthModalShell({
   );
 
   return (
-    <div className="flex w-full flex-1 items-start justify-center px-3 py-4 sm:px-4 sm:py-6">
+    <div className="flex w-full flex-1 items-start justify-center px-3 py-3 sm:px-4 sm:py-5">
       <section className="w-full max-w-[var(--dl-auth-modal-max-width)] overflow-hidden rounded-lg border border-auth-modal-border bg-auth-modal-surface shadow-auth-modal">
         {hasResponseBanner ? (
           <>

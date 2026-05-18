@@ -7,7 +7,7 @@ import { useRef } from "react";
 import { useState } from "react";
 import { Send, X } from "lucide-react";
 
-import { Button, Textarea, Typography } from "@/components/theme";
+import { Button, Textarea, Typography } from "@/components/features/feed/primitives";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import { useFeedCommentMutation, useFeedComments } from "@/modules/Feed/hooks";
 import { useQueryClient } from "@tanstack/react-query";
