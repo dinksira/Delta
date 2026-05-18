@@ -6,7 +6,7 @@ import { useDeferredValue, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 
-import { SearchInput } from "@/components/theme/SearchInput";
+import { SearchInput } from "@/components/features/feed/primitives";
 import { fetchGlobalSearch } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 

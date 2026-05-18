@@ -9,7 +9,7 @@ Documentation for the **Feed / FYP (For You Page)** vertical in Delta Labs — *
 | [feed-backend-data-model-and-diagrams.md](./feed-backend-data-model-and-diagrams.md) | MongoDB collections, indexes, ER-style diagrams |
 | [feed-ranking-algorithms.md](./feed-ranking-algorithms.md) | Personalization / ranking algorithm decisions and formulas |
 | [feed-user-flows.md](./feed-user-flows.md) | What users can do — journey diagrams and walkthroughs |
-| [feed-frontend-component-hierarchy.md](./feed-frontend-component-hierarchy.md) | Detailed frontend component tree (atomic → views) |
+| [feed-frontend-component-hierarchy.md](./feed-frontend-component-hierarchy.md) | Detailed frontend component tree (primitives → views; logical layers only) |
 | [feed-frontend-component-hierarchy-simple.md](./feed-frontend-component-hierarchy-simple.md) | Simplified layered component diagram |
 
 **Related (implementation inventory, not AU-style diagrams):**

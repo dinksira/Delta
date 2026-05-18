@@ -42,7 +42,10 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-async function fetchFeedClips(filters: FeedClipFilterSelection): Promise<readonly LandingVideoClip[]> {
+async function fetchFeedClips(
+  filters: FeedClipFilterSelection,
+  options?: Readonly<{ contentTypeWhenFilterUnset?: string | null }>,
+): Promise<readonly LandingVideoClip[]> {
   const useLocalDebugVideosWhenEmpty =
     (process.env.NEXT_PUBLIC_FEED_DEBUG_USE_LOCAL_VIDEOS_WHEN_EMPTY ?? "").toLowerCase() === "true";
   const debugLoadingMsRaw = process.env.NEXT_PUBLIC_FEED_DEBUG_LOADING_MS ?? "";
@@ -51,7 +54,11 @@ async function fetchFeedClips(filters: FeedClipFilterSelection): Promise<readonl
     await delay(debugLoadingMs);
   }
   const normalized = normalizeFeedQuerySelection(filters);
-  const response = await fetchFeedPage({ limit: 24, filters: normalized });
+  const response = await fetchFeedPage({
+    limit: 24,
+    filters: normalized,
+    contentTypeWhenFilterUnset: options?.contentTypeWhenFilterUnset,
+  });
   if (useLocalDebugVideosWhenEmpty && response.items.length === 0) {
     return MOCK_VIDEO_FEED.map((clip, index) => ({
       ...clip,
@@ -62,11 +69,15 @@ async function fetchFeedClips(filters: FeedClipFilterSelection): Promise<readonl
 }
 
 /** Landing / feed stream; `selection` drives `GET /v1/feed` filters (main vertical feed uses same UI). */
-export function useFeedClips(selection: FeedClipFilterSelection = EMPTY_FEED_SELECTION) {
+export function useFeedClips(
+  selection: FeedClipFilterSelection = EMPTY_FEED_SELECTION,
+  options?: Readonly<{ contentTypeWhenFilterUnset?: string | null; enabled?: boolean }>,
+) {
   const queryFilters = normalizeFeedQuerySelection(selection);
   return useQuery({
-    queryKey: feedQueryKeys.clips(queryFilters),
-    queryFn: () => fetchFeedClips(queryFilters),
+    queryKey: [...feedQueryKeys.clips(queryFilters), options?.contentTypeWhenFilterUnset ?? "video-default"] as const,
+    queryFn: () => fetchFeedClips(queryFilters, options),
+    enabled: options?.enabled ?? true,
     staleTime: Infinity,
   });
 }

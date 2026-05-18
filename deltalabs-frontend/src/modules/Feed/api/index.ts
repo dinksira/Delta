@@ -5,6 +5,7 @@ import { MOCK_VIDEO_FEED, type LandingVideoClip } from "@/modules/Feed/data/mock
 import {
   feedClipFiltersToSearchParams,
   type FeedClipFilterSelection,
+  type FeedCustomTabFiltersDto,
 } from "@/modules/Feed/types/feedClipFilters";
 /** ################################ /IMPORT ############################# */
 
@@ -96,6 +97,17 @@ export type FeedWorkerHealthDto = Readonly<{
   lag_approx: number;
   lag_is_lower_bound: number;
 }>;
+
+export type FeedCustomTabDto = Readonly<{
+  label: string;
+  filters: FeedCustomTabFiltersDto;
+  updated_at: string;
+}>;
+
+export type FeedCustomTabUpsertDto = Readonly<{
+  label: string;
+  filters: FeedCustomTabFiltersDto;
+}>;
 /** ################################ /TYPES ############################# */
 
 /** ################################ COMPONENT ############################# */
@@ -147,14 +159,25 @@ export async function fetchFeedPage(params?: {
   readonly cursor?: string | null;
   readonly contentType?: string | null;
   readonly filters?: FeedClipFilterSelection;
+  /** When filters omit modality: `"video"` (default) or `null` to query all content types. */
+  readonly contentTypeWhenFilterUnset?: string | null;
 }): Promise<FeedPaginatedResponseDto> {
   const filterParams = feedClipFiltersToSearchParams(params?.filters ?? {});
-  const defaultContentType = params?.contentType ?? "video";
+  const whenUnset = params?.contentTypeWhenFilterUnset;
+  const defaultContentType =
+    whenUnset !== undefined ? whenUnset : (params?.contentType ?? "video");
+  const resolvedContentType =
+    (filterParams.content_type as string | undefined) ??
+    (defaultContentType === null || defaultContentType === undefined
+      ? undefined
+      : defaultContentType);
   const searchParams: Record<string, string | number | undefined> = {
     limit: params?.limit ?? 24,
     cursor: params?.cursor ?? undefined,
-    content_type: (filterParams.content_type as string | undefined) ?? defaultContentType,
   };
+  if (resolvedContentType !== undefined) {
+    searchParams.content_type = resolvedContentType;
+  }
   if (filterParams.hashtag !== undefined) searchParams.hashtag = filterParams.hashtag;
   if (filterParams.min_duration_s !== undefined) searchParams.min_duration_s = filterParams.min_duration_s;
   if (filterParams.max_duration_s !== undefined) searchParams.max_duration_s = filterParams.max_duration_s;
@@ -288,5 +311,13 @@ export async function fetchFeedTelemetrySummary(
 
 export async function fetchFeedWorkerHealth(): Promise<FeedWorkerHealthDto> {
   return apiClient.get<FeedWorkerHealthDto>("/v1/feed/worker/health");
+}
+
+export async function fetchFeedCustomTab(): Promise<FeedCustomTabDto> {
+  return apiClient.get<FeedCustomTabDto>("/v1/me/feed/custom-tab");
+}
+
+export async function upsertFeedCustomTab(payload: FeedCustomTabUpsertDto): Promise<FeedCustomTabDto> {
+  return apiClient.put<FeedCustomTabDto>("/v1/me/feed/custom-tab", { json: payload });
 }
 /** ################################ /COMPONENT ############################# */

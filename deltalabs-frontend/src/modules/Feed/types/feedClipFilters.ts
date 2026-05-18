@@ -113,3 +113,39 @@ export function parseFeedClipFiltersFromUrlSearchParams(params: URLSearchParams)
     ...(duration ? { duration } : {}),
   };
 }
+
+/** API shape for `GET/PUT /v1/me/feed/custom-tab` filters (snake_case). */
+export type FeedCustomTabFiltersDto = Readonly<{
+  content_type?: string;
+  hashtag?: string;
+  course_category?: string;
+  min_duration_s?: number;
+  max_duration_s?: number;
+}>;
+
+export function feedCustomTabFiltersToSelection(
+  filters: FeedCustomTabFiltersDto,
+): FeedClipFilterSelection {
+  const usp = new URLSearchParams();
+  if (filters.content_type) usp.set("content_type", filters.content_type);
+  if (filters.hashtag) usp.set("hashtag", filters.hashtag);
+  if (filters.course_category) usp.set("course_category", filters.course_category);
+  if (filters.min_duration_s != null) usp.set("min_duration_s", String(filters.min_duration_s));
+  if (filters.max_duration_s != null) usp.set("max_duration_s", String(filters.max_duration_s));
+  return parseFeedClipFiltersFromUrlSearchParams(usp);
+}
+
+export function feedSelectionToCustomTabFilters(
+  selection: FeedClipFilterSelection,
+): FeedCustomTabFiltersDto {
+  const p = feedClipFiltersToSearchParams(normalizeFeedQuerySelection(selection));
+  const out: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(p)) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
+export function feedSelectionHasActiveFilters(selection: FeedClipFilterSelection): boolean {
+  return Object.keys(feedClipFiltersToSearchParams(normalizeFeedQuerySelection(selection))).length > 0;
+}

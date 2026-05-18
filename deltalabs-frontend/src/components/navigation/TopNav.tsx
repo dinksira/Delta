@@ -10,10 +10,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { Typography } from "@/components/theme";
 import type { FeedMessages } from "@/i18n/feedMessages";
 import { useFeedMessages } from "@/i18n/LocaleContext";
+import { useCustomFeedTab } from "@/modules/Feed/hooks/useCustomFeedTab";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
 import { FeatureBrowserTabBar } from "@/components/navigation/FeatureBrowserTabBar";
 import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
 import { TopNavAuthActions } from "@/components/navigation/TopNavAuthActions";
+
+
 import {
   type TopNavCategoryItem,
   TopNavCategoryTabs,
@@ -68,6 +71,7 @@ const LANDING_CATEGORY_PATHS = [
   { href: "/ai" as const, labelKey: "ai" as const },
   { href: "/simulation" as const, labelKey: "simulation" as const },
   { href: "/explore" as const, labelKey: "all" as const },
+  { href: "/custom" as const, labelKey: "customTabDefault" as const, dynamicLabel: true as const },
 ] as const;
 
 /** ################################ /CONSTANTS ############################# */
@@ -76,13 +80,18 @@ const LANDING_CATEGORY_PATHS = [
 function landingCategoryItems(
   pathname: string,
   browse: FeedMessages["browseCategories"],
+  customTabLabel: string | undefined,
 ): readonly TopNavCategoryItem[] {
   return LANDING_CATEGORY_PATHS.map((item) => {
     const active =
       item.href === "/"
         ? pathname === "/"
         : pathname === item.href || pathname.startsWith(`${item.href}/`);
-    return { label: browse[item.labelKey], href: item.href, active };
+    const label =
+      "dynamicLabel" in item && item.dynamicLabel
+        ? customTabLabel ?? browse[item.labelKey]
+        : browse[item.labelKey];
+    return { label, href: item.href, active };
   });
 }
 
@@ -111,9 +120,10 @@ export function TopNav({ variant, isAuthenticated, profileInitials, sessionPendi
   const router = useRouter();
   const pathname = usePathname();
   const { browseCategories } = useFeedMessages();
+  const { data: customTab } = useCustomFeedTab();
   const landingTabs = useMemo(
-    () => landingCategoryItems(pathname ?? "", browseCategories),
-    [pathname, browseCategories],
+    () => landingCategoryItems(pathname ?? "", browseCategories, customTab?.label),
+    [pathname, browseCategories, customTab?.label],
   );
   const showAuthActions = variant === "landing_unauthorized";
   const showFeatureBrowserTabs = variant === "features_authorized";

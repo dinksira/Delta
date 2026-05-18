@@ -18,4 +18,5 @@ export {
   useFeedTelemetrySummary,
   useFeedWorkerHealth,
 } from "@/modules/Feed/hooks/useFeedQueries";
+export { useCustomFeedTab, useUpdateCustomFeedTab } from "@/modules/Feed/hooks/useCustomFeedTab";
 /** ################################ /COMPONENT ############################# */

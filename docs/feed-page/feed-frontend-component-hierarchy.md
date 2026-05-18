@@ -2,9 +2,11 @@
 
 ## Purpose
 
-Complete **tree diagram** of Feed web UI from **theme primitives (atomic)** → **shared shell** → **feed feature components** → **module views** → **App Router pages**, matching [frontend-auth-component-hierarchy.md](../au-page/frontend-auth-component-hierarchy.md).
+Complete **tree diagram** of Feed web UI from **theme primitives** → **shared shell** → **feed building blocks** → **feed composites** → **module views** → **App Router pages**, matching the *spirit* of [frontend-auth-component-hierarchy.md](../au-page/frontend-auth-component-hierarchy.md).
 
 **Quick layered diagram (A–AX letter cards):** [feed-frontend-component-hierarchy-simple.md](./feed-frontend-component-hierarchy-simple.md)
+
+**Folder policy:** Layers are **logical only**. We do **not** use `atoms/`, `molecules/`, or `organisms/` as directory names. Code stays under `components/features/feed/`, `components/features/feed/master/`, and `modules/Feed/views/`.
 
 **Scope:** Feed + shared search/filter surfaces (Auth gateway referenced only where feed opens login).
 
@@ -24,12 +26,13 @@ Complete **tree diagram** of Feed web UI from **theme primitives (atomic)** → 
 
 ## Big-picture UI architecture (bottom → top)
 
-1. **Theme primitives** — `Typography`, `Button`, `Textarea`, `SearchInput`, `cx`, …
+1. **Theme primitives** — `Typography`, `Button`, `Textarea`, `SearchInput`, `cx`, … (`components/theme/`)
 2. **Shared shell** — `PublicLayoutShell`, `TopNav`, `SearchVideoTile`, `AuthModalGateway`
-3. **Feed feature components** — playback, engagement, metadata, discovery (`features/feed/*`)
-4. **Module views** — `FeedExplorerShell` + page views (`modules/Feed/views/*`)
-5. **App routes** — `(public)/**/page.tsx` map URLs to views
-6. **Data layer** (parallel) — React Query, API module, Redux `feedUiSlice`, WebSocket on landing
+3. **Feed building blocks** — caption, card, search input, action rail, … (`features/feed/*.tsx`)
+4. **Feed composites** — viewport, comment panel, filter panel, … (`features/feed/master/*.tsx`)
+5. **Module views** — `FeedExplorerShell`, `LandingPageView`, … (`modules/Feed/views/*`)
+6. **App routes** — `(public)/**/page.tsx` map URLs to views
+7. **Data layer** (parallel) — React Query, API module, Redux `feedUiSlice`, WebSocket on landing
 
 ---
 
@@ -45,7 +48,7 @@ Re-exports views, hooks, types, API helpers used by pages.
 
 ---
 
-## Tree diagram: primitives → feed atoms → views → routes
+## Tree diagram: primitives → feed components → views → routes
 
 ```mermaid
 flowchart TB
@@ -64,7 +67,7 @@ flowchart TB
     AuthModalGateway["AuthModalGateway"]
   end
 
-  subgraph FEED_ATOMS["Feed atoms & molecules (features/feed/*)"]
+  subgraph FEED_BLOCKS["Feed building blocks & composites (features/feed/*)"]
     FeedCaption["FeedCaption"]
     FeedHashtagList["FeedHashtagList"]
     CreatorIdentity["CreatorIdentity"]

@@ -1,8 +1,23 @@
 # Feed — Frontend component hierarchy (simple)
 
-Layered breakdown of the **Feed web UI**, from **theme primitives** up to **App Router pages** — same style as [frontend-auth-component-hierarchy-simple.md](../au-page/frontend-auth-component-hierarchy-simple.md) and the auth component-hierarchy diagram.
+Layered breakdown of the **Feed web UI**, from **theme primitives** up to **App Router pages** — same *idea* as [frontend-auth-component-hierarchy-simple.md](../au-page/frontend-auth-component-hierarchy-simple.md) (bottom → top), but **without** renaming folders to things like `atoms/`, `molecules/`, or `organisms/`.
 
-**Read left → right:** primitives → shared shell → feed feature components → module views → routes.
+**Read left → right:** primitives → shared shell → feed components → module views → routes.
+
+### Logical layers vs folders (important)
+
+| Logical layer | What it means | Where it lives in code (unchanged) |
+|---------------|---------------|-------------------------------------|
+| **1 — Primitives** | Theme building blocks | `src/components/theme/*` |
+| **2 — Shared shell** | Public chrome used by feed routes | `src/components/navigation/*` |
+| **3 — Feed building blocks** | Small, reusable feed UI pieces | `src/components/features/feed/*.tsx` |
+| **4 — Feed composites** | Larger feed UI assembled from layer 3 | `src/components/features/feed/master/*.tsx` |
+| **5 — Module views** | Full screens + layout (`FeedExplorerShell`) | `src/modules/Feed/views/*` |
+| **6 — App routes** | Next.js pages | `src/app/(public)/**/page.tsx` |
+
+Refactors should **preserve markup and styles** (no visual change). Hierarchy is for **documentation and import direction** (primitives → feed → views), not for new directory names.
+
+**Enforced in code:** see `deltalabs-frontend/src/components/features/feed/ARCHITECTURE.md` (`primitives.ts`, `master/` composites, `LandingClipSlide` / `LandingCommentSidebar` extracted from the view).
 
 ---
 

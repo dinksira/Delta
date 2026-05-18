@@ -3,26 +3,21 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, VideoOff } from "lucide-react";
 
 import {
-  CreatorIdentity,
-  FeedActionRail,
   FeedAuthGateModal,
-  FeedCaption,
   FeedClipFilterPanel,
-  FeedCommentPanel,
-  FeedHashtagList,
-  FeedResourceLink,
   FeedSearchInput,
   FeedSearchSidebar,
   FeedShareSheet,
   FeedSnapScrollControls,
   FeedStatePanel,
-  FeedViewport,
-  type FeedActionItem,
+  LandingClipSlide,
+  LandingCommentSidebar,
+  formatCompactCount,
+  parseCompactCountLabel,
 } from "@/components/features/feed";
 import { FeedLoadingState, FeedWorkerHealthDebugPanel } from "@/modules/Feed/features";
 import { FeedExplorerShell, type FeedFilterPanelSlotContext } from "@/modules/Feed/views/FeedExplorerShell";
@@ -34,8 +29,6 @@ import {
   type FeedClipFilterSelection,
 } from "@/modules/Feed/types/feedClipFilters";
 import { LANDING_BRAND_CLICK_EVENT } from "@/lib/publicNavEvents";
-import { LANDING_FEED_PRESENTER } from "@/modules/Feed/data/landingFeedPresenter";
-import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
   useFeedClips,
   useFeedEventMutation,
@@ -53,204 +46,6 @@ import {
 } from "@/store";
 
 /** ################################ /IMPORT ############################# */
-/** ################################ CONSTANTS ############################# */
-/** Shared constants used by this file. */
-const actionRailTemplate = [
-  {
-    key: "goToCourse",
-    actionLabel: "Go to Course",
-    metaLabel: "Go to\nCourse",
-  },
-  { key: "like", actionLabel: "Like", metaLabel: "" },
-  { key: "comment", actionLabel: "Comment", metaLabel: "" },
-  { key: "bookmark", actionLabel: "Bookmark", metaLabel: "" },
-  { key: "share", actionLabel: "Share", metaLabel: "Share" },
-  {
-    key: "profile",
-    actionLabel: "Profile",
-    metaLabel: "",
-    profileInitials: LANDING_FEED_PRESENTER.initials,
-  },
-] as const satisfies readonly FeedActionItem[];
-
-/** ################################ /CONSTANTS ############################# */
-/** ################################ HELPERS ############################# */
-/** Helper utilities used by this file. */
-function buildRailForClip(clip: LandingVideoClip): readonly FeedActionItem[] {
-  return actionRailTemplate.map((item) =>
-    item.key === "like" && typeof clip.likeCount === "number" && clip.likeCount > 0
-      ? { ...item, metaLabel: formatCompactCount(clip.likeCount) }
-      : { ...item },
-  );
-}
-
-function formatCompactCount(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return `${value}`;
-}
-
-function parseCompactCountLabel(value: string | number | undefined): number {
-  if (typeof value === "number") return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
-  if (!value) return 0;
-  const sanitized = value.trim().replace(/,/g, "");
-  const match = sanitized.match(/^(\d+(?:\.\d+)?)([kKmM])?$/);
-  if (!match) return Number.parseInt(sanitized, 10) || 0;
-  const base = Number.parseFloat(match[1] ?? "0");
-  const suffix = (match[2] ?? "").toLowerCase();
-  if (suffix === "m") return Math.round(base * 1_000_000);
-  if (suffix === "k") return Math.round(base * 1_000);
-  return Math.round(base);
-}
-
-/** ################################ /HELPERS ############################# */
-/** ################################ SUBCOMPONENTS ############################# */
-/** Local subcomponents used by the main export. */
-function LandingClipSlide({
-  clip,
-  isAuthenticated,
-  isActive,
-  isMuted,
-  onToggleMute,
-  commentsOpen,
-  onCommentModeChange,
-  onFeedEvent,
-  preloadStrategy,
-  onFeedAction,
-  onRequireAuth,
-  likedActive,
-  savedActive,
-  actionPending,
-  likeMetaLabel,
-  bookmarkMetaLabel,
-  commentMetaLabel,
-  shareMetaLabel,
-}: Readonly<{
-  clip: LandingVideoClip;
-  isAuthenticated: boolean;
-  isActive: boolean;
-  isMuted: boolean;
-  onToggleMute: () => void;
-  commentsOpen: boolean;
-  onCommentModeChange: (open: boolean) => void;
-  onFeedEvent: (
-    clipId: string,
-    event: "view_start" | "view_complete" | "skip" | "hide",
-    payload?: { watchMs?: number; positionMs?: number },
-  ) => void;
-  preloadStrategy: "auto" | "metadata" | "none";
-  onFeedAction: (clipId: string, action: "like" | "bookmark" | "share") => void;
-  onRequireAuth: () => void;
-  likedActive: boolean;
-  savedActive: boolean;
-  actionPending: boolean;
-  likeMetaLabel?: string;
-  bookmarkMetaLabel?: string;
-  commentMetaLabel?: string;
-  shareMetaLabel?: string;
-}>) {
-  const [localActionKey, setLocalActionKey] = useState<string | null>(null);
-  const railItems = buildRailForClip(clip);
-  const resolvedRailItems = railItems.map((item) => {
-    if (item.key === "like" && likeMetaLabel) {
-      return { ...item, metaLabel: likeMetaLabel };
-    }
-    if (item.key === "bookmark" && bookmarkMetaLabel) {
-      return { ...item, metaLabel: bookmarkMetaLabel };
-    }
-    if (item.key === "comment" && commentMetaLabel) {
-      return { ...item, metaLabel: commentMetaLabel };
-    }
-    if (item.key === "share" && shareMetaLabel) {
-      return { ...item, metaLabel: shareMetaLabel };
-    }
-    return item;
-  });
-
-  const railActiveKeys = !isActive
-    ? []
-    : [
-        ...(commentsOpen ? (["comment"] as const) : []),
-        ...(likedActive ? (["like"] as const) : []),
-        ...(savedActive ? (["bookmark"] as const) : []),
-      ];
-
-  const handleRailToggle = (key: string) => {
-    if (key === "comment") {
-      if (commentsOpen) {
-        onCommentModeChange(false);
-        setLocalActionKey(null);
-      } else {
-        onCommentModeChange(true);
-        setLocalActionKey("comment");
-      }
-      return;
-    }
-    if (key === "share") {
-      if (actionPending) return;
-      onFeedAction(clip.id, "share");
-      setLocalActionKey((prev) => (prev === key ? null : key));
-      return;
-    }
-    if (!isAuthenticated) {
-      onRequireAuth();
-      return;
-    }
-    if (actionPending) return;
-    if (key === "like" || key === "bookmark" || key === "share") {
-      onFeedAction(clip.id, key);
-    }
-    setLocalActionKey((prev) => (prev === key ? null : key));
-  };
-
-  return (
-    <div
-      className="flex min-h-full w-full shrink-0 snap-start snap-always items-center justify-center py-2 sm:py-3 lg:py-4"
-      data-feed-slide=""
-      data-clip-id={clip.id}
-    >
-      <div className="mx-auto flex w-full max-w-full flex-row items-end justify-center gap-1 px-1 sm:gap-1.5 sm:px-0">
-        <div
-          className="shrink-0"
-          style={{
-            width:
-              "clamp(var(--dl-layout-feed-video-width-min), var(--dl-layout-feed-video-width-preferred), var(--dl-layout-feed-video-width-max))",
-            maxWidth: "calc(100vw - var(--dl-layout-feed-video-vw-inset))",
-          }}
-        >
-          <FeedViewport
-            clipId={clip.id}
-            mediaTone={clip.mediaTone}
-            videoSrc={clip.videoSrc}
-            isActive={isActive}
-            isMuted={isMuted}
-            onToggleMute={onToggleMute}
-            onFeedEvent={(event, payload) => onFeedEvent(clip.id, event, payload)}
-            preloadStrategy={preloadStrategy}
-          >
-            <CreatorIdentity
-              initials={LANDING_FEED_PRESENTER.initials}
-              name={LANDING_FEED_PRESENTER.name}
-              handle={LANDING_FEED_PRESENTER.handle}
-            />
-            <FeedCaption text={clip.caption} />
-            <FeedHashtagList hashtags={[...clip.hashtags]} />
-            <FeedResourceLink text={clip.pdfLabel} />
-          </FeedViewport>
-        </div>
-
-        <FeedActionRail
-          items={resolvedRailItems}
-          activeActionKey={localActionKey}
-          activeActionKeys={railActiveKeys}
-          onActionToggle={handleRailToggle}
-        />
-      </div>
-    </div>
-  );
-}
-
-/** ################################ /SUBCOMPONENTS ############################# */
 /** ################################ COMPONENT ############################# */
 /** Public landing feed-style layout aligned to design parity target. */
 export function LandingPageView() {
@@ -792,7 +587,7 @@ export function LandingPageView() {
         }
       />
       ) : null}
-      <LandingCommentSidebarPortal
+      <LandingCommentSidebar
         open={commentPanelOpen}
         clip={activeClip}
         isAuthenticated={isAuthenticated}
@@ -833,41 +628,3 @@ export function LandingPageView() {
 }
 
 /** ################################ /COMPONENT ############################# */
-/** ################################ SUBCOMPONENTS ############################# */
-/** Renders the comment column on `document.body` so it is not clipped by feed layout; `top-16` matches `TopNav` `h-16`. */
-function LandingCommentSidebarPortal({
-  open,
-  clip,
-  isAuthenticated,
-  onRequireAuth,
-  onCommentCreated,
-  onClose,
-}: Readonly<{
-  open: boolean;
-  clip: LandingVideoClip | undefined;
-  isAuthenticated: boolean;
-  onRequireAuth: () => void;
-  onCommentCreated: (clipId: string, nextCount: number) => void;
-  onClose: () => void;
-}>) {
-  if (typeof document === "undefined" || !open || !clip) {
-    return null;
-  }
-
-  return createPortal(
-    <aside
-      className="fixed right-0 top-16 z-40 flex h-[calc(100dvh-4rem)] w-full max-w-[var(--dl-layout-feed-comment-sheet-max)] min-w-0 flex-col border-l border-border-default bg-surface-default shadow-sm"
-      aria-label="Comments"
-    >
-      <FeedCommentPanel
-        clip={clip}
-        isAuthenticated={isAuthenticated}
-        onRequireAuth={onRequireAuth}
-        onCommentCreated={onCommentCreated}
-        onClose={onClose}
-      />
-    </aside>,
-    document.body,
-  );
-}
-/** ################################ /SUBCOMPONENTS ############################# */
