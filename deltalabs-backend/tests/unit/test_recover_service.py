@@ -25,6 +25,12 @@ class FakeRedis:
     async def get(self, key: str) -> str | None:
         return self._store.get(key)
 
+    async def delete(self, key: str) -> int:
+        if key in self._store:
+            del self._store[key]
+            return 1
+        return 0
+
     async def incr(self, key: str) -> int:
         self._counter[key] = self._counter.get(key, 0) + 1
         return self._counter[key]
@@ -75,9 +81,11 @@ def _mock_recover_email(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("ENV", "local")
     get_settings.cache_clear()
+    from app.infra.email_client import EmailSendResult
+
     monkeypatch.setattr(
         "app.domain.identity.recover_service.send_otp_email",
-        AsyncMock(return_value=True),
+        AsyncMock(return_value=EmailSendResult(ok=True)),
     )
 
 
@@ -121,6 +129,29 @@ async def test_recover_verify_and_reset_happy_path() -> None:
     assert reset.status == "password_reset"
     assert repo.updated is True
     assert repo.revoked is True
+
+
+@pytest.mark.asyncio
+async def test_recover_email_delivery_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.infra.email_client import EmailSendResult
+
+    monkeypatch.setattr(
+        "app.domain.identity.recover_service.send_otp_email",
+        AsyncMock(
+            return_value=EmailSendResult(
+                ok=False,
+                failure_reason="provider_rejected",
+                failure_detail="Invalid `from` address",
+            )
+        ),
+    )
+    service = RecoverService(FakeRepository(), FakeRedis())  # type: ignore[arg-type]
+    with pytest.raises(ValidationError) as exc:
+        await service.request_recover(
+            RecoverRequest(identity="demo@example.com"),
+            ip_address="127.0.0.1",
+        )
+    assert exc.value.code == "recover_email_delivery_failed"
 
 
 @pytest.mark.asyncio

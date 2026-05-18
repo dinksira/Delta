@@ -74,13 +74,18 @@ class VerificationService:
 
         # Deliver the code via the requested channel
         if channel == "email":
-            sent = await send_otp_email(
+            delivery = await send_otp_email(
                 to=destination,
                 code=code,
                 purpose=payload.purpose.strip().lower(),
             )
-            if not sent:
+            if not delivery.ok:
                 await self._redis.delete(self._verification_key(verification_id))
+                if delivery.failure_reason == "missing_api_key":
+                    raise ValidationError(
+                        "Verification email could not be sent because email is not configured.",
+                        code="verification_email_not_configured",
+                    )
                 raise ValidationError(
                     "Could not send verification email. Please try again later.",
                     code="verification_email_delivery_failed",

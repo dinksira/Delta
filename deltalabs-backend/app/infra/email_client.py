@@ -3,12 +3,23 @@
 from __future__ import annotations
 
 import logging
+from typing import Literal, NamedTuple
 
 import resend
 
 from app.core.config import get_settings
 
 logger = logging.getLogger("deltalabs.email")
+
+EmailFailureReason = Literal["missing_api_key", "provider_rejected"]
+
+
+class EmailSendResult(NamedTuple):
+    """Outcome of an OTP email send attempt."""
+
+    ok: bool
+    failure_reason: EmailFailureReason | None = None
+    failure_detail: str | None = None
 
 
 def configure_resend() -> None:
@@ -18,22 +29,29 @@ def configure_resend() -> None:
         resend.api_key = settings.resend_api_key
 
 
-async def send_otp_email(*, to: str, code: str, purpose: str) -> bool:
+async def send_otp_email(*, to: str, code: str, purpose: str) -> EmailSendResult:
     """Send a 6-digit OTP code via Resend.
 
     Uses HTTPS — not blocked by any cloud provider (unlike SMTP).
     purpose: "signup" | "recover"
-
-    Returns True when the provider accepted the send request.
     """
     settings = get_settings()
 
     if not settings.resend_api_key:
-        logger.warning(
-            "email.resend_api_key_missing — skipping delivery",
-            extra={"to": to, "purpose": purpose},
+        logger.error(
+            "email.delivery_failed",
+            extra={
+                "to": to,
+                "purpose": purpose,
+                "reason": "missing_api_key",
+                "detail": "RESEND_API_KEY is not set",
+            },
         )
-        return False
+        return EmailSendResult(
+            ok=False,
+            failure_reason="missing_api_key",
+            failure_detail="RESEND_API_KEY is not set",
+        )
 
     subject_map = {
         "signup": "Your DeltaLabs verification code",
@@ -105,10 +123,20 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> bool:
             "email.sent",
             extra={"to": to, "purpose": purpose, "id": result.get("id")},
         )
-        return True
+        return EmailSendResult(ok=True)
     except Exception as exc:
+        detail = str(exc)
         logger.error(
-            "email.send_failed",
-            extra={"to": to, "purpose": purpose, "error": str(exc)},
+            "email.delivery_failed",
+            extra={
+                "to": to,
+                "purpose": purpose,
+                "reason": "provider_rejected",
+                "detail": detail,
+            },
         )
-        return False
+        return EmailSendResult(
+            ok=False,
+            failure_reason="provider_rejected",
+            failure_detail=detail,
+        )

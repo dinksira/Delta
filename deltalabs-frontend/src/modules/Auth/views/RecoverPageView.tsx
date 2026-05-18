@@ -15,7 +15,7 @@ import {
   AuthTextField,
   useAuthResponseBanner,
 } from "@/components/features/auth";
-import { authErrorMessage } from "@/lib/authErrors";
+import { authErrorMessage, recoverErrorMessage } from "@/lib/authErrors";
 import { useAuthMessages } from "@/i18n/LocaleContext";
 import {
   useRecoverRequestMutation,
@@ -99,7 +99,7 @@ export function RecoverPageView({
     } catch (error) {
       setBanner({
         type: "error",
-        message: authErrorMessage(error, a.recover.emailDeliveryFailed),
+        message: recoverErrorMessage(error, a),
       });
     }
   };
