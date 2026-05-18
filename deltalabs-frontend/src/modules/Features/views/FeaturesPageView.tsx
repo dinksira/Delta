@@ -57,7 +57,7 @@ const chipClassByFeatureKey = {
 export function FeaturesPageView() {
   const { isAuthenticated, isReady, session } = useAuthSession();
   const { openWorkspaceTab, openTabs } = useFeatureTabs();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const userId = session?.user?.id ?? "anon";
   const {
     data: featureData,

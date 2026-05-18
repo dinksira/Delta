@@ -2,6 +2,10 @@
 import { Suspense } from "react";
 
 import { ClassSessionMeetView } from "@/modules/School/class/ClassSessionMeetView";
+
+export function generateStaticParams() {
+  return [{ schoolId: "default", classItemId: "default", sessionId: "default" }];
+}
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */

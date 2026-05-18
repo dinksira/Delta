@@ -30,7 +30,7 @@ import { SearchTopResultsSkeleton, SearchVideoTile } from "@/modules/Search/view
  */
 export function FilterResultsView() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const browseCategories = useAuthMessages().browseCategories;
 
   const selection = useMemo(

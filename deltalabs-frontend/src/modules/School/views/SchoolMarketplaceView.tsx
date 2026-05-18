@@ -65,7 +65,7 @@ type SchoolMarketplaceViewProps = Readonly<{
 export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const { isReady, isAuthenticated, session } = useAuthSession();
   const enabled = isReady && isAuthenticated;
   const [showCreate, setShowCreate] = useState(false);

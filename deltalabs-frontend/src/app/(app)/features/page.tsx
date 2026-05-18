@@ -1,26 +1,28 @@
-/** ################################ IMPORT ############################# */
-/** Imports used by this file. */
-import { Suspense } from "react";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { FeaturesPageView } from "@/modules/Features/views/FeaturesPageView";
 
-/** ################################ /IMPORT ############################# */
+function ClientRedirector() {
+  const router = useRouter();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  
+  useEffect(() => {
+    if (searchParams.get("tab") === "school") {
+      router.replace("/features/school");
+    }
+  }, [searchParams, router]);
 
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-type PageProps = Readonly<{ searchParams: Promise<{ tab?: string }> }>;
+  return null;
+}
 
-export default async function FeaturesPage({ searchParams }: PageProps) {
-  const p = await searchParams;
-  if (p.tab === "school") {
-    redirect("/features/school");
-  }
-
+export default function FeaturesPage() {
   return (
     <Suspense fallback={null}>
+      <ClientRedirector />
       <FeaturesPageView />
     </Suspense>
   );
 }
-/** ################################ /COMPONENT ############################# */

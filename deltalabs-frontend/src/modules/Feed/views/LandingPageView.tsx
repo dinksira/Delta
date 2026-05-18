@@ -256,7 +256,7 @@ function LandingClipSlide({
 export function LandingPageView() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const dispatch = useAppDispatch();
   const { isAuthenticated, session } = useAuthSession();
   const { browseCategories } = useAuthMessages();

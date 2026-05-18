@@ -1,5 +1,9 @@
 import { SchoolMarketplaceListingView } from "@/modules/School/views/SchoolMarketplaceListingView";
 
+export function generateStaticParams() {
+  return [{ listingId: "default" }];
+}
+
 type PageProps = Readonly<{
   params: Promise<{ listingId: string }>;
 }>;

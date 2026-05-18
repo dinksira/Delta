@@ -24,3 +24,15 @@ __pycache__/
 
 # Misc
 test_write.txt
+
+# Local Design & Compliance Docs
+Ci.md
+coding standard.md
+component catalaog
+Design system and component.md
+design system.md
+Design token.md
+README.md
+deltalabs-frontend/rule.md
+
+

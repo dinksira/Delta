@@ -105,7 +105,7 @@ function BrowserTab({ href, label, active, pinned, onClose }: BrowserTabProps) {
 export function FeatureBrowserTabBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const {
     openTabs,
     removeWorkspaceTab,

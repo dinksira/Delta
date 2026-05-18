@@ -20,7 +20,7 @@ type TopNavAuthActionsProps = Readonly<{
 export function TopNavAuthActions({ isAuthenticated }: TopNavAuthActionsProps) {
   const a = useAuthMessages();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const next = new URLSearchParams(searchParams.toString());
   next.set("auth", "login");
   const loginHref = `${pathname}?${next.toString()}`;
