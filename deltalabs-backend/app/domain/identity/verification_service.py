@@ -81,7 +81,7 @@ class VerificationService:
             )
             if not delivery.ok:
                 await self._redis.delete(self._verification_key(verification_id))
-                if delivery.failure_reason == "missing_api_key":
+                if delivery.failure_reason == "not_configured":
                     raise ValidationError(
                         "Verification email could not be sent because email is not configured.",
                         code="verification_email_not_configured",

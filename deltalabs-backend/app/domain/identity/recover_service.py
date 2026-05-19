@@ -202,7 +202,7 @@ class RecoverService:
 
 
 def _recover_email_failure_response(delivery: EmailSendResult) -> tuple[str, str]:
-    if delivery.failure_reason == "missing_api_key":
+    if delivery.failure_reason == "not_configured":
         return (
             "Recovery email could not be sent because email is not configured on the server.",
             "recover_email_not_configured",
