@@ -29,7 +29,7 @@ class LoginPage extends HookConsumerWidget {
     ref.listen<LoginState>(loginProvider, (_, next) {
       if (next.isSuccess) {
         ref.read(authProvider.notifier).onLoginSuccess();
-        context.go(AppRoutes.home);
+        context.go(AppRoutes.feed);
       }
     });
 

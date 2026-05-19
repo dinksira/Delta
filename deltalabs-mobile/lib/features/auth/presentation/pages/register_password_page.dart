@@ -32,7 +32,7 @@ class RegisterPasswordPage extends HookConsumerWidget {
         // Refresh the auth session so the app recognises the new user
         await ref.read(authProvider.notifier).onLoginSuccess();
         if (context.mounted) {
-          context.go(AppRoutes.home);
+          context.go(AppRoutes.feed);
         }
       }
     }

@@ -10,14 +10,17 @@ import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step1
 import 'package:deltalabs_mobile/features/auth/presentation/pages/register_step2_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/pages/reset_password_page.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:deltalabs_mobile/features/home/presentation/pages/home_page.dart';
+import 'package:deltalabs_mobile/features/search/presentation/models/search_viewer_args.dart';
+import 'package:deltalabs_mobile/features/search/presentation/pages/search_clip_viewer_page.dart';
+import 'package:deltalabs_mobile/features/search/presentation/pages/search_page.dart';
+import 'package:deltalabs_mobile/features/shell/presentation/pages/main_shell_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'app_router.g.dart';
 
-// Auth-only routes — redirect to home if already logged in
+// Auth-only routes — redirect to feed when already logged in
 const _authRoutes = {
   AppRoutes.login,
   AppRoutes.registerStep1,
@@ -38,7 +41,6 @@ GoRouter appRouter(Ref ref) {
     initialLocation: initialAppRoute,
     debugLogDiagnostics: true,
     redirect: (context, state) {
-      // Auth is still resolving — don't redirect, initial route is already correct
       if (authState.isLoading) return null;
 
       final user = authState.when(
@@ -47,9 +49,10 @@ GoRouter appRouter(Ref ref) {
         error: (_, __) => null,
       );
       final isLoggedIn = user != null;
-      final isAuthRoute = _authRoutes.contains(state.matchedLocation);
+      final location = state.matchedLocation;
+      final isAuthRoute = _authRoutes.contains(location);
 
-      if (isLoggedIn && isAuthRoute) return AppRoutes.home;
+      if (isLoggedIn && isAuthRoute) return AppRoutes.feed;
       if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
 
       return null;
@@ -104,11 +107,40 @@ GoRouter appRouter(Ref ref) {
         builder: (_, __) => const RegisterPasswordPage(),
       ),
 
-      // ── Main ───────────────────────────────────────────────────────────────
+      // ── Main (TikTok-style shell — no top nav) ─────────────────────────────
+      GoRoute(
+        path: AppRoutes.feed,
+        name: 'feed',
+        builder: (_, __) => const MainShellPage(),
+      ),
+      // Legacy alias — bookmarks / bootstrap may still point here
       GoRoute(
         path: AppRoutes.home,
         name: 'home',
-        builder: (_, __) => const HomePage(),
+        redirect: (_, __) => AppRoutes.feed,
+      ),
+
+      // ── Search (TikTok-style full screen) ──────────────────────────────────
+      GoRoute(
+        path: AppRoutes.search,
+        name: 'search',
+        builder: (_, state) => SearchPage(
+          initialQuery: state.uri.queryParameters['q'],
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.searchViewer,
+        name: 'search-viewer',
+        builder: (_, state) {
+          final extra = state.extra;
+          if (extra is! SearchViewerArgs) {
+            return const Scaffold(
+              backgroundColor: Colors.black,
+              body: Center(child: Text('Missing clip', style: TextStyle(color: Colors.white))),
+            );
+          }
+          return SearchClipViewerPage(args: extra);
+        },
       ),
     ],
     errorBuilder: (_, state) => Scaffold(
