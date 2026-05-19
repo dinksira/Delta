@@ -24,7 +24,6 @@ export function Root({ children }: Readonly<{ children: React.ReactNode }>) {
         <AuthSessionProvider>
           <GlobalAuthPendingBar />
           <ThemeProvider>
-            <Provider store={store}>{children}</Provider>
             <Provider store={store}>
               <DesktopSplashGate>
                 <NativeTitleBar />
