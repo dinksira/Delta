@@ -200,7 +200,12 @@ class Settings(BaseSettings):
         description="Comma-separated allowed CORS origins",
     )
 
-    # ── Email delivery (Resend — HTTPS, works on all cloud providers) ────────
+    # ── Email delivery ───────────────────────────────────────────────────────
+    # resend = production. smtp = Gmail App Password. apps_script = temporary Gmail relay.
+    email_provider: Literal["resend", "smtp", "apps_script"] = Field(
+        default="resend",
+        description="Email transport: resend | smtp | apps_script (temporary)",
+    )
     resend_api_key: str = Field(
         default="",
         description="Resend API key — get from resend.com",
@@ -212,6 +217,35 @@ class Settings(BaseSettings):
     email_from_name: str = Field(
         default="DeltaLabs",
         description="Display name shown in the From field",
+    )
+    smtp_host: str = Field(
+        default="smtp.gmail.com",
+        description="SMTP host (Gmail: smtp.gmail.com)",
+    )
+    smtp_port: int = Field(
+        default=587,
+        ge=1,
+        description="SMTP port (Gmail TLS: 587)",
+    )
+    smtp_user: str = Field(
+        default="",
+        description="SMTP login — Gmail address when using Google App Password",
+    )
+    smtp_password: str = Field(
+        default="",
+        description="SMTP password — Google App Password (not your normal Gmail password)",
+    )
+    smtp_from_address: str = Field(
+        default="",
+        description="From email for SMTP; defaults to SMTP_USER when empty",
+    )
+    apps_script_email_url: str = Field(
+        default="",
+        description="Deployed Apps Script web app URL (ends with /exec)",
+    )
+    apps_script_email_secret: str = Field(
+        default="",
+        description="Shared secret — must match EMAIL_SECRET in Apps Script properties",
     )
 
     # ── Session limits ────────────────────────────────────────────────────────

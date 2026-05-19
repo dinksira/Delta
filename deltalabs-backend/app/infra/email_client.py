@@ -1,17 +1,23 @@
-"""Transactional email delivery via Resend (HTTPS — works on all cloud providers)."""
+"""Transactional OTP email via Resend, SMTP, or temporary Google Apps Script relay."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Literal, NamedTuple
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.utils import parseaddr
+from typing import Any, Literal, NamedTuple, cast
 
+import httpx
 import resend
 
 from app.core.config import get_settings
 
 logger = logging.getLogger("deltalabs.email")
 
-EmailFailureReason = Literal["missing_api_key", "provider_rejected"]
+EmailFailureReason = Literal["not_configured", "provider_rejected"]
 
 
 class EmailSendResult(NamedTuple):
@@ -29,39 +35,16 @@ def configure_resend() -> None:
         resend.api_key = settings.resend_api_key
 
 
-async def send_otp_email(*, to: str, code: str, purpose: str) -> EmailSendResult:
-    """Send a 6-digit OTP code via Resend.
-
-    Uses HTTPS — not blocked by any cloud provider (unlike SMTP).
-    purpose: "signup" | "recover"
-
-    Returns True when the provider accepted the send request.
-    """
-    settings = get_settings()
-
-    if not settings.resend_api_key:
-        logger.error(
-            "email.delivery_failed",
-            extra={
-                "to": to,
-                "purpose": purpose,
-                "reason": "missing_api_key",
-                "detail": "RESEND_API_KEY is not set",
-            },
-        )
-        return EmailSendResult(
-            ok=False,
-            failure_reason="missing_api_key",
-            failure_detail="RESEND_API_KEY is not set",
-        )
-
+def _subject_for_purpose(purpose: str) -> str:
     subject_map = {
         "signup": "Your DeltaLabs verification code",
         "recover": "Reset your DeltaLabs password",
     }
-    subject = subject_map.get(purpose, "Your DeltaLabs code")
+    return subject_map.get(purpose, "Your DeltaLabs code")
 
-    html_body = f"""<!DOCTYPE html>
+
+def _html_body_for_otp(*, purpose: str, code: str) -> str:
+    return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif">
@@ -112,33 +95,147 @@ async def send_otp_email(*, to: str, code: str, purpose: str) -> EmailSendResult
 </body>
 </html>"""
 
+
+def _log_delivery_failed(
+    *,
+    to: str,
+    purpose: str,
+    reason: EmailFailureReason,
+    detail: str,
+) -> None:
+    logger.error(
+        "email.delivery_failed",
+        extra={"to": to, "purpose": purpose, "reason": reason, "detail": detail},
+    )
+
+
+async def _send_via_resend(*, to: str, subject: str, html_body: str, purpose: str) -> EmailSendResult:
+    settings = get_settings()
+    if not settings.resend_api_key:
+        detail = "RESEND_API_KEY is not set"
+        _log_delivery_failed(to=to, purpose=purpose, reason="not_configured", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="not_configured", failure_detail=detail)
+
     params: resend.Emails.SendParams = {
         "from": f"{settings.email_from_name} <{settings.resend_from_address}>",
         "to": [to],
         "subject": subject,
         "html": html_body,
     }
-
     try:
         result = resend.Emails.send(params)
-        logger.info(
-            "email.sent",
-            extra={"to": to, "purpose": purpose, "id": result.get("id")},
-        )
+        logger.info("email.sent", extra={"to": to, "provider": "resend", "id": result.get("id")})
         return EmailSendResult(ok=True)
     except Exception as exc:
         detail = str(exc)
-        logger.error(
-            "email.delivery_failed",
-            extra={
-                "to": to,
-                "purpose": purpose,
-                "reason": "provider_rejected",
-                "detail": detail,
-            },
+        _log_delivery_failed(to=to, purpose=purpose, reason="provider_rejected", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="provider_rejected", failure_detail=detail)
+
+
+def _smtp_send_sync(
+    *,
+    host: str,
+    port: int,
+    user: str,
+    password: str,
+    from_header: str,
+    to: str,
+    subject: str,
+    html_body: str,
+) -> None:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = from_header
+    msg["To"] = to
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
+    with smtplib.SMTP(host, port, timeout=30) as server:
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
+        server.login(user, password)
+        _, envelope_from = parseaddr(from_header)
+        server.sendmail(envelope_from or user, [to], msg.as_string())
+
+
+async def _send_via_smtp(*, to: str, subject: str, html_body: str, purpose: str) -> EmailSendResult:
+    settings = get_settings()
+    if not settings.smtp_user or not settings.smtp_password:
+        detail = "SMTP_USER and SMTP_PASSWORD must be set when EMAIL_PROVIDER=smtp"
+        _log_delivery_failed(to=to, purpose=purpose, reason="not_configured", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="not_configured", failure_detail=detail)
+
+    from_addr = settings.smtp_from_address.strip() or settings.smtp_user
+    from_header = f"{settings.email_from_name} <{from_addr}>"
+
+    try:
+        await asyncio.to_thread(
+            _smtp_send_sync,
+            host=settings.smtp_host,
+            port=settings.smtp_port,
+            user=settings.smtp_user,
+            password=settings.smtp_password,
+            from_header=from_header,
+            to=to,
+            subject=subject,
+            html_body=html_body,
         )
-        return EmailSendResult(
-            ok=False,
-            failure_reason="provider_rejected",
-            failure_detail=detail,
+        logger.info("email.sent", extra={"to": to, "provider": "smtp", "from": from_addr})
+        return EmailSendResult(ok=True)
+    except Exception as exc:
+        detail = str(exc)
+        _log_delivery_failed(to=to, purpose=purpose, reason="provider_rejected", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="provider_rejected", failure_detail=detail)
+
+
+async def _send_via_apps_script(
+    *, to: str, subject: str, html_body: str, purpose: str
+) -> EmailSendResult:
+    settings = get_settings()
+    url = settings.apps_script_email_url.strip()
+    secret = settings.apps_script_email_secret.strip()
+    if not url or not secret:
+        detail = "APPS_SCRIPT_EMAIL_URL and APPS_SCRIPT_EMAIL_SECRET must be set"
+        _log_delivery_failed(to=to, purpose=purpose, reason="not_configured", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="not_configured", failure_detail=detail)
+
+    payload = {
+        "secret": secret,
+        "to": to,
+        "subject": subject,
+        "htmlBody": html_body,
+        "fromName": settings.email_from_name,
+    }
+
+    try:
+        timeout = httpx.Timeout(settings.http_timeout_seconds)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            data = cast(dict[str, Any], response.json())
+
+        if not data.get("ok"):
+            detail = str(data.get("error") or "Apps Script returned ok=false")
+            _log_delivery_failed(to=to, purpose=purpose, reason="provider_rejected", detail=detail)
+            return EmailSendResult(ok=False, failure_reason="provider_rejected", failure_detail=detail)
+
+        logger.info("email.sent", extra={"to": to, "provider": "apps_script"})
+        return EmailSendResult(ok=True)
+    except Exception as exc:
+        detail = str(exc)
+        _log_delivery_failed(to=to, purpose=purpose, reason="provider_rejected", detail=detail)
+        return EmailSendResult(ok=False, failure_reason="provider_rejected", failure_detail=detail)
+
+
+async def send_otp_email(*, to: str, code: str, purpose: str) -> EmailSendResult:
+    """Send a 6-digit OTP. purpose: signup | recover."""
+    settings = get_settings()
+    subject = _subject_for_purpose(purpose)
+    html_body = _html_body_for_otp(purpose=purpose, code=code)
+
+    if settings.email_provider == "smtp":
+        return await _send_via_smtp(to=to, subject=subject, html_body=html_body, purpose=purpose)
+    if settings.email_provider == "apps_script":
+        return await _send_via_apps_script(
+            to=to, subject=subject, html_body=html_body, purpose=purpose
         )
+    return await _send_via_resend(to=to, subject=subject, html_body=html_body, purpose=purpose)
