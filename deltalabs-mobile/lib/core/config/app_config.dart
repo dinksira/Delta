@@ -12,6 +12,8 @@ class AppConfig {
   late final String apiBaseUrl;
   late final String wsBaseUrl;
   late final String cdnBaseUrl;
+  /// Public web app origin — hosts `/mock-feed-videos/*` static assets.
+  late final String webAppBaseUrl;
   late final bool enableLogging;
   late final bool enableCrashReporting;
   late final bool enableAnalytics;
@@ -28,6 +30,7 @@ class AppConfig {
         _instance.apiBaseUrl = 'https://delta-labs.onrender.com/v1';
         _instance.wsBaseUrl = 'wss://delta-labs.onrender.com/ws';
         _instance.cdnBaseUrl = 'https://delta-labs.onrender.com';
+        _instance.webAppBaseUrl = 'https://delta-labs-pi.vercel.app';
         _instance.enableLogging = true;
         _instance.enableCrashReporting = false;
         _instance.enableAnalytics = false;
@@ -39,6 +42,7 @@ class AppConfig {
         _instance.apiBaseUrl = 'https://api.staging.deltalabs.io/v1';
         _instance.wsBaseUrl = 'wss://ws.staging.deltalabs.io';
         _instance.cdnBaseUrl = 'https://cdn.staging.deltalabs.io';
+        _instance.webAppBaseUrl = 'https://staging.deltalabs.io';
         _instance.enableLogging = true;
         _instance.enableCrashReporting = true;
         _instance.enableAnalytics = false;
@@ -50,6 +54,7 @@ class AppConfig {
         _instance.apiBaseUrl = 'https://api.deltalabs.io/v1';
         _instance.wsBaseUrl = 'wss://ws.deltalabs.io';
         _instance.cdnBaseUrl = 'https://cdn.deltalabs.io';
+        _instance.webAppBaseUrl = 'https://deltalabs.io';
         _instance.enableLogging = false;
         _instance.enableCrashReporting = true;
         _instance.enableAnalytics = true;

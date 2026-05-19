@@ -39,7 +39,7 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
       // Check local token BEFORE runApp — determines initial route instantly
       // No network call, no flash, no redirect
       final token = await SecureStorage().getAccessToken();
-      initialAppRoute = token != null ? AppRoutes.home : AppRoutes.login;
+      initialAppRoute = token != null ? AppRoutes.feed : AppRoutes.login;
 
       AppLogger.info(
         'Bootstrap complete — launching DeltaLabs at $initialAppRoute',
