@@ -21,6 +21,7 @@ import { ThemeProvider } from '@/contexts/Theme_Context';
 import { AppShell } from '@/components/navigation/AppShell';
 import { PublicLayoutShell } from '@/components/navigation/PublicLayoutShell';
 import { GlobalAuthPendingBar } from '@/components/system/GlobalAuthPendingBar';
+import { NativeTitleBar } from '@/components/atoms/NativeTitleBar';
 import { store } from '@/store';
 
 // Import Views
@@ -92,14 +93,19 @@ const AppContent: React.FC = () => {
   const pathname = usePathname();
   const { type, element } = getRouteView(pathname);
 
-  if (type === 'app') {
-    return <AppShell>{element}</AppShell>;
-  }
-
   return (
-    <PublicLayoutShell serverAuthenticated={false}>
-      {element}
-    </PublicLayoutShell>
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
+      <NativeTitleBar />
+      <div className="flex-1 overflow-hidden">
+        {type === 'app' ? (
+          <AppShell>{element}</AppShell>
+        ) : (
+          <PublicLayoutShell serverAuthenticated={false}>
+            {element}
+          </PublicLayoutShell>
+        )}
+      </div>
+    </div>
   );
 };
 
