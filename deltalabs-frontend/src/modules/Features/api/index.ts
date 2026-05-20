@@ -29,10 +29,33 @@ export type FeaturesListResponseDto = Readonly<{
 }>;
 /** ################################ /TYPES ############################# */
 
+export type FeaturesLayoutDto = Readonly<{
+  orderKeys: readonly string[];
+  hiddenKeys: readonly string[];
+  labels: Readonly<Record<string, string>>;
+  updatedAt: string;
+}>;
+
+export type FeaturesLayoutUpsertDto = Readonly<{
+  order_keys: readonly string[];
+  hidden_keys: readonly string[];
+  labels: Readonly<Record<string, string>>;
+}>;
+
 /** ################################ COMPONENT ############################# */
 /** Features API wrappers (global and org-scoped). */
 export async function fetchFeaturesList(): Promise<FeaturesListResponseDto> {
   return apiClient.get<FeaturesListResponseDto>("/v1/features");
+}
+
+export async function fetchFeaturesLayout(): Promise<FeaturesLayoutDto> {
+  return apiClient.get<FeaturesLayoutDto>("/v1/features/layout");
+}
+
+export async function upsertFeaturesLayout(
+  payload: FeaturesLayoutUpsertDto,
+): Promise<FeaturesLayoutDto> {
+  return apiClient.put<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
 }
 
 export async function fetchFeatureByKey(featureKey: string): Promise<FeatureDto> {
