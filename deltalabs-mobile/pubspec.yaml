@@ -49,6 +49,7 @@ dependencies:
   flutter_cache_manager: ^3.4.1
 
   # ── UI / Design System ────────────────────────────────────────────────────
+  reorderables: ^0.6.0
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   shimmer: ^3.0.0

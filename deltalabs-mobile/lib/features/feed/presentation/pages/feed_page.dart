@@ -1,16 +1,13 @@
-import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
-import 'package:deltalabs_mobile/features/feed/presentation/pages/school_feed_page.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/providers/feed_provider.dart';
+import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_auth_gate_dialog.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_comments_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_share_sheet.dart';
-import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_top_chrome.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_video_slide.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 /// TikTok-style vertical video feed (default tab after login).
@@ -22,7 +19,6 @@ class FeedPage extends HookConsumerWidget {
     final feedState = ref.watch(feedProvider);
     final pageController = usePageController();
     final activeIndex = useState(0);
-    final surfaceMode = useState(FeedSurfaceMode.feed);
     final isMuted = useState(false);
 
     useEffect(() {
@@ -41,9 +37,8 @@ class FeedPage extends HookConsumerWidget {
       return () => pageController.removeListener(listener);
     }, [pageController, feedState.items.length]);
 
-    final isFeedVideos = surfaceMode.value == FeedSurfaceMode.feed &&
-        !feedState.isLoading &&
-        feedState.items.isNotEmpty;
+    final isFeedVideos =
+        !feedState.isLoading && feedState.items.isNotEmpty;
 
     Future<void> requireAuth(Future<void> Function() action) async {
       if (!ref.read(isAuthenticatedProvider)) {
@@ -54,9 +49,7 @@ class FeedPage extends HookConsumerWidget {
     }
 
     Widget body;
-    if (surfaceMode.value == FeedSurfaceMode.school) {
-      body = const SchoolFeedPage();
-    } else if (feedState.isLoading && feedState.items.isEmpty) {
+    if (feedState.isLoading && feedState.items.isEmpty) {
       body = const DlLoadingOverlay(message: 'Loading feed…');
     } else if (feedState.items.isEmpty) {
       body = ColoredBox(
@@ -112,19 +105,23 @@ class FeedPage extends HookConsumerWidget {
       fit: StackFit.expand,
       children: [
         body,
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: FeedTopChrome(
-            mode: surfaceMode.value,
-            onModeChanged: (m) => surfaceMode.value = m,
-            isMuted: isMuted.value,
-            onMuteToggle: () => isMuted.value = !isMuted.value,
-            showMute: isFeedVideos,
-            onSearchTap: () => context.push(AppRoutes.search),
+        if (isFeedVideos)
+          Positioned(
+            top: MainTopChrome.height(context) + 4,
+            right: 4,
+            child: IconButton(
+              onPressed: () => isMuted.value = !isMuted.value,
+              tooltip: isMuted.value ? 'Unmute' : 'Mute',
+              icon: Icon(
+                isMuted.value ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.35),
+              ),
+            ),
           ),
-        ),
       ],
     );
   }

@@ -123,15 +123,15 @@ async def get_features_layout(
     return await service.get_layout(user_id=user.user_id)
 
 
-@router.put("/layout", response_model=FeaturesLayoutResponse)
-async def upsert_features_layout(
+async def _upsert_features_layout(
     payload: FeaturesLayoutUpsertRequest,
-    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
-    authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
-    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+    *,
+    user: CurrentUser,
+    org_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]],
+    authz: AuthorizationService,
 ) -> FeaturesLayoutResponse:
     """Persist per-user Features card layout (validated by user's feature access)."""
-    user, org_id = auth_ctx
     profile = await authz.get_access_profile(user_id=user.user_id, org_id=org_id)
     catalog = _service(db)
     await catalog.bootstrap_catalog()
@@ -145,6 +145,33 @@ async def upsert_features_layout(
         hidden_keys=payload.hidden_keys,
         labels=payload.labels,
         allowed_keys=allowed_keys,
+    )
+
+
+@router.put("/layout", response_model=FeaturesLayoutResponse)
+async def upsert_features_layout_put(
+    payload: FeaturesLayoutUpsertRequest,
+    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
+    authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> FeaturesLayoutResponse:
+    user, org_id = auth_ctx
+    return await _upsert_features_layout(
+        payload, user=user, org_id=org_id, db=db, authz=authz
+    )
+
+
+@router.post("/layout", response_model=FeaturesLayoutResponse)
+async def upsert_features_layout_post(
+    payload: FeaturesLayoutUpsertRequest,
+    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
+    authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> FeaturesLayoutResponse:
+    """POST alias for clients / proxies that block PUT (mobile drag-and-drop save)."""
+    user, org_id = auth_ctx
+    return await _upsert_features_layout(
+        payload, user=user, org_id=org_id, db=db, authz=authz
     )
 
 @router.get("/{feature_key}", response_model=FeaturePublic)

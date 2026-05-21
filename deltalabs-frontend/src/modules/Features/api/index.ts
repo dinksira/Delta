@@ -1,6 +1,7 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { apiClient } from "@/lib/apiClient";
+import { ApiError } from "@/lib/apiClient.types";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */
@@ -55,7 +56,14 @@ export async function fetchFeaturesLayout(): Promise<FeaturesLayoutDto> {
 export async function upsertFeaturesLayout(
   payload: FeaturesLayoutUpsertDto,
 ): Promise<FeaturesLayoutDto> {
-  return apiClient.put<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
+  try {
+    return await apiClient.post<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 405) {
+      return apiClient.put<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
+    }
+    throw error;
+  }
 }
 
 export async function fetchFeatureByKey(featureKey: string): Promise<FeatureDto> {

@@ -3,7 +3,7 @@
 /** ################################ IMPORT ############################# */
 import type { ComponentType, CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   DndContext,
@@ -39,6 +39,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Trash2,
+  Plus,
+  X,
 } from "lucide-react";
 
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
@@ -47,6 +49,12 @@ import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import { fetchFeaturesLayout, fetchFeaturesList, upsertFeaturesLayout } from "@/modules/Features/api";
 import { featuresQueryKeys } from "@/modules/Features/hooks/featuresQueryKeys";
+import { useFeaturesLayoutAccess } from "@/modules/Features/hooks/useFeaturesLayoutAccess";
+import {
+  pathnameWithoutHiddenNotice,
+  readHiddenFeatureNotice,
+} from "@/modules/Features/featureHiddenNotice";
+import { resolveFeatureKeyFromPath } from "@/modules/Features/featureWorkspaceRoutes";
 
 /** ################################ CONSTANTS ############################# */
 const iconByFeatureKey = {
@@ -89,6 +97,18 @@ type FeatureCard = Readonly<{
 function displayTitle(card: FeatureCard, titleOverride?: string): string {
   const custom = titleOverride?.trim();
   return custom && custom.length > 0 ? custom : card.title;
+}
+
+function featureLabel(
+  featureKey: string,
+  cardById: Map<string, FeatureCard>,
+  labels: Readonly<Record<string, string>>,
+): string {
+  const card = cardById.get(featureKey);
+  if (card) return displayTitle(card, labels[featureKey]);
+  const custom = labels[featureKey]?.trim();
+  if (custom) return custom;
+  return featureKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 type FeatureCardMenuItemProps = Readonly<{
@@ -330,8 +350,11 @@ function FeatureSortableCard({
 /** ################################ COMPONENT ############################# */
 export function FeaturesPageView() {
   const { isAuthenticated, isReady, session } = useAuthSession();
-  const { openWorkspaceTab } = useFeatureTabs();
+  const { openWorkspaceTabByKey, removeTabsForFeatureKey } = useFeatureTabs();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { isFeatureHidden } = useFeaturesLayoutAccess();
   const userId = session?.user?.id ?? "anon";
 
   const [query, setQuery] = useState("");
@@ -344,6 +367,8 @@ export function FeaturesPageView() {
   const [menuOpenFor, setMenuOpenFor] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<null | { id: string; value: string }>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [addCardsOpen, setAddCardsOpen] = useState(false);
+  const [addCardsQuery, setAddCardsQuery] = useState("");
 
   const {
     data: featureData,
@@ -408,17 +433,18 @@ export function FeaturesPageView() {
     if (!q) return cards;
     return cards.filter((c) => {
       const label = displayTitle(c, effectiveLabels[c.id]);
-      return `${label} ${c.description}`.toLowerCase().includes(q);
+      return `${label} ${c.description} ${c.id}`.toLowerCase().includes(q);
     });
   }, [cards, effectiveLabels, query]);
 
   const hiddenSet = useMemo(() => new Set(effectiveLayout.hiddenKeys), [effectiveLayout.hiddenKeys]);
 
   const visibleCards = useMemo(() => {
+    const matchIds = new Set(filteredCards.map((c) => c.id));
     const ordered: FeatureCard[] = [];
     for (const id of effectiveLayout.orderKeys) {
       const c = cardById.get(id);
-      if (c && !hiddenSet.has(id)) ordered.push(c);
+      if (c && !hiddenSet.has(id) && matchIds.has(id)) ordered.push(c);
     }
     for (const c of filteredCards) {
       if (hiddenSet.has(c.id)) continue;
@@ -433,6 +459,17 @@ export function FeaturesPageView() {
       .map((id) => cardById.get(id))
       .filter((c): c is FeatureCard => Boolean(c));
   }, [cardById, effectiveLayout.hiddenKeys]);
+
+  const hiddenNoticeFeatureKey = readHiddenFeatureNotice(searchParams);
+
+  const filteredAddableCards = useMemo(() => {
+    const q = addCardsQuery.trim().toLowerCase();
+    if (!q) return hiddenCards;
+    return hiddenCards.filter((c) => {
+      const label = displayTitle(c, effectiveLabels[c.id]);
+      return `${label} ${c.description}`.toLowerCase().includes(q);
+    });
+  }, [addCardsQuery, effectiveLabels, hiddenCards]);
 
   const persistLayout = useCallback(
     async (next: { orderKeys: string[]; hiddenKeys: string[]; labels: Record<string, string> }) => {
@@ -472,8 +509,24 @@ export function FeaturesPageView() {
         hiddenKeys: Array.from(hidden),
         labels: { ...effectiveLabels },
       });
+      if (hide) {
+        removeTabsForFeatureKey(id);
+        const routeKey = resolveFeatureKeyFromPath(pathname, searchParams.get("tab"));
+        if (routeKey === id.trim().toLowerCase()) {
+          router.replace(pathnameWithoutHiddenNotice(searchParams));
+        }
+      }
     },
-    [effectiveLabels, effectiveLayout.hiddenKeys, ensureOrder, persistLayout],
+    [
+      effectiveLabels,
+      effectiveLayout.hiddenKeys,
+      ensureOrder,
+      pathname,
+      persistLayout,
+      removeTabsForFeatureKey,
+      router,
+      searchParams,
+    ],
   );
 
   const moveLeftRight = useCallback(
@@ -558,18 +611,60 @@ export function FeaturesPageView() {
         </section>
       ) : null}
 
+      {hiddenNoticeFeatureKey ? (
+        <div
+          className="flex items-start justify-between gap-3 rounded-xl border border-amber-200/80 bg-amber-50 px-4 py-3 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+          role="status"
+          aria-live="polite"
+        >
+          <Typography as="p" variant="small" className="font-medium">
+            This feature is hidden. Use{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-50"
+              onClick={() => setAddCardsOpen(true)}
+            >
+              Add card
+            </button>{" "}
+            to show {featureLabel(hiddenNoticeFeatureKey, cardById, effectiveLabels)} on your dashboard
+            again.
+          </Typography>
+          <button
+            type="button"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-amber-800 transition-colors hover:bg-amber-100/80 dark:text-amber-200 dark:hover:bg-amber-900/60"
+            aria-label="Dismiss"
+            onClick={() => router.replace(pathnameWithoutHiddenNotice(searchParams))}
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        </div>
+      ) : null}
+
       <SchoolWorkspaceHeader
         title="Features"
         actionSlot={
-          <div className="ms-auto min-w-0 w-full max-w-[19rem] shrink-0 sm:max-w-[22rem]">
-            <SearchInput
-              value={query}
-              onChange={(e) => setQuery(e.currentTarget.value)}
-              placeholder="Search features"
-              aria-label="Search features"
-              className="h-9 gap-1 px-2 py-0.5 [&_svg]:size-4"
-              inputClassName="py-1 text-xs"
-            />
+          <div className="flex w-full flex-col gap-3 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="shrink-0 gap-1.5"
+              disabled={hiddenCards.length === 0}
+              onClick={() => setAddCardsOpen(true)}
+            >
+              <Plus className="size-4" aria-hidden />
+              Add card
+            </Button>
+            <div className="min-w-0 w-full max-w-[19rem] shrink-0 sm:max-w-[22rem]">
+              <SearchInput
+                value={query}
+                onChange={(e) => setQuery(e.currentTarget.value)}
+                placeholder="Search features"
+                aria-label="Search features"
+                className="h-9 gap-1 px-2 py-0.5 [&_svg]:size-4"
+                inputClassName="py-1 text-xs"
+              />
+            </div>
           </div>
         }
       />
@@ -612,6 +707,15 @@ export function FeaturesPageView() {
               Your account does not have feature access right now.
             </Typography>
           </Card>
+        ) : visibleCards.length === 0 && query.trim() ? (
+          <Card className="rounded-2xl border-features-card-border bg-features-card-surface px-5 py-6 text-center sm:col-span-2 lg:col-span-4">
+            <Typography as="h3" className="text-lg font-semibold text-primary-600">
+              No matching features
+            </Typography>
+            <Typography className="mt-2 text-sm text-text-secondary">
+              Try a different search term or clear the search field.
+            </Typography>
+          </Card>
         ) : (
           <DndContext
             sensors={sensors}
@@ -634,7 +738,13 @@ export function FeaturesPageView() {
                   onDelete={() => setDeleteTarget(card.id)}
                   onMoveLeft={() => moveLeftRight(card.id, -1)}
                   onMoveRight={() => moveLeftRight(card.id, 1)}
-                  onOpen={() => openWorkspaceTab(displayTitle(card, effectiveLabels[card.id]))}
+                  onOpen={() => {
+                    if (isFeatureHidden(card.id)) return;
+                    openWorkspaceTabByKey(
+                      card.id,
+                      displayTitle(card, effectiveLabels[card.id]),
+                    );
+                  }}
                 />
               ))}
             </SortableContext>
@@ -656,22 +766,90 @@ export function FeaturesPageView() {
         )}
       </section>
 
-      {hiddenCards.length > 0 ? (
-        <section className="rounded-2xl border border-features-card-border bg-features-card-surface p-4">
-          <Typography as="h2" className="text-lg font-semibold text-primary-600">
-            Hidden cards
-          </Typography>
-          <Typography className="mt-1 text-sm text-text-secondary">
-            Tap a card to add it back to your dashboard.
-          </Typography>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {hiddenCards.map((c) => (
-              <Button key={c.id} variant="secondary" size="sm" onClick={() => void toggleHidden(c.id, false)}>
-                + {displayTitle(c, effectiveLabels[c.id])}
+      {addCardsOpen ? (
+        <DialogOverlay
+          aria-label="Add feature cards"
+          onClose={() => {
+            setAddCardsOpen(false);
+            setAddCardsQuery("");
+          }}
+          className="flex items-center justify-center p-3"
+        >
+          <DialogPanel className="w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <Typography as="h2" className="text-lg font-semibold text-text-primary">
+              Add card
+            </Typography>
+            <Typography className="mt-1 text-sm text-text-secondary">
+              Restore hidden features to your dashboard.
+            </Typography>
+            <div className="mt-4">
+              <SearchInput
+                value={addCardsQuery}
+                onChange={(e) => setAddCardsQuery(e.currentTarget.value)}
+                placeholder="Search hidden cards"
+                aria-label="Search hidden cards"
+                className="h-9 gap-1 px-2 py-0.5 [&_svg]:size-4"
+                inputClassName="py-1 text-xs"
+              />
+            </div>
+            <ul className="mt-4 max-h-[min(20rem,50vh)] space-y-2 overflow-y-auto">
+              {filteredAddableCards.length === 0 ? (
+                <li className="rounded-xl border border-dashed border-border-default px-4 py-8 text-center text-sm text-text-secondary">
+                  {hiddenCards.length === 0
+                    ? "No hidden cards. Remove a card from the grid to add it here later."
+                    : "No cards match your search."}
+                </li>
+              ) : (
+                filteredAddableCards.map((c) => (
+                  <li key={c.id}>
+                    <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default px-3 py-2.5">
+                      <span
+                        className={`inline-flex size-9 shrink-0 items-center justify-center rounded-full ${c.chipClass}`}
+                      >
+                        <c.icon className="size-5" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <Typography className="truncate text-sm font-semibold text-text-primary">
+                          {displayTitle(c, effectiveLabels[c.id])}
+                        </Typography>
+                        <Typography className="line-clamp-1 text-xs text-text-secondary">
+                          {c.description}
+                        </Typography>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="shrink-0 gap-1"
+                        onClick={() => {
+                          void toggleHidden(c.id, false);
+                          setAddCardsOpen(false);
+                          setAddCardsQuery("");
+                          if (hiddenNoticeFeatureKey === c.id) {
+                            router.replace(pathnameWithoutHiddenNotice(searchParams));
+                          }
+                        }}
+                      >
+                        <Plus className="size-4" aria-hidden />
+                        Add
+                      </Button>
+                    </div>
+                  </li>
+                ))
+              )}
+            </ul>
+            <div className="mt-5 flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAddCardsOpen(false);
+                  setAddCardsQuery("");
+                }}
+              >
+                Close
               </Button>
-            ))}
-          </div>
-        </section>
+            </div>
+          </DialogPanel>
+        </DialogOverlay>
       ) : null}
 
       {renaming ? (
@@ -720,7 +898,7 @@ export function FeaturesPageView() {
             </Typography>
             <Typography className="mt-2 text-sm text-text-secondary">
               {displayTitle(cardById.get(deleteTarget)!, effectiveLabels[deleteTarget])} will be hidden from
-              your dashboard. You can add it back anytime from Hidden cards.
+              your dashboard. You can add it back anytime with Add card.
             </Typography>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setDeleteTarget(null)}>
