@@ -255,13 +255,6 @@ export function TopNavUtilityActions({ profileInitials, avatarUrl }: TopNavUtili
 
   return (
     <div className="flex h-10 items-center gap-2 sm:gap-2.5">
-      <span
-        className={`${utilitySlotClass} text-white/90`}
-        role="img"
-        aria-label="Chat assistant"
-      >
-        <NavRobotAssistantIcon className={utilityGlyphClass} />
-      </span>
       <button
         type="button"
         className={`${utilitySlotClass} rounded-md text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60`}

@@ -1,6 +1,7 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { apiClient } from "@/lib/apiClient";
+import { ApiError } from "@/lib/apiClient.types";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */
@@ -29,10 +30,40 @@ export type FeaturesListResponseDto = Readonly<{
 }>;
 /** ################################ /TYPES ############################# */
 
+export type FeaturesLayoutDto = Readonly<{
+  orderKeys: readonly string[];
+  hiddenKeys: readonly string[];
+  labels: Readonly<Record<string, string>>;
+  updatedAt: string;
+}>;
+
+export type FeaturesLayoutUpsertDto = Readonly<{
+  order_keys: readonly string[];
+  hidden_keys: readonly string[];
+  labels: Readonly<Record<string, string>>;
+}>;
+
 /** ################################ COMPONENT ############################# */
 /** Features API wrappers (global and org-scoped). */
 export async function fetchFeaturesList(): Promise<FeaturesListResponseDto> {
   return apiClient.get<FeaturesListResponseDto>("/v1/features");
+}
+
+export async function fetchFeaturesLayout(): Promise<FeaturesLayoutDto> {
+  return apiClient.get<FeaturesLayoutDto>("/v1/features/layout");
+}
+
+export async function upsertFeaturesLayout(
+  payload: FeaturesLayoutUpsertDto,
+): Promise<FeaturesLayoutDto> {
+  try {
+    return await apiClient.post<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 405) {
+      return apiClient.put<FeaturesLayoutDto>("/v1/features/layout", { json: payload });
+    }
+    throw error;
+  }
 }
 
 export async function fetchFeatureByKey(featureKey: string): Promise<FeatureDto> {

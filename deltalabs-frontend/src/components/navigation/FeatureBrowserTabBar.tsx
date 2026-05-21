@@ -7,6 +7,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
+import { useFeaturesLayoutAccess } from "@/modules/Features/hooks/useFeaturesLayoutAccess";
+import { featuresPathWithHiddenNotice } from "@/modules/Features/featureHiddenNotice";
+import { resolveFeatureKeyFromPath } from "@/modules/Features/featureWorkspaceRoutes";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ CONSTANTS ############################# */
@@ -108,10 +111,12 @@ export function FeatureBrowserTabBar() {
   const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const {
     openTabs,
-    removeWorkspaceTab,
+    dismissWorkspaceTab,
     ensureTabForParam,
     updateWorkspaceTabHref,
+    pruneHiddenFeatureTabs,
   } = useFeatureTabs();
+  const { hiddenKeys, isFeatureHidden, isTabParamHidden, isLayoutReady } = useFeaturesLayoutAccess();
 
   const tabParam = pathname.startsWith("/features") ? searchParams.get("tab") : null;
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
@@ -126,17 +131,42 @@ export function FeatureBrowserTabBar() {
   const schoolWorkspaceParam = schoolWorkspaceId ? `school-${schoolWorkspaceId}` : null;
 
   useEffect(() => {
+    if (!isLayoutReady) return;
+    pruneHiddenFeatureTabs(hiddenKeys);
+  }, [hiddenKeys, isLayoutReady, pruneHiddenFeatureTabs]);
+
+  useEffect(() => {
+    if (!isLayoutReady) return;
+    const routeKey = resolveFeatureKeyFromPath(pathname, tabParam);
+    if (routeKey && isFeatureHidden(routeKey)) {
+      router.replace(featuresPathWithHiddenNotice(routeKey));
+    }
+  }, [isFeatureHidden, isLayoutReady, pathname, router, tabParam]);
+
+  useEffect(() => {
+    if (!isLayoutReady) return;
     if (schoolWorkspaceParam) {
+      if (isTabParamHidden(schoolWorkspaceParam)) return;
       ensureTabForParam(schoolWorkspaceParam, "School Workspace");
       return;
     }
     if (schoolPathActive) {
+      if (isTabParamHidden("school")) return;
       ensureTabForParam("school", "School");
       return;
     }
     if (!pathname.startsWith("/features") || !tabParam) return;
+    if (isTabParamHidden(tabParam)) return;
     ensureTabForParam(tabParam);
-  }, [pathname, tabParam, schoolPathActive, schoolWorkspaceParam, ensureTabForParam]);
+  }, [
+    pathname,
+    tabParam,
+    schoolPathActive,
+    schoolWorkspaceParam,
+    ensureTabForParam,
+    isLayoutReady,
+    isTabParamHidden,
+  ]);
 
   useEffect(() => {
     if (!schoolPathActive) return;
@@ -144,12 +174,13 @@ export function FeatureBrowserTabBar() {
   }, [currentUrl, schoolPathActive, schoolWorkspaceParam, updateWorkspaceTabHref]);
 
   const onCloseDynamic = (param: string) => {
-    removeWorkspaceTab(param);
-    const leavingSchool =
-      (param === "school" || (schoolWorkspaceParam !== null && param === schoolWorkspaceParam)) &&
-      schoolPathActive;
-    if (tabParam === param || leavingSchool) {
-      router.push("/features");
+    dismissWorkspaceTab(param);
+    const onMatchingRoute =
+      tabParam === param ||
+      (param === "school" && schoolPathActive) ||
+      (schoolWorkspaceParam !== null && param === schoolWorkspaceParam);
+    if (onMatchingRoute) {
+      router.replace("/features");
     }
   };
 
@@ -161,14 +192,16 @@ export function FeatureBrowserTabBar() {
     >
       <BrowserTab href="/features" label="Features" active={featuresHomeActive} pinned />
 
-      {openTabs.map((t) => {
+      {openTabs
+        .filter((t) => !isTabParamHidden(t.param))
+        .map((t) => {
         const href =
           t.href ??
           (t.param === "school"
             ? "/features/school"
             : `/features?tab=${encodeURIComponent(t.param)}`);
         const active = t.param === "school"
-          ? pathname === "/features/school"
+          ? schoolPathActive && !schoolWorkspaceParam
           : t.href
             ? currentUrl === t.href || pathname === t.href || pathname.startsWith(`${t.href}/`)
             : tabParam === t.param;

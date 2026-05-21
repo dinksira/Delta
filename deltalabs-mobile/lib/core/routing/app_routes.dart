@@ -18,6 +18,7 @@ abstract class AppRoutes {
   static const String feed = '/feed';
   static const String search = '/search';
   static const String searchViewer = '/search/viewer';
+  static const String featuresSearch = '/features/search';
   static const String classes = '/classes';
   static const String library = '/library';
   static const String profile = '/profile';

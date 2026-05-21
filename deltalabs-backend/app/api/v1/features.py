@@ -14,6 +14,12 @@ from app.api.deps_authz import (
 from app.core.config import get_settings
 from app.core.exceptions import PermissionDeniedError
 from app.domain.authorization.service import Service as AuthorizationService
+from app.domain.features_layout.repository import Repository as FeaturesLayoutRepository
+from app.domain.features_layout.schemas import (
+    FeaturesLayoutResponse,
+    FeaturesLayoutUpsertRequest,
+)
+from app.domain.features_layout.service import Service as FeaturesLayoutService
 from app.domain.library.repository import Repository
 from app.domain.library.schemas import (
     FeatureCreateInput,
@@ -36,6 +42,10 @@ org_router = APIRouter(prefix="/orgs/{org_id}/features", tags=["features"])
 # Internal helper dependencies for service and compatibility access.
 def _service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Service:
     return Service(Repository(db))
+
+
+def _layout_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> FeaturesLayoutService:
+    return FeaturesLayoutService(FeaturesLayoutRepository(db))
 
 
 async def _require_legacy_feature_access(
@@ -101,6 +111,68 @@ async def list_features(
     await service.bootstrap_catalog()
     return await service.list_features(access_profile=profile)
 
+
+@router.get("/layout", response_model=FeaturesLayoutResponse)
+async def get_features_layout(
+    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> FeaturesLayoutResponse:
+    """Per-user Features card layout (order + hidden)."""
+    user, _org_id = auth_ctx
+    service = _layout_service(db)
+    return await service.get_layout(user_id=user.user_id)
+
+
+async def _upsert_features_layout(
+    payload: FeaturesLayoutUpsertRequest,
+    *,
+    user: CurrentUser,
+    org_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]],
+    authz: AuthorizationService,
+) -> FeaturesLayoutResponse:
+    """Persist per-user Features card layout (validated by user's feature access)."""
+    profile = await authz.get_access_profile(user_id=user.user_id, org_id=org_id)
+    catalog = _service(db)
+    await catalog.bootstrap_catalog()
+    items = (await catalog.list_features(access_profile=profile)).items
+    allowed_keys = {row.feature_key for row in items}
+
+    service = _layout_service(db)
+    return await service.upsert_layout(
+        user_id=user.user_id,
+        order_keys=payload.order_keys,
+        hidden_keys=payload.hidden_keys,
+        labels=payload.labels,
+        allowed_keys=allowed_keys,
+    )
+
+
+@router.put("/layout", response_model=FeaturesLayoutResponse)
+async def upsert_features_layout_put(
+    payload: FeaturesLayoutUpsertRequest,
+    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
+    authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> FeaturesLayoutResponse:
+    user, org_id = auth_ctx
+    return await _upsert_features_layout(
+        payload, user=user, org_id=org_id, db=db, authz=authz
+    )
+
+
+@router.post("/layout", response_model=FeaturesLayoutResponse)
+async def upsert_features_layout_post(
+    payload: FeaturesLayoutUpsertRequest,
+    auth_ctx: tuple[CurrentUser, str] = Depends(_require_legacy_feature_access),  # noqa: B008
+    authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> FeaturesLayoutResponse:
+    """POST alias for clients / proxies that block PUT (mobile drag-and-drop save)."""
+    user, org_id = auth_ctx
+    return await _upsert_features_layout(
+        payload, user=user, org_id=org_id, db=db, authz=authz
+    )
 
 @router.get("/{feature_key}", response_model=FeaturePublic)
 async def get_feature(

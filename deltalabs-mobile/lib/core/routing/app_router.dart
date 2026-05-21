@@ -12,6 +12,7 @@ import 'package:deltalabs_mobile/features/auth/presentation/pages/reset_password
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:deltalabs_mobile/features/search/presentation/models/search_viewer_args.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_clip_viewer_page.dart';
+import 'package:deltalabs_mobile/features/features/presentation/pages/features_search_page.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/main_shell_page.dart';
 import 'package:flutter/material.dart';
@@ -127,6 +128,11 @@ GoRouter appRouter(Ref ref) {
         builder: (_, state) => SearchPage(
           initialQuery: state.uri.queryParameters['q'],
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.featuresSearch,
+        name: 'features-search',
+        builder: (_, __) => const FeaturesSearchPage(),
       ),
       GoRoute(
         path: AppRoutes.searchViewer,

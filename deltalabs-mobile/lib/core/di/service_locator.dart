@@ -1,5 +1,9 @@
 import 'package:deltalabs_mobile/core/config/app_config.dart';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
+import 'package:deltalabs_mobile/features/features/data/data_sources/features_layout_local_store.dart';
+import 'package:deltalabs_mobile/features/features/data/data_sources/features_remote_data_source.dart';
+import 'package:deltalabs_mobile/features/features/data/repositories/features_repository_impl.dart';
+import 'package:deltalabs_mobile/features/features/domain/repositories/features_repository.dart';
 import 'package:deltalabs_mobile/core/network/interceptors/auth_interceptor.dart';
 import 'package:deltalabs_mobile/core/network/interceptors/retry_interceptor.dart';
 import 'package:deltalabs_mobile/core/realtime/websocket_manager.dart';
@@ -45,10 +49,23 @@ class ServiceLocator {
         receiveTimeoutMs: AppConfig.instance.receiveTimeoutMs,
       ),
     );
+
+    sl.registerLazySingleton<FeaturesRemoteDataSource>(
+      () => FeaturesRemoteDataSourceImpl(apiClient: sl<ApiClient>()),
+    );
   }
 
   static Future<void> _registerStorage() async {
     sl.registerSingleton<LocalDatabase>(LocalDatabase());
+    sl.registerLazySingleton<FeaturesLayoutLocalStore>(
+      () => FeaturesLayoutLocalStore(database: sl<LocalDatabase>()),
+    );
+    sl.registerLazySingleton<FeaturesRepository>(
+      () => FeaturesRepositoryImpl(
+        remote: sl<FeaturesRemoteDataSource>(),
+        localStore: sl<FeaturesLayoutLocalStore>(),
+      ),
+    );
   }
 
   static Future<void> _registerRealtime() async {
