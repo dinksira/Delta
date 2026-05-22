@@ -1,4 +1,5 @@
 import 'package:deltalabs_mobile/core/network/api_client.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_query_filters.dart';
 import 'package:deltalabs_mobile/features/feed/data/models/engagement_response_model.dart';
 import 'package:deltalabs_mobile/features/feed/data/models/feed_comment_model.dart';
 import 'package:deltalabs_mobile/features/feed/data/models/feed_page_model.dart';
@@ -11,6 +12,7 @@ abstract class FeedRemoteDataSource {
     int limit = 12,
     String? cursor,
     String? contentType,
+    FeedQueryFilters filters = FeedQueryFilters.empty,
   });
 
   Future<EngagementResult> toggleLike(String itemId);
@@ -40,6 +42,7 @@ class FeedRemoteDataSourceImpl implements FeedRemoteDataSource {
     int limit = 12,
     String? cursor,
     String? contentType,
+    FeedQueryFilters filters = FeedQueryFilters.empty,
   }) async {
     final response = await apiClient.get<Map<String, dynamic>>(
       '/feed',
@@ -47,6 +50,7 @@ class FeedRemoteDataSourceImpl implements FeedRemoteDataSource {
         'limit': limit,
         if (cursor != null) 'cursor': cursor,
         if (contentType != null) 'content_type': contentType,
+        ...filters.toQueryParameters(),
       },
     );
 

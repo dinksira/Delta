@@ -77,6 +77,7 @@ class FeedNotifier extends _$FeedNotifier {
 
     final result = await ref.read(feedRepositoryProvider).getFeed(
           const CursorParams(limit: 12),
+          defaultContentType: 'video',
         );
 
     result.fold(
@@ -116,6 +117,7 @@ class FeedNotifier extends _$FeedNotifier {
 
     final result = await ref.read(feedRepositoryProvider).getFeed(
           CursorParams(cursor: state.nextCursor, limit: 12),
+          defaultContentType: 'video',
         );
 
     result.fold(

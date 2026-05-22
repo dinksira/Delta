@@ -6,6 +6,7 @@ import 'package:deltalabs_mobile/features/feed/data/data_sources/feed_remote_dat
 import 'package:deltalabs_mobile/features/feed/domain/entities/engagement_result.dart';
 import 'package:deltalabs_mobile/features/feed/domain/entities/feed_comment.dart';
 import 'package:deltalabs_mobile/features/feed/domain/entities/feed_page.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_query_filters.dart';
 import 'package:deltalabs_mobile/features/feed/domain/repositories/feed_repository.dart';
 import 'package:dio/dio.dart';
 
@@ -15,12 +16,17 @@ class FeedRepositoryImpl implements FeedRepository {
   final FeedRemoteDataSource remoteDataSource;
 
   @override
-  Future<Either<Failure, FeedPage>> getFeed(CursorParams params) async {
+  Future<Either<Failure, FeedPage>> getFeed(
+    CursorParams params, {
+    FeedQueryFilters filters = FeedQueryFilters.empty,
+    String? defaultContentType,
+  }) async {
     try {
       final page = await remoteDataSource.fetchFeed(
         limit: params.limit,
         cursor: params.cursor,
-        contentType: 'video',
+        contentType: defaultContentType,
+        filters: filters,
       );
 
       return Right(

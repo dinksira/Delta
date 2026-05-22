@@ -5,9 +5,14 @@ import 'package:deltalabs_mobile/core/network/pagination/paginated_response.dart
 import 'package:deltalabs_mobile/features/feed/domain/entities/engagement_result.dart';
 import 'package:deltalabs_mobile/features/feed/domain/entities/feed_comment.dart';
 import 'package:deltalabs_mobile/features/feed/domain/entities/feed_page.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_query_filters.dart';
 
 abstract class FeedRepository {
-  Future<Either<Failure, FeedPage>> getFeed(CursorParams params);
+  Future<Either<Failure, FeedPage>> getFeed(
+    CursorParams params, {
+    FeedQueryFilters filters = FeedQueryFilters.empty,
+    String? defaultContentType,
+  });
 
   Future<Either<Failure, EngagementResult>> toggleLike(String itemId);
 

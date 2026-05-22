@@ -11,6 +11,7 @@ class MainTopChrome extends StatelessWidget {
     required this.onSearchTap,
     required this.onFeaturesSwitchTap,
     required this.isFeaturesMode,
+    this.customTabLabel,
     this.overlayOnVideo = false,
     super.key,
   });
@@ -20,6 +21,7 @@ class MainTopChrome extends StatelessWidget {
   final VoidCallback onSearchTap;
   final VoidCallback onFeaturesSwitchTap;
   final bool isFeaturesMode;
+  final String? customTabLabel;
   /// When true, floats over the video with a gradient and light icons (TikTok-style).
   final bool overlayOnVideo;
 
@@ -61,6 +63,7 @@ class MainTopChrome extends StatelessWidget {
                     current: currentTab,
                     onChanged: onTabChanged,
                     onVideo: onVideo,
+                    customTabLabel: customTabLabel,
                   ),
           ),
           IconButton(
@@ -105,17 +108,21 @@ class _TabStrip extends StatelessWidget {
     required this.current,
     required this.onChanged,
     required this.onVideo,
+    this.customTabLabel,
   });
 
   final FeedTopTab current;
   final ValueChanged<FeedTopTab> onChanged;
   final bool onVideo;
+  final String? customTabLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: FeedTopTab.values.map((tab) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
+        children: FeedTopTab.values.map((tab) {
         final selected = tab == current;
         final activeColor = onVideo ? Colors.white : AppColors.primary;
         final idleColor = onVideo
@@ -126,12 +133,12 @@ class _TabStrip extends StatelessWidget {
           onTap: () => onChanged(tab),
           behavior: HitTestBehavior.opaque,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  tab.label,
+                  tab.displayLabel(customTabLabel: customTabLabel),
                   style: TextStyle(
                     color: selected ? activeColor : idleColor,
                     fontSize: 15,
@@ -153,6 +160,7 @@ class _TabStrip extends StatelessWidget {
           ),
         );
       }).toList(),
+      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:deltalabs_mobile/core/routing/app_routes.dart';
+import 'package:deltalabs_mobile/features/feed/presentation/pages/custom_feed_tab_page.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/pages/feed_page.dart';
+import 'package:deltalabs_mobile/features/feed/presentation/providers/custom_feed_tab_provider.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/features_hub_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/feed_tab_placeholder_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/widgets/feed_top_tab.dart';
@@ -30,8 +32,11 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
 
   @override
   Widget build(BuildContext context) {
+    final customTabLabel = ref.watch(customFeedTabLabelProvider);
+
     final chrome = MainTopChrome(
       currentTab: _tab,
+      customTabLabel: customTabLabel,
       onTabChanged: (next) => setState(() {
         _tab = next;
         _surface = ShellSurface.feed;
@@ -71,10 +76,11 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
           subtitle: 'AI tools and clips — coming soon',
         ),
         FeedTabPlaceholderPage(
-          icon: Icons.explore_rounded,
-          title: 'Explore',
-          subtitle: 'Discover schools and courses — coming soon',
+          icon: Icons.science_outlined,
+          title: 'Simulation',
+          subtitle: 'Scenarios, digital twin, and batch runs — coming soon',
         ),
+        const CustomFeedTabPage(),
       ],
     );
 
