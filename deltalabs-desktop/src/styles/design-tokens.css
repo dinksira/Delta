@@ -1,0 +1,343 @@
+:root {
+  /* Delta Labs brand primary anchor: #174A5F (primary-600). Scale is teal/slate for UI states. */
+  --dl-color-primary-50: #eef6f8;
+  --dl-color-primary-100: #d9ecf0;
+  --dl-color-primary-200: #b3d9e1;
+  --dl-color-primary-300: #7eb8c5;
+  --dl-color-primary-400: #4a8fa2;
+  --dl-color-primary-500: #236b82;
+  --dl-color-primary-600: #174a5f;
+  --dl-color-primary-700: #133e50;
+  --dl-color-primary-800: #0f3344;
+  --dl-color-primary-900: #0c2935;
+
+  --dl-color-secondary-500: #0ea5e9;
+  --dl-color-success-500: #22c55e;
+  --dl-color-warning-500: #f59e0b;
+  --dl-color-error-500: #ef4444;
+
+  --dl-color-surface-canvas: #f8fafc;
+  --dl-color-surface-default: #ffffff;
+  --dl-color-surface-elevated: #ffffff;
+  --dl-color-surface-muted: #f1f5f9;
+  --dl-color-border-default: #e2e8f0;
+  --dl-color-border-subtle: #e2e8f0;
+
+  --dl-color-text-primary: #0f172a;
+  --dl-color-text-secondary: #475569;
+  --dl-color-text-inverse: #f8fafc;
+
+  --dl-radius-sm: 0.375rem;
+  --dl-radius-md: 0.5rem;
+  --dl-radius-lg: 0.75rem;
+
+  --dl-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --dl-shadow-md: 0 4px 8px -2px rgb(15 23 42 / 0.1);
+
+  /* auth.modal.* */
+  --dl-auth-modal-surface: var(--dl-color-surface-default);
+  --dl-auth-modal-border: var(--dl-color-border-default);
+  --dl-auth-modal-header-border: var(--dl-color-border-subtle);
+  --dl-auth-modal-shadow: var(--dl-shadow-md);
+  --dl-auth-modal-max-width: 30rem;
+  --dl-auth-link-secondary: var(--dl-color-secondary-500);
+
+  /* auth.banner.* (legacy full-width banner backgrounds; header strip uses surface-muted) */
+  --dl-auth-banner-success-bg: #ecfdf5;
+  --dl-auth-banner-success-text: #047857;
+  --dl-auth-banner-error-bg: #fff1f2;
+  --dl-auth-banner-error-text: #be123c;
+  --dl-auth-banner-info-bg: #f0f9ff;
+  --dl-auth-banner-info-text: #0369a1;
+
+  /* auth.modal.header-feedback.* (inline icon + text, centered between nav controls) */
+  --dl-auth-feedback-success-text: #10b981;
+  --dl-auth-feedback-error-text: #ef4444;
+  --dl-auth-feedback-info-text: #0284c7;
+
+  /* auth.input.* */
+  --dl-auth-input-bg: var(--dl-color-surface-default);
+  --dl-auth-input-border: var(--dl-color-border-default);
+  --dl-auth-input-border-focus: var(--dl-color-primary-400);
+  --dl-auth-input-border-error: var(--dl-color-error-500);
+  /* Lighter than body secondary so placeholders read as hints, not labels */
+  --dl-auth-input-placeholder: #cbd5e1;
+
+  /* switch.mode.* */
+  --dl-switch-mode-track-bg: var(--dl-color-surface-muted);
+  --dl-switch-mode-track-border: var(--dl-color-border-default);
+  --dl-switch-mode-pill-active-bg: var(--dl-color-surface-default);
+  --dl-switch-mode-pill-active-text: var(--dl-color-text-primary);
+  --dl-switch-mode-pill-inactive-text: var(--dl-color-text-secondary);
+
+  /* features.card.* */
+  --dl-features-card-surface: var(--dl-color-surface-default);
+  --dl-features-card-border: var(--dl-color-border-default);
+  --dl-features-card-hover-border: var(--dl-color-primary-300);
+  --dl-features-card-icon-bg: var(--dl-color-primary-50);
+
+  /* features.tabs.* (browser-like workspaces) */
+  --dl-features-tab-active-bg: #dde6ee;
+  --dl-features-tab-idle-bg: #c5d4de;
+  --dl-features-tab-border: #b9c9d6;
+  --dl-features-tab-text: #121a24;
+  --dl-features-tab-close-hover-bg: #b9c9d6;
+
+  /* features.card.chips.* (icon circle tones) */
+  --dl-features-chip-slate-bg: #f1f5f9;
+  --dl-features-chip-slate-fg: #334155;
+  --dl-features-chip-orange-bg: #ffedd5;
+  --dl-features-chip-orange-fg: #ea580c;
+  --dl-features-chip-indigo-bg: #e0e7ff;
+  --dl-features-chip-indigo-fg: #6366f1;
+  --dl-features-chip-emerald-bg: #d1fae5;
+  --dl-features-chip-emerald-fg: #059669;
+  --dl-features-chip-amber-bg: #fffbeb;
+  --dl-features-chip-amber-fg: #b45309;
+  --dl-features-chip-rose-bg: #ffe4e6;
+  --dl-features-chip-rose-fg: #e11d48;
+  --dl-features-chip-cyan-bg: #ecfeff;
+  --dl-features-chip-cyan-fg: #0e7490;
+  --dl-features-chip-teal-bg: #f0fdfa;
+  --dl-features-chip-teal-fg: #0f766e;
+  --dl-features-chip-violet-bg: #ede9fe;
+  --dl-features-chip-violet-fg: #7c3aed;
+  --dl-features-chip-fuchsia-bg: #fae8ff;
+  --dl-features-chip-fuchsia-fg: #c026d3;
+
+  /* feed.action.* */
+  --dl-feed-action-rail-bg: var(--dl-color-surface-muted);
+  --dl-feed-action-icon-default: var(--dl-color-text-secondary);
+  --dl-feed-action-icon-active: var(--dl-color-primary-600);
+
+  /**
+   * layout.* — shared shell dimensions for mobile-first responsive UIs.
+   * Change here once; reference in Tailwind via arbitrary values, e.g. max-w-[var(--dl-layout-shell-rail-aside-cap)].
+   */
+  --dl-layout-shell-rail-min: 14rem;
+  --dl-layout-shell-rail-max: 18rem;
+  /** Sticky feed/shell side column cap (search rail, right aside, nav brand/utility zones at lg+). */
+  --dl-layout-shell-rail-aside-cap: 280px;
+  /** School workspace icon rail (fixed width; collapse behavior is shell-owned). */
+  --dl-layout-school-icon-rail-width: 4.5rem;
+  /** Optical overlap with adjacent content (tokenized instead of ad-hoc -ml-[6px]). */
+  --dl-layout-school-icon-rail-overlap: 6px;
+  /** Authenticated features hub max content width (1440px). */
+  --dl-layout-features-page-max: 90rem;
+  /** Feed comment sheet max width (aligns with Tailwind max-w-md / comment panel). */
+  --dl-layout-feed-comment-sheet-max: 28rem;
+  /** Landing / feed portrait frame (9:16 width from viewport height); keep in sync with docs + loading state. */
+  --dl-layout-feed-video-width-min: 340px;
+  --dl-layout-feed-video-width-max: 520px;
+  --dl-layout-feed-video-vh-trim: 6rem;
+  --dl-layout-feed-video-width-preferred: calc((100dvh - var(--dl-layout-feed-video-vh-trim)) * 0.5625);
+  --dl-layout-feed-video-vw-inset: 9.5rem;
+}
+
+.dark {
+  --dl-color-surface-canvas: #020617;
+  --dl-color-surface-default: #0f172a;
+  --dl-color-surface-elevated: #1e293b;
+  --dl-color-surface-muted: #1e293b;
+  --dl-color-border-default: #334155;
+  --dl-color-border-subtle: #334155;
+  --dl-color-text-primary: #e2e8f0;
+  --dl-color-text-secondary: #94a3b8;
+  --dl-color-text-inverse: #020617;
+
+  --dl-auth-banner-success-bg: rgb(6 78 59 / 0.35);
+  --dl-auth-banner-success-text: #6ee7b7;
+  --dl-auth-banner-error-bg: rgb(136 19 55 / 0.35);
+  --dl-auth-banner-error-text: #fda4af;
+  --dl-auth-banner-info-bg: rgb(12 74 110 / 0.35);
+  --dl-auth-banner-info-text: #7dd3fc;
+
+  --dl-features-card-icon-bg: rgb(23 74 95 / 0.35);
+  --dl-features-tab-active-bg: rgb(226 232 240 / 0.18);
+  --dl-features-tab-idle-bg: rgb(148 163 184 / 0.18);
+  --dl-features-tab-border: rgb(148 163 184 / 0.28);
+  --dl-features-tab-text: var(--dl-color-text-primary);
+  --dl-features-tab-close-hover-bg: rgb(148 163 184 / 0.22);
+  --dl-features-chip-slate-bg: rgb(226 232 240 / 0.14);
+  --dl-features-chip-slate-fg: var(--dl-color-text-primary);
+  --dl-features-chip-orange-bg: rgb(234 88 12 / 0.16);
+  --dl-features-chip-orange-fg: #fdba74;
+  --dl-features-chip-indigo-bg: rgb(99 102 241 / 0.16);
+  --dl-features-chip-indigo-fg: #c7d2fe;
+  --dl-features-chip-emerald-bg: rgb(5 150 105 / 0.16);
+  --dl-features-chip-emerald-fg: #6ee7b7;
+  --dl-features-chip-amber-bg: rgb(180 83 9 / 0.16);
+  --dl-features-chip-amber-fg: #fcd34d;
+  --dl-features-chip-rose-bg: rgb(225 29 72 / 0.16);
+  --dl-features-chip-rose-fg: #fda4af;
+  --dl-features-chip-cyan-bg: rgb(14 116 144 / 0.16);
+  --dl-features-chip-cyan-fg: #67e8f9;
+  --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
+  --dl-features-chip-teal-fg: #5eead4;
+  --dl-features-chip-violet-bg: rgb(124 58 237 / 0.16);
+  --dl-features-chip-violet-fg: #c4b5fd;
+  --dl-features-chip-fuchsia-bg: rgb(192 38 211 / 0.16);
+  --dl-features-chip-fuchsia-fg: #f0abfc;
+  --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
+  --dl-auth-input-placeholder: #64748b;
+  --dl-auth-feedback-success-text: #34d399;
+  --dl-auth-feedback-error-text: #f87171;
+  --dl-auth-feedback-info-text: #38bdf8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --dl-color-surface-canvas: #020617;
+    --dl-color-surface-default: #0f172a;
+    --dl-color-surface-elevated: #1e293b;
+    --dl-color-surface-muted: #1e293b;
+    --dl-color-border-default: #334155;
+    --dl-color-border-subtle: #334155;
+    --dl-color-text-primary: #e2e8f0;
+    --dl-color-text-secondary: #94a3b8;
+    --dl-color-text-inverse: #020617;
+
+    --dl-auth-banner-success-bg: rgb(6 78 59 / 0.35);
+    --dl-auth-banner-success-text: #6ee7b7;
+    --dl-auth-banner-error-bg: rgb(136 19 55 / 0.35);
+    --dl-auth-banner-error-text: #fda4af;
+    --dl-auth-banner-info-bg: rgb(12 74 110 / 0.35);
+    --dl-auth-banner-info-text: #7dd3fc;
+
+    --dl-features-card-icon-bg: rgb(23 74 95 / 0.35);
+    --dl-features-tab-active-bg: rgb(226 232 240 / 0.18);
+    --dl-features-tab-idle-bg: rgb(148 163 184 / 0.18);
+    --dl-features-tab-border: rgb(148 163 184 / 0.28);
+    --dl-features-tab-text: var(--dl-color-text-primary);
+    --dl-features-tab-close-hover-bg: rgb(148 163 184 / 0.22);
+    --dl-features-chip-slate-bg: rgb(226 232 240 / 0.14);
+    --dl-features-chip-slate-fg: var(--dl-color-text-primary);
+    --dl-features-chip-orange-bg: rgb(234 88 12 / 0.16);
+    --dl-features-chip-orange-fg: #fdba74;
+    --dl-features-chip-indigo-bg: rgb(99 102 241 / 0.16);
+    --dl-features-chip-indigo-fg: #c7d2fe;
+    --dl-features-chip-emerald-bg: rgb(5 150 105 / 0.16);
+    --dl-features-chip-emerald-fg: #6ee7b7;
+    --dl-features-chip-amber-bg: rgb(180 83 9 / 0.16);
+    --dl-features-chip-amber-fg: #fcd34d;
+    --dl-features-chip-rose-bg: rgb(225 29 72 / 0.16);
+    --dl-features-chip-rose-fg: #fda4af;
+    --dl-features-chip-cyan-bg: rgb(14 116 144 / 0.16);
+    --dl-features-chip-cyan-fg: #67e8f9;
+    --dl-features-chip-teal-bg: rgb(15 118 110 / 0.16);
+    --dl-features-chip-teal-fg: #5eead4;
+    --dl-features-chip-violet-bg: rgb(124 58 237 / 0.16);
+    --dl-features-chip-violet-fg: #c4b5fd;
+    --dl-features-chip-fuchsia-bg: rgb(192 38 211 / 0.16);
+    --dl-features-chip-fuchsia-fg: #f0abfc;
+    --dl-feed-action-rail-bg: var(--dl-color-surface-elevated);
+    --dl-auth-input-placeholder: #64748b;
+    --dl-auth-feedback-success-text: #34d399;
+    --dl-auth-feedback-error-text: #f87171;
+    --dl-auth-feedback-info-text: #38bdf8;
+  }
+}
+
+@theme inline {
+  --color-primary-50: var(--dl-color-primary-50);
+  --color-primary-100: var(--dl-color-primary-100);
+  --color-primary-200: var(--dl-color-primary-200);
+  --color-primary-300: var(--dl-color-primary-300);
+  --color-primary-400: var(--dl-color-primary-400);
+  --color-primary-500: var(--dl-color-primary-500);
+  --color-primary-600: var(--dl-color-primary-600);
+  --color-primary-700: var(--dl-color-primary-700);
+  --color-primary-800: var(--dl-color-primary-800);
+  --color-primary-900: var(--dl-color-primary-900);
+
+  --color-secondary-500: var(--dl-color-secondary-500);
+  --color-success-500: var(--dl-color-success-500);
+  --color-warning-500: var(--dl-color-warning-500);
+  --color-error-500: var(--dl-color-error-500);
+
+  --color-surface-canvas: var(--dl-color-surface-canvas);
+  --color-surface-default: var(--dl-color-surface-default);
+  --color-surface-elevated: var(--dl-color-surface-elevated);
+  --color-surface-muted: var(--dl-color-surface-muted);
+  --color-border-default: var(--dl-color-border-default);
+  --color-border-subtle: var(--dl-color-border-subtle);
+
+  --color-text-primary: var(--dl-color-text-primary);
+  --color-text-secondary: var(--dl-color-text-secondary);
+  --color-text-inverse: var(--dl-color-text-inverse);
+
+  --color-auth-modal-surface: var(--dl-auth-modal-surface);
+  --color-auth-modal-border: var(--dl-auth-modal-border);
+  --color-auth-modal-header-border: var(--dl-auth-modal-header-border);
+  --shadow-auth-modal: var(--dl-auth-modal-shadow);
+  --color-auth-link-secondary: var(--dl-auth-link-secondary);
+
+  --color-auth-banner-success-bg: var(--dl-auth-banner-success-bg);
+  --color-auth-banner-success-text: var(--dl-auth-banner-success-text);
+  --color-auth-banner-error-bg: var(--dl-auth-banner-error-bg);
+  --color-auth-banner-error-text: var(--dl-auth-banner-error-text);
+  --color-auth-banner-info-bg: var(--dl-auth-banner-info-bg);
+  --color-auth-banner-info-text: var(--dl-auth-banner-info-text);
+
+  --color-auth-input-bg: var(--dl-auth-input-bg);
+  --color-auth-input-border: var(--dl-auth-input-border);
+  --color-auth-input-border-focus: var(--dl-auth-input-border-focus);
+  --color-auth-input-border-error: var(--dl-auth-input-border-error);
+  --color-auth-input-placeholder: var(--dl-auth-input-placeholder);
+
+  --color-auth-feedback-success-text: var(--dl-auth-feedback-success-text);
+  --color-auth-feedback-error-text: var(--dl-auth-feedback-error-text);
+  --color-auth-feedback-info-text: var(--dl-auth-feedback-info-text);
+
+  --color-switch-mode-track-bg: var(--dl-switch-mode-track-bg);
+  --color-switch-mode-track-border: var(--dl-switch-mode-track-border);
+  --color-switch-mode-pill-active-bg: var(--dl-switch-mode-pill-active-bg);
+  --color-switch-mode-pill-active-text: var(--dl-switch-mode-pill-active-text);
+  --color-switch-mode-pill-inactive-text: var(--dl-switch-mode-pill-inactive-text);
+
+  --color-features-card-surface: var(--dl-features-card-surface);
+  --color-features-card-border: var(--dl-features-card-border);
+  --color-features-card-hover-border: var(--dl-features-card-hover-border);
+  --color-features-card-icon-bg: var(--dl-features-card-icon-bg);
+
+  --color-features-tab-active-bg: var(--dl-features-tab-active-bg);
+  --color-features-tab-idle-bg: var(--dl-features-tab-idle-bg);
+  --color-features-tab-border: var(--dl-features-tab-border);
+  --color-features-tab-text: var(--dl-features-tab-text);
+  --color-features-tab-close-hover-bg: var(--dl-features-tab-close-hover-bg);
+
+  --color-features-chip-slate-bg: var(--dl-features-chip-slate-bg);
+  --color-features-chip-slate-fg: var(--dl-features-chip-slate-fg);
+  --color-features-chip-orange-bg: var(--dl-features-chip-orange-bg);
+  --color-features-chip-orange-fg: var(--dl-features-chip-orange-fg);
+  --color-features-chip-indigo-bg: var(--dl-features-chip-indigo-bg);
+  --color-features-chip-indigo-fg: var(--dl-features-chip-indigo-fg);
+  --color-features-chip-emerald-bg: var(--dl-features-chip-emerald-bg);
+  --color-features-chip-emerald-fg: var(--dl-features-chip-emerald-fg);
+  --color-features-chip-amber-bg: var(--dl-features-chip-amber-bg);
+  --color-features-chip-amber-fg: var(--dl-features-chip-amber-fg);
+  --color-features-chip-rose-bg: var(--dl-features-chip-rose-bg);
+  --color-features-chip-rose-fg: var(--dl-features-chip-rose-fg);
+  --color-features-chip-cyan-bg: var(--dl-features-chip-cyan-bg);
+  --color-features-chip-cyan-fg: var(--dl-features-chip-cyan-fg);
+  --color-features-chip-teal-bg: var(--dl-features-chip-teal-bg);
+  --color-features-chip-teal-fg: var(--dl-features-chip-teal-fg);
+  --color-features-chip-violet-bg: var(--dl-features-chip-violet-bg);
+  --color-features-chip-violet-fg: var(--dl-features-chip-violet-fg);
+  --color-features-chip-fuchsia-bg: var(--dl-features-chip-fuchsia-bg);
+  --color-features-chip-fuchsia-fg: var(--dl-features-chip-fuchsia-fg);
+
+  --color-feed-action-rail-bg: var(--dl-feed-action-rail-bg);
+  --color-feed-action-icon-default: var(--dl-feed-action-icon-default);
+  --color-feed-action-icon-active: var(--dl-feed-action-icon-active);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: var(--dl-radius-sm);
+  --radius-md: var(--dl-radius-md);
+  --radius-lg: var(--dl-radius-lg);
+
+  --shadow-sm: var(--dl-shadow-sm);
+  --shadow-md: var(--dl-shadow-md);
+}
