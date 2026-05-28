@@ -1,6 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/features/presentation/models/feature_card_ui.dart';
 import 'package:deltalabs_mobile/features/features/presentation/providers/features_hub_provider.dart';
+import 'package:deltalabs_mobile/features/workspace/feature_workspace_navigation.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -109,7 +110,17 @@ class FeaturesSearchPage extends HookConsumerWidget {
                   ],
                 ),
               ),
-              Expanded(child: _ResultsBody(hub: hub, results: results, query: q)),
+              Expanded(
+            child: _ResultsBody(
+              hub: hub,
+              results: results,
+              query: q,
+              onOpenCard: (card) {
+                context.pop();
+                openFeatureWorkspace(context, ref, card);
+              },
+            ),
+          ),
             ],
           ),
         ),
@@ -123,11 +134,13 @@ class _ResultsBody extends StatelessWidget {
     required this.hub,
     required this.results,
     required this.query,
+    required this.onOpenCard,
   });
 
   final FeaturesHubState hub;
   final List<FeatureCardUi> results;
   final String query;
+  final void Function(FeatureCardUi card) onOpenCard;
 
   @override
   Widget build(BuildContext context) {
@@ -164,19 +177,7 @@ class _ResultsBody extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           clipBehavior: Clip.antiAlias,
           child: ListTile(
-            onTap: card.disabled
-                ? null
-                : () {
-                    context.pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Opening ${card.displayTitle} — workspace coming soon.',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
+            onTap: card.disabled ? null : () => onOpenCard(card),
             leading: CircleAvatar(
               backgroundColor: card.visuals.chipBackground,
               child: Icon(card.visuals.icon, color: card.visuals.chipForeground),

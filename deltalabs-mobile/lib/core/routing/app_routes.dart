@@ -19,6 +19,13 @@ abstract class AppRoutes {
   static const String search = '/search';
   static const String searchViewer = '/search/viewer';
   static const String featuresSearch = '/features/search';
+
+  // ── Feature workspaces (full-screen above feed shell) ─────────────────────
+  static const String workspace = '/workspace/:featureKey';
+  static const String workspaceSchool = '/workspace/school';
+
+  static String workspacePath(String featureKey) =>
+      '/workspace/${Uri.encodeComponent(featureKey.trim().toLowerCase())}';
   static const String classes = '/classes';
   static const String library = '/library';
   static const String profile = '/profile';

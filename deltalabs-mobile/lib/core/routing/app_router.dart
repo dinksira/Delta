@@ -13,6 +13,8 @@ import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provi
 import 'package:deltalabs_mobile/features/search/presentation/models/search_viewer_args.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_clip_viewer_page.dart';
 import 'package:deltalabs_mobile/features/features/presentation/pages/features_search_page.dart';
+import 'package:deltalabs_mobile/features/workspace/presentation/pages/workspace_page.dart';
+import 'package:deltalabs_mobile/features/workspace/workspace_launch_args.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/main_shell_page.dart';
 import 'package:flutter/material.dart';
@@ -133,6 +135,20 @@ GoRouter appRouter(Ref ref) {
         path: AppRoutes.featuresSearch,
         name: 'features-search',
         builder: (_, __) => const FeaturesSearchPage(),
+      ),
+
+      // ── Feature workspaces ─────────────────────────────────────────────────
+      GoRoute(
+        path: AppRoutes.workspace,
+        name: 'workspace',
+        builder: (_, state) {
+          final key = state.pathParameters['featureKey'] ?? '';
+          final extra = state.extra;
+          return WorkspacePage(
+            featureKey: key,
+            args: extra is WorkspaceLaunchArgs ? extra : null,
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.searchViewer,

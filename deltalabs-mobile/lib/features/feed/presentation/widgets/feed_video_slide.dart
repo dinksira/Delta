@@ -5,6 +5,7 @@ import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_play_pa
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_video_progress_bar.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:video_player/video_player.dart';
 
 /// One full-screen vertical feed clip with overlay UI.
@@ -43,6 +44,53 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
   bool _userPaused = false;
   bool _scrubbing = false;
 
+  Future<void> _probeMediaUrl(String url) async {
+    // This runs best-effort and should never crash the UI.
+    try {
+      final dio = Dio(
+        BaseOptions(
+          followRedirects: false,
+          validateStatus: (_) => true,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      Response<dynamic> res;
+      try {
+        res = await dio.head(url);
+      } catch (_) {
+        // Some origins don't support HEAD; do a tiny ranged GET.
+        res = await dio.get(
+          url,
+          options: Options(
+            responseType: ResponseType.bytes,
+            headers: const {'Range': 'bytes=0-0'},
+          ),
+        );
+      }
+
+      final status = res.statusCode;
+      final ct = res.headers.value(Headers.contentTypeHeader);
+      final len = res.headers.value(Headers.contentLengthHeader);
+      final ar = res.headers.value('accept-ranges');
+      final loc = res.headers.value('location');
+
+      final probe = [
+        if (status != null) 'status=$status',
+        if (ct != null) 'content-type=$ct',
+        if (len != null) 'len=$len',
+        if (ar != null) 'accept-ranges=$ar',
+        if (loc != null) 'location=$loc',
+      ].join(' | ');
+
+      debugPrint('Video URL probe: $url => $probe');
+      // Intentionally not displayed in UI; logs only.
+    } catch (e) {
+      debugPrint('Video URL probe failed for $url: $e');
+    }
+  }
+
   @override
   void didUpdateWidget(FeedVideoSlide oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -70,7 +118,11 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
   Future<void> _initController() async {
     final url = widget.item.mediaUrl;
     if (url == null || url.isEmpty) {
-      if (mounted) setState(() => _loadFailed = true);
+      if (mounted) {
+        setState(() {
+          _loadFailed = true;
+        });
+      }
       return;
     }
 
@@ -79,6 +131,9 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
       _initialized = false;
       _userPaused = false;
     });
+
+    // Best-effort: helps distinguish 403/404/redirect/codec issues.
+    _probeMediaUrl(url);
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     _controller = controller;
@@ -93,7 +148,9 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
       });
       _applyVolume();
       _syncPlayback();
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('Video init failed for $url: $e');
+      debugPrintStack(stackTrace: st);
       if (mounted) {
         setState(() {
           _initialized = false;
@@ -144,7 +201,9 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = widget.bottomInset ?? FeedLayout.captionBottomPadding;
+    final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+    final bottom =
+        (widget.bottomInset ?? FeedLayout.captionBottomPadding) + safeBottom;
     final showProgress =
         _initialized && _controller != null && widget.isActive;
 
@@ -214,6 +273,7 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
 
   Widget _buildVideo() {
     if (_loadFailed) {
+      const friendlyMessage = 'Video unavailable right now.\nPlease try again.';
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -227,7 +287,8 @@ class _FeedVideoSlideState extends State<FeedVideoSlide> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Could not load video',
+                friendlyMessage,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.8)),
               ),
               const SizedBox(height: 16),

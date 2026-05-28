@@ -12,6 +12,8 @@ import 'package:deltalabs_mobile/features/features/presentation/widgets/feature_
 
 import 'package:deltalabs_mobile/features/features/presentation/widgets/features_hub_error_view.dart';
 
+import 'package:deltalabs_mobile/features/workspace/feature_workspace_navigation.dart';
+
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 
 import 'package:flutter/material.dart';
@@ -385,37 +387,7 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
 
 
   void _onCardTap(FeatureCardUi card) {
-
-    if (card.disabled) {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-
-        SnackBar(
-
-          content: Text('${card.displayTitle} is not available for your account.'),
-
-          behavior: SnackBarBehavior.floating,
-
-        ),
-
-      );
-
-      return;
-
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-
-      SnackBar(
-
-        content: Text('Opening ${card.displayTitle} — full mobile workspace coming soon.'),
-
-        behavior: SnackBarBehavior.floating,
-
-      ),
-
-    );
-
+    openFeatureWorkspace(context, ref, card);
   }
 
 
