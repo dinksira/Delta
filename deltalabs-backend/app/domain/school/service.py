@@ -28,6 +28,7 @@ from app.domain.school.schemas import (
     SchoolArchiveInput,
     SchoolArchiveResponse,
     SchoolCreateInput,
+    SchoolUpdateInput,
     SchoolListResponse,
     SchoolPublic,
     ClassSessionCreateInput,
@@ -65,6 +66,40 @@ class Service:
     async def list_schools(self, *, org_id: str, archived: bool) -> SchoolListResponse:
         docs = await self._repository.list_schools(org_id=org_id, archived=archived)
         return SchoolListResponse(items=[_map_school(doc) for doc in docs])
+
+    async def get_school(self, *, org_id: str, school_id: str) -> SchoolPublic:
+        doc = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if doc is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        return _map_school(doc)
+
+    async def update_school(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        payload: SchoolUpdateInput,
+    ) -> SchoolPublic:
+        existing = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if existing is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        _validate_school_create_payload(payload)
+        updates: dict[str, object] = {
+            "name": payload.name.strip(),
+            "school_type": payload.school_type.strip(),
+            "email": payload.email.strip() if isinstance(payload.email, str) and payload.email.strip() else None,
+            "logo_url": payload.logo_url.strip() if isinstance(payload.logo_url, str) and payload.logo_url.strip() else None,
+            "custom_fields": [field.model_dump() for field in payload.custom_fields],
+            "partners": [partner.model_dump() for partner in payload.partners],
+            "documents": [document.model_dump() for document in payload.documents],
+        }
+        ok = await self._repository.update_school(org_id=org_id, school_id=school_id, updates=updates)
+        if not ok:
+            raise NotFoundError("School not found.", code="school_not_found")
+        refreshed = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if refreshed is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        return _map_school(refreshed)
 
     async def create_school(
         self,

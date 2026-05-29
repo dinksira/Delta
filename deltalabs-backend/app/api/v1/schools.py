@@ -52,6 +52,7 @@ from app.domain.school.schemas import (
     SchoolCreateMeInput,
     SchoolListResponse,
     SchoolPublic,
+    SchoolUpdateInput,
     SchoolWorkspaceCreateInput,
     SchoolWorkspaceItemPublic,
     SchoolWorkspaceListResponse,
@@ -536,6 +537,37 @@ async def delete_org_class_session(
         session_id=session_id,
     )
     return {"status": "deleted", "sessionId": session_id}
+
+
+@org_router.get(
+    "/{school_id}",
+    response_model=SchoolPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school(
+    org_id: str,
+    school_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.get_school(org_id=org_id, school_id=school_id)
+
+
+@org_router.patch(
+    "/{school_id}",
+    response_model=SchoolPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def update_org_school(
+    org_id: str,
+    school_id: str,
+    payload: SchoolUpdateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_school(org_id=org_id, school_id=school_id, payload=payload)
 
 
 @org_router.patch(

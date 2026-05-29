@@ -1,6 +1,7 @@
 class MySchoolModel {
   MySchoolModel({
     required this.schoolId,
+    required this.orgId,
     required this.name,
     required this.slug,
     required this.schoolType,
@@ -11,6 +12,7 @@ class MySchoolModel {
   factory MySchoolModel.fromJson(Map<String, dynamic> json) {
     return MySchoolModel(
       schoolId: (json['schoolId'] ?? json['school_id'] ?? '').toString(),
+      orgId: (json['orgId'] ?? json['org_id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       slug: (json['slug'] ?? '').toString(),
       schoolType: (json['schoolType'] ?? json['school_type'] ?? '').toString(),
@@ -20,6 +22,7 @@ class MySchoolModel {
   }
 
   final String schoolId;
+  final String orgId;
   final String name;
   final String slug;
   final String schoolType;

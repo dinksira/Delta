@@ -31,6 +31,10 @@ class SchoolCreateInput(BaseModel):
     documents: list["SchoolDocumentInput"] = Field(default_factory=list)
 
 
+class SchoolUpdateInput(SchoolCreateInput):
+    """Payload for updating a school record (same shape as create)."""
+
+
 class SchoolCreateMeInput(SchoolCreateInput):
     """Create-school payload for POST /v1/schools (me-centric orchestration)."""
 

@@ -23,6 +23,24 @@ abstract class AppRoutes {
   // ── Feature workspaces (full-screen above feed shell) ─────────────────────
   static const String workspace = '/workspace/:featureKey';
   static const String workspaceSchool = '/workspace/school';
+  static const String workspaceSchoolOffers = '/workspace/school/offers';
+  static const String workspaceSchoolMarketplace = '/workspace/school/marketplace';
+  static const String workspaceSchoolArchive = '/workspace/school/archive';
+  static const String workspaceSchoolCreate = '/workspace/school/create';
+  static const String workspaceSchoolEdit = '/workspace/school/edit/:schoolId';
+  static const String workspaceSchoolEditPrefix = '/workspace/school/edit';
+  static const String workspaceSchoolDetail = '/workspace/school/detail/:schoolId';
+  static const String workspaceSchoolMarketplaceListing =
+      '/workspace/school/marketplace/:listingId';
+
+  static String workspaceSchoolDetailPath(String schoolId) =>
+      '/workspace/school/detail/${Uri.encodeComponent(schoolId)}';
+
+  static String workspaceSchoolEditPath(String schoolId) =>
+      '/workspace/school/edit/${Uri.encodeComponent(schoolId)}';
+
+  static String workspaceSchoolMarketplaceListingPath(String listingId) =>
+      '/workspace/school/marketplace/${Uri.encodeComponent(listingId)}';
 
   static String workspacePath(String featureKey) =>
       '/workspace/${Uri.encodeComponent(featureKey.trim().toLowerCase())}';
