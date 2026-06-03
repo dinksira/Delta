@@ -16,7 +16,12 @@ class SchoolHubShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.path;
     final currentTab = _resolveTab(location);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack(context, location);
+      },
+      child: Scaffold(
       backgroundColor: AppColors.surfaceGrey,
       extendBody: true,
       appBar: AppBar(
@@ -25,7 +30,7 @@ class SchoolHubShell extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          onPressed: () => context.pop(),
+          onPressed: () => _handleBack(context, location),
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
         ),
         title: const Text(
@@ -50,7 +55,27 @@ class SchoolHubShell extends StatelessWidget {
       bottomNavigationBar: currentTab != null
           ? SchoolFloatingBottomNav(currentTab: currentTab)
           : null,
+      ),
     );
+  }
+
+  /// Back from a hub tab → home first; from home → leave the hub (features if stack was replaced by `go`).
+  static void _handleBack(BuildContext context, String location) {
+    final onHubHome = location == AppRoutes.workspaceSchool;
+    if (!onHubHome && _isHubTabRoute(location)) {
+      context.pop();
+      return;
+    }
+
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.featuresHub);
+    }
+  }
+
+  static bool _isHubTabRoute(String location) {
+    return SchoolHubTab.values.any((tab) => tab.route == location);
   }
 
   SchoolHubTab? _resolveTab(String location) {

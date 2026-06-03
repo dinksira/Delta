@@ -124,7 +124,14 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: AppRoutes.feed,
         name: 'feed',
-        builder: (_, __) => const MainShellPage(),
+        builder: (_, state) {
+          final surface = state.uri.queryParameters['surface'];
+          return MainShellPage(
+            initialSurface: surface == 'features'
+                ? ShellSurface.features
+                : ShellSurface.feed,
+          );
+        },
       ),
       // Legacy alias — bookmarks / bootstrap may still point here
       GoRoute(

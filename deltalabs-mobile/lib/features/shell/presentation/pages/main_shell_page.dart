@@ -15,9 +15,14 @@ enum ShellSurface { feed, features }
 
 /// Post-login shell: top tabs overlay on video (TikTok-style), no bottom navigation.
 class MainShellPage extends ConsumerStatefulWidget {
-  const MainShellPage({super.key, this.initialTab = FeedTopTab.video});
+  const MainShellPage({
+    super.key,
+    this.initialTab = FeedTopTab.video,
+    this.initialSurface = ShellSurface.feed,
+  });
 
   final FeedTopTab initialTab;
+  final ShellSurface initialSurface;
 
   @override
   ConsumerState<MainShellPage> createState() => _MainShellPageState();
@@ -25,7 +30,7 @@ class MainShellPage extends ConsumerStatefulWidget {
 
 class _MainShellPageState extends ConsumerState<MainShellPage> {
   late FeedTopTab _tab = widget.initialTab;
-  ShellSurface _surface = ShellSurface.feed;
+  late ShellSurface _surface = widget.initialSurface;
 
   bool get _overlayChromeOnVideo =>
       _surface == ShellSurface.feed && _tab == FeedTopTab.video;
