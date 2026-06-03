@@ -1,6 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_offer_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_table_action_chip.dart';
 import 'package:deltalabs_mobile/shared/widgets/management_table/dl_management_table.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,9 +76,9 @@ class SchoolOffersTable extends ConsumerWidget {
         header: 'Detail',
         minWidth: 64,
         align: TextAlign.center,
-        cellBuilder: (_, row, __) => _ActionChip(
+        cellBuilder: (_, row, __) => SchoolTableActionChip(
           label: 'Detail',
-          tone: _ChipTone.cyan,
+          tone: SchoolTableChipTone.cyan,
           onPressed: onShowDetails == null ? null : () => onShowDetails!(row),
         ),
       ),
@@ -91,7 +92,7 @@ class SchoolOffersTable extends ConsumerWidget {
           sessionEmail,
           targetStatus: 'approved',
           label: 'Approve',
-          tone: _ChipTone.emerald,
+          tone: SchoolTableChipTone.emerald,
         ),
       ),
       DlManagementTableColumn(
@@ -104,7 +105,7 @@ class SchoolOffersTable extends ConsumerWidget {
           sessionEmail,
           targetStatus: 'amendment',
           label: 'Amend',
-          tone: _ChipTone.violet,
+          tone: SchoolTableChipTone.violet,
         ),
       ),
       DlManagementTableColumn(
@@ -117,7 +118,7 @@ class SchoolOffersTable extends ConsumerWidget {
           sessionEmail,
           targetStatus: 'rejected',
           label: 'Reject',
-          tone: _ChipTone.rose,
+          tone: SchoolTableChipTone.rose,
         ),
       ),
     ];
@@ -136,7 +137,7 @@ class SchoolOffersTable extends ConsumerWidget {
     String? sessionEmail, {
     required String targetStatus,
     required String label,
-    required _ChipTone tone,
+    required SchoolTableChipTone tone,
   }) {
     if (!_canRespond(row, sessionEmail) ||
         (row.status != 'requested' && row.status != 'amendment')) {
@@ -148,7 +149,7 @@ class SchoolOffersTable extends ConsumerWidget {
         style: TextStyle(fontSize: 10, color: AppColors.textHint),
       );
     }
-    return _ActionChip(
+    return SchoolTableActionChip(
       label: label,
       tone: tone,
       onPressed: onChangeStatus == null ? null : () => onChangeStatus!(row, targetStatus),
@@ -219,53 +220,6 @@ class _PartnerCell extends StatelessWidget {
             style: const TextStyle(fontSize: 10, color: AppColors.textHint),
           ),
       ],
-    );
-  }
-}
-
-enum _ChipTone { cyan, emerald, violet, rose }
-
-class _ActionChip extends StatelessWidget {
-  const _ActionChip({
-    required this.label,
-    required this.tone,
-    this.onPressed,
-  });
-
-  final String label;
-  final _ChipTone tone;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final (bg, fg) = switch (tone) {
-      _ChipTone.cyan => (const Color(0xFFE0F4FA), AppColors.primaryLight),
-      _ChipTone.emerald => (const Color(0xFFDDF5E8), const Color(0xFF1B6B42)),
-      _ChipTone.violet => (const Color(0xFFEDE8F8), const Color(0xFF5B4B8A)),
-      _ChipTone.rose => (const Color(0xFFFCE8EC), const Color(0xFFB4233C)),
-    };
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(6),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: onPressed == null ? AppColors.textHint : fg,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

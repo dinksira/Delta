@@ -33,7 +33,7 @@ final schoolOffersProvider =
       );
 });
 
-typedef SchoolMarketplaceQuery = ({String view, String? search});
+typedef SchoolMarketplaceQuery = ({String view, String? search, String? status});
 
 final schoolMarketplaceProvider =
     FutureProvider.family<SchoolMarketplacePageModel, SchoolMarketplaceQuery>(
@@ -41,6 +41,7 @@ final schoolMarketplaceProvider =
     return ref.read(schoolRemoteDataSourceProvider).fetchMarketplace(
           view: query.view,
           query: query.search,
+          status: query.status,
         );
   },
 );
@@ -66,6 +67,16 @@ final schoolHubSummaryProvider = FutureProvider<SchoolHubSummary>((ref) async {
 final schoolMarketplaceListingProvider =
     FutureProvider.family<SchoolMarketplaceItemModel, String>((ref, listingId) {
   return ref.read(schoolRemoteDataSourceProvider).fetchMarketplaceListing(listingId);
+});
+
+typedef SchoolDealRoomQuery = ({String orgId, String listingId});
+
+final schoolDealRoomOffersProvider =
+    FutureProvider.family<List<SchoolOfferModel>, SchoolDealRoomQuery>((ref, query) {
+  return ref.read(schoolRemoteDataSourceProvider).fetchMarketplaceListingOffers(
+        orgId: query.orgId,
+        listingId: query.listingId,
+      );
 });
 
 typedef SchoolDetailQuery = ({String orgId, String schoolId});

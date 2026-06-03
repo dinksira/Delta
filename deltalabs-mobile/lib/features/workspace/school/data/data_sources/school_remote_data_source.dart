@@ -92,6 +92,7 @@ class SchoolRemoteDataSource {
   Future<SchoolMarketplacePageModel> fetchMarketplace({
     required String view,
     String? query,
+    String? status,
     int page = 1,
     int pageSize = 20,
     String sortBy = 'created_at',
@@ -102,6 +103,7 @@ class SchoolRemoteDataSource {
       queryParameters: {
         'view': view,
         if (query != null && query.isNotEmpty) 'q': query,
+        if (status != null && status.isNotEmpty) 'status': status,
         'page': page,
         'pageSize': pageSize,
         'sortBy': sortBy,
@@ -116,6 +118,125 @@ class SchoolRemoteDataSource {
       '/schools/marketplace/$listingId',
     );
     return SchoolMarketplaceItemModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolMarketplaceItemModel> createMarketplaceListing({
+    required String orgId,
+    required String schoolId,
+    required String title,
+    required String description,
+    required double price,
+    String currency = 'USD',
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/orgs/$orgId/schools/marketplace',
+      data: {
+        'school_id': schoolId,
+        'title': title,
+        'description': description,
+        'price': price,
+        'currency': currency,
+      },
+    );
+    return SchoolMarketplaceItemModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolMarketplaceItemModel> updateMarketplaceListing({
+    required String listingId,
+    String? title,
+    String? description,
+    double? price,
+    String? currency,
+  }) async {
+    final response = await _api.patch<Map<String, dynamic>>(
+      '/schools/marketplace/$listingId',
+      data: {
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+        if (price != null) 'price': price,
+        if (currency != null) 'currency': currency,
+      },
+    );
+    return SchoolMarketplaceItemModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolMarketplaceItemModel> withdrawMarketplaceListing(String listingId) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/schools/marketplace/$listingId/withdraw',
+    );
+    return SchoolMarketplaceItemModel.fromJson(response.data ?? {});
+  }
+
+  Future<void> deleteMarketplaceListing(String listingId) async {
+    await _api.delete<Map<String, dynamic>>('/schools/marketplace/$listingId');
+  }
+
+  Future<SchoolOfferModel> placeMarketplaceBid({
+    required String listingId,
+    required double offeredPrice,
+    String offeredCurrency = 'USD',
+    String? note,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/schools/marketplace/bid',
+      data: {
+        'listing_id': listingId,
+        'offered_price': offeredPrice,
+        'offered_currency': offeredCurrency,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      },
+    );
+    return SchoolOfferModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolOfferModel> buyMarketplaceListing(String listingId) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/schools/marketplace/buy',
+      data: {'listing_id': listingId},
+    );
+    return SchoolOfferModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolOfferModel> withdrawMarketplaceBid(String offerId) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/schools/marketplace/bids/$offerId/withdraw',
+    );
+    return SchoolOfferModel.fromJson(response.data ?? {});
+  }
+
+  Future<List<SchoolOfferModel>> fetchMarketplaceListingOffers({
+    required String orgId,
+    required String listingId,
+  }) async {
+    final response = await _api.get<Map<String, dynamic>>(
+      '/orgs/$orgId/schools/marketplace/$listingId/offers',
+    );
+    final items = response.data?['items'];
+    if (items is! List) return [];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(SchoolOfferModel.fromJson)
+        .toList();
+  }
+
+  Future<SchoolOfferModel> shortlistOffer({
+    required String orgId,
+    required String offerId,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/orgs/$orgId/schools/offers/$offerId/shortlist',
+    );
+    return SchoolOfferModel.fromJson(response.data ?? {});
+  }
+
+  Future<SchoolOfferModel> unshortlistOffer({
+    required String orgId,
+    required String offerId,
+  }) async {
+    final response = await _api.post<Map<String, dynamic>>(
+      '/orgs/$orgId/schools/offers/$offerId/unshortlist',
+    );
+    return SchoolOfferModel.fromJson(response.data ?? {});
   }
 
   Future<String?> fetchFirstOrgId() async {
