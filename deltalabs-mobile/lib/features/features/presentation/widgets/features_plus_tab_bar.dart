@@ -1,5 +1,6 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/features/presentation/constants/feature_hub_categories.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_confirm_dialog.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/shimmer_loader.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -59,29 +60,16 @@ class _FeaturesPlusTabBarState extends State<FeaturesPlusTabBar> {
   }
 
   Future<void> _confirmRemove(FeatureHubCategory tab) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
-        title: Text('Remove ${tab.label}?'),
-        content: Text(
+    final ok = await SchoolConfirmDialog.show(
+      context,
+      title: 'Remove ${tab.label}?',
+      description:
           '${tab.label} will be removed from the tab bar. Your saved instances stay on the All tab.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      confirmColor: AppColors.error,
     );
 
-    if (ok == true && mounted) {
+    if (ok && mounted) {
       widget.onUnpin(tab.id);
       if (widget.pinnedTabs.length <= 1) {
         _exitEditMode();

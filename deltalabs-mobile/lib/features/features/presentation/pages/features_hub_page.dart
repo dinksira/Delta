@@ -6,8 +6,10 @@ import 'package:deltalabs_mobile/features/features/presentation/models/feature_c
 import 'package:deltalabs_mobile/features/features/presentation/models/feature_instance_ui.dart';
 import 'package:deltalabs_mobile/features/features/presentation/providers/features_hub_provider.dart';
 import 'package:deltalabs_mobile/features/features/presentation/widgets/feature_card_menu_popup.dart';
+import 'package:deltalabs_mobile/features/features/presentation/widgets/feature_instance_rename_sheet.dart';
 import 'package:deltalabs_mobile/features/features/presentation/widgets/feature_list_tile.dart';
 import 'package:deltalabs_mobile/features/features/presentation/widgets/features_hub_error_view.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_confirm_dialog.dart';
 import 'package:deltalabs_mobile/features/features/presentation/providers/features_shell_tab_provider.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
@@ -35,75 +37,44 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
   }
 
   Future<void> _onCatalogTap(FeatureCardUi card) async {
-    await addFeatureFromCatalog(context, ref, card);
+    await addFeatureFromCatalog(context, card);
   }
 
   Future<void> _confirmRemoveInstance(FeatureInstanceUi item) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove instance?'),
-        content: Text(
+    final ok = await SchoolConfirmDialog.show(
+      context,
+      title: 'Remove instance?',
+      description:
           '"${item.displayTitle}" will be removed from ${_categoryLabel(_selectedCategoryId)}.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Remove',
+      confirmColor: AppColors.error,
     );
-    if (ok == true && mounted) {
+    if (ok && mounted) {
       await ref.read(featuresHubProvider.notifier).removeInstance(item.id);
     }
   }
 
   Future<void> _renameInstance(FeatureInstanceUi item) async {
-    final controller = TextEditingController(text: item.displayTitle);
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLength: 32,
-          decoration: const InputDecoration(
-            hintText: 'Instance name',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+    final name = await FeatureInstanceRenameSheet.show(
+      context,
+      initialName: item.displayTitle,
     );
-    if (saved == true && mounted) {
+    if (name != null && mounted) {
       await ref
           .read(featuresHubProvider.notifier)
-          .renameInstance(item.id, controller.text);
+          .renameInstance(item.id, name);
     }
-    controller.dispose();
   }
 
   Future<void> _addInstanceForCurrentTab() async {
     if (_isAllTab) return;
-    await ref.read(featuresHubProvider.notifier).addInstanceForCategory(
-          _selectedCategoryId,
-        );
+    final instanceId = await ref
+        .read(featuresHubProvider.notifier)
+        .addInstanceForCategory(_selectedCategoryId);
+    final item = ref.read(featuresHubProvider).instanceUiForId(instanceId ?? '');
+    if (item != null && mounted) {
+      await openFeatureInstance(context, item);
+    }
   }
 
   void _showInstanceMenu(
@@ -224,7 +195,7 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
               FeatureHubCategories.categoryForFeatureKey(card.id).label;
           return FeatureListTile.catalog(
             card: card,
-            subtitle: 'Tap to add to $tabLabel',
+            subtitle: 'Tap to open $tabLabel',
             onTap: () => _onCatalogTap(card),
           );
         },
@@ -286,7 +257,7 @@ class _FeaturesHubPageState extends ConsumerState<FeaturesHubPage> {
               FeatureListTile.instance(
                 instance: item,
                 subtitle: _instanceSubtitle(item, schools),
-                onTap: () => openFeatureInstance(context, ref, item),
+                onTap: () => openFeatureInstance(context, item),
                 onMenuTap: (anchor) =>
                     _showInstanceMenu(item, index, instances.length, anchor),
               ),

@@ -7,6 +7,10 @@ class FeatureCardMenuPopup {
 
   static const double _menuWidth = 216;
 
+  static void _runAfterClose(VoidCallback action) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => action());
+  }
+
   static Future<void> show({
     required BuildContext context,
     required BuildContext anchorContext,
@@ -67,7 +71,7 @@ class FeatureCardMenuPopup {
                           label: 'Rename',
                           onTap: () {
                             Navigator.pop(dialogContext);
-                            onRename();
+                            _runAfterClose(onRename);
                           },
                         ),
                       _ActionRow(
@@ -78,7 +82,7 @@ class FeatureCardMenuPopup {
                         enabled: canMoveLeft,
                         onTap: () {
                           Navigator.pop(dialogContext);
-                          onMoveLeft();
+                          _runAfterClose(onMoveLeft);
                         },
                       ),
                       _ActionRow(
@@ -89,7 +93,7 @@ class FeatureCardMenuPopup {
                         enabled: canMoveRight,
                         onTap: () {
                           Navigator.pop(dialogContext);
-                          onMoveRight();
+                          _runAfterClose(onMoveRight);
                         },
                       ),
                       Divider(
@@ -103,7 +107,7 @@ class FeatureCardMenuPopup {
                         accent: AppColors.error,
                         onTap: () {
                           Navigator.pop(dialogContext);
-                          onRemove();
+                          _runAfterClose(onRemove);
                         },
                       ),
                     ],

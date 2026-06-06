@@ -127,17 +127,28 @@ class FeaturesHubState {
     if (categoryId == FeatureHubCategories.all.id) return const [];
     return instances
         .where((i) => FeatureHubCategories.matchesCategory(categoryId, i.featureKey))
-        .map((instance) {
-          final feature = catalogByKey[instance.featureKey];
-          if (feature == null) return null;
-          return FeatureInstanceUi(
-            instance: instance,
-            feature: feature,
-            displayTitle: _instanceTitle(instance, feature.featureKey),
-          );
-        })
+        .map((instance) => _instanceUi(instance))
         .whereType<FeatureInstanceUi>()
         .toList();
+  }
+
+  FeatureInstanceUi? instanceUiForId(String instanceId) {
+    final id = instanceId.trim();
+    if (id.isEmpty) return null;
+    for (final instance in instances) {
+      if (instance.id == id) return _instanceUi(instance);
+    }
+    return null;
+  }
+
+  FeatureInstanceUi? _instanceUi(FeatureInstance instance) {
+    final feature = catalogByKey[instance.featureKey];
+    if (feature == null) return null;
+    return FeatureInstanceUi(
+      instance: instance,
+      feature: feature,
+      displayTitle: _instanceTitle(instance, feature.featureKey),
+    );
   }
 
   String _instanceTitle(FeatureInstance instance, String featureKey) {
@@ -259,10 +270,10 @@ class FeaturesHubNotifier extends Notifier<FeaturesHubState> {
     }
   }
 
-  Future<String> addInstance(String featureKey) async {
+  Future<String?> addInstance(String featureKey) async {
     final key = featureKey.toLowerCase();
     final feature = state.catalogByKey[key];
-    if (feature == null) return FeatureHubCategories.all.id;
+    if (feature == null) return null;
 
     final categoryId = FeatureHubCategories.categoryIdForFeatureKey(key);
     await pinCategory(categoryId);
@@ -277,12 +288,12 @@ class FeaturesHubNotifier extends Notifier<FeaturesHubState> {
 
     final next = [...state.instances, instance];
     await _persistInstances(next);
-    return categoryId;
+    return instance.id;
   }
 
-  Future<String> addInstanceForCategory(String categoryId) async {
+  Future<String?> addInstanceForCategory(String categoryId) async {
     final featureKey = FeatureHubCategories.primaryFeatureKeyForCategory(categoryId);
-    if (featureKey == null) return categoryId;
+    if (featureKey == null) return null;
     return addInstance(featureKey);
   }
 

@@ -32,7 +32,6 @@ void goToFeaturesHubTab(BuildContext context, String tabId) {
 /// Opens a saved feature instance workspace (restores last session when available).
 Future<void> openFeatureInstance(
   BuildContext context,
-  WidgetRef ref,
   FeatureInstanceUi item,
 ) async {
   if (item.disabled) {
@@ -45,12 +44,13 @@ Future<void> openFeatureInstance(
     return;
   }
 
+  final container = ProviderScope.containerOf(context, listen: false);
   final key = item.featureKey.toLowerCase();
-  ref.read(featuresShellTabProvider.notifier).select(item.categoryId);
-  await ref.read(featuresHubProvider.notifier).pinCategory(item.categoryId);
+  container.read(featuresShellTabProvider.notifier).select(item.categoryId);
+  await container.read(featuresHubProvider.notifier).pinCategory(item.categoryId);
 
   if (key == 'school') {
-    await _openSchoolInstance(context, ref, item);
+    await _openSchoolInstance(context, container, item);
     return;
   }
 
@@ -71,7 +71,7 @@ Future<void> openFeatureInstance(
 
 Future<void> _openSchoolInstance(
   BuildContext context,
-  WidgetRef ref,
+  ProviderContainer container,
   FeatureInstanceUi item,
 ) async {
   final instance = item.instance;
@@ -83,7 +83,7 @@ Future<void> _openSchoolInstance(
     if (FeatureInstanceSession.locationMatchesInstance(instance, lastLocation)) {
       List<MySchoolModel> schools = const [];
       try {
-        schools = await ref.read(myActiveSchoolsProvider.future);
+        schools = await container.read(myActiveSchoolsProvider.future);
       } catch (_) {}
 
       if (!context.mounted) return;
@@ -100,12 +100,12 @@ Future<void> _openSchoolInstance(
   );
 }
 
-/// Tap on catalog template (All tab): create instance + return target tab id.
-Future<String?> addFeatureFromCatalog(
+/// Tap on catalog template (All tab): create instance and open it directly.
+Future<void> addFeatureFromCatalog(
   BuildContext context,
-  WidgetRef ref,
-  FeatureCardUi card,
-) async {
+  FeatureCardUi card, {
+  bool popBeforeOpen = false,
+}) async {
   if (card.disabled) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -113,12 +113,26 @@ Future<String?> addFeatureFromCatalog(
         behavior: SnackBarBehavior.floating,
       ),
     );
-    return null;
+    return;
   }
 
-  final categoryId = FeatureHubCategories.categoryIdForFeatureKey(card.id);
-  await ref.read(featuresHubProvider.notifier).addInstance(card.id);
-  ref.read(featuresShellTabProvider.notifier).select(categoryId);
+  final container = ProviderScope.containerOf(context, listen: false);
+  final instanceId =
+      await container.read(featuresHubProvider.notifier).addInstance(card.id);
+  final item = container.read(featuresHubProvider).instanceUiForId(instanceId ?? '');
+  if (item == null) return;
 
-  return categoryId;
+  if (popBeforeOpen && context.mounted) {
+    final router = GoRouter.of(context);
+    router.pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final openContext = router.routerDelegate.navigatorKey.currentContext;
+      if (openContext == null || !openContext.mounted) return;
+      await openFeatureInstance(openContext, item);
+    });
+    return;
+  }
+
+  if (!context.mounted) return;
+  await openFeatureInstance(context, item);
 }

@@ -115,10 +115,11 @@ class FeaturesSearchPage extends HookConsumerWidget {
               hub: hub,
               results: results,
               query: q,
-              onOpenCard: (card) async {
-                await addFeatureFromCatalog(context, ref, card);
-                if (context.mounted) context.pop();
-              },
+              onOpenCard: (card) => addFeatureFromCatalog(
+                context,
+                card,
+                popBeforeOpen: true,
+              ),
             ),
           ),
             ],
