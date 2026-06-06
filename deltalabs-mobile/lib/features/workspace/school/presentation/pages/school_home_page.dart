@@ -1,3 +1,4 @@
+import 'package:deltalabs_mobile/features/features/presentation/providers/features_hub_provider.dart';
 import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
@@ -132,8 +133,8 @@ class SchoolHomePage extends HookConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: SchoolEntityCard(
                       school: school,
-                      onPrimaryAction: () => _openSchool(context, school),
-                      onDetailsAction: () => _showDetails(context, school),
+                      onPrimaryAction: () => _openSchool(context, ref, school),
+                      onDetailsAction: () => _showDetails(context, ref, school),
                       onEditAction: school.orgId.isEmpty
                           ? null
                           : () => context.push(
@@ -153,18 +154,24 @@ class SchoolHomePage extends HookConsumerWidget {
     );
   }
 
-  void _openSchool(BuildContext context, MySchoolModel school) {
-    context.push(
-      AppRoutes.workspaceSchoolDetailPath(school.schoolId),
-      extra: school,
-    );
+  void _openSchool(BuildContext context, WidgetRef ref, MySchoolModel school) {
+    final instanceId = AppRoutes.instanceIdFrom(GoRouterState.of(context).uri);
+    var path = AppRoutes.workspaceSchoolDetailPath(school.schoolId);
+    if (instanceId != null && instanceId.isNotEmpty) {
+      ref.read(featuresHubProvider.notifier).bindInstanceSchool(
+            instanceId,
+            school.schoolId,
+          );
+      path = AppRoutes.attachInstance(path, instanceId);
+    }
+    context.push(path, extra: school);
   }
 
-  void _showDetails(BuildContext context, MySchoolModel school) {
+  void _showDetails(BuildContext context, WidgetRef ref, MySchoolModel school) {
     SchoolDetailSheet.show(
       context,
       school: school,
-      onOpenSchool: () => _openSchool(context, school),
+      onOpenSchool: () => _openSchool(context, ref, school),
       onEdit: school.orgId.isEmpty
           ? null
           : () => context.push(

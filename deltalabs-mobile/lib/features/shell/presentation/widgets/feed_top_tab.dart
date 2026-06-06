@@ -22,6 +22,6 @@ extension FeedTopTabX on FeedTopTab {
     if (this != FeedTopTab.custom) return label;
     final trimmed = customTabLabel?.trim();
     if (trimmed == null || trimmed.isEmpty) return label;
-    return trimmed.length > 12 ? '${trimmed.substring(0, 12)}…' : trimmed;
+    return trimmed;
   }
 }

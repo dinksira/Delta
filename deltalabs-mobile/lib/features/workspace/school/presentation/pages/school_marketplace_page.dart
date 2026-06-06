@@ -348,12 +348,7 @@ class SchoolMarketplacePage extends HookConsumerWidget {
           ),
         ),
         const SizedBox(height: 8),
-        if (actionLoading.value)
-          const LinearProgressIndicator(
-            minHeight: 2,
-            color: AppColors.primary,
-            backgroundColor: Colors.transparent,
-          ),
+        if (actionLoading.value) const DlLinearLoadingBar(),
         Expanded(
           child: isBidsView
               ? _BidsTableBody(

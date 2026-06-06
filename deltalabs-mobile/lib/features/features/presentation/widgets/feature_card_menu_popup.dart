@@ -16,6 +16,9 @@ class FeatureCardMenuPopup {
     required VoidCallback onMoveLeft,
     required VoidCallback onMoveRight,
     required VoidCallback onRemove,
+    bool verticalReorder = false,
+    bool showRename = true,
+    String removeLabel = 'Remove',
   }) {
     final box = anchorContext.findRenderObject() as RenderBox?;
     if (box == null || !context.mounted) return Future.value();
@@ -24,14 +27,15 @@ class FeatureCardMenuPopup {
     final bottomRight = topLeft + box.size.bottomRight(Offset.zero);
     final screen = MediaQuery.sizeOf(context);
     const estimatedHeight = 212.0;
+    final menuHeight = showRename ? estimatedHeight : estimatedHeight - 52;
 
     var left = bottomRight.dx - _menuWidth;
     var top = bottomRight.dy + 6;
-    if (top + estimatedHeight > screen.height - 16) {
-      top = topLeft.dy - estimatedHeight - 6;
+    if (top + menuHeight > screen.height - 16) {
+      top = topLeft.dy - menuHeight - 6;
     }
     left = left.clamp(12.0, screen.width - _menuWidth - 12.0);
-    top = top.clamp(MediaQuery.paddingOf(context).top + 8, screen.height - estimatedHeight - 16);
+    top = top.clamp(MediaQuery.paddingOf(context).top + 8, screen.height - menuHeight - 16);
 
     return showGeneralDialog<void>(
       context: context,
@@ -57,17 +61,20 @@ class FeatureCardMenuPopup {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (showRename)
+                        _ActionRow(
+                          icon: Icons.edit_rounded,
+                          label: 'Rename',
+                          onTap: () {
+                            Navigator.pop(dialogContext);
+                            onRename();
+                          },
+                        ),
                       _ActionRow(
-                        icon: Icons.edit_rounded,
-                        label: 'Rename',
-                        onTap: () {
-                          Navigator.pop(dialogContext);
-                          onRename();
-                        },
-                      ),
-                      _ActionRow(
-                        icon: Icons.arrow_back_rounded,
-                        label: 'Move left',
+                        icon: verticalReorder
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_back_rounded,
+                        label: verticalReorder ? 'Move up' : 'Move left',
                         enabled: canMoveLeft,
                         onTap: () {
                           Navigator.pop(dialogContext);
@@ -75,8 +82,10 @@ class FeatureCardMenuPopup {
                         },
                       ),
                       _ActionRow(
-                        icon: Icons.arrow_forward_rounded,
-                        label: 'Move right',
+                        icon: verticalReorder
+                            ? Icons.arrow_downward_rounded
+                            : Icons.arrow_forward_rounded,
+                        label: verticalReorder ? 'Move down' : 'Move right',
                         enabled: canMoveRight,
                         onTap: () {
                           Navigator.pop(dialogContext);
@@ -90,7 +99,7 @@ class FeatureCardMenuPopup {
                       ),
                       _ActionRow(
                         icon: Icons.visibility_off_outlined,
-                        label: 'Remove',
+                        label: removeLabel,
                         accent: AppColors.error,
                         onTap: () {
                           Navigator.pop(dialogContext);

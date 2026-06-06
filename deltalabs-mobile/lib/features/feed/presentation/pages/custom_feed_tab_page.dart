@@ -10,6 +10,7 @@ import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_auth_ga
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_comments_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_share_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_video_slide.dart';
+import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -255,7 +256,7 @@ class _CustomFeedViewer extends HookConsumerWidget {
       children: [
         ColoredBox(color: Colors.black, child: body),
         Positioned(
-          top: MediaQuery.paddingOf(context).top + 56,
+          top: MainTopChrome.feedTabStripBottom(context) + 2,
           right: 8,
           child: Row(
             mainAxisSize: MainAxisSize.min,

@@ -1,7 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/features/presentation/models/feature_card_ui.dart';
 import 'package:deltalabs_mobile/features/features/presentation/providers/features_hub_provider.dart';
-import 'package:deltalabs_mobile/features/workspace/feature_workspace_navigation.dart';
+import 'package:deltalabs_mobile/features/features/presentation/feature_instance_navigation.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -115,9 +115,9 @@ class FeaturesSearchPage extends HookConsumerWidget {
               hub: hub,
               results: results,
               query: q,
-              onOpenCard: (card) {
-                context.pop();
-                openFeatureWorkspace(context, ref, card);
+              onOpenCard: (card) async {
+                await addFeatureFromCatalog(context, ref, card);
+                if (context.mounted) context.pop();
               },
             ),
           ),

@@ -107,7 +107,7 @@ class FeedPage extends HookConsumerWidget {
         body,
         if (isFeedVideos)
           Positioned(
-            top: MainTopChrome.height(context) + 4,
+            top: MainTopChrome.feedTabStripBottom(context) + 2,
             right: 4,
             child: IconButton(
               onPressed: () => isMuted.value = !isMuted.value,

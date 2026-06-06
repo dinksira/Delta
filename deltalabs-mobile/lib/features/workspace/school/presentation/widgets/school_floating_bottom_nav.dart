@@ -49,7 +49,15 @@ class SchoolFloatingBottomNav extends StatelessWidget {
                         tab: tab,
                         selected: tab == currentTab,
                         onTap: () {
-                          if (tab != currentTab) context.go(tab.route);
+                          if (tab != currentTab) {
+                            final instanceId =
+                                AppRoutes.instanceIdFrom(GoRouterState.of(context).uri);
+                            var route = tab.route;
+                            if (instanceId != null && instanceId.isNotEmpty) {
+                              route = AppRoutes.attachInstance(route, instanceId);
+                            }
+                            context.go(route);
+                          }
                         },
                       ),
                     ),

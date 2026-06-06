@@ -1,6 +1,8 @@
 import 'package:deltalabs_mobile/core/config/app_config.dart';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:deltalabs_mobile/features/features/data/data_sources/features_layout_local_store.dart';
+import 'package:deltalabs_mobile/features/features/data/data_sources/feature_instances_local_store.dart';
+import 'package:deltalabs_mobile/features/features/data/data_sources/feature_shell_tabs_local_store.dart';
 import 'package:deltalabs_mobile/features/features/data/data_sources/features_remote_data_source.dart';
 import 'package:deltalabs_mobile/features/features/data/repositories/features_repository_impl.dart';
 import 'package:deltalabs_mobile/features/features/domain/repositories/features_repository.dart';
@@ -59,6 +61,12 @@ class ServiceLocator {
     sl.registerSingleton<LocalDatabase>(LocalDatabase());
     sl.registerLazySingleton<FeaturesLayoutLocalStore>(
       () => FeaturesLayoutLocalStore(database: sl<LocalDatabase>()),
+    );
+    sl.registerLazySingleton<FeatureInstancesLocalStore>(
+      () => FeatureInstancesLocalStore(database: sl<LocalDatabase>()),
+    );
+    sl.registerLazySingleton<FeatureShellTabsLocalStore>(
+      () => FeatureShellTabsLocalStore(database: sl<LocalDatabase>()),
     );
     sl.registerLazySingleton<FeaturesRepository>(
       () => FeaturesRepositoryImpl(

@@ -83,5 +83,10 @@ abstract class AppTheme {
             ),
           ),
         ),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: AppColors.primary,
+          linearTrackColor: Color(0x241A3C4D),
+          linearMinHeight: 3,
+        ),
       );
 }

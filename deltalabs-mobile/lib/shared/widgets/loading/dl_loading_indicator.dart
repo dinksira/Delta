@@ -53,7 +53,10 @@ class _DlLoadingIndicatorState extends State<DlLoadingIndicator>
   Widget build(BuildContext context) {
     final px = widget.size.pixels;
     final ringColor = widget.onDark ? Colors.white : AppColors.primary;
-    final trackColor = ringColor.withValues(alpha: widget.onDark ? 0.18 : 0.22);
+    final trackColor = widget.onDark
+        ? Colors.white.withValues(alpha: 0.2)
+        : const Color(0xFFD4E0E8);
+    final stroke = widget.onDark ? 2.5 : 3.0;
 
     return SizedBox(
       width: px,
@@ -66,6 +69,7 @@ class _DlLoadingIndicatorState extends State<DlLoadingIndicator>
               progress: _controller.value,
               ringColor: ringColor,
               trackColor: trackColor,
+              stroke: stroke,
             ),
             child: child,
           );
@@ -88,17 +92,18 @@ class _DlRingPainter extends CustomPainter {
     required this.progress,
     required this.ringColor,
     required this.trackColor,
+    this.stroke = 2.5,
   });
 
   final double progress;
   final Color ringColor;
   final Color trackColor;
+  final double stroke;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide / 2 - 2;
-    const stroke = 2.5;
+    final radius = size.shortestSide / 2 - stroke;
 
     final track = Paint()
       ..color = trackColor
@@ -108,7 +113,7 @@ class _DlRingPainter extends CustomPainter {
 
     canvas.drawCircle(center, radius, track);
 
-    final sweep = math.pi * 1.35;
+    final sweep = math.pi * 1.5;
     final start = progress * math.pi * 2;
 
     final arc = Paint()
@@ -128,7 +133,80 @@ class _DlRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DlRingPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.ringColor != ringColor;
+      oldDelegate.progress != progress ||
+      oldDelegate.ringColor != ringColor ||
+      oldDelegate.stroke != stroke;
+}
+
+/// Thin inline loading line — use for save/action progress across the app.
+class DlLinearLoadingBar extends StatefulWidget {
+  const DlLinearLoadingBar({super.key});
+
+  @override
+  State<DlLinearLoadingBar> createState() => _DlLinearLoadingBarState();
+}
+
+class _DlLinearLoadingBarState extends State<DlLinearLoadingBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 3,
+      width: double.infinity,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return CustomPaint(
+            painter: _DlLinearLoadingBarPainter(progress: _controller.value),
+            child: const SizedBox.expand(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DlLinearLoadingBarPainter extends CustomPainter {
+  _DlLinearLoadingBarPainter({required this.progress});
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final track = Paint()..color = AppColors.primary.withValues(alpha: 0.14);
+    canvas.drawRect(Offset.zero & size, track);
+
+    final segmentWidth = size.width * 0.38;
+    final travel = size.width + segmentWidth;
+    final left = travel * progress - segmentWidth;
+
+    final bar = Paint()..color = AppColors.primary;
+    canvas.drawRect(
+      Rect.fromLTWH(left, 0, segmentWidth, size.height),
+      bar,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DlLinearLoadingBarPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
 
 /// Full-screen centered loader on black (feed / video).

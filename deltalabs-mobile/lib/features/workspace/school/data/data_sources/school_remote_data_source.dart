@@ -3,10 +3,13 @@ import 'dart:typed_data';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_page_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_offer_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_org_access_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 
 class SchoolRemoteDataSource {
   SchoolRemoteDataSource({required ApiClient apiClient}) : _api = apiClient;
@@ -27,10 +30,12 @@ class SchoolRemoteDataSource {
     required String orgId,
     required String schoolId,
   }) async {
-    final response = await _api.get<Map<String, dynamic>>(
-      '/orgs/$orgId/schools/$schoolId',
-    );
-    return SchoolDetailModel.fromJson(response.data ?? {});
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId',
+      );
+      return SchoolDetailModel.fromJson(response.data ?? {});
+    });
   }
 
   Future<SchoolDetailModel> updateSchool({
@@ -38,11 +43,13 @@ class SchoolRemoteDataSource {
     required String schoolId,
     required Map<String, dynamic> payload,
   }) async {
-    final response = await _api.patch<Map<String, dynamic>>(
-      '/orgs/$orgId/schools/$schoolId',
-      data: payload,
-    );
-    return SchoolDetailModel.fromJson(response.data ?? {});
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.patch<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId',
+        data: payload,
+      );
+      return SchoolDetailModel.fromJson(response.data ?? {});
+    });
   }
 
   Future<void> setSchoolArchived({
@@ -50,10 +57,12 @@ class SchoolRemoteDataSource {
     required String schoolId,
     required bool archived,
   }) async {
-    await _api.patch<Map<String, dynamic>>(
-      '/orgs/$orgId/schools/$schoolId/archive',
-      data: {'archived': archived},
-    );
+    await _withOrgMembership(orgId, () async {
+      await _api.patch<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/archive',
+        data: {'archived': archived},
+      );
+    });
   }
 
   Future<List<SchoolOfferModel>> fetchOffers({
@@ -239,15 +248,210 @@ class SchoolRemoteDataSource {
     return SchoolOfferModel.fromJson(response.data ?? {});
   }
 
-  Future<String?> fetchFirstOrgId() async {
+  Future<SchoolOrgAccessModel> fetchOrgAccess(String orgId) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>('/orgs/$orgId/access');
+      return SchoolOrgAccessModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<List<String>> fetchMyOrgIds() async {
+    if (_cachedMyOrgIds != null) return _cachedMyOrgIds!;
     final response = await _api.get<Map<String, dynamic>>('/orgs/me');
     final items = response.data?['items'];
-    if (items is! List || items.isEmpty) return null;
-    final first = items.first;
-    if (first is Map<String, dynamic>) {
-      return (first['id'] ?? '').toString();
+    if (items is! List) {
+      _cachedMyOrgIds = const [];
+      return _cachedMyOrgIds!;
     }
-    return null;
+    _cachedMyOrgIds = items
+        .whereType<Map<String, dynamic>>()
+        .map((item) => (item['id'] ?? '').toString())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    return _cachedMyOrgIds!;
+  }
+
+  Future<void> joinOrg(String orgId) async {
+    await _api.post<Map<String, dynamic>>('/orgs/$orgId/join');
+    _cachedMyOrgIds = null;
+  }
+
+  /// School membership (`GET /me/schools`) can exist without org membership.
+  /// Org-scoped routes require `POST /orgs/{orgId}/join` first.
+  Future<void> ensureOrgMembership(String orgId) async {
+    if (orgId.isEmpty) return;
+    final orgIds = await fetchMyOrgIds();
+    if (orgIds.contains(orgId)) return;
+    await joinOrg(orgId);
+  }
+
+  Future<List<SchoolWorkspaceItemModel>> fetchWorkspaceItems({
+    required String orgId,
+    required String schoolId,
+    String? type,
+    String? parentId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items',
+        queryParameters: {
+          if (type != null && type.isNotEmpty) 'type': type,
+          if (parentId != null && parentId.isNotEmpty) 'parentId': parentId,
+        },
+      );
+      final items = response.data?['items'];
+      if (items is! List) return [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(SchoolWorkspaceItemModel.fromJson)
+          .toList();
+    });
+  }
+
+  Future<SchoolWorkspaceItemModel> fetchWorkspaceItem({
+    required String orgId,
+    required String schoolId,
+    required String itemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$itemId',
+      );
+      return SchoolWorkspaceItemModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<SchoolWorkspaceItemModel> createWorkspaceItem({
+    required String orgId,
+    required String schoolId,
+    required String type,
+    required String title,
+    String? description,
+    Map<String, dynamic>? metadata,
+    String? parentId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items',
+        data: {
+          'type': type,
+          'title': title,
+          if (description != null && description.isNotEmpty) 'description': description,
+          if (metadata != null && metadata.isNotEmpty) 'metadata': metadata,
+          if (parentId != null && parentId.isNotEmpty) 'parentId': parentId,
+        },
+      );
+      return SchoolWorkspaceItemModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<SchoolWorkspaceItemModel> updateWorkspaceItem({
+    required String orgId,
+    required String schoolId,
+    required String itemId,
+    String? title,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.patch<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$itemId',
+        data: {
+          if (title != null) 'title': title,
+          if (description != null) 'description': description,
+          if (metadata != null) 'metadata': metadata,
+        },
+      );
+      return SchoolWorkspaceItemModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<void> deleteWorkspaceItem({
+    required String orgId,
+    required String schoolId,
+    required String itemId,
+  }) async {
+    await _withOrgMembership(orgId, () async {
+      await _api.delete<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$itemId',
+      );
+    });
+  }
+
+  Future<List<SchoolClassSessionModel>> fetchClassSessions({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/sessions',
+      );
+      final items = response.data?['items'];
+      if (items is! List) return [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(SchoolClassSessionModel.fromJson)
+          .toList();
+    });
+  }
+
+  Future<SchoolClassSessionModel> createClassSession({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String title,
+    String? description,
+    double? weight,
+    int? durationMinutes,
+    String sessionType = 'virtual',
+    String? scheduledAt,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/sessions',
+        data: {
+          'title': title,
+          if (description != null && description.isNotEmpty) 'description': description,
+          if (weight != null) 'weight': weight,
+          if (durationMinutes != null) 'durationMinutes': durationMinutes,
+          'sessionType': sessionType,
+          if (scheduledAt != null && scheduledAt.isNotEmpty) 'scheduledAt': scheduledAt,
+        },
+      );
+      return SchoolClassSessionModel.fromJson(response.data ?? {});
+    });
+  }
+
+  List<String>? _cachedMyOrgIds;
+
+  Future<T> _withOrgMembership<T>(String orgId, Future<T> Function() action) async {
+    await ensureOrgMembership(orgId);
+    try {
+      return await action();
+    } on DioException catch (error) {
+      if (!_isOrgMembershipRequired(error)) rethrow;
+      await joinOrg(orgId);
+      return action();
+    }
+  }
+
+  bool _isOrgMembershipRequired(DioException error) {
+    if (error.response?.statusCode != 403) return false;
+    final data = error.response?.data;
+    if (data is Map<String, dynamic>) {
+      return data['code'] == 'org_membership_required';
+    }
+    if (data is Map) {
+      return data['code']?.toString() == 'org_membership_required';
+    }
+    return false;
+  }
+
+  Future<String?> fetchFirstOrgId() async {
+    final orgIds = await fetchMyOrgIds();
+    if (orgIds.isEmpty) return null;
+    return orgIds.first;
   }
 
   Future<Map<String, dynamic>> createSchoolForMe(Map<String, dynamic> payload) async {

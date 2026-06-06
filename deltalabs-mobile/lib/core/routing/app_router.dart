@@ -12,17 +12,20 @@ import 'package:deltalabs_mobile/features/auth/presentation/pages/reset_password
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:deltalabs_mobile/features/search/presentation/models/search_viewer_args.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_clip_viewer_page.dart';
+import 'package:deltalabs_mobile/features/features/presentation/shell/features_workspace_shell.dart';
 import 'package:deltalabs_mobile/features/features/presentation/pages/features_search_page.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/presentation/pages/workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_archive_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_create_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_edit_page.dart';
-import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_detail_placeholder_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_workspace_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_department_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_home_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_marketplace_listing_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_marketplace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_offers_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/shell/school_hub_shell.dart';
 import 'package:deltalabs_mobile/features/workspace/workspace_launch_args.dart';
 import 'package:deltalabs_mobile/features/search/presentation/pages/search_page.dart';
@@ -154,94 +157,142 @@ GoRouter appRouter(Ref ref) {
         builder: (_, __) => const FeaturesSearchPage(),
       ),
 
-      // ── School hub (Phase A) ───────────────────────────────────────────────
+      // ── Feature workspaces (persistent category tabs on top) ───────────────
       ShellRoute(
-        builder: (_, __, child) => SchoolHubShell(child: child),
+        builder: (_, __, child) => FeaturesWorkspaceShell(child: child),
         routes: [
-          GoRoute(
-            path: AppRoutes.workspaceSchool,
-            pageBuilder: (_, __) => const NoTransitionPage(child: SchoolHomePage()),
+          ShellRoute(
+            builder: (_, __, child) => SchoolHubShell(child: child),
             routes: [
               GoRoute(
-                path: 'offers',
+                path: AppRoutes.workspaceSchool,
                 pageBuilder: (_, __) =>
-                    const NoTransitionPage(child: SchoolOffersPage()),
-              ),
-              GoRoute(
-                path: 'marketplace',
-                pageBuilder: (_, __) =>
-                    const NoTransitionPage(child: SchoolMarketplacePage()),
-              ),
-              GoRoute(
-                path: 'archive',
-                pageBuilder: (_, __) =>
-                    const NoTransitionPage(child: SchoolArchivePage()),
+                    const NoTransitionPage(child: SchoolHomePage()),
+                routes: [
+                  GoRoute(
+                    path: 'offers',
+                    pageBuilder: (_, __) =>
+                        const NoTransitionPage(child: SchoolOffersPage()),
+                  ),
+                  GoRoute(
+                    path: 'marketplace',
+                    pageBuilder: (_, __) =>
+                        const NoTransitionPage(child: SchoolMarketplacePage()),
+                  ),
+                  GoRoute(
+                    path: 'archive',
+                    pageBuilder: (_, __) =>
+                        const NoTransitionPage(child: SchoolArchivePage()),
+                  ),
+                ],
               ),
             ],
           ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolDetail,
+            name: 'school-detail',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final extra = state.extra;
+              final view = state.uri.queryParameters['view'];
+              final pathIds =
+                  AppRoutes.parseWorkspacePathIds(state.uri.queryParameters['path']);
+              return SchoolWorkspacePage(
+                schoolId: schoolId,
+                school: extra is MySchoolModel ? extra : null,
+                initialView: view,
+                initialPathIds: pathIds,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolDepartment,
+            name: 'school-department',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final departmentItemId = state.pathParameters['departmentItemId'] ?? '';
+              final extra = state.extra;
+              final view = state.uri.queryParameters['view'];
+              final pathIds =
+                  AppRoutes.parseWorkspacePathIds(state.uri.queryParameters['path']);
+              return SchoolDepartmentWorkspacePage(
+                schoolId: schoolId,
+                departmentItemId: departmentItemId,
+                school: extra is MySchoolModel ? extra : null,
+                initialView: view,
+                initialPathIds: pathIds,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolClass,
+            name: 'school-class',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final classItemId = state.pathParameters['classItemId'] ?? '';
+              final extra = state.extra;
+              return SchoolClassWorkspacePage(
+                schoolId: schoolId,
+                classItemId: classItemId,
+                school: extra is MySchoolModel ? extra : null,
+              );
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolMarketplaceListing,
+            name: 'school-marketplace-listing',
+            builder: (_, state) {
+              final listingId = state.pathParameters['listingId'] ?? '';
+              return SchoolMarketplaceListingPage(listingId: listingId);
+            },
+          ),
+          GoRoute(
+            path: AppRoutes.workspace,
+            name: 'workspace',
+            builder: (_, state) {
+              final key = state.pathParameters['featureKey'] ?? '';
+              final extra = state.extra;
+              return WorkspacePage(
+                featureKey: key,
+                args: extra is WorkspaceLaunchArgs ? extra : null,
+              );
+            },
+          ),
         ],
       ),
+
+      // ── School create / edit (full screen — outside features chrome) ───────
       GoRoute(
         path: AppRoutes.workspaceSchoolCreate,
         name: 'school-create',
-        builder: (_, __) => const SchoolCreatePage(),
+        pageBuilder: (_, __) => const MaterialPage(
+          fullscreenDialog: true,
+          child: SchoolCreatePage(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.workspaceSchoolEdit,
         name: 'school-edit',
-        builder: (_, state) {
+        pageBuilder: (_, state) {
           final schoolId = state.pathParameters['schoolId'] ?? '';
           final extra = state.extra;
-          if (extra is MySchoolModel) {
-            return SchoolEditPage(school: extra);
-          }
-          return SchoolEditPage(
-            school: MySchoolModel(
-              schoolId: schoolId,
-              orgId: '',
-              name: '',
-              slug: '',
-              schoolType: '',
-              archived: false,
-              roleKeys: const [],
-            ),
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.workspaceSchoolDetail,
-        name: 'school-detail',
-        builder: (_, state) {
-          final schoolId = state.pathParameters['schoolId'] ?? '';
-          final extra = state.extra;
-          return SchoolDetailPlaceholderPage(
-            schoolId: schoolId,
-            school: extra is MySchoolModel ? extra : null,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.workspaceSchoolMarketplaceListing,
-        name: 'school-marketplace-listing',
-        builder: (_, state) {
-          final listingId = state.pathParameters['listingId'] ?? '';
-          return SchoolMarketplaceListingPage(listingId: listingId);
+          final page = extra is MySchoolModel
+              ? SchoolEditPage(school: extra)
+              : SchoolEditPage(
+                  school: MySchoolModel(
+                    schoolId: schoolId,
+                    orgId: '',
+                    name: '',
+                    slug: '',
+                    schoolType: '',
+                    archived: false,
+                    roleKeys: const [],
+                  ),
+                );
+          return MaterialPage(fullscreenDialog: true, child: page);
         },
       ),
 
-      // ── Feature workspaces ─────────────────────────────────────────────────
-      GoRoute(
-        path: AppRoutes.workspace,
-        name: 'workspace',
-        builder: (_, state) {
-          final key = state.pathParameters['featureKey'] ?? '';
-          final extra = state.extra;
-          return WorkspacePage(
-            featureKey: key,
-            args: extra is WorkspaceLaunchArgs ? extra : null,
-          );
-        },
-      ),
       GoRoute(
         path: AppRoutes.searchViewer,
         name: 'search-viewer',

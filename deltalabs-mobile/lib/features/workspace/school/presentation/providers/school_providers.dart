@@ -2,10 +2,13 @@ import 'package:deltalabs_mobile/core/di/service_locator.dart';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/data_sources/school_remote_data_source.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_page_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_offer_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_org_access_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/models/school_hub_summary.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -88,3 +91,61 @@ final schoolDetailProvider =
         schoolId: query.schoolId,
       );
 });
+
+final schoolOrgAccessProvider =
+    FutureProvider.family<SchoolOrgAccessModel, String>((ref, orgId) {
+  return ref.read(schoolRemoteDataSourceProvider).fetchOrgAccess(orgId);
+});
+
+typedef SchoolWorkspaceItemsQuery = ({
+  String orgId,
+  String schoolId,
+  String? type,
+  String? parentId,
+});
+
+final schoolWorkspaceItemsProvider =
+    FutureProvider.family<List<SchoolWorkspaceItemModel>, SchoolWorkspaceItemsQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchWorkspaceItems(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          type: query.type,
+          parentId: query.parentId,
+        );
+  },
+);
+
+typedef SchoolWorkspaceItemQuery = ({
+  String orgId,
+  String schoolId,
+  String itemId,
+});
+
+final schoolWorkspaceItemProvider =
+    FutureProvider.family<SchoolWorkspaceItemModel, SchoolWorkspaceItemQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchWorkspaceItem(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          itemId: query.itemId,
+        );
+  },
+);
+
+typedef SchoolClassSessionsQuery = ({
+  String orgId,
+  String schoolId,
+  String classWorkspaceItemId,
+});
+
+final schoolClassSessionsProvider =
+    FutureProvider.family<List<SchoolClassSessionModel>, SchoolClassSessionsQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchClassSessions(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          classWorkspaceItemId: query.classWorkspaceItemId,
+        );
+  },
+);

@@ -1,13 +1,19 @@
 import 'package:deltalabs_mobile/core/routing/app_routes.dart';
+import 'package:deltalabs_mobile/features/feed/domain/entities/feed_custom_tab.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/pages/custom_feed_tab_page.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/pages/feed_page.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/providers/custom_feed_tab_provider.dart';
+import 'package:deltalabs_mobile/features/features/presentation/constants/feature_hub_categories.dart';
+import 'package:deltalabs_mobile/features/features/presentation/providers/features_hub_provider.dart';
+import 'package:deltalabs_mobile/features/features/presentation/providers/features_shell_tab_provider.dart';
+import 'package:deltalabs_mobile/features/features/presentation/widgets/features_shell_header.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/features_hub_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/pages/feed_tab_placeholder_page.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/widgets/feed_top_tab.dart';
 import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -32,12 +38,51 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
   late FeedTopTab _tab = widget.initialTab;
   late ShellSurface _surface = widget.initialSurface;
 
-  bool get _overlayChromeOnVideo =>
-      _surface == ShellSurface.feed && _tab == FeedTopTab.video;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFeaturesTabFromRoute());
+  }
+
+  bool _usesFeedVideoOverlay(AsyncValue<FeedCustomTab?> customTabState) {
+    if (_surface != ShellSurface.feed) return false;
+    if (_tab == FeedTopTab.video) return true;
+    if (_tab == FeedTopTab.custom) {
+      return customTabState.when(
+        data: (tab) => tab != null,
+        loading: () => true,
+        error: (_, __) => true,
+      );
+    }
+    return false;
+  }
+
+  void _syncFeaturesTabFromRoute() {
+    if (!mounted) return;
+    final tab = GoRouterState.of(context).uri.queryParameters['tab'];
+    if (tab == null || tab.isEmpty) return;
+
+    final hub = ref.read(featuresHubProvider);
+    if (tab != FeatureHubCategories.all.id && !hub.isCategoryPinned(tab)) {
+      ref.read(featuresShellTabProvider.notifier).select(FeatureHubCategories.all.id);
+      return;
+    }
+    ref.read(featuresShellTabProvider.notifier).select(tab);
+  }
 
   @override
   Widget build(BuildContext context) {
     final customTabLabel = ref.watch(customFeedTabLabelProvider);
+    final customTabState = ref.watch(customFeedTabNotifierProvider);
+    final overlayChromeOnVideo = _usesFeedVideoOverlay(customTabState);
+
+    final featuresHeader = FeaturesShellHeader(
+      onFeaturesSwitchTap: () => setState(() {
+        _surface = _surface == ShellSurface.feed
+            ? ShellSurface.features
+            : ShellSurface.feed;
+      }),
+    );
 
     final chrome = MainTopChrome(
       currentTab: _tab,
@@ -59,10 +104,10 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
             : ShellSurface.feed;
       }),
       isFeaturesMode: _surface == ShellSurface.features,
-      overlayOnVideo: _overlayChromeOnVideo,
+      overlayOnVideo: overlayChromeOnVideo,
     );
 
-    final statusStyle = _overlayChromeOnVideo
+    final statusStyle = overlayChromeOnVideo
         ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
         : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
 
@@ -85,7 +130,7 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
           title: 'Simulation',
           subtitle: 'Scenarios, digital twin, and batch runs — coming soon',
         ),
-        const CustomFeedTabPage(),
+        CustomFeedTabPage(),
       ],
     );
 
@@ -93,7 +138,7 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
       value: statusStyle.copyWith(
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarIconBrightness:
-            _overlayChromeOnVideo ? Brightness.light : Brightness.dark,
+            overlayChromeOnVideo ? Brightness.light : Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor:
@@ -101,7 +146,7 @@ class _MainShellPageState extends ConsumerState<MainShellPage> {
         body: _surface == ShellSurface.features
             ? Column(
                 children: [
-                  chrome,
+                  featuresHeader,
                   const Expanded(child: FeaturesHubPage()),
                 ],
               )

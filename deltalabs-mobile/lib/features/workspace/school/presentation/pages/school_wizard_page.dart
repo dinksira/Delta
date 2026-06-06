@@ -41,11 +41,37 @@ class SchoolWizardPage extends ConsumerWidget {
         ? !state.draftHydrated
         : !state.draftHydrated && state.orgLoading;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !state.submitting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || state.submitting) return;
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutes.workspaceSchool);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppColors.surfaceGrey,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceGrey,
         foregroundColor: AppColors.primary,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          onPressed: state.submitting
+              ? null
+              : () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutes.workspaceSchool);
+                  }
+                },
+          icon: const Icon(Icons.close_rounded, size: 24),
+          tooltip: 'Close',
+        ),
         title: Text(
           title,
           style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
@@ -160,6 +186,7 @@ class SchoolWizardPage extends ConsumerWidget {
                 ),
               ],
             ),
+    ),
     );
   }
 }
