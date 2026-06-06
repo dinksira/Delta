@@ -9,8 +9,8 @@ import 'package:deltalabs_mobile/features/feed/presentation/widgets/custom_feed_
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_auth_gate_dialog.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_comments_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_share_sheet.dart';
+import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_overlay_controls.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_video_slide.dart';
-import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -256,12 +256,12 @@ class _CustomFeedViewer extends HookConsumerWidget {
       children: [
         ColoredBox(color: Colors.black, child: body),
         Positioned(
-          top: MainTopChrome.feedTabStripBottom(context) + 2,
-          right: 8,
+          top: FeedOverlayControls.top(context),
+          right: FeedOverlayControls.overlayRightInset,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
+              FeedFilterButton(
                 onPressed: () => CustomFeedFilterSheet.show(
                   context,
                   initial: FeedClipFilterSelection.fromQueryFilters(tab.filters),
@@ -274,20 +274,10 @@ class _CustomFeedViewer extends HookConsumerWidget {
                     ref.invalidate(customTabFeedProvider);
                   },
                 ),
-                icon: const Icon(Icons.tune_rounded, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.35),
-                ),
               ),
-              IconButton(
-                onPressed: () => isMuted.value = !isMuted.value,
-                icon: Icon(
-                  isMuted.value ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                  color: Colors.white,
-                ),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black.withValues(alpha: 0.35),
-                ),
+              FeedMuteButton(
+                isMuted: isMuted.value,
+                onToggle: () => isMuted.value = !isMuted.value,
               ),
             ],
           ),

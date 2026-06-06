@@ -117,33 +117,8 @@ Future<String?> addFeatureFromCatalog(
   }
 
   final categoryId = FeatureHubCategories.categoryIdForFeatureKey(card.id);
-  await ref.read(featuresHubProvider.notifier).pinCategory(categoryId);
+  await ref.read(featuresHubProvider.notifier).addInstance(card.id);
   ref.read(featuresShellTabProvider.notifier).select(categoryId);
-
-  final existing =
-      ref.read(featuresHubProvider).instancesForCategory(categoryId);
-  final createdNew = existing.isEmpty;
-  if (createdNew) {
-    await ref.read(featuresHubProvider.notifier).addInstance(card.id);
-  }
-
-  if (context.mounted) {
-    final tabLabel = FeatureHubCategories.tabs
-        .firstWhere(
-          (t) => t.id == categoryId,
-          orElse: () => FeatureHubCategories.all,
-        )
-        .label;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          createdNew ? 'Added to $tabLabel' : 'Opened $tabLabel',
-        ),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   return categoryId;
 }

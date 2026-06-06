@@ -1,8 +1,8 @@
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/providers/feed_provider.dart';
-import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_auth_gate_dialog.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_comments_sheet.dart';
+import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_overlay_controls.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_share_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_video_slide.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
@@ -107,19 +107,11 @@ class FeedPage extends HookConsumerWidget {
         body,
         if (isFeedVideos)
           Positioned(
-            top: MainTopChrome.feedTabStripBottom(context) + 2,
-            right: 4,
-            child: IconButton(
-              onPressed: () => isMuted.value = !isMuted.value,
-              tooltip: isMuted.value ? 'Unmute' : 'Mute',
-              icon: Icon(
-                isMuted.value ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                color: Colors.white,
-                size: 26,
-              ),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.black.withValues(alpha: 0.35),
-              ),
+            top: FeedOverlayControls.top(context),
+            right: FeedOverlayControls.overlayRightInset,
+            child: FeedMuteButton(
+              isMuted: isMuted.value,
+              onToggle: () => isMuted.value = !isMuted.value,
             ),
           ),
       ],

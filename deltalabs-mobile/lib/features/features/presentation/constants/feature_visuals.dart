@@ -14,7 +14,7 @@ class FeatureVisuals {
 
   static const _map = <String, FeatureVisuals>{
     'school': FeatureVisuals(
-      icon: Icons.calendar_month_rounded,
+      icon: Icons.school_outlined,
       chipBackground: Color(0xFFE8EEF2),
       chipForeground: Color(0xFF1A3C4D),
     ),
