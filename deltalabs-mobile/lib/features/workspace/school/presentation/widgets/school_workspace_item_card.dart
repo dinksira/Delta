@@ -71,6 +71,7 @@ class _GridCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,24 +107,26 @@ class _GridCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               SchoolWorkspaceConstants.secondaryMeta(item),
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
           ],
-          const Spacer(),
           const SizedBox(height: 12),
           if (item.hasPrimaryOpen)
             FilledButton(
               onPressed: onPrimaryOpen,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                minimumSize: const Size.fromHeight(40),
+                minimumSize: const Size.fromHeight(36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(
-                _openLabel(item),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                _gridOpenLabel(item),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               ),
             ),
         ],
@@ -239,6 +242,8 @@ class _ItemMenu extends StatelessWidget {
     );
   }
 }
+
+String _gridOpenLabel(SchoolWorkspaceItemModel item) => 'Open';
 
 String _openLabel(SchoolWorkspaceItemModel item) {
   if (item.opensAsFolder) return 'Open folder';

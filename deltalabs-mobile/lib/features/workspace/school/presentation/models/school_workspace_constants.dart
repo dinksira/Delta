@@ -26,7 +26,7 @@ abstract class SchoolWorkspaceConstants {
     SchoolWorkspaceSection(id: 'departments', label: 'Departments'),
     SchoolWorkspaceSection(id: 'class', label: 'Class'),
     SchoolWorkspaceSection(id: 'course', label: 'Course'),
-    SchoolWorkspaceSection(id: 'management-table', label: 'Management Table'),
+    SchoolWorkspaceSection(id: 'management-table', label: 'Management'),
     SchoolWorkspaceSection(id: 'resource', label: 'Resource'),
     SchoolWorkspaceSection(id: 'students', label: 'Students'),
     SchoolWorkspaceSection(id: 'service', label: 'Service'),

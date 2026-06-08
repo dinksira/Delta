@@ -24,6 +24,8 @@ class SchoolWorkspaceSectionTabs extends StatelessWidget {
       height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         itemCount: sections.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -32,7 +34,7 @@ class SchoolWorkspaceSectionTabs extends StatelessWidget {
           return GestureDetector(
             onTap: () => onSectionChanged(section.id),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: selected ? AppColors.primary : Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -44,6 +46,7 @@ class SchoolWorkspaceSectionTabs extends StatelessWidget {
               ),
               child: Text(
                 section.label,
+                maxLines: 1,
                 style: TextStyle(
                   color: selected ? Colors.white : AppColors.textSecondary,
                   fontWeight: FontWeight.w600,

@@ -51,7 +51,8 @@ class SchoolWorkspacePage extends HookConsumerWidget {
     );
     final pathIds = useState<List<String>>(List<String>.from(initialPathIds));
     final search = useState('');
-    final layoutMode = useState(SchoolWorkspaceLayoutMode.grid);
+    final layoutMode = useState(SchoolWorkspaceLayoutMode.list);
+    final creating = useState(false);
     final visibleSections = useState<List<String>>(
       List<String>.from(SchoolWorkspaceConstants.defaultVisibleSectionIds),
     );
@@ -191,12 +192,14 @@ class SchoolWorkspacePage extends HookConsumerWidget {
         }
 
         Future<void> createItem() async {
+          if (creating.value) return;
           final result = await SchoolWorkspaceCreateSheet.show(
             context,
             initialSectionId: sectionId.value,
             canCreate: canMutate,
           );
           if (result == null || !context.mounted) return;
+          creating.value = true;
           try {
             await ref.read(schoolRemoteDataSourceProvider).createWorkspaceItem(
                   orgId: orgId,
@@ -224,6 +227,8 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                 ),
               );
             }
+          } finally {
+            creating.value = false;
           }
         }
 
@@ -327,6 +332,7 @@ class SchoolWorkspacePage extends HookConsumerWidget {
         }
 
         final q = search.value.trim().toLowerCase();
+        final itemsRefreshing = itemsAsync.isLoading && itemsAsync.hasValue;
         final filteredItems = itemsAsync.maybeWhen(
           data: (items) => q.isEmpty
               ? items
@@ -339,6 +345,7 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                   .toList(),
           orElse: () => <SchoolWorkspaceItemModel>[],
         );
+        final isBusy = creating.value || itemsRefreshing;
 
         return PopScope(
           canPop: false,
@@ -354,18 +361,31 @@ class SchoolWorkspacePage extends HookConsumerWidget {
           backgroundColor: AppColors.surfaceGrey,
           floatingActionButton: canMutate
               ? FloatingActionButton.extended(
-                  onPressed: accessPending ? null : createItem,
+                  onPressed: accessPending || creating.value ? null : createItem,
                   backgroundColor: AppColors.primary,
-                  icon: const Icon(Icons.add_rounded, color: Colors.white),
-                  label: const Text(
-                    'New',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                  icon: creating.value
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.add_rounded, color: Colors.white),
+                  label: Text(
+                    creating.value ? 'Creating…' : 'New',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 )
               : null,
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (isBusy) const DlLinearLoadingBar(),
               SchoolWorkspaceDetailHeader(
                 currentSchool: current,
                 schools: schools,
@@ -384,12 +404,24 @@ class SchoolWorkspacePage extends HookConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: SchoolHubSearchBar(
-                  hintText: 'Search workspace',
-                  onChanged: (v) => search.value = v,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SchoolHubSearchBar(
+                        hintText: 'Search workspace',
+                        onChanged: (v) => search.value = v,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _LayoutToggle(
+                      mode: layoutMode.value,
+                      onChanged: (mode) => layoutMode.value = mode,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SchoolWorkspaceSectionTabs(
@@ -418,15 +450,8 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                     children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _LayoutToggle(
-                          mode: layoutMode.value,
-                          onChanged: (mode) => layoutMode.value = mode,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
                       itemsAsync.when(
+                  skipLoadingOnRefresh: true,
                   loading: () => const Padding(
                     padding: EdgeInsets.symmetric(vertical: 48),
                     child: Center(child: DlLoadingIndicator()),
@@ -446,8 +471,11 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                         message: q.isEmpty
                             ? 'Add departments, classes, or resources to get started.'
                             : 'Try a different search term.',
-                        actionLabel: canMutate && q.isEmpty ? 'Create item' : null,
-                        onAction: canMutate && q.isEmpty ? createItem : null,
+                        actionLabel:
+                            canMutate && q.isEmpty && !creating.value ? 'Create item' : null,
+                        onAction: canMutate && q.isEmpty && !creating.value
+                            ? createItem
+                            : null,
                       );
                     }
 
@@ -455,9 +483,7 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                       return Column(
                         children: [
                           for (final item in filteredItems) ...[
-                            SizedBox(
-                              height: 190,
-                              child: SchoolWorkspaceItemCard(
+                            SchoolWorkspaceItemCard(
                                 item: item,
                                 layoutMode: layoutMode.value,
                                 onPrimaryOpen:
@@ -465,7 +491,6 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                                 onEdit: canMutate ? () => editItem(item) : null,
                                 onDelete: canMutate ? () => deleteItem(item) : null,
                               ),
-                            ),
                             const SizedBox(height: 12),
                           ],
                         ],
@@ -526,14 +551,14 @@ class _LayoutToggle extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _IconToggleButton(
-            icon: Icons.grid_view_rounded,
-            selected: mode == SchoolWorkspaceLayoutMode.grid,
-            onTap: () => onChanged(SchoolWorkspaceLayoutMode.grid),
-          ),
-          _IconToggleButton(
             icon: Icons.view_list_rounded,
             selected: mode == SchoolWorkspaceLayoutMode.list,
             onTap: () => onChanged(SchoolWorkspaceLayoutMode.list),
+          ),
+          _IconToggleButton(
+            icon: Icons.grid_view_rounded,
+            selected: mode == SchoolWorkspaceLayoutMode.grid,
+            onTap: () => onChanged(SchoolWorkspaceLayoutMode.grid),
           ),
         ],
       ),

@@ -45,8 +45,11 @@ class SchoolWorkspaceCreateSheet extends HookWidget {
 
   @override
   Widget build(BuildContext context) {
-    final step = useState(0);
-    final selectedType = useState<String?>(null);
+    final presetType = initialSectionId == 'all'
+        ? null
+        : SchoolWorkspaceConstants.sectionToCreationChoice(initialSectionId);
+    final step = useState(presetType != null ? 1 : 0);
+    final selectedType = useState<String?>(presetType);
     final titleCtrl = useTextEditingController();
     final descCtrl = useTextEditingController();
     final submitting = useState(false);
@@ -67,9 +70,11 @@ class SchoolWorkspaceCreateSheet extends HookWidget {
       ));
     }
 
-    final defaultType = initialSectionId == 'all'
+    final presetLabel = presetType == null
         ? null
-        : SchoolWorkspaceConstants.sectionToCreationChoice(initialSectionId);
+        : SchoolWorkspaceConstants.creationChoices
+            .firstWhere((c) => c.id == presetType)
+            .label;
 
     return Material(
       color: Colors.transparent,
@@ -101,14 +106,16 @@ class SchoolWorkspaceCreateSheet extends HookWidget {
             const SizedBox(height: 16),
             Row(
               children: [
-                if (step.value == 1)
+                if (step.value == 1 && presetType == null)
                   IconButton(
                     onPressed: () => step.value = 0,
                     icon: const Icon(Icons.arrow_back_rounded),
                   ),
                 Expanded(
                   child: Text(
-                    step.value == 0 ? 'New workspace item' : 'Item details',
+                    step.value == 0
+                        ? 'New workspace item'
+                        : (presetLabel != null ? 'New $presetLabel' : 'Item details'),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -131,29 +138,25 @@ class SchoolWorkspaceCreateSheet extends HookWidget {
                   style: TextStyle(color: AppColors.textSecondary),
                 ),
               )
-            else if (step.value == 0) ...[
-              if (defaultType != null)
-                _ChoiceTile(
-                  choice: SchoolWorkspaceConstants.creationChoices
-                      .firstWhere((c) => c.id == defaultType),
-                  onTap: () => pickType(defaultType),
-                )
-              else
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: SchoolWorkspaceConstants.creationChoices.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final choice = SchoolWorkspaceConstants.creationChoices[index];
-                      return _ChoiceTile(
-                        choice: choice,
-                        onTap: () => pickType(choice.id),
-                      );
-                    },
-                  ),
+            else if (step.value == 0)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.55,
                 ),
-            ] else ...[
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: SchoolWorkspaceConstants.creationChoices.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final choice = SchoolWorkspaceConstants.creationChoices[index];
+                    return _ChoiceTile(
+                      choice: choice,
+                      onTap: () => pickType(choice.id),
+                    );
+                  },
+                ),
+              )
+            else ...[
               TextField(
                 controller: titleCtrl,
                 autofocus: true,

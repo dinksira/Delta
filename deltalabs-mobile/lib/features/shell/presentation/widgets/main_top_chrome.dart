@@ -52,15 +52,7 @@ class MainTopChrome extends StatelessWidget {
               height: _iconRowHeight,
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: onSearchTap,
-                    tooltip: 'Search',
-                    icon: const Icon(
-                      Icons.search_rounded,
-                      color: AppColors.primary,
-                      size: 26,
-                    ),
-                  ),
+                  const SizedBox(width: 48),
                   const Expanded(
                     child: Center(
                       child: Text(
