@@ -35,6 +35,10 @@ from app.domain.school.schemas import (
     ClassSessionListResponse,
     ClassSessionPublic,
     ClassSessionUpdateInput,
+    ClassEnrollmentCreateInput,
+    ClassEnrollmentListResponse,
+    ClassEnrollmentPublic,
+    ClassEnrollmentUserPublic,
     SchoolWorkspaceCreateInput,
     SchoolWorkspaceItemPublic,
     SchoolWorkspaceListResponse,
@@ -472,6 +476,205 @@ class Service:
         )
         if not ok:
             raise NotFoundError("Class session not found.", code="class_session_not_found")
+
+    async def list_class_enrollments(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> ClassEnrollmentListResponse:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        docs = await self._repository.list_class_enrollments(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            status="active",
+        )
+        items: list[ClassEnrollmentPublic] = []
+        for doc in docs:
+            mapped = await self._map_class_enrollment(doc)
+            if mapped is not None:
+                items.append(mapped)
+        return ClassEnrollmentListResponse(items=items)
+
+    async def enroll_student_in_class(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: ClassEnrollmentCreateInput,
+        enrolled_by_user_id: str | None,
+    ) -> ClassEnrollmentPublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        user_id = (payload.user_id or "").strip()
+        email = (payload.email or "").strip().lower()
+        if not user_id and not email:
+            raise ValidationError(
+                "Provide userId or email to enroll a student.",
+                code="class_enrollment_identity_required",
+            )
+        user_doc: dict[str, object] | None
+        if user_id:
+            user_doc = await self._repository.find_user_profile(user_id=user_id)
+        else:
+            user_doc = await self._repository.find_user_by_email_normalized(
+                email_normalized=email,
+            )
+            user_id = str(user_doc["_id"]) if user_doc is not None else ""
+        if user_doc is None or not user_id:
+            raise NotFoundError("User not found.", code="user_not_found")
+
+        existing = await self._repository.find_class_enrollment_for_user(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            user_id=user_id,
+        )
+        if existing is not None and str(existing.get("status", "")) == "active":
+            raise ValidationError(
+                "This student is already enrolled in the class.",
+                code="class_enrollment_exists",
+            )
+
+        membership = await self._repository.find_school_membership(
+            user_id=user_id,
+            school_id=school_id,
+        )
+        role_keys = list(membership.get("role_keys", [])) if membership is not None else []
+        if "student" not in role_keys:
+            role_keys.append("student")
+        await self._repository.upsert_school_membership(
+            user_id=user_id,
+            school_id=school_id,
+            org_id=org_id,
+            role_keys=role_keys,
+        )
+
+        if existing is not None:
+            ok = await self._repository.update_class_enrollment(
+                org_id=org_id,
+                school_id=school_id,
+                enrollment_id=str(existing["_id"]),
+                updates={
+                    "status": "active",
+                    "role": "student",
+                    "enrolled_by_user_id": enrolled_by_user_id,
+                    "enrolled_at": datetime.now(UTC),
+                },
+            )
+            if not ok:
+                raise NotFoundError("Enrollment not found.", code="class_enrollment_not_found")
+            refreshed = await self._repository.find_class_enrollment(
+                org_id=org_id,
+                school_id=school_id,
+                enrollment_id=str(existing["_id"]),
+            )
+        else:
+            refreshed = await self._repository.create_class_enrollment(
+                org_id=org_id,
+                school_id=school_id,
+                class_workspace_item_id=class_workspace_item_id,
+                user_id=user_id,
+                role="student",
+                status="active",
+                enrolled_by_user_id=enrolled_by_user_id,
+            )
+
+        if refreshed is None:
+            raise NotFoundError("Enrollment not found.", code="class_enrollment_not_found")
+
+        await self._sync_class_student_count(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+
+        mapped = await self._map_class_enrollment(refreshed)
+        if mapped is None:
+            raise NotFoundError("User not found.", code="user_not_found")
+        return mapped
+
+    async def withdraw_class_enrollment(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        enrollment_id: str,
+    ) -> None:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        existing = await self._repository.find_class_enrollment(
+            org_id=org_id,
+            school_id=school_id,
+            enrollment_id=enrollment_id,
+        )
+        if existing is None:
+            raise NotFoundError("Enrollment not found.", code="class_enrollment_not_found")
+        if str(existing.get("class_workspace_item_id", "")) != class_workspace_item_id:
+            raise NotFoundError("Enrollment not found.", code="class_enrollment_not_found")
+        ok = await self._repository.update_class_enrollment(
+            org_id=org_id,
+            school_id=school_id,
+            enrollment_id=enrollment_id,
+            updates={"status": "withdrawn"},
+        )
+        if not ok:
+            raise NotFoundError("Enrollment not found.", code="class_enrollment_not_found")
+        await self._sync_class_student_count(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+
+    async def _sync_class_student_count(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> None:
+        count = await self._repository.count_active_class_enrollments(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        item = await self._repository.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id,
+        )
+        if item is None:
+            return
+        metadata = item.get("metadata")
+        metadata_safe = dict(metadata) if isinstance(metadata, dict) else {}
+        metadata_safe["studentCount"] = str(count)
+        await self._repository.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id,
+            updates={"metadata": metadata_safe},
+        )
+
+    async def _map_class_enrollment(self, doc: dict[str, object]) -> ClassEnrollmentPublic | None:
+        user_id = str(doc.get("user_id", ""))
+        user_doc = await self._repository.find_user_profile(user_id=user_id)
+        if user_doc is None:
+            return None
+        return _map_class_enrollment(doc, user_doc)
 
     async def _require_class_workspace_item(
         self,
@@ -1781,6 +1984,34 @@ def _map_offer(doc: dict[str, object]) -> OfferPublic:
         amendment_data=amendment_data,  # type: ignore[arg-type]
         expires_at=(doc["expires_at"] if isinstance(doc.get("expires_at"), datetime) else None),  # type: ignore[arg-type]
         amendment_rounds=(int(doc["amendment_rounds"]) if isinstance(doc.get("amendment_rounds"), int) else 0),
+    )
+
+
+def _map_class_enrollment(
+    doc: dict[str, object],
+    user_doc: dict[str, object],
+) -> ClassEnrollmentPublic:
+    return ClassEnrollmentPublic(
+        id=str(doc["_id"]),
+        org_id=str(doc["org_id"]),
+        school_id=str(doc["school_id"]),
+        class_workspace_item_id=str(doc["class_workspace_item_id"]),
+        user_id=str(doc["user_id"]),
+        role=str(doc.get("role", "student")),  # type: ignore[arg-type]
+        status=str(doc.get("status", "active")),  # type: ignore[arg-type]
+        enrolled_at=doc["enrolled_at"],  # type: ignore[arg-type]
+        updated_at=doc["updated_at"],  # type: ignore[arg-type]
+        enrolled_by_user_id=(
+            str(doc["enrolled_by_user_id"])
+            if doc.get("enrolled_by_user_id") is not None
+            else None
+        ),
+        user=ClassEnrollmentUserPublic(
+            user_id=str(user_doc["_id"]),
+            username=(str(user_doc["username"]) if user_doc.get("username") is not None else None),
+            email=(str(user_doc["email"]) if user_doc.get("email") is not None else None),
+            full_name=(str(user_doc["full_name"]) if user_doc.get("full_name") is not None else None),
+        ),
     )
 
 

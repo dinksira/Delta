@@ -41,6 +41,10 @@ abstract class AppRoutes {
       '/workspace/school/detail/:schoolId/department/:departmentItemId';
   static const String workspaceSchoolClass =
       '/workspace/school/detail/:schoolId/class/:classItemId';
+  static const String workspaceSchoolClassSession =
+      '/workspace/school/detail/:schoolId/class/:classItemId/session/:sessionId';
+  static const String workspaceSchoolManagementTable =
+      '/workspace/school/detail/:schoolId/management-tables/:instanceId';
   static const String workspaceSchoolMarketplaceListing =
       '/workspace/school/marketplace/:listingId';
 
@@ -102,6 +106,83 @@ abstract class AppRoutes {
 
   static String workspaceSchoolClassPath(String schoolId, String classItemId) =>
       '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/class/${Uri.encodeComponent(classItemId)}';
+
+  static const String classWorkspaceTabQueryKey = 'tab';
+
+  static String workspaceSchoolClassUri(
+    String schoolId,
+    String classItemId, {
+    String? tab,
+    String? instanceId,
+  }) {
+    final uri = Uri(
+      path: workspaceSchoolClassPath(schoolId, classItemId),
+      queryParameters: {
+        if (tab != null && tab.isNotEmpty && tab != 'overview') classWorkspaceTabQueryKey: tab,
+        if (instanceId != null && instanceId.isNotEmpty) instanceQueryKey: instanceId,
+      },
+    );
+    return uri.toString();
+  }
+
+  static String workspaceSchoolClassSessionPath(
+    String schoolId,
+    String classItemId,
+    String sessionId,
+  ) =>
+      '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/class/${Uri.encodeComponent(classItemId)}/session/${Uri.encodeComponent(sessionId)}';
+
+  static String workspaceSchoolClassSessionUri(
+    String schoolId,
+    String classItemId,
+    String sessionId, {
+    String? instanceId,
+  }) {
+    final uri = Uri(
+      path: workspaceSchoolClassSessionPath(schoolId, classItemId, sessionId),
+      queryParameters: {
+        if (instanceId != null && instanceId.isNotEmpty) instanceQueryKey: instanceId,
+      },
+    );
+    return uri.toString();
+  }
+
+  static String parseClassWorkspaceTab(String? raw) {
+    const allowed = {'overview', 'sessions', 'people', 'academics', 'resources'};
+    final tab = raw?.trim().toLowerCase() ?? '';
+    if (allowed.contains(tab)) return tab;
+    return 'overview';
+  }
+
+  static String workspaceSchoolManagementTablePath(
+    String schoolId,
+    String instanceId,
+  ) =>
+      '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/management-tables/${Uri.encodeComponent(instanceId)}';
+
+  static String workspaceSchoolManagementTableUri(
+    String schoolId,
+    String managementTableInstanceId, {
+    String? featureInstanceId,
+    String? itemTitle,
+    List<String> pathIds = const [],
+    String? view,
+    String? departmentItemId,
+  }) {
+    final uri = Uri(
+      path: workspaceSchoolManagementTablePath(schoolId, managementTableInstanceId),
+      queryParameters: {
+        if (featureInstanceId != null && featureInstanceId.isNotEmpty)
+          instanceQueryKey: featureInstanceId,
+        if (itemTitle != null && itemTitle.isNotEmpty) 'title': itemTitle,
+        if (pathIds.isNotEmpty) 'path': pathIds.join(','),
+        if (view != null && view.isNotEmpty && view != 'all') 'view': view,
+        if (departmentItemId != null && departmentItemId.trim().isNotEmpty)
+          'dept': departmentItemId.trim(),
+      },
+    );
+    return uri.toString();
+  }
 
   static String workspaceSchoolEditPath(String schoolId) =>
       '/workspace/school/edit/${Uri.encodeComponent(schoolId)}';

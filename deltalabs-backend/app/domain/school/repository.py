@@ -71,6 +71,22 @@ class Repository:
             ],
             name="ix_school_class_sessions_org_school_class_time",
         )
+        await self._db["class_enrollments"].create_index(
+            [
+                ("org_id", ASCENDING),
+                ("school_id", ASCENDING),
+                ("class_workspace_item_id", ASCENDING),
+                ("status", ASCENDING),
+                ("enrolled_at", DESCENDING),
+            ],
+            name="ix_class_enrollments_org_school_class_status",
+        )
+        await self._db["class_enrollments"].create_index(
+            [("class_workspace_item_id", ASCENDING), ("user_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"status": "active"},
+            name="uq_class_enrollments_active_user_class",
+        )
         await ManagementTableRepository(self._db).ensure_indexes()
 
     async def ping(self) -> bool:
@@ -341,6 +357,132 @@ class Repository:
             {"_id": session_id, "org_id": org_id, "school_id": school_id},
         )
         return result.deleted_count > 0
+
+    async def list_class_enrollments(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        status: str | None = "active",
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+        }
+        if status is not None:
+            query["status"] = status
+        cursor = (
+            self._db["class_enrollments"]
+            .find(query)
+            .sort([("enrolled_at", DESCENDING), ("created_at", DESCENDING)])
+        )
+        return await cursor.to_list(length=1000)
+
+    async def find_class_enrollment(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        enrollment_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["class_enrollments"].find_one(
+            {"_id": enrollment_id, "org_id": org_id, "school_id": school_id},
+        )
+
+    async def find_class_enrollment_for_user(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        user_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["class_enrollments"].find_one(
+            {
+                "org_id": org_id,
+                "school_id": school_id,
+                "class_workspace_item_id": class_workspace_item_id,
+                "user_id": user_id,
+            },
+        )
+
+    async def create_class_enrollment(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        user_id: str,
+        role: str,
+        status: str,
+        enrolled_by_user_id: str | None,
+    ) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        doc = {
+            "_id": f"cen_{uuid4().hex}",
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+            "user_id": user_id,
+            "role": role,
+            "status": status,
+            "enrolled_by_user_id": enrolled_by_user_id,
+            "enrolled_at": now,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._db["class_enrollments"].insert_one(doc)
+        return doc
+
+    async def update_class_enrollment(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        enrollment_id: str,
+        updates: dict[str, Any],
+    ) -> bool:
+        safe_updates = dict(updates)
+        safe_updates["updated_at"] = datetime.now(UTC)
+        result = await self._db["class_enrollments"].update_one(
+            {"_id": enrollment_id, "org_id": org_id, "school_id": school_id},
+            {"$set": safe_updates},
+        )
+        return result.matched_count > 0
+
+    async def find_user_profile(self, *, user_id: str) -> dict[str, Any] | None:
+        return await self._db["users"].find_one({"_id": user_id})
+
+    async def find_user_by_email_normalized(self, *, email_normalized: str) -> dict[str, Any] | None:
+        return await self._db["users"].find_one({"email_normalized": email_normalized})
+
+    async def find_school_membership(
+        self,
+        *,
+        user_id: str,
+        school_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["school_memberships"].find_one(
+            {"user_id": user_id, "school_id": school_id},
+        )
+
+    async def count_active_class_enrollments(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> int:
+        return await self._db["class_enrollments"].count_documents(
+            {
+                "org_id": org_id,
+                "school_id": school_id,
+                "class_workspace_item_id": class_workspace_item_id,
+                "status": "active",
+            },
+        )
 
     async def set_school_archived(self, *, org_id: str, school_id: str, archived: bool) -> bool:
         result = await self._db["schools"].update_one(

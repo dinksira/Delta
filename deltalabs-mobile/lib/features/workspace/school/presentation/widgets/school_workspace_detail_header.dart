@@ -19,6 +19,8 @@ class SchoolWorkspaceDetailHeader extends ConsumerWidget {
     this.featureInstanceId,
     this.departmentRootLabel,
     this.onDepartmentRootTap,
+    this.onBack,
+    this.terminalLabel,
     super.key,
   });
 
@@ -30,6 +32,10 @@ class SchoolWorkspaceDetailHeader extends ConsumerWidget {
   final String? featureInstanceId;
   final String? departmentRootLabel;
   final VoidCallback? onDepartmentRootTap;
+  /// When set (e.g. management-table detail), overrides default hub back navigation.
+  final VoidCallback? onBack;
+  /// Trailing active crumb (e.g. workspace item title on a sub-route).
+  final String? terminalLabel;
 
   static const _horizontalPadding = EdgeInsets.fromLTRB(4, 2, 16, 6);
 
@@ -45,14 +51,15 @@ class SchoolWorkspaceDetailHeader extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             IconButton(
-              onPressed: () => SchoolWorkspaceNavigation.backFromDetail(
-                context,
-                featureInstanceId: featureInstanceId,
-              ),
+              onPressed: onBack ??
+                  () => SchoolWorkspaceNavigation.backFromDetail(
+                        context,
+                        featureInstanceId: featureInstanceId,
+                      ),
               icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               color: AppColors.primary,
               visualDensity: VisualDensity.compact,
-              tooltip: 'Back to schools',
+              tooltip: onBack != null ? 'Back' : 'Back to schools',
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -70,14 +77,17 @@ class SchoolWorkspaceDetailHeader extends ConsumerWidget {
                     const _PathSeparator(),
                     _PathCrumb(
                       label: 'Root',
-                      active: segments.isEmpty && departmentRootLabel == null,
+                      active: segments.isEmpty &&
+                          departmentRootLabel == null &&
+                          (terminalLabel == null || terminalLabel!.isEmpty),
                       onTap: onRootTap,
                     ),
                     if (departmentRootLabel != null) ...[
                       const _PathSeparator(),
                       _PathCrumb(
                         label: departmentRootLabel!,
-                        active: segments.isEmpty,
+                        active: segments.isEmpty &&
+                            (terminalLabel == null || terminalLabel!.isEmpty),
                         onTap: onDepartmentRootTap,
                       ),
                     ],
@@ -85,8 +95,16 @@ class SchoolWorkspaceDetailHeader extends ConsumerWidget {
                       const _PathSeparator(),
                       _PathCrumb(
                         label: segments[i].loading ? '…' : segments[i].label,
-                        active: i == segments.length - 1,
+                        active: (terminalLabel == null || terminalLabel!.isEmpty) &&
+                            i == segments.length - 1,
                         onTap: () => onSegmentTap(i),
+                      ),
+                    ],
+                    if (terminalLabel != null && terminalLabel!.trim().isNotEmpty) ...[
+                      const _PathSeparator(),
+                      _PathCrumb(
+                        label: terminalLabel!.trim(),
+                        active: true,
                       ),
                     ],
                     if (_canSwitchSchools) ...[

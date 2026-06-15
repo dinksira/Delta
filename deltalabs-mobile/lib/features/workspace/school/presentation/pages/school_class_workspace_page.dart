@@ -1,9 +1,20 @@
+import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/models/class_workspace_constants.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_coming_soon_panel.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_overview_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_students_table_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/utils/class_workspace_utils.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_session_form_sheet.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_sessions_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_workspace_section_tabs.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_confirm_dialog.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_simple_back_header.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_state_panel.dart';
-import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_workspace_title_switcher.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -15,20 +26,27 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
     required this.schoolId,
     required this.classItemId,
     this.school,
+    this.initialTab = ClassWorkspaceConstants.defaultTab,
     super.key,
   });
 
   final String schoolId;
   final String classItemId;
   final MySchoolModel? school;
+  final String initialTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final schoolsAsync = ref.watch(myActiveSchoolsProvider);
-    final createOpen = useState(false);
-    final titleCtrl = useTextEditingController();
-    final descCtrl = useTextEditingController();
-    final submitting = useState(false);
+    final currentTab = useState(AppRoutes.parseClassWorkspaceTab(initialTab));
+    final startingSessionId = useState<String?>(null);
+    final creatingSession = useState(false);
+    final savingSession = useState(false);
+
+    useEffect(() {
+      currentTab.value = AppRoutes.parseClassWorkspaceTab(initialTab);
+      return null;
+    }, [initialTab]);
 
     return schoolsAsync.when(
       loading: () => const Scaffold(
@@ -88,6 +106,20 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
           orElse: () => false,
         );
 
+        void navigateTab(String tabId) {
+          currentTab.value = tabId;
+          final instanceId = AppRoutes.instanceIdFrom(GoRouterState.of(context).uri);
+          context.go(
+            AppRoutes.workspaceSchoolClassUri(
+              schoolId,
+              classItemId,
+              tab: tabId,
+              instanceId: instanceId,
+            ),
+            extra: current,
+          );
+        }
+
         Future<void> refresh() async {
           ref.invalidate(schoolClassSessionsProvider(sessionsQuery));
           ref.invalidate(
@@ -99,21 +131,23 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
           );
         }
 
-        Future<void> createSession() async {
-          final title = titleCtrl.text.trim();
-          if (title.isEmpty) return;
-          submitting.value = true;
+        Future<void> openCreateSessionSheet() async {
+          final input = await ClassSessionFormSheet.showCreate(context);
+          if (input == null) return;
+
+          creatingSession.value = true;
           try {
             await ref.read(schoolRemoteDataSourceProvider).createClassSession(
                   orgId: orgId,
                   schoolId: schoolId,
                   classWorkspaceItemId: classItemId,
-                  title: title,
-                  description: descCtrl.text.trim().isEmpty ? null : descCtrl.text.trim(),
+                  title: input.title,
+                  description: input.description,
+                  durationMinutes: input.durationMinutes,
+                  weight: input.weight,
+                  sessionType: input.sessionType,
+                  scheduledAt: input.scheduledAt,
                 );
-            titleCtrl.clear();
-            descCtrl.clear();
-            createOpen.value = false;
             await refresh();
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -133,289 +167,267 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
               );
             }
           } finally {
-            submitting.value = false;
+            creatingSession.value = false;
           }
         }
 
+        Future<void> editSession(SchoolClassSessionModel session) async {
+          final input = await ClassSessionFormSheet.showEdit(context, session: session);
+          if (input == null) return;
+
+          savingSession.value = true;
+          try {
+            await ref.read(schoolRemoteDataSourceProvider).updateClassSession(
+                  orgId: orgId,
+                  schoolId: schoolId,
+                  classWorkspaceItemId: classItemId,
+                  sessionId: session.id,
+                  title: input.title,
+                  description: input.description,
+                  durationMinutes: input.durationMinutes,
+                  weight: input.weight,
+                  sessionType: input.sessionType,
+                  scheduledAt: input.scheduledAt,
+                  status: input.status,
+                );
+            await refresh();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Session updated'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not update session'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } finally {
+            savingSession.value = false;
+          }
+        }
+
+        void openSessionRoom(SchoolClassSessionModel session) {
+          final instanceId = AppRoutes.instanceIdFrom(GoRouterState.of(context).uri);
+          context.push(
+            AppRoutes.workspaceSchoolClassSessionUri(
+              schoolId,
+              classItemId,
+              session.id,
+              instanceId: instanceId,
+            ),
+            extra: current,
+          );
+        }
+
+        Future<void> startSession(SchoolClassSessionModel session) async {
+          startingSessionId.value = session.id;
+          try {
+            await ref.read(schoolRemoteDataSourceProvider).updateClassSession(
+                  orgId: orgId,
+                  schoolId: schoolId,
+                  classWorkspaceItemId: classItemId,
+                  sessionId: session.id,
+                  status: 'live',
+                );
+            await refresh();
+            if (context.mounted) openSessionRoom(session);
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not start session'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } finally {
+            startingSessionId.value = null;
+          }
+        }
+
+        Future<void> deleteSession(SchoolClassSessionModel session) async {
+          final confirmed = await SchoolConfirmDialog.show(
+            context,
+            title: 'Delete session?',
+            description: '“${session.title}” will be removed permanently.',
+            confirmLabel: 'Delete',
+            confirmColor: const Color(0xFFD32F2F),
+          );
+          if (confirmed != true) return;
+
+          try {
+            await ref.read(schoolRemoteDataSourceProvider).deleteClassSession(
+                  orgId: orgId,
+                  schoolId: schoolId,
+                  classWorkspaceItemId: classItemId,
+                  sessionId: session.id,
+                );
+            await refresh();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Session deleted'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not delete session'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+        }
+
+        Widget buildTabBody(SchoolWorkspaceItemModel classItem) {
+          final classMeta = ClassWorkspaceMeta.fromItem(classItem);
+          switch (currentTab.value) {
+            case 'sessions':
+              return ClassSessionsTab(
+                sessionsAsync: sessionsAsync,
+                canMutate: canMutate,
+                startingSessionId: startingSessionId.value,
+                onStartSession: startSession,
+                onJoinSession: openSessionRoom,
+                onEditSession: editSession,
+                onDeleteSession: deleteSession,
+                onCreateSession: openCreateSessionSheet,
+              );
+            case 'people':
+              return ClassStudentsTableTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onTableReady: refresh,
+              );
+            case 'academics':
+            case 'resources':
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                children: [ClassComingSoonPanel(tabId: currentTab.value)],
+              );
+            case 'overview':
+            default:
+              return ClassOverviewTab(
+                classMeta: classMeta,
+                classDescription: classItem.description,
+                sessionsAsync: sessionsAsync,
+                canMutate: canMutate,
+                startingSessionId: startingSessionId.value,
+                onTabChanged: navigateTab,
+                onStartSession: startSession,
+                onJoinSession: openSessionRoom,
+                onEditSession: editSession,
+                onDeleteSession: deleteSession,
+                onCreateSession: openCreateSessionSheet,
+              );
+          }
+        }
+
+        Widget buildClassHeader({required String classTitle}) {
+          return SchoolSimpleBackHeader(
+            title: classTitle,
+            onBack: () => context.pop(),
+          );
+        }
+
+        final showSessionFab = canMutate && currentTab.value == 'sessions' && !savingSession.value;
+
         return classItemAsync.when(
-          loading: () => const Scaffold(
+          loading: () => Scaffold(
             backgroundColor: AppColors.surfaceGrey,
-            body: Center(child: DlLoadingIndicator()),
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                buildClassHeader(classTitle: 'Class'),
+                const Expanded(child: Center(child: DlLoadingIndicator())),
+              ],
+            ),
           ),
           error: (e, _) => Scaffold(
-            appBar: AppBar(
-              backgroundColor: AppColors.surfaceGrey,
-              leading: IconButton(
-                onPressed: () => context.pop(),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-              ),
-            ),
-            body: SchoolStatePanel(
-              icon: Icons.error_outline_rounded,
-              title: 'Class not found',
-              message: 'This class may have been removed.',
-              actionLabel: 'Back',
-              onAction: () => context.pop(),
+            backgroundColor: AppColors.surfaceGrey,
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                buildClassHeader(classTitle: 'Class'),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      SchoolStatePanel(
+                        icon: Icons.error_outline_rounded,
+                        title: 'Class not found',
+                        message: 'This class may have been removed.',
+                        actionLabel: 'Back',
+                        onAction: () => context.pop(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           data: (classItem) => Scaffold(
             backgroundColor: AppColors.surfaceGrey,
-            appBar: SchoolWorkspaceTopBar(
-              currentSchool: current!,
-              schools: schools,
-            ),
-            floatingActionButton: canMutate
+            floatingActionButton: showSessionFab
                 ? FloatingActionButton.extended(
-                    onPressed: () => createOpen.value = true,
+                    onPressed: creatingSession.value ? null : openCreateSessionSheet,
                     backgroundColor: AppColors.primary,
-                    icon: const Icon(Icons.add_rounded, color: Colors.white),
-                    label: const Text(
-                      'Session',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    icon: creatingSession.value
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.add_rounded, color: Colors.white),
+                    label: Text(
+                      creatingSession.value ? 'Creating…' : 'Session',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   )
                 : null,
-            body: RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: refresh,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                      ),
-                      Expanded(
-                        child: Text(
-                          classItem.title,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                buildClassHeader(classTitle: classItem.title),
+                const SizedBox(height: 8),
+                ClassWorkspaceSectionTabs(
+                  currentTabId: currentTab.value,
+                  onTabChanged: navigateTab,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: refresh,
+                    child: buildTabBody(classItem),
                   ),
-                  if (classItem.description?.isNotEmpty == true) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      classItem.description!,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Sessions',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (createOpen.value) ...[
-                    _SessionCreateForm(
-                      titleCtrl: titleCtrl,
-                      descCtrl: descCtrl,
-                      submitting: submitting.value,
-                      onCancel: () => createOpen.value = false,
-                      onSubmit: createSession,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  sessionsAsync.when(
-                    loading: () => const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(child: DlLoadingIndicator()),
-                    ),
-                    error: (e, _) => SchoolStatePanel(
-                      icon: Icons.error_outline_rounded,
-                      title: 'Could not load sessions',
-                      message: 'Pull to refresh.',
-                      actionLabel: 'Retry',
-                      onAction: refresh,
-                    ),
-                    data: (sessions) {
-                      if (sessions.isEmpty) {
-                        return SchoolStatePanel(
-                          icon: Icons.event_note_outlined,
-                          title: 'No sessions yet',
-                          message: canMutate
-                              ? 'Create your first class session.'
-                              : 'Sessions will appear here when added.',
-                          actionLabel: canMutate ? 'Add session' : null,
-                          onAction: canMutate ? () => createOpen.value = true : null,
-                        );
-                      }
-                      return Column(
-                        children: [
-                          for (final session in sessions) ...[
-                            _SessionCard(session: session),
-                            const SizedBox(height: 10),
-                          ],
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       },
-    );
-  }
-}
-
-class _SessionCreateForm extends StatelessWidget {
-  const _SessionCreateForm({
-    required this.titleCtrl,
-    required this.descCtrl,
-    required this.submitting,
-    required this.onCancel,
-    required this.onSubmit,
-  });
-
-  final TextEditingController titleCtrl;
-  final TextEditingController descCtrl;
-  final bool submitting;
-  final VoidCallback onCancel;
-  final VoidCallback onSubmit;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.75)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'New session',
-            style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: titleCtrl,
-            decoration: InputDecoration(
-              labelText: 'Title',
-              filled: true,
-              fillColor: AppColors.surfaceGrey,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: descCtrl,
-            maxLines: 2,
-            decoration: InputDecoration(
-              labelText: 'Description (optional)',
-              filled: true,
-              fillColor: AppColors.surfaceGrey,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              TextButton(onPressed: submitting ? null : onCancel, child: const Text('Cancel')),
-              const Spacer(),
-              FilledButton(
-                onPressed: submitting ? null : onSubmit,
-                style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-                child: Text(submitting ? 'Creating…' : 'Create'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SessionCard extends StatelessWidget {
-  const _SessionCard({required this.session});
-
-  final SchoolClassSessionModel session;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.75)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            session.title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-          if (session.description?.isNotEmpty == true) ...[
-            const SizedBox(height: 4),
-            Text(
-              session.description!,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              _SessionChip(label: session.status),
-              _SessionChip(label: session.sessionType),
-              if (session.durationMinutes != null)
-                _SessionChip(label: '${session.durationMinutes} min'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SessionChip extends StatelessWidget {
-  const _SessionChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.primary,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

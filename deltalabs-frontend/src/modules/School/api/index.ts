@@ -194,6 +194,31 @@ export type ClassSessionListResponseDto = Readonly<{
   items: readonly ClassSessionDto[];
 }>;
 
+export type ClassEnrollmentUserDto = Readonly<{
+  userId: string;
+  username?: string | null;
+  email?: string | null;
+  fullName?: string | null;
+}>;
+
+export type ClassEnrollmentDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  classWorkspaceItemId: string;
+  userId: string;
+  role: "student";
+  status: "active" | "withdrawn" | "pending";
+  enrolledAt: string;
+  updatedAt: string;
+  enrolledByUserId?: string | null;
+  user: ClassEnrollmentUserDto;
+}>;
+
+export type ClassEnrollmentListResponseDto = Readonly<{
+  items: readonly ClassEnrollmentDto[];
+}>;
+
 export type OfferDto = Readonly<{
   id: string;
   orgId: string;
@@ -427,6 +452,39 @@ export async function deleteClassSession(
 ): Promise<{ status: string; sessionId: string }> {
   return apiClient.delete<{ status: string; sessionId: string }>(
     `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/sessions/${encodeURIComponent(sessionId)}`,
+  );
+}
+
+export async function fetchClassEnrollments(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ClassEnrollmentListResponseDto> {
+  return apiClient.get<ClassEnrollmentListResponseDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/enrollments`,
+  );
+}
+
+export async function enrollClassStudent(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{ userId?: string; email?: string }>,
+): Promise<ClassEnrollmentDto> {
+  return apiClient.post<ClassEnrollmentDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/enrollments`,
+    { json: payload },
+  );
+}
+
+export async function withdrawClassEnrollment(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  enrollmentId: string,
+): Promise<{ status: string; enrollmentId: string }> {
+  return apiClient.delete<{ status: string; enrollmentId: string }>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/enrollments/${encodeURIComponent(enrollmentId)}`,
   );
 }
 
@@ -854,6 +912,16 @@ export async function bootstrapManagementTableWorkspaceItem(
 ): Promise<ManagementTableWorkspaceBootstrapDto> {
   return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
     `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/management-table/bootstrap`,
+  );
+}
+
+export async function bootstrapClassStudentsTable(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classWorkspaceItemId)}/students-table/bootstrap`,
   );
 }
 

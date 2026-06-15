@@ -3,6 +3,10 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import {
+  getWorkspaceTabId,
+  preserveWorkspaceTabId,
+} from "@/modules/Features/featureWorkspaceTabs";
 import { SchoolOffersView } from "@/modules/School/views/SchoolOffersView";
 import { isOfferStatus, isOfferView } from "@/modules/School/types/offers";
 
@@ -14,9 +18,13 @@ function SchoolOffersClientPage() {
 
   useEffect(() => {
     if (!isOfferStatus(status) || !isOfferView(view)) {
-      router.replace("/features/school/offers?status=requested&view=received");
+      const destination = preserveWorkspaceTabId(
+        "/features/school/offers?status=requested&view=received",
+        getWorkspaceTabId(searchParams),
+      );
+      router.replace(destination);
     }
-  }, [status, view, router]);
+  }, [status, view, router, searchParams]);
 
   if (!isOfferStatus(status) || !isOfferView(view)) {
     return null;

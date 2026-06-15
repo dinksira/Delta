@@ -114,6 +114,13 @@ class SchoolWorkspaceItemModel {
     return text.isEmpty ? null : text;
   }
 
+  String? get studentsTableInstanceId {
+    final value = metadata['studentsTableInstanceId'] ?? metadata['students_table_instance_id'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   bool get opensAsFolder => type == SchoolWorkspaceItemType.folder;
 
   bool get opensAsDepartment => type == SchoolWorkspaceItemType.department;

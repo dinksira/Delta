@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:deltalabs_mobile/core/routing/app_routes.dart';
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
@@ -13,6 +15,7 @@ import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_workspace_edit_sheet.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_workspace_item_card.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_workspace_section_tabs.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/providers/management_table_providers.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -53,6 +56,7 @@ class SchoolWorkspacePage extends HookConsumerWidget {
     final search = useState('');
     final layoutMode = useState(SchoolWorkspaceLayoutMode.list);
     final creating = useState(false);
+    final bootstrappingTableId = useState<String?>(null);
     final visibleSections = useState<List<String>>(
       List<String>.from(SchoolWorkspaceConstants.defaultVisibleSectionIds),
     );
@@ -114,8 +118,13 @@ class SchoolWorkspacePage extends HookConsumerWidget {
         final itemsAsync = ref.watch(schoolWorkspaceItemsProvider(itemsQuery));
 
         final canMutate = accessAsync.maybeWhen(
-          data: (access) => access.canManageSchoolWorkspace,
-          orElse: () => false,
+          data: (access) =>
+              access.canManageSchoolWorkspace ||
+              current.roleKeys.contains('school_owner') ||
+              current.roleKeys.contains('school_admin'),
+          orElse: () =>
+              current.roleKeys.contains('school_owner') ||
+              current.roleKeys.contains('school_admin'),
         );
         final accessPending = accessAsync.isLoading;
 
@@ -284,6 +293,86 @@ class SchoolWorkspacePage extends HookConsumerWidget {
           }
         }
 
+        Future<void> openManagementTable(SchoolWorkspaceItemModel item) async {
+          var instanceId = item.managementTableInstanceId;
+          if (instanceId != null && instanceId.isNotEmpty) {
+            context.push(
+              withInstanceRoute(
+                AppRoutes.workspaceSchoolManagementTableUri(
+                  schoolId,
+                  instanceId,
+                  featureInstanceId: featureInstanceId,
+                  itemTitle: item.title,
+                  pathIds: pathIds.value,
+                  view: sectionId.value,
+                  departmentItemId: departmentRootItemId,
+                ),
+              ),
+              extra: current,
+            );
+            return;
+          }
+
+          if (!canMutate) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'You need school manage permission to set up this management table.',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+
+          bootstrappingTableId.value = item.id;
+          try {
+            final bundle = await ref
+                .read(managementTableRemoteDataSourceProvider)
+                .bootstrapWorkspaceItem(
+                  orgId: orgId,
+                  schoolId: schoolId,
+                  workspaceItemId: item.id,
+                );
+            instanceId = bundle.instance.id;
+            ref.invalidate(schoolWorkspaceItemsProvider(itemsQuery));
+            ref.invalidate(
+              schoolWorkspaceItemProvider((
+                orgId: orgId,
+                schoolId: schoolId,
+                itemId: item.id,
+              )),
+            );
+            if (!context.mounted || instanceId.isEmpty) return;
+            await context.push(
+              withInstanceRoute(
+                AppRoutes.workspaceSchoolManagementTableUri(
+                  schoolId,
+                  instanceId,
+                  featureInstanceId: featureInstanceId,
+                  itemTitle: item.title,
+                  pathIds: pathIds.value,
+                  view: sectionId.value,
+                  departmentItemId: departmentRootItemId,
+                ),
+              ),
+              extra: current,
+            );
+          } catch (e) {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Could not open management table: ${e.toString().replaceFirst('Exception: ', '')}',
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } finally {
+            bootstrappingTableId.value = null;
+          }
+        }
+
         void openItem(SchoolWorkspaceItemModel item) {
           if (item.opensAsFolder) {
             navigatePath([...pathIds.value, item.id]);
@@ -312,22 +401,8 @@ class SchoolWorkspacePage extends HookConsumerWidget {
             return;
           }
           if (item.opensAsManagementTable) {
-            final instanceId = item.managementTableInstanceId;
-            if (instanceId != null && instanceId.isNotEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Management table editor for "$instanceId" is available on web.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Link a management table template on web first.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            }
+            unawaited(openManagementTable(item));
+            return;
           }
         }
 
@@ -345,7 +420,8 @@ class SchoolWorkspacePage extends HookConsumerWidget {
                   .toList(),
           orElse: () => <SchoolWorkspaceItemModel>[],
         );
-        final isBusy = creating.value || itemsRefreshing;
+        final isBusy =
+            creating.value || itemsRefreshing || bootstrappingTableId.value != null;
 
         return PopScope(
           canPop: false,

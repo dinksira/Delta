@@ -3,6 +3,10 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import {
+  getWorkspaceTabId,
+  preserveWorkspaceTabId,
+} from "@/modules/Features/featureWorkspaceTabs";
 import { SchoolMarketplaceView } from "@/modules/School/views/SchoolMarketplaceView";
 import { isMarketplaceView } from "@/modules/School/types/marketplace";
 
@@ -13,9 +17,13 @@ function SchoolMarketplaceClientPage() {
 
   useEffect(() => {
     if (!isMarketplaceView(view)) {
-      router.replace("/features/school/marketplace?view=community");
+      const destination = preserveWorkspaceTabId(
+        "/features/school/marketplace?view=community",
+        getWorkspaceTabId(searchParams),
+      );
+      router.replace(destination);
     }
-  }, [view, router]);
+  }, [view, router, searchParams]);
 
   if (!isMarketplaceView(view)) {
     return null;

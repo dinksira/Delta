@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
@@ -420,6 +421,117 @@ class SchoolRemoteDataSource {
         },
       );
       return SchoolClassSessionModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<SchoolClassSessionModel> updateClassSession({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String sessionId,
+    String? title,
+    String? description,
+    double? weight,
+    int? durationMinutes,
+    String? sessionType,
+    String? scheduledAt,
+    String? status,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.patch<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/sessions/$sessionId',
+        data: {
+          if (title != null) 'title': title,
+          if (description != null) 'description': description,
+          if (weight != null) 'weight': weight,
+          if (durationMinutes != null) 'durationMinutes': durationMinutes,
+          if (sessionType != null) 'sessionType': sessionType,
+          if (scheduledAt != null) 'scheduledAt': scheduledAt,
+          if (status != null) 'status': status,
+        },
+      );
+      return SchoolClassSessionModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<void> deleteClassSession({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String sessionId,
+  }) async {
+    await _withOrgMembership(orgId, () async {
+      await _api.delete<void>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/sessions/$sessionId',
+      );
+    });
+  }
+
+  Future<List<SchoolClassEnrollmentModel>> fetchClassEnrollments({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/enrollments',
+      );
+      final items = response.data?['items'];
+      if (items is! List) return [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(SchoolClassEnrollmentModel.fromJson)
+          .toList();
+    });
+  }
+
+  Future<SchoolClassEnrollmentModel> enrollClassStudent({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    String? userId,
+    String? email,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/enrollments',
+        data: {
+          if (userId != null && userId.isNotEmpty) 'userId': userId,
+          if (email != null && email.isNotEmpty) 'email': email,
+        },
+      );
+      return SchoolClassEnrollmentModel.fromJson(response.data ?? {});
+    });
+  }
+
+  Future<void> withdrawClassEnrollment({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String enrollmentId,
+  }) async {
+    await _withOrgMembership(orgId, () async {
+      await _api.delete<void>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/enrollments/$enrollmentId',
+      );
+    });
+  }
+
+  Future<String> bootstrapClassStudentsTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/students-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Students table bootstrap did not return an instance id.');
     });
   }
 

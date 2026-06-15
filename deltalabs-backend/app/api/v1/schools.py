@@ -33,6 +33,9 @@ from app.domain.school.schemas import (
     ClassSessionListResponse,
     ClassSessionPublic,
     ClassSessionUpdateInput,
+    ClassEnrollmentCreateInput,
+    ClassEnrollmentListResponse,
+    ClassEnrollmentPublic,
     MarketplaceBidInput,
     MarketplaceBuyInput,
     MarketplaceCreateInput,
@@ -537,6 +540,110 @@ async def delete_org_class_session(
         session_id=session_id,
     )
     return {"status": "deleted", "sessionId": session_id}
+
+
+@org_router.get(
+    "/{school_id}/classes/{class_workspace_item_id}/enrollments",
+    response_model=ClassEnrollmentListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_class_enrollments(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassEnrollmentListResponse:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.list_class_enrollments(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/enrollments",
+    response_model=ClassEnrollmentPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def create_org_class_enrollment(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: ClassEnrollmentCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassEnrollmentPublic:
+    service = _service(db)
+    await service.bootstrap()
+    result = await service.enroll_student_in_class(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+        enrolled_by_user_id=user.user_id,
+    )
+    mt = _management_table_service(db)
+    display_name = (
+        result.user.full_name
+        or result.user.username
+        or result.user.email
+        or "Student"
+    )
+    await mt.sync_class_enrollment_row(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        student_name=display_name or "Student",
+        email=result.user.email,
+    )
+    return result
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/students-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_class_students_table(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_class_students_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/classes/{class_workspace_item_id}/enrollments/{enrollment_id}",
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def delete_org_class_enrollment(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    enrollment_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, str]:
+    service = _service(db)
+    await service.bootstrap()
+    await service.withdraw_class_enrollment(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        enrollment_id=enrollment_id,
+    )
+    return {"status": "withdrawn", "enrollmentId": enrollment_id}
 
 
 @org_router.get(

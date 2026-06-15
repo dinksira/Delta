@@ -19,9 +19,11 @@ import 'package:deltalabs_mobile/features/workspace/presentation/pages/workspace
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_archive_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_create_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_edit_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_session_room_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_department_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_home_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/management_table/presentation/pages/school_management_table_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_marketplace_listing_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_marketplace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_offers_page.dart';
@@ -231,10 +233,58 @@ GoRouter appRouter(Ref ref) {
               final schoolId = state.pathParameters['schoolId'] ?? '';
               final classItemId = state.pathParameters['classItemId'] ?? '';
               final extra = state.extra;
+              final tab = AppRoutes.parseClassWorkspaceTab(
+                state.uri.queryParameters[AppRoutes.classWorkspaceTabQueryKey],
+              );
               return SchoolClassWorkspacePage(
                 schoolId: schoolId,
                 classItemId: classItemId,
                 school: extra is MySchoolModel ? extra : null,
+                initialTab: tab,
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'session/:sessionId',
+                name: 'school-class-session',
+                builder: (_, state) {
+                  final schoolId = state.pathParameters['schoolId'] ?? '';
+                  final classItemId = state.pathParameters['classItemId'] ?? '';
+                  final sessionId = state.pathParameters['sessionId'] ?? '';
+                  final extra = state.extra;
+                  return SchoolClassSessionRoomPage(
+                    schoolId: schoolId,
+                    classItemId: classItemId,
+                    sessionId: sessionId,
+                    school: extra is MySchoolModel ? extra : null,
+                  );
+                },
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolManagementTable,
+            name: 'school-management-table',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final instanceId = state.pathParameters['instanceId'] ?? '';
+              final extra = state.extra;
+              final itemTitle = state.uri.queryParameters['title'];
+              final pathIds = AppRoutes.parseWorkspacePathIds(
+                state.uri.queryParameters['path'],
+              );
+              final workspaceView = state.uri.queryParameters['view'];
+              final departmentItemId = state.uri.queryParameters['dept'];
+              final featureInstanceId = AppRoutes.instanceIdFrom(state.uri);
+              return SchoolManagementTablePage(
+                schoolId: schoolId,
+                instanceId: instanceId,
+                school: extra is MySchoolModel ? extra : null,
+                workspaceItemTitle: itemTitle,
+                pathIds: pathIds,
+                workspaceView: workspaceView,
+                departmentItemId: departmentItemId,
+                featureInstanceId: featureInstanceId,
               );
             },
           ),

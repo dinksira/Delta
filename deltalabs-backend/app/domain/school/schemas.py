@@ -292,6 +292,46 @@ class ClassSessionListResponse(BaseModel):
     items: list[ClassSessionPublic]
 
 
+ClassEnrollmentRole = Literal["student"]
+ClassEnrollmentStatus = Literal["active", "withdrawn", "pending"]
+
+
+class ClassEnrollmentUserPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    user_id: str = Field(serialization_alias="userId")
+    username: str | None = None
+    email: str | None = None
+    full_name: str | None = Field(default=None, serialization_alias="fullName")
+
+
+class ClassEnrollmentCreateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    user_id: str | None = Field(default=None, alias="userId")
+    email: str | None = Field(default=None, min_length=3, max_length=320)
+
+
+class ClassEnrollmentPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    org_id: str = Field(serialization_alias="orgId")
+    school_id: str = Field(serialization_alias="schoolId")
+    class_workspace_item_id: str = Field(serialization_alias="classWorkspaceItemId")
+    user_id: str = Field(serialization_alias="userId")
+    role: ClassEnrollmentRole
+    status: ClassEnrollmentStatus
+    enrolled_at: datetime = Field(serialization_alias="enrolledAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+    enrolled_by_user_id: str | None = Field(default=None, serialization_alias="enrolledByUserId")
+    user: ClassEnrollmentUserPublic
+
+
+class ClassEnrollmentListResponse(BaseModel):
+    items: list[ClassEnrollmentPublic]
+
+
 class OfferPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

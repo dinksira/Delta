@@ -2,6 +2,7 @@ import 'package:deltalabs_mobile/core/di/service_locator.dart';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/data_sources/school_remote_data_source.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
@@ -143,6 +144,23 @@ final schoolClassSessionsProvider =
     FutureProvider.family<List<SchoolClassSessionModel>, SchoolClassSessionsQuery>(
   (ref, query) {
     return ref.read(schoolRemoteDataSourceProvider).fetchClassSessions(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          classWorkspaceItemId: query.classWorkspaceItemId,
+        );
+  },
+);
+
+typedef SchoolClassEnrollmentsQuery = ({
+  String orgId,
+  String schoolId,
+  String classWorkspaceItemId,
+});
+
+final schoolClassEnrollmentsProvider =
+    FutureProvider.family<List<SchoolClassEnrollmentModel>, SchoolClassEnrollmentsQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchClassEnrollments(
           orgId: query.orgId,
           schoolId: query.schoolId,
           classWorkspaceItemId: query.classWorkspaceItemId,

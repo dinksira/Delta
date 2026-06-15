@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { SchoolIconRail } from "@/components/features/school/layout/SchoolIconRail";
+import { SchoolWorkspaceSessionSync } from "@/components/features/school/layout/SchoolWorkspaceSessionSync";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ COMPONENT ############################# */
@@ -42,6 +43,8 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
   }
 
   return (
+  <>
+    <SchoolWorkspaceSessionSync />
     <div className="flex min-h-0 w-full flex-1 items-stretch gap-3 overflow-x-visible overflow-y-hidden bg-surface-canvas md:gap-4 lg:gap-5">
       {isSchoolDetailRoute ||
       isClassWorkspaceRoute ||
@@ -61,6 +64,7 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
         )}
       </div>
     </div>
+  </>
   );
 }
 /** ################################ /COMPONENT ############################# */

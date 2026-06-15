@@ -11,6 +11,7 @@ import { SchoolConfirmActionModal } from "@/components/features/school/master/Sc
 import { SchoolEntityCard } from "@/components/features/school/master/SchoolEntityCard";
 import { SchoolStatePanel } from "@/components/features/school/master/SchoolStatePanel";
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
+import { useWorkspaceTabHref } from "@/modules/Features/hooks/useWorkspaceTabHref";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { setSchoolArchived } from "@/modules/School/api";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
@@ -20,6 +21,7 @@ import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgI
 /** ################################ COMPONENT ############################# */
 /** Archived schools — membership-based list (no dummy cards). */
 export function SchoolArchiveView() {
+  const addSchoolHref = useWorkspaceTabHref("/features/school/create");
   const { isAuthenticated, isReady } = useAuthSession();
   const enabled = isAuthenticated && isReady;
   const queryClient = useQueryClient();
@@ -50,7 +52,7 @@ export function SchoolArchiveView() {
 
   return (
     <>
-      <SchoolWorkspaceHeader title="Archived" addSchoolHref="/features/school/create" />
+      <SchoolWorkspaceHeader title="Archived" addSchoolHref={addSchoolHref} />
       <div className="flex flex-col gap-4 bg-surface-canvas py-4 sm:flex-row sm:items-center sm:justify-end">
         <SchoolBodySearch id="school-archive-search" />
       </div>

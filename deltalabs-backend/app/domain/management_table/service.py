@@ -570,3 +570,184 @@ class ManagementTableService:
             definition=bundle.definition,
             already_linked=False,
         )
+
+    async def bootstrap_class_students_table(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        class_workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        await self._require_school(org_id=org_id, school_id=school_id)
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id,
+        )
+        if item is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        if str(item.get("type", "")) != "class":
+            raise ValidationError(
+                "Workspace item is not a class.",
+                code="class_students_table_workspace_type_invalid",
+            )
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        existing_id = meta_dict.get("studentsTableInstanceId")
+        if isinstance(existing_id, str) and existing_id.strip():
+            inst = await self._mt.find_instance(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=existing_id.strip(),
+            )
+            if inst is not None:
+                bundle = await self.get_instance_bundle(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=existing_id.strip(),
+                )
+                return ManagementTableWorkspaceBootstrapResponse(
+                    instance=bundle.instance,
+                    definition=bundle.definition,
+                    already_linked=True,
+                )
+        class_title = str(item.get("title", "Class")).strip() or "Class"
+        student_col_id = _new_column_id()
+        email_col_id = _new_column_id()
+        starter_columns = [
+            {
+                "id": student_col_id,
+                "title": "Student",
+                "type": "text",
+                "order": 0,
+                "settings": {},
+            },
+            {
+                "id": email_col_id,
+                "title": "Email",
+                "type": "text",
+                "order": 1,
+                "settings": {},
+            },
+        ]
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id,
+            school_id=school_id,
+            title=f"{class_title} — Students",
+            visibility="self_owned",
+            created_by_user_id=user_id,
+            columns=starter_columns,
+        )
+        bundle = await self.create_instance(
+            org_id=org_id,
+            school_id=school_id,
+            payload=ManagementTableInstanceCreateInput(
+                definition_id=str(definition_doc["_id"]),
+                title=f"{class_title} Students",
+                workspace_item_id=class_workspace_item_id,
+            ),
+        )
+        meta_dict["studentsTableInstanceId"] = bundle.instance.id
+        meta_dict["studentsTableDefinitionId"] = bundle.definition.id
+        meta_dict["studentsTableStudentColumnId"] = student_col_id
+        meta_dict["studentsTableEmailColumnId"] = email_col_id
+        await self._school.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id,
+            updates={"metadata": meta_dict},
+        )
+        return ManagementTableWorkspaceBootstrapResponse(
+            instance=bundle.instance,
+            definition=bundle.definition,
+            already_linked=False,
+        )
+
+    async def sync_class_enrollment_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        student_name: str,
+        email: str | None,
+    ) -> None:
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id,
+        )
+        if item is None:
+            return
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        instance_id = meta_dict.get("studentsTableInstanceId")
+        student_col_id = meta_dict.get("studentsTableStudentColumnId")
+        email_col_id = meta_dict.get("studentsTableEmailColumnId")
+        if not isinstance(instance_id, str) or not instance_id.strip():
+            return
+        if not isinstance(student_col_id, str) or not isinstance(email_col_id, str):
+            return
+        normalized_email = (email or "").strip().lower()
+        group_id = MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        rows, _total = await self._mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+            group_id=group_id,
+            page=1,
+            page_size=1000,
+        )
+        if normalized_email:
+            for row in rows:
+                cells = row.get("cells")
+                if not isinstance(cells, dict):
+                    continue
+                row_email = str(cells.get(email_col_id, "")).strip().lower()
+                if row_email == normalized_email:
+                    existing_cells = dict(cells)
+                    if student_name.strip():
+                        existing_cells[student_col_id] = student_name.strip()
+                    await self._mt.update_row_cells(
+                        org_id=org_id,
+                        school_id=school_id,
+                        instance_id=instance_id.strip(),
+                        row_id=str(row["_id"]),
+                        cells=existing_cells,
+                    )
+                    return
+        bundle = await self.get_instance_bundle(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+        )
+        col_ids = {c.id for c in bundle.definition.columns}
+        max_pos = await self._mt.max_row_position(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+            group_id=group_id,
+        )
+        position = (max_pos + 1) if max_pos is not None else 0
+        cells: dict[str, Any] = {}
+        for col in bundle.definition.columns:
+            if col.type == "checkbox":
+                cells[col.id] = False
+            elif col.type == "number":
+                cells[col.id] = None
+            else:
+                cells[col.id] = ""
+        cells = {k: v for k, v in cells.items() if k in col_ids}
+        if student_col_id in cells and student_name.strip():
+            cells[student_col_id] = student_name.strip()
+        if email_col_id in cells and normalized_email:
+            cells[email_col_id] = normalized_email
+        await self._mt.insert_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+            group_id=group_id,
+            position=position,
+            cells=cells,
+        )

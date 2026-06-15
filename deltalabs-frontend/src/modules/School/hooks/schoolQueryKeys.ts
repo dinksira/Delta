@@ -16,6 +16,9 @@ export const schoolQueryKeys = {
   /** GET …/classes/:classWorkspaceItemId/sessions */
   classSessions: (orgId: string, schoolId: string, classWorkspaceItemId: string) =>
     ["school", "class-sessions", orgId, schoolId, classWorkspaceItemId] as const,
+  /** GET …/classes/:classWorkspaceItemId/enrollments */
+  classEnrollments: (orgId: string, schoolId: string, classWorkspaceItemId: string) =>
+    ["school", "class-enrollments", orgId, schoolId, classWorkspaceItemId] as const,
   marketplace: (
     orgId: string,
     view: string,

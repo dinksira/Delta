@@ -3,10 +3,10 @@
 /** ################################ IMPORT ############################# */
 /** React Query, navigation, and School create components. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 
 import { SchoolCreateWizardModal } from "@/components/features/school/master/SchoolCreateWizardModal";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { useWorkspaceTabNavigation } from "@/modules/Features/hooks/useWorkspaceTabNavigation";
 import { ApiError } from "@/lib/apiClient";
 import { createSchoolForMe, fetchMyOrgs } from "@/modules/School/api";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
@@ -29,7 +29,7 @@ function mutationErrorMessage(error: unknown): string {
 /** ################################ COMPONENT ############################# */
 /** Dedicated page flow for School creation wizard (non-modal). */
 export function SchoolCreatePageView() {
-  const router = useRouter();
+  const { push } = useWorkspaceTabNavigation();
   const queryClient = useQueryClient();
   const { isAuthenticated, isReady } = useAuthSession();
   const enabled = isAuthenticated && isReady;
@@ -55,7 +55,7 @@ export function SchoolCreatePageView() {
       if (typeof window !== "undefined") {
         localStorage.removeItem("dl.school.create.wizard.draft.v1");
       }
-      router.push("/features/school");
+      push("/features/school");
     },
   });
 
@@ -73,7 +73,7 @@ export function SchoolCreatePageView() {
       orgLoading={enabled && orgsPending}
       submitError={submitError}
       submitting={createSchoolMutation.isPending}
-      onClose={() => router.push("/features/school")}
+      onClose={() => push("/features/school")}
       onSubmit={(payload) => createSchoolMutation.mutate(payload)}
     />
   );

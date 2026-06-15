@@ -6,6 +6,8 @@ export { ClassSessionSection } from "@/modules/School/class/ClassSessionSection"
 export { ClassSessionCard } from "@/modules/School/class/ClassSessionCard";
 export { ClassSessionsEmptyState } from "@/modules/School/class/ClassSessionsEmptyState";
 export { ClassNewSessionModals } from "@/modules/School/class/ClassNewSessionModals";
+export { ClassStudentsSection } from "@/modules/School/class/ClassStudentsSection";
+export { ClassStudentsTablePanel } from "@/modules/School/class/ClassStudentsTablePanel";
 export { ClassBottomNav } from "@/modules/School/class/ClassBottomNav";
 export { ClassSessionMeetView } from "@/modules/School/class/ClassSessionMeetView";
 export { safeClassReturnHref } from "@/modules/School/class/classNavigation";

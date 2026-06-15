@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import { useFeaturesLayoutAccess } from "@/modules/Features/hooks/useFeaturesLayoutAccess";
 import { featuresPathWithHiddenNotice } from "@/modules/Features/featureHiddenNotice";
+import { getWorkspaceTabId } from "@/modules/Features/featureWorkspaceTabs";
 import { resolveFeatureKeyFromPath } from "@/modules/Features/featureWorkspaceRoutes";
 
 /** ################################ /IMPORT ############################# */
@@ -18,15 +19,6 @@ const TAB_ACTIVE_BG = "bg-[color:var(--color-features-tab-active-bg)]";
 const TAB_IDLE_BG = "bg-[color:var(--color-features-tab-idle-bg)]";
 const TAB_BORDER = "border-[color:var(--color-features-tab-border)]";
 const TAB_TEXT = "text-[color:var(--color-features-tab-text)]";
-
-/**
- * First path segment after `/features/school/` for **product sections** (offers, marketplace, …).
- * Must not be treated as a `{schoolId}` or every sidebar click spawns a new "School Workspace" tab
- * (`school-offers`, `school-archive`, …) with the same label.
- */
-const SCHOOL_NON_ID_FIRST_SEGMENTS = new Set(
-  ["offers", "marketplace", "archive", "create"].map((s) => s.toLowerCase()),
-);
 
 /** ################################ /CONSTANTS ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
@@ -103,7 +95,7 @@ function BrowserTab({ href, label, active, pinned, onClose }: BrowserTabProps) {
 /** ################################ COMPONENT ############################# */
 /**
  * Browser-style tab strip for `/features`: pinned Features + dynamic workspace tabs.
- * Compact browser tabs for h-16 header; colors still match the light-tab mock.
+ * Each workspace tab has a unique `ws` id and restores its own last route.
  */
 export function FeatureBrowserTabBar() {
   const pathname = usePathname();
@@ -112,24 +104,15 @@ export function FeatureBrowserTabBar() {
   const {
     openTabs,
     dismissWorkspaceTab,
-    ensureTabForParam,
     updateWorkspaceTabHref,
     pruneHiddenFeatureTabs,
   } = useFeatureTabs();
-  const { hiddenKeys, isFeatureHidden, isTabParamHidden, isLayoutReady } = useFeaturesLayoutAccess();
+  const { hiddenKeys, isFeatureHidden, isLayoutReady } = useFeaturesLayoutAccess();
 
   const tabParam = pathname.startsWith("/features") ? searchParams.get("tab") : null;
+  const activeWorkspaceTabId = getWorkspaceTabId(searchParams);
   const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-  const featuresHomeActive = pathname === "/features";
-  const schoolPathActive = pathname.startsWith("/features/school");
-  const schoolWorkspaceMatch = pathname.match(/^\/features\/school\/([^/?#]+)/);
-  const firstAfterSchool = schoolWorkspaceMatch?.[1] ?? null;
-  const schoolWorkspaceId =
-    firstAfterSchool && !SCHOOL_NON_ID_FIRST_SEGMENTS.has(firstAfterSchool.toLowerCase())
-      ? firstAfterSchool
-      : null;
-  const schoolWorkspaceParam = schoolWorkspaceId ? `school-${schoolWorkspaceId}` : null;
-
+  const featuresHomeActive = pathname === "/features" && !activeWorkspaceTabId;
   useEffect(() => {
     if (!isLayoutReady) return;
     pruneHiddenFeatureTabs(hiddenKeys);
@@ -144,42 +127,13 @@ export function FeatureBrowserTabBar() {
   }, [isFeatureHidden, isLayoutReady, pathname, router, tabParam]);
 
   useEffect(() => {
-    if (!isLayoutReady) return;
-    if (schoolWorkspaceParam) {
-      if (isTabParamHidden(schoolWorkspaceParam)) return;
-      ensureTabForParam(schoolWorkspaceParam, "School Workspace");
-      return;
-    }
-    if (schoolPathActive) {
-      if (isTabParamHidden("school")) return;
-      ensureTabForParam("school", "School");
-      return;
-    }
-    if (!pathname.startsWith("/features") || !tabParam) return;
-    if (isTabParamHidden(tabParam)) return;
-    ensureTabForParam(tabParam);
-  }, [
-    pathname,
-    tabParam,
-    schoolPathActive,
-    schoolWorkspaceParam,
-    ensureTabForParam,
-    isLayoutReady,
-    isTabParamHidden,
-  ]);
+    if (!activeWorkspaceTabId || !pathname.startsWith("/features")) return;
+    updateWorkspaceTabHref(activeWorkspaceTabId, currentUrl);
+  }, [activeWorkspaceTabId, currentUrl, pathname, updateWorkspaceTabHref]);
 
-  useEffect(() => {
-    if (!schoolPathActive) return;
-    updateWorkspaceTabHref(schoolWorkspaceParam ?? "school", currentUrl);
-  }, [currentUrl, schoolPathActive, schoolWorkspaceParam, updateWorkspaceTabHref]);
-
-  const onCloseDynamic = (param: string) => {
-    dismissWorkspaceTab(param);
-    const onMatchingRoute =
-      tabParam === param ||
-      (param === "school" && schoolPathActive) ||
-      (schoolWorkspaceParam !== null && param === schoolWorkspaceParam);
-    if (onMatchingRoute) {
+  const onCloseDynamic = (tabId: string) => {
+    dismissWorkspaceTab(tabId);
+    if (activeWorkspaceTabId === tabId) {
       router.replace("/features");
     }
   };
@@ -193,28 +147,19 @@ export function FeatureBrowserTabBar() {
       <BrowserTab href="/features" label="Features" active={featuresHomeActive} pinned />
 
       {openTabs
-        .filter((t) => !isTabParamHidden(t.param))
+        .filter((t) => !isFeatureHidden(t.featureKey))
         .map((t) => {
-        const href =
-          t.href ??
-          (t.param === "school"
-            ? "/features/school"
-            : `/features?tab=${encodeURIComponent(t.param)}`);
-        const active = t.param === "school"
-          ? schoolPathActive && !schoolWorkspaceParam
-          : t.href
-            ? currentUrl === t.href || pathname === t.href || pathname.startsWith(`${t.href}/`)
-            : tabParam === t.param;
-        return (
-          <BrowserTab
-            key={t.param}
-            href={href}
-            label={t.label}
-            active={active}
-            onClose={() => onCloseDynamic(t.param)}
-          />
-        );
-      })}
+          const active = activeWorkspaceTabId === t.id;
+          return (
+            <BrowserTab
+              key={t.id}
+              href={t.href}
+              label={t.label}
+              active={active}
+              onClose={() => onCloseDynamic(t.id)}
+            />
+          );
+        })}
     </nav>
   );
 }

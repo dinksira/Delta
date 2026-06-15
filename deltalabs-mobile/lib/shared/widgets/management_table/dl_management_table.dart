@@ -9,6 +9,7 @@ class DlManagementTableColumn<T> {
     required this.cellBuilder,
     this.minWidth = 120,
     this.align = TextAlign.left,
+    this.headerBuilder,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class DlManagementTableColumn<T> {
   final double minWidth;
   final TextAlign align;
   final Widget Function(BuildContext context, T row, int index) cellBuilder;
+  final Widget Function(BuildContext context)? headerBuilder;
 }
 
 /// Fixed leading column + horizontally scrollable data columns (safe in [ListView]).
@@ -64,7 +66,8 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.rows.isEmpty) {
+    final hasColumns = widget.columns.isNotEmpty;
+    if (widget.rows.isEmpty && !hasColumns) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -81,6 +84,7 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
 
     final leading = widget.leadingColumn;
     final leadingWidth = leading?.minWidth ?? 0.0;
+    final rowCount = widget.rows.length;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -103,7 +107,7 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
                     isHeader: true,
                     child: _headerLabel(leading),
                   ),
-                  for (var i = 0; i < widget.rows.length; i++)
+                  for (var i = 0; i < rowCount; i++)
                     _leadingPane(
                       width: leadingWidth,
                       height: _dataRowHeight,
@@ -111,6 +115,14 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
                       showTopBorder: true,
                       zebra: i.isOdd,
                       child: leading.cellBuilder(context, widget.rows[i], i),
+                    ),
+                  if (rowCount == 0 && hasColumns)
+                    _leadingPane(
+                      width: leadingWidth,
+                      height: _dataRowHeight,
+                      isHeader: false,
+                      showTopBorder: true,
+                      child: const SizedBox.shrink(),
                     ),
                 ],
               ),
@@ -132,11 +144,11 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
                             height: _headerRowHeight,
                             isHeader: true,
                             align: col.align,
-                            child: _headerLabel(col),
+                            child: col.headerBuilder?.call(context) ?? _headerLabel(col),
                           ),
                       ],
                     ),
-                    for (var i = 0; i < widget.rows.length; i++)
+                    for (var i = 0; i < rowCount; i++)
                       _dataRowStrip(
                         key: ValueKey(widget.rowKey(widget.rows[i], i)),
                         height: _dataRowHeight,
@@ -151,6 +163,22 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
                               isHeader: false,
                               align: col.align,
                               child: col.cellBuilder(context, widget.rows[i], i),
+                            ),
+                        ],
+                      ),
+                    if (rowCount == 0 && hasColumns)
+                      _dataRowStrip(
+                        height: _dataRowHeight,
+                        isHeader: false,
+                        showTopBorder: true,
+                        children: [
+                          for (final col in widget.columns)
+                            _dataPane(
+                              width: col.minWidth,
+                              height: _dataRowHeight,
+                              isHeader: false,
+                              align: col.align,
+                              child: const SizedBox.shrink(),
                             ),
                         ],
                       ),
@@ -284,7 +312,6 @@ class _DlManagementTableState<T> extends State<DlManagementTable<T>> {
             child: DefaultTextStyle(
               maxLines: isHeader ? 2 : 3,
               overflow: TextOverflow.ellipsis,
-              softWrap: true,
               style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
               child: child,
             ),
