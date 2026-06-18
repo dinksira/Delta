@@ -293,6 +293,31 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
     setOpenTabs((prev) => prev.filter((t) => !hidden.has(t.featureKey)));
   }, []);
 
+  const dismissWorkspaceTab = useCallback(
+    (param: string) => {
+      if (!param) return;
+      dismissedTabParamsRef.current.add(param);
+      setOpenTabs((prev) => prev.filter((t) => t.param !== param));
+    },
+    [],
+  );
+
+  const removeTabsForFeatureKey = useCallback((featureKey: string) => {
+    const key = featureKey.trim().toLowerCase();
+    setOpenTabs((prev) =>
+      prev.filter((t) => {
+        const tabKey = tabParamToFeatureKey(t.param);
+        return tabKey !== key;
+      }),
+    );
+  }, []);
+
+  const pruneHiddenFeatureTabs = useCallback((hiddenKeys: readonly string[]) => {
+    const hidden = new Set(hiddenKeys.map((k) => k.trim().toLowerCase()));
+    if (hidden.size === 0) return;
+    setOpenTabs((prev) => prev.filter((t) => !hidden.has(tabParamToFeatureKey(t.param))));
+  }, []);
+
   const openWorkspaceTabAt = useCallback(
     (label: string, param: string, href: string) => {
       const cleanLabel = label.trim();
@@ -404,7 +429,7 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
       router.replace(destination);
       return tabId;
     },
-    [router],
+    [clearDismissedTab, router],
   );
 
   const updateWorkspaceTabHref = useCallback((tabId: string, href: string) => {

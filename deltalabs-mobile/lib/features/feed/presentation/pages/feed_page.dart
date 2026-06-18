@@ -1,5 +1,6 @@
 import 'package:deltalabs_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/providers/feed_provider.dart';
+import 'package:deltalabs_mobile/features/shell/presentation/widgets/main_top_chrome.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_auth_gate_dialog.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_comments_sheet.dart';
 import 'package:deltalabs_mobile/features/feed/presentation/widgets/feed_overlay_controls.dart';
