@@ -1,6 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_person_cell.dart';
 import 'package:flutter/material.dart';
 
 /// Read-only display text for a management-table cell (Phase 1).
@@ -14,6 +15,10 @@ String resolveMtOptionLabel(MtColumnModel column, Object? value) {
 }
 
 String formatMtCellDisplay(MtColumnModel column, Object? value) {
+  if (column.usesPersonPicker) {
+    final person = MtPersonCellValue.fromRaw(value);
+    return person.displayName;
+  }
   if (value == null) return '';
 
   switch (column.type) {

@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
+from app.core.dev_mode import exposes_otp_debug_code
 from app.core.exceptions import ValidationError
 from app.core.security import hash_password, validate_password_policy
 from app.domain.identity.repository import Repository
@@ -84,17 +85,27 @@ class RecoverService:
             purpose="recover",
         )
         if not delivery.ok:
-            await self._redis.delete(self._state_key(recover_id))
-            message, code = _recover_email_failure_response(delivery)
-            logger.error(
-                "recover.request_failed",
-                extra={
-                    "user_id": user.id,
-                    "reason": delivery.failure_reason,
-                    "detail": delivery.failure_detail,
-                },
-            )
-            raise ValidationError(message, code=code)
+            if exposes_otp_debug_code(self._settings):
+                logger.warning(
+                    "recover.email_delivery_skipped",
+                    extra={
+                        "user_id": user.id,
+                        "reason": delivery.failure_reason,
+                        "detail": delivery.failure_detail,
+                    },
+                )
+            else:
+                await self._redis.delete(self._state_key(recover_id))
+                message, code = _recover_email_failure_response(delivery)
+                logger.error(
+                    "recover.request_failed",
+                    extra={
+                        "user_id": user.id,
+                        "reason": delivery.failure_reason,
+                        "detail": delivery.failure_detail,
+                    },
+                )
+                raise ValidationError(message, code=code)
 
         logger.info(
             "recover.code_sent",
@@ -103,7 +114,7 @@ class RecoverService:
 
         return RecoverRequestResponse(
             recover_id=recover_id,
-            debug_code=code if self._settings.env == "local" else None,
+            debug_code=code if exposes_otp_debug_code(self._settings) else None,
         )
 
     async def verify_recover(self, payload: RecoverVerifyRequest) -> RecoverVerifyResponse:

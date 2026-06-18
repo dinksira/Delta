@@ -6,9 +6,31 @@ import 'package:deltalabs_mobile/shared/management_table/data/models/mt_table_gr
 import 'package:deltalabs_mobile/shared/management_table/presentation/providers/management_table_providers.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_group_section.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+String _bootstrapErrorMessage(Object error) {
+  if (error is DioException) {
+    final status = error.response?.statusCode;
+    if (status == 404) {
+      return 'The students-table API is not on the live server yet. '
+          'Deploy the latest deltalabs-backend to Render, then try again.';
+    }
+    if (status == 403) {
+      return 'You need school manage permission on this organization to create the students table.';
+    }
+    final detail = error.response?.data;
+    if (detail is Map && detail['message'] != null) {
+      return detail['message'].toString();
+    }
+    if (detail is Map && detail['detail'] != null) {
+      return detail['detail'].toString();
+    }
+  }
+  return 'Could not create students table. Check your connection and try again.';
+}
 
 class ClassStudentsTableTab extends HookConsumerWidget {
   const ClassStudentsTableTab({
@@ -53,8 +75,8 @@ class ClassStudentsTableTab extends HookConsumerWidget {
             );
         instanceId.value = id;
         onTableReady();
-      } catch (_) {
-        bootstrapError.value = 'Could not create students table.';
+      } catch (error) {
+        bootstrapError.value = _bootstrapErrorMessage(error);
       } finally {
         bootstrapping.value = false;
       }

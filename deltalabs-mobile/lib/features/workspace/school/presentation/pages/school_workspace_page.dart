@@ -400,6 +400,15 @@ class SchoolWorkspacePage extends HookConsumerWidget {
             );
             return;
           }
+          if (item.opensAsStudent) {
+            context.push(
+              withInstanceRoute(
+                AppRoutes.workspaceSchoolStudentPath(schoolId, item.id),
+              ),
+              extra: current,
+            );
+            return;
+          }
           if (item.opensAsManagementTable) {
             unawaited(openManagementTable(item));
             return;

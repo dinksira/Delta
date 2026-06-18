@@ -915,13 +915,47 @@ export async function bootstrapManagementTableWorkspaceItem(
   );
 }
 
+export type SchoolMemberSearchUserDto = Readonly<{
+  userId: string;
+  username?: string | null;
+  email?: string | null;
+  fullName?: string | null;
+}>;
+
+export type SchoolMemberSearchResponseDto = Readonly<{
+  items: readonly SchoolMemberSearchUserDto[];
+}>;
+
+export type SchoolMemberSearchPicker = "school_students" | "platform";
+
+export async function searchSchoolMembers(
+  orgId: string,
+  schoolId: string,
+  q: string,
+  limit = 20,
+  picker: SchoolMemberSearchPicker = "school_students",
+): Promise<SchoolMemberSearchResponseDto> {
+  return apiClient.get<SchoolMemberSearchResponseDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/members/search`,
+    { searchParams: { q, limit, picker } },
+  );
+}
+
 export async function bootstrapClassStudentsTable(
   orgId: string,
   schoolId: string,
   classWorkspaceItemId: string,
 ): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return bootstrapStudentsTableWorkspaceItem(orgId, schoolId, classWorkspaceItemId);
+}
+
+export async function bootstrapStudentsTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  workspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
   return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
-    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classWorkspaceItemId)}/students-table/bootstrap`,
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/students-table/bootstrap`,
   );
 }
 

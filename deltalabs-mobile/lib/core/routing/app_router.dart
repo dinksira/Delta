@@ -21,6 +21,7 @@ import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/sc
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_edit_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_session_room_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_workspace_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_student_registration_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_department_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_home_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/management_table/presentation/pages/school_management_table_page.dart';
@@ -261,6 +262,20 @@ GoRouter appRouter(Ref ref) {
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolStudent,
+            name: 'school-student',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final studentItemId = state.pathParameters['studentItemId'] ?? '';
+              final extra = state.extra;
+              return SchoolStudentRegistrationPage(
+                schoolId: schoolId,
+                studentItemId: studentItemId,
+                school: extra is MySchoolModel ? extra : null,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.workspaceSchoolManagementTable,

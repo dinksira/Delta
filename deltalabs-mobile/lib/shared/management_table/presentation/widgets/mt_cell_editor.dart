@@ -3,6 +3,8 @@ import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_m
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_cell_display.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_cell_value.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_person_cell.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_person_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -13,15 +15,33 @@ class MtCellEditor extends StatelessWidget {
     required this.column,
     required this.value,
     required this.onCommit,
+    this.personSearchOrgId,
+    this.personSearchSchoolId,
+    this.personPicker = 'school_students',
     super.key,
   });
 
   final MtColumnModel column;
   final Object? value;
   final MtCellCommitCallback onCommit;
+  final String? personSearchOrgId;
+  final String? personSearchSchoolId;
+  final String personPicker;
 
   @override
   Widget build(BuildContext context) {
+    if (column.usesPersonPicker &&
+        personSearchOrgId != null &&
+        personSearchSchoolId != null) {
+      return _MtPersonPickerEditor(
+        value: value,
+        orgId: personSearchOrgId!,
+        schoolId: personSearchSchoolId!,
+        picker: personPicker,
+        onCommit: onCommit,
+      );
+    }
+
     switch (column.type) {
       case MtColumnType.checkbox:
         return _MtCheckboxEditor(value: value, onCommit: onCommit);
@@ -49,6 +69,82 @@ class MtCellEditor extends StatelessWidget {
       case MtColumnType.text:
         return _MtTextEditor(value: value, onCommit: onCommit);
     }
+  }
+}
+
+class _MtPersonPickerEditor extends StatelessWidget {
+  const _MtPersonPickerEditor({
+    required this.value,
+    required this.orgId,
+    required this.schoolId,
+    required this.picker,
+    required this.onCommit,
+  });
+
+  final Object? value;
+  final String orgId;
+  final String schoolId;
+  final String picker;
+  final MtCellCommitCallback onCommit;
+
+  Future<void> _openPicker(BuildContext context) async {
+    final current = MtPersonCellValue.fromRaw(value);
+    final selected = await showMtPersonPickerSheet(
+      context,
+      orgId: orgId,
+      schoolId: schoolId,
+      picker: picker,
+      current: current.isEmpty ? null : current,
+    );
+    if (selected == null) return;
+    if (selected.isEmpty) {
+      onCommit(null);
+      return;
+    }
+    onCommit(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final person = MtPersonCellValue.fromRaw(value);
+    final label = person.displayName;
+
+    return InkWell(
+      onTap: () => _openPicker(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceGrey,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.8)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.person_search_outlined,
+              size: 16,
+              color: label.isEmpty ? AppColors.textHint : AppColors.primary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label.isEmpty ? 'Search student' : label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: label.isEmpty ? AppColors.textHint : AppColors.textPrimary,
+                  fontWeight: label.isEmpty ? FontWeight.w500 : FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.expand_more_rounded, size: 18, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
   }
 }
 

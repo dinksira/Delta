@@ -60,4 +60,8 @@ class MtColumnModel {
   }
 
   List<String> get optionLabels => options.map((o) => o.label).toList();
+
+  bool get usesPersonPicker =>
+      settings['cellEditor']?.toString() == 'person' ||
+      title.trim().toLowerCase() == 'student';
 }

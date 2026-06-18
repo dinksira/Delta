@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -457,6 +458,65 @@ class Repository:
 
     async def find_user_by_email_normalized(self, *, email_normalized: str) -> dict[str, Any] | None:
         return await self._db["users"].find_one({"email_normalized": email_normalized})
+
+    async def search_users_for_school_picker(
+        self,
+        *,
+        school_id: str,
+        q: str,
+        limit: int = 20,
+        picker: str = "school_students",
+    ) -> list[dict[str, Any]]:
+        query_text = q.strip()
+        if not query_text:
+            return []
+        safe_limit = max(1, min(limit, 50))
+
+        terms = [part for part in re.split(r"\s+", query_text) if part]
+        search_fields = ("full_name", "username", "email", "email_normalized")
+
+        def _term_clause(term: str) -> dict[str, Any]:
+            regex = {"$regex": re.escape(term), "$options": "i"}
+            return {"$or": [{field: regex} for field in search_fields]}
+
+        text_query: dict[str, Any]
+        if len(terms) <= 1:
+            text_query = _term_clause(query_text)
+        else:
+            text_query = {"$and": [_term_clause(term) for term in terms]}
+
+        if picker == "platform":
+            fetch_limit = min(safe_limit * 3, 150)
+            users = await (
+                self._db["users"]
+                .find(text_query)
+                .sort([("full_name", 1), ("username", 1)])
+                .limit(fetch_limit)
+                .to_list(length=fetch_limit)
+            )
+            return users[:safe_limit]
+
+        memberships = await self._db["school_memberships"].find(
+            {
+                "school_id": school_id,
+                "status": "active",
+                "role_keys": "student",
+            },
+            {"user_id": 1},
+        ).to_list(length=5000)
+        student_ids = [str(m.get("user_id", "")) for m in memberships if m.get("user_id")]
+        if not student_ids:
+            return []
+
+        user_query: dict[str, Any] = {"$and": [{"_id": {"$in": student_ids}}, text_query]}
+        users = await (
+            self._db["users"]
+            .find(user_query)
+            .sort([("full_name", 1), ("username", 1)])
+            .limit(safe_limit)
+            .to_list(length=safe_limit)
+        )
+        return users
 
     async def find_school_membership(
         self,

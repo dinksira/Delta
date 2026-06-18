@@ -41,6 +41,8 @@ abstract class AppRoutes {
       '/workspace/school/detail/:schoolId/department/:departmentItemId';
   static const String workspaceSchoolClass =
       '/workspace/school/detail/:schoolId/class/:classItemId';
+  static const String workspaceSchoolStudent =
+      '/workspace/school/detail/:schoolId/student/:studentItemId';
   static const String workspaceSchoolClassSession =
       '/workspace/school/detail/:schoolId/class/:classItemId/session/:sessionId';
   static const String workspaceSchoolManagementTable =
@@ -106,6 +108,23 @@ abstract class AppRoutes {
 
   static String workspaceSchoolClassPath(String schoolId, String classItemId) =>
       '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/class/${Uri.encodeComponent(classItemId)}';
+
+  static String workspaceSchoolStudentPath(String schoolId, String studentItemId) =>
+      '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/student/${Uri.encodeComponent(studentItemId)}';
+
+  static String workspaceSchoolStudentUri(
+    String schoolId,
+    String studentItemId, {
+    String? instanceId,
+  }) {
+    final uri = Uri(
+      path: workspaceSchoolStudentPath(schoolId, studentItemId),
+      queryParameters: {
+        if (instanceId != null && instanceId.isNotEmpty) instanceQueryKey: instanceId,
+      },
+    );
+    return uri.toString();
+  }
 
   static const String classWorkspaceTabQueryKey = 'tab';
 

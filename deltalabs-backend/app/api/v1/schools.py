@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.deps import CurrentUser, get_current_user, get_db
 from app.api.deps_authz import require_org_membership, require_org_permission
+from app.core.exceptions import ValidationError
 from app.domain.authorization.repository import Repository as AuthorizationRepository
 from app.domain.authorization.schemas import PermissionCheckRequest
 from app.domain.authorization.service import Service as AuthorizationService
@@ -36,6 +37,8 @@ from app.domain.school.schemas import (
     ClassEnrollmentCreateInput,
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
+    SchoolMemberSearchPicker,
+    SchoolMemberSearchResponse,
     MarketplaceBidInput,
     MarketplaceBuyInput,
     MarketplaceCreateInput,
@@ -597,8 +600,74 @@ async def create_org_class_enrollment(
         class_workspace_item_id=class_workspace_item_id,
         student_name=display_name or "Student",
         email=result.user.email,
+        user_id=result.user_id,
     )
     return result
+
+
+@org_router.get(
+    "/{school_id}/members/search",
+    response_model=SchoolMemberSearchResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def search_org_school_members(
+    org_id: str,
+    school_id: str,
+    q: str = Query(default="", max_length=200),
+    limit: int = Query(default=20, ge=1, le=50),
+    picker: SchoolMemberSearchPicker = Query(default="school_students"),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> SchoolMemberSearchResponse:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.search_school_members(
+        org_id=org_id,
+        school_id=school_id,
+        q=q,
+        limit=limit,
+        picker=picker,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/students-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_students_table_workspace_item(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    item = await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=workspace_item_id,
+    )
+    item_type = item.type
+    if item_type == "class":
+        return await mt.bootstrap_class_students_table(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user.user_id,
+            class_workspace_item_id=workspace_item_id,
+        )
+    if item_type == "student":
+        return await mt.bootstrap_school_students_table(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user.user_id,
+            student_workspace_item_id=workspace_item_id,
+        )
+    raise ValidationError(
+        "Workspace item cannot host a students table.",
+        code="students_table_workspace_type_invalid",
+    )
 
 
 @org_router.post(

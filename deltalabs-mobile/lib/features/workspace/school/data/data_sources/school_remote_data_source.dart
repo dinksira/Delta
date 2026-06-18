@@ -4,6 +4,7 @@ import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_member_search_user_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
@@ -517,14 +518,51 @@ class SchoolRemoteDataSource {
     });
   }
 
+  Future<List<SchoolMemberSearchUserModel>> searchSchoolMembers({
+    required String orgId,
+    required String schoolId,
+    required String query,
+    int limit = 20,
+    String picker = 'school_students',
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/members/search',
+        queryParameters: {
+          'q': query,
+          'limit': limit,
+          'picker': picker,
+        },
+      );
+      final items = response.data?['items'];
+      if (items is! List) return [];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(SchoolMemberSearchUserModel.fromJson)
+          .toList();
+    });
+  }
+
   Future<String> bootstrapClassStudentsTable({
     required String orgId,
     required String schoolId,
     required String classWorkspaceItemId,
   }) async {
+    return bootstrapStudentsTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
+  Future<String> bootstrapStudentsTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
     return _withOrgMembership(orgId, () async {
       final response = await _api.post<Map<String, dynamic>>(
-        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/students-table/bootstrap',
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/students-table/bootstrap',
       );
       final instance = response.data?['instance'];
       if (instance is Map<String, dynamic>) {

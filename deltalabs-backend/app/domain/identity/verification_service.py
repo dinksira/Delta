@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import secrets
 from datetime import UTC, datetime
 from typing import TypedDict
@@ -11,6 +12,7 @@ from uuid import uuid4
 
 from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
+from app.core.dev_mode import exposes_otp_debug_code
 from app.core.exceptions import ValidationError
 from app.domain.identity.schemas import (
     VerificationSendRequest,
@@ -21,6 +23,7 @@ from app.domain.identity.schemas import (
 from app.infra.email_client import send_otp_email
 
 RedisDep = AsyncRedis
+logger = logging.getLogger("deltalabs.verification")
 
 
 class VerificationService:
@@ -80,16 +83,26 @@ class VerificationService:
                 purpose=payload.purpose.strip().lower(),
             )
             if not delivery.ok:
-                await self._redis.delete(self._verification_key(verification_id))
-                if delivery.failure_reason == "not_configured":
-                    raise ValidationError(
-                        "Verification email could not be sent because email is not configured.",
-                        code="verification_email_not_configured",
+                if exposes_otp_debug_code(self._settings):
+                    logger.warning(
+                        "verification.email_delivery_skipped",
+                        extra={
+                            "destination": destination,
+                            "reason": delivery.failure_reason,
+                            "detail": delivery.failure_detail,
+                        },
                     )
-                raise ValidationError(
-                    "Could not send verification email. Please try again later.",
-                    code="verification_email_delivery_failed",
-                )
+                else:
+                    await self._redis.delete(self._verification_key(verification_id))
+                    if delivery.failure_reason == "not_configured":
+                        raise ValidationError(
+                            "Verification email could not be sent because email is not configured.",
+                            code="verification_email_not_configured",
+                        )
+                    raise ValidationError(
+                        "Could not send verification email. Please try again later.",
+                        code="verification_email_delivery_failed",
+                    )
         # SMS channel: wire Twilio/Africa's Talking here when ready
 
         return VerificationSendResponse(
@@ -98,7 +111,7 @@ class VerificationService:
             destination_masked=self._mask_destination(destination),
             expires_in_seconds=self._ttl_seconds,
             resend_available_in_seconds=self._resend_cooldown_seconds,
-            debug_code=code if self._settings.env == "local" else None,
+            debug_code=code if exposes_otp_debug_code(self._settings) else None,
         )
 
     async def resend_code(

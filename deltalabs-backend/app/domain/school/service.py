@@ -39,6 +39,9 @@ from app.domain.school.schemas import (
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
     ClassEnrollmentUserPublic,
+    SchoolMemberSearchPicker,
+    SchoolMemberSearchResponse,
+    SchoolMemberSearchUserPublic,
     SchoolWorkspaceCreateInput,
     SchoolWorkspaceItemPublic,
     SchoolWorkspaceListResponse,
@@ -501,6 +504,36 @@ class Service:
             if mapped is not None:
                 items.append(mapped)
         return ClassEnrollmentListResponse(items=items)
+
+    async def search_school_members(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        q: str,
+        limit: int = 20,
+        picker: SchoolMemberSearchPicker = "school_students",
+    ) -> SchoolMemberSearchResponse:
+        school = await self._repository.find_school(org_id=org_id, school_id=school_id)
+        if school is None:
+            raise NotFoundError("School not found.", code="school_not_found")
+        docs = await self._repository.search_users_for_school_picker(
+            school_id=school_id,
+            q=q,
+            limit=limit,
+            picker=picker,
+        )
+        items: list[SchoolMemberSearchUserPublic] = []
+        for doc in docs:
+            items.append(
+                SchoolMemberSearchUserPublic(
+                    user_id=str(doc["_id"]),
+                    username=(str(doc["username"]) if doc.get("username") is not None else None),
+                    email=(str(doc["email"]) if doc.get("email") is not None else None),
+                    full_name=(str(doc["full_name"]) if doc.get("full_name") is not None else None),
+                )
+            )
+        return SchoolMemberSearchResponse(items=items)
 
     async def enroll_student_in_class(
         self,

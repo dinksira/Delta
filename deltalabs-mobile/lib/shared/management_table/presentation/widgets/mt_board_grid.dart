@@ -32,6 +32,9 @@ class MtBoardGrid extends StatelessWidget {
     required this.rows,
     this.readOnly = true,
     this.canMutateSchema = false,
+    this.personSearchOrgId,
+    this.personSearchSchoolId,
+    this.personPicker = 'school_students',
     this.onCellCommit,
     this.onRenameColumn,
     this.onDeleteColumn,
@@ -43,6 +46,9 @@ class MtBoardGrid extends StatelessWidget {
   final List<MtRowModel> rows;
   final bool readOnly;
   final bool canMutateSchema;
+  final String? personSearchOrgId;
+  final String? personSearchSchoolId;
+  final String personPicker;
   final MtCellCommitHandler? onCellCommit;
   final MtColumnRenameHandler? onRenameColumn;
   final MtColumnDeleteHandler? onDeleteColumn;
@@ -133,6 +139,9 @@ class MtBoardGrid extends StatelessWidget {
     return MtCellEditor(
       column: column,
       value: value,
+      personSearchOrgId: personSearchOrgId,
+      personSearchSchoolId: personSearchSchoolId,
+      personPicker: personPicker,
       onCommit: (next) => onCellCommit!(row, column, next),
     );
   }

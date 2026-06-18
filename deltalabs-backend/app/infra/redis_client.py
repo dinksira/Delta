@@ -2,14 +2,42 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncGenerator
 
 import redis.asyncio as redis
+from redis.exceptions import RedisError
 
 from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
+from app.infra.memory_redis import InMemoryRedis
+
+logger = logging.getLogger("deltalabs.api")
 
 _redis: AsyncRedis | None = None
+
+
+def is_in_memory_redis() -> bool:
+    """True when the process is using the in-process Redis substitute."""
+    return isinstance(_redis, InMemoryRedis)
+
+
+def is_local_redis_deployment(redis_url: str) -> bool:
+    """True when Redis URL points at this machine (typical local backend setup)."""
+    lowered = redis_url.strip().lower()
+    if lowered == "memory://":
+        return True
+    return "localhost" in lowered or "127.0.0.1" in lowered or lowered.startswith("redis://127.")
+
+
+def _is_local_redis_url(redis_url: str) -> bool:
+    return is_local_redis_deployment(redis_url)
+
+
+def _use_in_memory_redis(*, reason: str) -> None:
+    global _redis
+    _redis = InMemoryRedis()  # type: ignore[assignment]
+    logger.warning("redis.using_in_memory", extra={"reason": reason})
 
 
 async def connect_redis() -> None:
@@ -19,6 +47,10 @@ async def connect_redis() -> None:
     if _redis is not None:
         return
     settings = get_settings()
+
+    if settings.redis_url.strip().lower() == "memory://":
+        _use_in_memory_redis(reason="redis_url_memory")
+        return
 
     # Upstash and other managed Redis providers use TLS (rediss://).
     # ssl_cert_reqs=None disables certificate verification — required for
@@ -36,7 +68,24 @@ async def connect_redis() -> None:
         # Upstash and similar: relax verify for managed/self-signed TLS endpoints.
         pool_kwargs["ssl_cert_reqs"] = None
 
-    _redis = redis.from_url(settings.redis_url, **pool_kwargs)
+    client = redis.from_url(settings.redis_url, **pool_kwargs)
+    try:
+        await client.ping()
+    except (RedisError, OSError) as exc:
+        if not _is_local_redis_url(settings.redis_url):
+            raise
+        logger.warning(
+            "redis.connection_failed",
+            extra={"error": str(exc), "redis_url": settings.redis_url},
+        )
+        try:
+            await client.aclose()  # type: ignore[attr-defined]
+        except (RedisError, OSError):
+            pass
+        _use_in_memory_redis(reason="local_connection_failed")
+        return
+
+    _redis = client
 
 
 async def disconnect_redis() -> None:

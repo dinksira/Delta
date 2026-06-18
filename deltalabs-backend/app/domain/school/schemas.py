@@ -332,6 +332,22 @@ class ClassEnrollmentListResponse(BaseModel):
     items: list[ClassEnrollmentPublic]
 
 
+class SchoolMemberSearchUserPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    user_id: str = Field(serialization_alias="userId")
+    username: str | None = None
+    email: str | None = None
+    full_name: str | None = Field(default=None, serialization_alias="fullName")
+
+
+class SchoolMemberSearchResponse(BaseModel):
+    items: list[SchoolMemberSearchUserPublic]
+
+
+SchoolMemberSearchPicker = Literal["school_students", "platform"]
+
+
 class OfferPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

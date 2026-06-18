@@ -2,10 +2,9 @@
 
 /** Board editor: shared column schema; one or more table groups (row sets) per instance. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Search, Table2 } from "lucide-react";
+import { ArrowLeft, Table2 } from "lucide-react";
 import Link from "next/link";
-import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { SchoolDetailUtilityActions } from "@/components/features/school/SchoolDetailUtilityActions";
 import { Button, DialogOverlay, DialogPanel } from "@/components/theme";
@@ -17,12 +16,16 @@ import {
   fetchManagementTableInstanceBundle,
 } from "@/modules/School/api";
 import { CLASS_WORKSPACE_LAYOUT } from "@/modules/School/class/layoutConstants";
+import { ManagementTableAddColumnPopover } from "@/modules/School/managementTable/ManagementTableAddColumnPopover";
 import {
   MANAGEMENT_TABLE_ADD_COLUMN_GROUPS,
   defaultSettingsForColumnType,
+  defaultTitleForColumnType,
+  filterAddColumnGroups,
   type ManagementTableAddColumnOption,
 } from "@/modules/School/managementTable/columnTypeMeta";
 import { ManagementTableGroupSection } from "@/modules/School/managementTable/ManagementTableGroupSection";
+import { useManagementTableAddColumnPopover } from "@/modules/School/managementTable/useManagementTableAddColumnPopover";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 
@@ -37,17 +40,10 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
   const orgId = activeOrgId ?? "";
   const enabled = Boolean(orgId && schoolId && instanceId) && !mySchoolsPending;
 
-  const [addColumnOpen, setAddColumnOpen] = useState(false);
-  const [addColumnSearch, setAddColumnSearch] = useState("");
-  const addColumnPopoverRef = useRef<HTMLDivElement | null>(null);
-  const addColumnAnchorButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [addColumnAnchor, setAddColumnAnchor] = useState<null | { top: number; left: number; width: number }>(null);
-  const [portalReady, setPortalReady] = useState(false);
+  const addColumn = useManagementTableAddColumnPopover();
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupTitle, setNewGroupTitle] = useState("");
-
-  useEffect(() => setPortalReady(true), []);
 
   const bundleQuery = useQuery({
     queryKey: schoolQueryKeys.managementTableInstance(orgId, schoolId, instanceId),
@@ -61,20 +57,6 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
     return [{ id: "mtg_main", title: "Main Table", order: 0 }];
   }, [bundleQuery.data?.instance.tableGroups]);
 
-  const syncAnchorFromButton = useCallback(() => {
-    const btn = addColumnAnchorButtonRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    setAddColumnAnchor({ top: rect.bottom + 8, left: rect.right - 360, width: rect.width });
-  }, []);
-
-  const openAddColumn = useCallback((btn: HTMLButtonElement) => {
-    addColumnAnchorButtonRef.current = btn;
-    const rect = btn.getBoundingClientRect();
-    setAddColumnAnchor({ top: rect.bottom + 8, left: rect.right - 360, width: rect.width });
-    setAddColumnOpen(true);
-  }, []);
-
   const invalidateBundleAndRows = useCallback(async () => {
     await queryClient.invalidateQueries({
       queryKey: schoolQueryKeys.managementTableInstance(orgId, schoolId, instanceId),
@@ -87,7 +69,7 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
   const appendColumnMutation = useMutation({
     mutationFn: (type: ManagementTableColumnTypeDto) =>
       appendManagementTableColumn(orgId, schoolId, bundleQuery.data!.definition.id, {
-        title: `${type.charAt(0).toUpperCase()}${type.slice(1)}`,
+        title: defaultTitleForColumnType(type),
         type,
         settings: defaultSettingsForColumnType(type),
       }),
@@ -109,40 +91,10 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
     setNewGroupDialogOpen(true);
   }, [createTableGroupMutation]);
 
-  const addColumnOptions = useMemo(() => {
-    const q = addColumnSearch.trim().toLowerCase();
-    const groups = MANAGEMENT_TABLE_ADD_COLUMN_GROUPS.map((g) => ({
-      ...g,
-      options: g.options.filter((o) => (q ? o.label.toLowerCase().includes(q) : true)),
-    }));
-    return groups.filter((g) => g.options.length > 0);
-  }, [addColumnSearch]);
-
-  useEffect(() => {
-    if (!addColumnOpen) return;
-    const onDocPointerDown = (event: PointerEvent) => {
-      const btn = addColumnAnchorButtonRef.current;
-      const pop = addColumnPopoverRef.current;
-      if (!pop) return;
-      if (event.target instanceof Node && btn?.contains(event.target)) return;
-      if (event.target instanceof Node && pop.contains(event.target)) return;
-      setAddColumnOpen(false);
-    };
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [addColumnOpen]);
-
-  useEffect(() => {
-    if (!addColumnOpen) return;
-    syncAnchorFromButton();
-    const onScrollOrResize = () => syncAnchorFromButton();
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [addColumnOpen, syncAnchorFromButton]);
+  const addColumnOptions = useMemo(
+    () => filterAddColumnGroups(MANAGEMENT_TABLE_ADD_COLUMN_GROUPS, addColumn.search),
+    [addColumn.search],
+  );
 
   const onPickAddColumnOption = (opt: ManagementTableAddColumnOption) => {
     if (!opt.supportedType) {
@@ -150,10 +102,7 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
       return;
     }
     appendColumnMutation.mutate(opt.supportedType, {
-      onSettled: () => {
-        setAddColumnOpen(false);
-        setAddColumnSearch("");
-      },
+      onSettled: () => addColumn.close(),
     });
   };
 
@@ -220,7 +169,7 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
           groupTitle={g.title}
           columns={columns}
           parentEnabled={enabled && Boolean(bundleQuery.data)}
-          onOpenAddColumn={openAddColumn}
+          onOpenAddColumn={addColumn.openFromButton}
         />
       ))}
 
@@ -300,55 +249,16 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
         </>
       ) : null}
 
-      {addColumnOpen && portalReady && addColumnAnchor
-        ? createPortal(
-            <div
-              ref={addColumnPopoverRef}
-              className="fixed z-[4000] w-[360px] rounded-2xl border border-border-default bg-[#dfe8ee] p-4 shadow-xl"
-              style={{
-                top: `${Math.max(8, addColumnAnchor.top)}px`,
-                left: `${Math.max(8, Math.min(addColumnAnchor.left, window.innerWidth - 368))}px`,
-              }}
-            >
-              <label className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default px-4 py-3">
-                <Search className="size-5 text-text-tertiary" aria-hidden />
-                <input
-                  value={addColumnSearch}
-                  onChange={(e) => setAddColumnSearch(e.target.value)}
-                  placeholder="Search"
-                  className="min-w-0 flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
-                  autoFocus
-                />
-              </label>
-              <div className="mt-4 space-y-4">
-                {addColumnOptions.map((group) => (
-                  <div key={group.title}>
-                    <p className="mb-2 text-sm font-medium text-text-tertiary">{group.title}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {group.options.map((opt) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          className={[
-                            "flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors",
-                            opt.supportedType
-                              ? "bg-transparent text-text-secondary hover:bg-white/55 hover:text-text-primary"
-                              : "bg-transparent text-text-tertiary hover:bg-white/40",
-                          ].join(" ")}
-                          onClick={() => onPickAddColumnOption(opt)}
-                        >
-                          <opt.icon className="size-5" aria-hidden />
-                          <span className="truncate">{opt.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      <ManagementTableAddColumnPopover
+        open={addColumn.open}
+        anchor={addColumn.anchor}
+        popoverRef={addColumn.popoverRef}
+        search={addColumn.search}
+        onSearchChange={addColumn.setSearch}
+        groups={addColumnOptions}
+        onPick={onPickAddColumnOption}
+        pending={appendColumnMutation.isPending}
+      />
     </div>
   );
 }

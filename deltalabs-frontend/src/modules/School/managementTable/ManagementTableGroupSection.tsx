@@ -23,6 +23,7 @@ export type ManagementTableGroupSectionProps = Readonly<{
   columns: readonly ManagementTableColumnDto[];
   parentEnabled: boolean;
   onOpenAddColumn: (anchor: HTMLButtonElement) => void;
+  personPicker?: "school_students" | "platform";
 }>;
 
 export function ManagementTableGroupSection({
@@ -35,6 +36,7 @@ export function ManagementTableGroupSection({
   columns,
   parentEnabled,
   onOpenAddColumn,
+  personPicker = "school_students",
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
@@ -257,6 +259,9 @@ export function ManagementTableGroupSection({
                       <ManagementTableCellEditor
                         column={col}
                         value={row.cells[col.id]}
+                        orgId={orgId}
+                        schoolId={schoolId}
+                        personPicker={personPicker}
                         onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
                       />
                     </td>
@@ -277,7 +282,7 @@ export function ManagementTableGroupSection({
             onClick={() => addRowMutation.mutate()}
           >
             <Plus className="size-3.5" aria-hidden />
-            Add
+            Add row
           </Button>
         </div>
       </div>

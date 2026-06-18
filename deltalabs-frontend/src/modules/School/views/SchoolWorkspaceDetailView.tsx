@@ -926,6 +926,16 @@ export function SchoolWorkspaceDetailView({
     );
   };
 
+  const navigateToStudentRegistration = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/student/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
   const navigateToDepartmentDetail = (item: { id: string }) => {
     const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     router.push(
@@ -955,12 +965,15 @@ export function SchoolWorkspaceDetailView({
 
   const itemOpensAsClassDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "class";
 
+  const itemOpensAsStudentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "student";
+
   const itemOpensAsManagementTable = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "management-table";
 
   const itemPrimaryOpens = (item: (typeof filteredWorkspaceItems)[number]) =>
     itemOpensAsFolder(item) ||
     itemOpensAsDepartmentRoute(item) ||
     itemOpensAsClassDetail(item) ||
+    itemOpensAsStudentRegistration(item) ||
     itemOpensAsManagementTable(item);
 
   const navigateToManagementTableWorkspace = (item: { id: string }) => {
@@ -988,6 +1001,7 @@ export function SchoolWorkspaceDetailView({
       if (cleanDepartmentRootId) navigateIntoWorkspaceFolder(item);
       else navigateToDepartmentDetail(item);
     } else if (itemOpensAsClassDetail(item)) navigateToClassDetail(item);
+    else if (itemOpensAsStudentRegistration(item)) navigateToStudentRegistration(item);
     else if (itemOpensAsManagementTable(item)) navigateToManagementTableWorkspace(item);
   };
 
@@ -1447,7 +1461,9 @@ export function SchoolWorkspaceDetailView({
                                 : "Open department"
                               : itemOpensAsClassDetail(item)
                                 ? "Open class workspace"
-                                : "Only departments, folders, and classes can be opened here."
+                                : itemOpensAsStudentRegistration(item)
+                                  ? "Open student registration"
+                                  : "Only departments, folders, classes, and student registration can be opened here."
                         }
                         onClick={() => {
                           onPrimaryOpenWorkspaceItem(item);

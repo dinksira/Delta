@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import type { ManagementTableColumnDto } from "@/modules/School/api";
+import { columnUsesPersonPicker } from "@/modules/School/managementTable/managementTablePersonCell";
+import { ManagementTablePersonCellEditor } from "@/modules/School/managementTable/ManagementTablePersonCellEditor";
 
 function optionList(settings: Readonly<Record<string, unknown>>): { id: string; label: string }[] {
   const opts = settings.options;
@@ -101,11 +103,29 @@ export function ManagementTableCellEditor({
   column,
   value,
   onCommit,
+  orgId,
+  schoolId,
+  personPicker = "school_students",
 }: Readonly<{
   column: ManagementTableColumnDto;
   value: unknown;
   onCommit: (next: unknown, immediate?: boolean) => void;
+  orgId?: string;
+  schoolId?: string;
+  personPicker?: "school_students" | "platform";
 }>) {
+  if (columnUsesPersonPicker(column) && orgId && schoolId) {
+    return (
+      <ManagementTablePersonCellEditor
+        orgId={orgId}
+        schoolId={schoolId}
+        personPicker={personPicker}
+        value={value}
+        onCommit={onCommit}
+      />
+    );
+  }
+
   const t = column.type;
   if (t === "checkbox") {
     return (

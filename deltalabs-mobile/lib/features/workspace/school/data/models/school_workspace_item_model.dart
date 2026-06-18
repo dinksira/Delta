@@ -129,6 +129,12 @@ class SchoolWorkspaceItemModel {
 
   bool get opensAsManagementTable => type == SchoolWorkspaceItemType.managementTable;
 
+  bool get opensAsStudent => type == SchoolWorkspaceItemType.student;
+
   bool get hasPrimaryOpen =>
-      opensAsFolder || opensAsDepartment || opensAsClass || opensAsManagementTable;
+      opensAsFolder ||
+      opensAsDepartment ||
+      opensAsClass ||
+      opensAsManagementTable ||
+      opensAsStudent;
 }

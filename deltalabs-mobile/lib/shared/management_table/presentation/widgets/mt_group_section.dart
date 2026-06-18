@@ -14,6 +14,7 @@ class MtGroupSection extends HookConsumerWidget {
     required this.groupTitle,
     required this.definition,
     this.canMutate = false,
+    this.personPicker = 'school_students',
     super.key,
   });
 
@@ -22,6 +23,7 @@ class MtGroupSection extends HookConsumerWidget {
   final String groupTitle;
   final MtDefinitionModel definition;
   final bool canMutate;
+  final String personPicker;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -136,6 +138,9 @@ class MtGroupSection extends HookConsumerWidget {
                               rows: rows,
                               readOnly: !canMutate,
                               canMutateSchema: canMutate,
+                              personSearchOrgId: boardQuery.orgId,
+                              personSearchSchoolId: boardQuery.schoolId,
+                              personPicker: personPicker,
                               onCellCommit: canMutate
                                   ? (row, column, value) => runMutation(
                                         () => board.patchCell(

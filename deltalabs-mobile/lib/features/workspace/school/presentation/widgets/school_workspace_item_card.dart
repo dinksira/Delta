@@ -249,6 +249,7 @@ String _openLabel(SchoolWorkspaceItemModel item) {
   if (item.opensAsFolder) return 'Open folder';
   if (item.opensAsDepartment) return 'Open department';
   if (item.opensAsClass) return 'Open class';
+  if (item.opensAsStudent) return 'Register students';
   if (item.opensAsManagementTable) return 'Open table';
   return 'Open';
 }
