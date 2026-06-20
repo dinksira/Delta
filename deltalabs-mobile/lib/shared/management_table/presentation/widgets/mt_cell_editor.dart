@@ -18,6 +18,7 @@ class MtCellEditor extends StatelessWidget {
     this.personSearchOrgId,
     this.personSearchSchoolId,
     this.personPicker = 'school_students',
+    this.classWorkspaceItemId,
     super.key,
   });
 
@@ -27,6 +28,7 @@ class MtCellEditor extends StatelessWidget {
   final String? personSearchOrgId;
   final String? personSearchSchoolId;
   final String personPicker;
+  final String? classWorkspaceItemId;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +39,8 @@ class MtCellEditor extends StatelessWidget {
         value: value,
         orgId: personSearchOrgId!,
         schoolId: personSearchSchoolId!,
-        picker: personPicker,
+        picker: column.resolvePersonPicker(personPicker),
+        classWorkspaceItemId: classWorkspaceItemId,
         onCommit: onCommit,
       );
     }
@@ -78,6 +81,7 @@ class _MtPersonPickerEditor extends StatelessWidget {
     required this.orgId,
     required this.schoolId,
     required this.picker,
+    this.classWorkspaceItemId,
     required this.onCommit,
   });
 
@@ -85,6 +89,7 @@ class _MtPersonPickerEditor extends StatelessWidget {
   final String orgId;
   final String schoolId;
   final String picker;
+  final String? classWorkspaceItemId;
   final MtCellCommitCallback onCommit;
 
   Future<void> _openPicker(BuildContext context) async {
@@ -94,6 +99,7 @@ class _MtPersonPickerEditor extends StatelessWidget {
       orgId: orgId,
       schoolId: schoolId,
       picker: picker,
+      classWorkspaceItemId: classWorkspaceItemId,
       current: current.isEmpty ? null : current,
     );
     if (selected == null) return;
@@ -108,6 +114,13 @@ class _MtPersonPickerEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final person = MtPersonCellValue.fromRaw(value);
     final label = person.displayName;
+    final emptyHint = picker == 'school_parents'
+        ? 'Search parent'
+        : picker == 'class_students'
+            ? 'Search class student'
+            : picker == 'platform'
+                ? 'Search account'
+                : 'Search student';
 
     return InkWell(
       onTap: () => _openPicker(context),
@@ -130,7 +143,7 @@ class _MtPersonPickerEditor extends StatelessWidget {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                label.isEmpty ? 'Search student' : label,
+                label.isEmpty ? emptyHint : label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

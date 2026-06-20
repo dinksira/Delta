@@ -524,6 +524,7 @@ class SchoolRemoteDataSource {
     required String query,
     int limit = 20,
     String picker = 'school_students',
+    String? classWorkspaceItemId,
   }) async {
     return _withOrgMembership(orgId, () async {
       final response = await _api.get<Map<String, dynamic>>(
@@ -532,6 +533,8 @@ class SchoolRemoteDataSource {
           'q': query,
           'limit': limit,
           'picker': picker,
+          if (classWorkspaceItemId != null && classWorkspaceItemId.trim().isNotEmpty)
+            'classWorkspaceItemId': classWorkspaceItemId.trim(),
         },
       );
       final items = response.data?['items'];
@@ -555,6 +558,18 @@ class SchoolRemoteDataSource {
     );
   }
 
+  Future<String> bootstrapClassParentsTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return bootstrapParentsTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
   Future<String> bootstrapStudentsTable({
     required String orgId,
     required String schoolId,
@@ -570,6 +585,24 @@ class SchoolRemoteDataSource {
         if (id.isNotEmpty) return id;
       }
       throw StateError('Students table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<String> bootstrapParentsTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/parents-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Parents table bootstrap did not return an instance id.');
     });
   }
 

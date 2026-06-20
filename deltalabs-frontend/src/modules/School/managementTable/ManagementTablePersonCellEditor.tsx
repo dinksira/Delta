@@ -33,7 +33,7 @@ function avatarColor(seed: string): string {
 }
 
 function displayNameForUser(user: SchoolMemberSearchUserDto): string {
-  return user.fullName?.trim() || user.username?.trim() || user.email?.trim() || "Student";
+  return user.fullName?.trim() || user.username?.trim() || user.email?.trim() || "Person";
 }
 
 function initialsForName(name: string): string {
@@ -71,7 +71,7 @@ function PersonPickerRow({
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-surface-muted/80"
+      className="flex w-full items-center gap-3 rounded-xl border border-border-default/80 bg-surface-muted/20 px-3 py-2.5 text-left transition-all hover:border-primary-300 hover:bg-surface-muted/60 hover:shadow-sm"
       onClick={() => onPick(user)}
     >
       <PersonAvatar name={name} seed={user.userId} />
@@ -89,12 +89,14 @@ export function ManagementTablePersonCellEditor({
   orgId,
   schoolId,
   personPicker = "school_students",
+  classWorkspaceItemId,
   value,
   onCommit,
 }: Readonly<{
   orgId: string;
   schoolId: string;
   personPicker?: SchoolMemberSearchPicker;
+  classWorkspaceItemId?: string;
   value: unknown;
   onCommit: (next: unknown, immediate?: boolean) => void;
 }>) {
@@ -171,7 +173,14 @@ export function ManagementTablePersonCellEditor({
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const response = await searchSchoolMembers(orgId, schoolId, trimmed, 20, personPicker);
+        const response = await searchSchoolMembers(
+          orgId,
+          schoolId,
+          trimmed,
+          20,
+          personPicker,
+          personPicker === "class_students" ? classWorkspaceItemId : undefined,
+        );
         setResults(response.items);
       } catch {
         setResults([]);
@@ -180,7 +189,7 @@ export function ManagementTablePersonCellEditor({
       }
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [open, orgId, personPicker, query, schoolId]);
+  }, [open, orgId, personPicker, query, schoolId, classWorkspaceItemId]);
 
   const pick = (user: SchoolMemberSearchUserDto) => {
     const next: ManagementTablePersonCellValue = {
@@ -201,7 +210,18 @@ export function ManagementTablePersonCellEditor({
   const emptyMessage =
     personPicker === "platform"
       ? "No matching Delta Labs accounts."
-      : "No school students found. Register them in the school student workspace first.";
+      : personPicker === "school_parents"
+        ? "No school parents found. Register them in the school parent workspace first."
+        : personPicker === "class_students"
+          ? "No students on this class yet. Add them on the Student tab first."
+          : "No school students found. Register them in the school student workspace first.";
+
+  const personLabel =
+    personPicker === "school_parents"
+      ? "parent"
+      : personPicker === "class_students" || personPicker === "school_students"
+        ? "student"
+        : "person";
 
   const listContent = (() => {
     const trimmed = query.trim();
@@ -210,7 +230,11 @@ export function ManagementTablePersonCellEditor({
         <p className="px-2 py-5 text-center text-xs leading-relaxed text-text-tertiary">
           {personPicker === "platform"
             ? "Type at least 2 characters to search Delta Labs accounts."
-            : "Type at least 2 characters to search school students."}
+            : personPicker === "school_parents"
+              ? "Type at least 2 characters to search school parents."
+              : personPicker === "class_students"
+                ? "Type at least 2 characters to search students on this class."
+                : "Type at least 2 characters to search school students."}
         </p>
       );
     }
@@ -221,7 +245,7 @@ export function ManagementTablePersonCellEditor({
       return <p className="px-2 py-5 text-center text-xs text-text-tertiary">{emptyMessage}</p>;
     }
     return (
-      <ul className="space-y-0.5">
+      <ul className="space-y-2">
         {results.map((user) => (
           <li key={user.userId}>
             <PersonPickerRow user={user} onPick={pick} />
@@ -247,7 +271,7 @@ export function ManagementTablePersonCellEditor({
           open ? "ring-2 ring-primary-500/35 ring-offset-1" : "",
         ].join(" ")}
         onClick={() => setOpen((v) => !v)}
-        title={label || "Assign student"}
+        title={label || `Assign ${personLabel}`}
       >
         {hasSelection ? (
           <>
@@ -266,7 +290,7 @@ export function ManagementTablePersonCellEditor({
               id={panelId}
               role="dialog"
               aria-modal="true"
-              aria-label="Select student"
+              aria-label={`Select ${personLabel}`}
               className="fixed z-[4600] w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border-default bg-surface-default shadow-[0_12px_40px_rgba(2,24,43,0.18)]"
               style={{ top: pos.top, left: pos.left }}
             >
@@ -286,7 +310,11 @@ export function ManagementTablePersonCellEditor({
                     placeholder={
                       personPicker === "platform"
                         ? "Search name, username, or email"
-                        : "Search registered school students"
+                        : personPicker === "school_parents"
+                          ? "Search registered school parents"
+                          : personPicker === "class_students"
+                            ? "Search students on this class"
+                            : "Search registered school students"
                     }
                     className="h-10 w-full rounded-lg border border-primary-500 bg-surface-default pl-9 pr-9 text-sm text-text-primary outline-none ring-2 ring-primary-500/25 placeholder:text-text-tertiary"
                     autoFocus
@@ -298,8 +326,12 @@ export function ManagementTablePersonCellEditor({
                     onClick={() =>
                       window.alert(
                         personPicker === "platform"
-                          ? "Search any Delta Labs account by name, username, or email. Picking someone registers them as a school student."
-                          : "Search students already registered at this school. Add new students from the school student workspace first.",
+                          ? "Search any Delta Labs account by name, username, or email. Picking someone registers them at this school."
+                          : personPicker === "school_parents"
+                            ? "Search parents already registered at this school. Add new parents from the school parent workspace first."
+                            : personPicker === "class_students"
+                              ? "Only students already on this class Student tab appear here. Add students there first."
+                              : "Search students already registered at this school. Add new students from the school student workspace first.",
                       )
                     }
                   >
@@ -311,7 +343,15 @@ export function ManagementTablePersonCellEditor({
               <div className="relative max-h-72 overflow-y-auto px-2 py-2">
                 <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">
-                    {query.trim().length >= 2 ? "Results" : "Suggested students"}
+                    {query.trim().length >= 2
+                      ? "Results"
+                      : personPicker === "school_parents"
+                        ? "Suggested parents"
+                        : personPicker === "class_students"
+                          ? "Class students"
+                          : personPicker === "platform"
+                            ? "Suggested accounts"
+                            : "Suggested students"}
                   </span>
                   {hasSelection ? (
                     <button

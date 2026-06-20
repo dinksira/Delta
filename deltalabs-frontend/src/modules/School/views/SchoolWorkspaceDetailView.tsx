@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Table2,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -69,6 +70,7 @@ const SCHOOL_DETAIL_SECTIONS = [
   { id: "management-table", label: "Management Table" },
   { id: "resource", label: "Resource" },
   { id: "students", label: "Students" },
+  { id: "parents", label: "Parents" },
   { id: "service", label: "Service" },
 ] as const;
 type SectionId = (typeof SCHOOL_DETAIL_SECTIONS)[number]["id"];
@@ -80,6 +82,7 @@ const ADDABLE_SECTION_OPTIONS = [
   { id: "management-table", label: "Management Table", icon: Network },
   { id: "resource", label: "Resource", icon: BookOpen },
   { id: "students", label: "Students", icon: GraduationCap },
+  { id: "parents", label: "Parents", icon: Users },
   { id: "service", label: "Service", icon: HandHelping },
 ] as const;
 type AddableSectionId = (typeof ADDABLE_SECTION_OPTIONS)[number]["id"];
@@ -124,6 +127,7 @@ const CREATION_CHOICES = [
   { id: "management-table", label: "Management Table" },
   { id: "resource", label: "Resource" },
   { id: "student", label: "Student" },
+  { id: "parent", label: "Parent" },
   { id: "service", label: "Service" },
   { id: "staff", label: "Staff" },
 ] as const;
@@ -669,6 +673,7 @@ export function SchoolWorkspaceDetailView({
   const mapSectionToCreationChoice = (section: SectionId): CreationChoiceId => {
     if (section === "departments") return "department";
     if (section === "students") return "student";
+    if (section === "parents") return "parent";
     return section as CreationChoiceId;
   };
   const mapCreationChoiceToItemType = (choice: CreationChoiceId): SchoolWorkspaceItemTypeDto =>
@@ -854,6 +859,16 @@ export function SchoolWorkspaceDetailView({
         ],
       };
     }
+    if (target === "parent") {
+      return {
+        title: "Create Parent Holder",
+        submitLabel: "ADD",
+        fields: [
+          { key: "title", label: "Title", placeholder: "title" },
+          { key: "description", label: "Description", placeholder: "Description" },
+        ],
+      };
+    }
     return {
       title: `Create ${target.replace("-", " ").replace(/\b\w/g, (s) => s.toUpperCase())}`,
       submitLabel: "ADD",
@@ -936,6 +951,16 @@ export function SchoolWorkspaceDetailView({
     );
   };
 
+  const navigateToParentRegistration = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/parent/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
   const navigateToDepartmentDetail = (item: { id: string }) => {
     const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     router.push(
@@ -967,6 +992,8 @@ export function SchoolWorkspaceDetailView({
 
   const itemOpensAsStudentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "student";
 
+  const itemOpensAsParentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "parent";
+
   const itemOpensAsManagementTable = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "management-table";
 
   const itemPrimaryOpens = (item: (typeof filteredWorkspaceItems)[number]) =>
@@ -974,6 +1001,7 @@ export function SchoolWorkspaceDetailView({
     itemOpensAsDepartmentRoute(item) ||
     itemOpensAsClassDetail(item) ||
     itemOpensAsStudentRegistration(item) ||
+    itemOpensAsParentRegistration(item) ||
     itemOpensAsManagementTable(item);
 
   const navigateToManagementTableWorkspace = (item: { id: string }) => {
@@ -1002,6 +1030,7 @@ export function SchoolWorkspaceDetailView({
       else navigateToDepartmentDetail(item);
     } else if (itemOpensAsClassDetail(item)) navigateToClassDetail(item);
     else if (itemOpensAsStudentRegistration(item)) navigateToStudentRegistration(item);
+    else if (itemOpensAsParentRegistration(item)) navigateToParentRegistration(item);
     else if (itemOpensAsManagementTable(item)) navigateToManagementTableWorkspace(item);
   };
 
@@ -1022,6 +1051,7 @@ export function SchoolWorkspaceDetailView({
     if (item.type === "management-table") return "Self Owned";
     if (item.type === "resource") return "Abebe Kebede";
     if (item.type === "student") return item.description ?? "Student Registration";
+    if (item.type === "parent") return item.description ?? "Parent Registration";
     return item.description ?? "";
   };
 
@@ -1463,7 +1493,9 @@ export function SchoolWorkspaceDetailView({
                                 ? "Open class workspace"
                                 : itemOpensAsStudentRegistration(item)
                                   ? "Open student registration"
-                                  : "Only departments, folders, classes, and student registration can be opened here."
+                                  : itemOpensAsParentRegistration(item)
+                                    ? "Open parent registration"
+                                    : "Only departments, folders, classes, and registration areas can be opened here."
                         }
                         onClick={() => {
                           onPrimaryOpenWorkspaceItem(item);

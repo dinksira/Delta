@@ -1,4 +1,4 @@
-import type { ManagementTableColumnDto } from "@/modules/School/api";
+import type { ManagementTableColumnDto, SchoolMemberSearchPicker } from "@/modules/School/api";
 
 export type ManagementTablePersonCellValue = Readonly<{
   userId?: string;
@@ -10,7 +10,24 @@ export type ManagementTablePersonCellValue = Readonly<{
 export function columnUsesPersonPicker(column: ManagementTableColumnDto): boolean {
   const editor = column.settings?.cellEditor;
   if (editor === "person") return true;
-  return column.title.trim().toLowerCase() === "student";
+  const title = column.title.trim().toLowerCase();
+  return title === "student" || title === "parent";
+}
+
+export function resolvePersonPickerForColumn(
+  column: ManagementTableColumnDto,
+  tableDefault: SchoolMemberSearchPicker,
+): SchoolMemberSearchPicker {
+  const title = column.title.trim().toLowerCase();
+  if (title === "parent") {
+    return tableDefault === "platform" ? "platform" : "school_parents";
+  }
+  if (title === "student") {
+    if (tableDefault === "platform") return "platform";
+    if (tableDefault === "school_parents") return "class_students";
+    return "school_students";
+  }
+  return tableDefault;
 }
 
 export function parsePersonCellValue(raw: unknown): ManagementTablePersonCellValue {

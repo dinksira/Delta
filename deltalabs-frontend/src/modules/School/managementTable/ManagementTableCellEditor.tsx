@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import type { ManagementTableColumnDto } from "@/modules/School/api";
-import { columnUsesPersonPicker } from "@/modules/School/managementTable/managementTablePersonCell";
+import type { ManagementTableColumnDto, SchoolMemberSearchPicker } from "@/modules/School/api";
+import { columnUsesPersonPicker, resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTablePersonCellEditor } from "@/modules/School/managementTable/ManagementTablePersonCellEditor";
 
 function optionList(settings: Readonly<Record<string, unknown>>): { id: string; label: string }[] {
@@ -106,20 +106,23 @@ export function ManagementTableCellEditor({
   orgId,
   schoolId,
   personPicker = "school_students",
+  classWorkspaceItemId,
 }: Readonly<{
   column: ManagementTableColumnDto;
   value: unknown;
   onCommit: (next: unknown, immediate?: boolean) => void;
   orgId?: string;
   schoolId?: string;
-  personPicker?: "school_students" | "platform";
+  personPicker?: SchoolMemberSearchPicker;
+  classWorkspaceItemId?: string;
 }>) {
   if (columnUsesPersonPicker(column) && orgId && schoolId) {
     return (
       <ManagementTablePersonCellEditor
         orgId={orgId}
         schoolId={schoolId}
-        personPicker={personPicker}
+        personPicker={resolvePersonPickerForColumn(column, personPicker)}
+        classWorkspaceItemId={classWorkspaceItemId}
         value={value}
         onCommit={onCommit}
       />

@@ -504,6 +504,12 @@ class ManagementTableService:
             instance_id=instance_id,
             cells=existing_cells,
         )
+        await self._maybe_sync_school_parent_membership_from_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            cells=existing_cells,
+        )
         return map_row(refreshed)
 
     async def _maybe_sync_school_student_membership_from_row(
@@ -549,6 +555,56 @@ class ManagementTableService:
         role_keys = list(membership.get("role_keys", [])) if membership is not None else []
         if "student" not in role_keys:
             role_keys.append("student")
+        await self._school.upsert_school_membership(
+            user_id=user_id,
+            school_id=school_id,
+            org_id=org_id,
+            role_keys=role_keys,
+        )
+
+    async def _maybe_sync_school_parent_membership_from_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        cells: dict[str, Any],
+    ) -> None:
+        inst = await self._mt.find_instance(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+        )
+        if inst is None:
+            return
+        ws_id = inst.get("workspace_item_id")
+        if not isinstance(ws_id, str) or not ws_id.strip():
+            return
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=ws_id.strip(),
+        )
+        if item is None or str(item.get("type", "")) != "parent":
+            return
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        parent_col_id = meta_dict.get("parentsTableParentColumnId")
+        if not isinstance(parent_col_id, str) or not parent_col_id.strip():
+            return
+        raw = cells.get(parent_col_id.strip())
+        if not isinstance(raw, dict):
+            return
+        user_id = str(raw.get("userId") or raw.get("user_id") or "").strip()
+        if not user_id:
+            return
+        membership = await self._school.find_school_membership(
+            user_id=user_id,
+            school_id=school_id,
+        )
+        role_keys = list(membership.get("role_keys", [])) if membership is not None else []
+        if "parent" not in role_keys:
+            role_keys.append("parent")
         await self._school.upsert_school_membership(
             user_id=user_id,
             school_id=school_id,
@@ -746,6 +802,152 @@ class ManagementTableService:
             workspace_item_id=student_workspace_item_id,
             allowed_types=frozenset({"student"}),
             invalid_type_code="school_students_table_workspace_type_invalid",
+        )
+
+    async def bootstrap_parents_table_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        workspace_item_id: str,
+        allowed_types: frozenset[str],
+        invalid_type_code: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        await self._require_school(org_id=org_id, school_id=school_id)
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+        )
+        if item is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        item_type = str(item.get("type", ""))
+        if item_type not in allowed_types:
+            raise ValidationError(
+                "Workspace item cannot host a parents table.",
+                code=invalid_type_code,
+            )
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        students_instance_id = str(meta_dict.get("studentsTableInstanceId") or "").strip()
+        existing_id_raw = meta_dict.get("parentsTableInstanceId")
+        existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
+        if existing_id and existing_id == students_instance_id:
+            existing_id = ""
+        if existing_id:
+            inst = await self._mt.find_instance(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=existing_id,
+            )
+            if inst is not None:
+                bundle = await self.get_instance_bundle(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=existing_id,
+                )
+                parent_col_id = meta_dict.get("parentsTableParentColumnId")
+                has_parent_col = any(
+                    c.title.strip().lower() == "parent"
+                    or (isinstance(parent_col_id, str) and c.id == parent_col_id.strip())
+                    for c in bundle.definition.columns
+                )
+                if has_parent_col:
+                    return ManagementTableWorkspaceBootstrapResponse(
+                        instance=bundle.instance,
+                        definition=bundle.definition,
+                        already_linked=True,
+                    )
+        item_title = str(item.get("title", "Parents")).strip() or "Parents"
+        parent_col_id = _new_column_id()
+        starter_columns: list[dict[str, Any]] = [
+            {
+                "id": parent_col_id,
+                "title": "Parent",
+                "type": "text",
+                "order": 0,
+                "settings": {"cellEditor": "person"},
+            },
+        ]
+        student_col_id: str | None = None
+        if item_type == "class":
+            student_col_id = _new_column_id()
+            starter_columns.append(
+                {
+                    "id": student_col_id,
+                    "title": "Student",
+                    "type": "text",
+                    "order": 1,
+                    "settings": {"cellEditor": "person"},
+                },
+            )
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id,
+            school_id=school_id,
+            title=f"{item_title} — Parents",
+            visibility="self_owned",
+            created_by_user_id=user_id,
+            columns=starter_columns,
+        )
+        bundle = await self.create_instance(
+            org_id=org_id,
+            school_id=school_id,
+            payload=ManagementTableInstanceCreateInput(
+                definition_id=str(definition_doc["_id"]),
+                title=f"{item_title} Parents",
+                workspace_item_id=workspace_item_id,
+            ),
+        )
+        meta_dict["parentsTableInstanceId"] = bundle.instance.id
+        meta_dict["parentsTableDefinitionId"] = bundle.definition.id
+        meta_dict["parentsTableParentColumnId"] = parent_col_id
+        if student_col_id is not None:
+            meta_dict["parentsTableStudentColumnId"] = student_col_id
+        await self._school.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+            updates={"metadata": meta_dict},
+        )
+        return ManagementTableWorkspaceBootstrapResponse(
+            instance=bundle.instance,
+            definition=bundle.definition,
+            already_linked=False,
+        )
+
+    async def bootstrap_class_parents_table(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        class_workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        return await self.bootstrap_parents_table_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user_id,
+            workspace_item_id=class_workspace_item_id,
+            allowed_types=frozenset({"class"}),
+            invalid_type_code="class_parents_table_workspace_type_invalid",
+        )
+
+    async def bootstrap_school_parents_table(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        parent_workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        return await self.bootstrap_parents_table_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user_id,
+            workspace_item_id=parent_workspace_item_id,
+            allowed_types=frozenset({"parent"}),
+            invalid_type_code="school_parents_table_workspace_type_invalid",
         )
 
     async def sync_class_enrollment_row(

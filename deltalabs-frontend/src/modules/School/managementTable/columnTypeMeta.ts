@@ -82,6 +82,8 @@ export const CLASS_STUDENTS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAdd
   },
 ];
 
+export const CLASS_PARENTS_TABLE_ADD_COLUMN_GROUPS = CLASS_STUDENTS_TABLE_ADD_COLUMN_GROUPS;
+
 export function filterAddColumnGroups(
   groups: readonly ManagementTableAddColumnGroup[],
   search: string,

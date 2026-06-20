@@ -63,5 +63,19 @@ class MtColumnModel {
 
   bool get usesPersonPicker =>
       settings['cellEditor']?.toString() == 'person' ||
-      title.trim().toLowerCase() == 'student';
+      title.trim().toLowerCase() == 'student' ||
+      title.trim().toLowerCase() == 'parent';
+
+  String resolvePersonPicker(String tableDefault) {
+    final normalizedTitle = title.trim().toLowerCase();
+    if (normalizedTitle == 'parent') {
+      return tableDefault == 'platform' ? 'platform' : 'school_parents';
+    }
+    if (normalizedTitle == 'student') {
+      if (tableDefault == 'platform') return 'platform';
+      if (tableDefault == 'school_parents') return 'class_students';
+      return 'school_students';
+    }
+    return tableDefault;
+  }
 }

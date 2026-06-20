@@ -23,6 +23,7 @@ import {
   ClassSessionSection,
   ClassSessionsEmptyState,
   ClassStudentsTablePanel,
+  ClassParentsTablePanel,
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
 } from "@/modules/School/class";
@@ -64,6 +65,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const bottomNavSection = searchParams.get("nav");
   const showClassSessions = !bottomNavSection || bottomNavSection === "class";
   const showClassStudents = bottomNavSection === "students";
+  const showClassParents = bottomNavSection === "parents";
 
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
@@ -220,7 +222,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
         <p className="text-sm leading-relaxed text-text-secondary">
           This workspace item is not a class. Open it from the school workspace.
         </p>
-      ) : !showClassSessions && !showClassStudents ? (
+      ) : !showClassSessions && !showClassStudents && !showClassParents ? (
         <div
           className="flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-16 text-center"
           role="status"
@@ -232,6 +234,21 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
             sessions.
           </p>
         </div>
+      ) : showClassParents ? (
+        activeOrgId ? (
+          <ClassParentsTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
       ) : showClassStudents ? (
         activeOrgId ? (
           <ClassStudentsTablePanel

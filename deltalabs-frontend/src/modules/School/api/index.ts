@@ -149,6 +149,7 @@ export type SchoolWorkspaceItemTypeDto =
   | "management-table"
   | "resource"
   | "student"
+  | "parent"
   | "service"
   | "staff";
 
@@ -926,7 +927,7 @@ export type SchoolMemberSearchResponseDto = Readonly<{
   items: readonly SchoolMemberSearchUserDto[];
 }>;
 
-export type SchoolMemberSearchPicker = "school_students" | "platform";
+export type SchoolMemberSearchPicker = "school_students" | "school_parents" | "class_students" | "platform";
 
 export async function searchSchoolMembers(
   orgId: string,
@@ -934,10 +935,18 @@ export async function searchSchoolMembers(
   q: string,
   limit = 20,
   picker: SchoolMemberSearchPicker = "school_students",
+  classWorkspaceItemId?: string,
 ): Promise<SchoolMemberSearchResponseDto> {
   return apiClient.get<SchoolMemberSearchResponseDto>(
     `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/members/search`,
-    { searchParams: { q, limit, picker } },
+    {
+      searchParams: {
+        q,
+        limit,
+        picker,
+        ...(classWorkspaceItemId?.trim() ? { classWorkspaceItemId: classWorkspaceItemId.trim() } : {}),
+      },
+    },
   );
 }
 
@@ -956,6 +965,24 @@ export async function bootstrapStudentsTableWorkspaceItem(
 ): Promise<ManagementTableWorkspaceBootstrapDto> {
   return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
     `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/students-table/bootstrap`,
+  );
+}
+
+export async function bootstrapClassParentsTable(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return bootstrapParentsTableWorkspaceItem(orgId, schoolId, classWorkspaceItemId);
+}
+
+export async function bootstrapParentsTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  workspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/parents-table/bootstrap`,
   );
 }
 

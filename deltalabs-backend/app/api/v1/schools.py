@@ -616,6 +616,7 @@ async def search_org_school_members(
     q: str = Query(default="", max_length=200),
     limit: int = Query(default=20, ge=1, le=50),
     picker: SchoolMemberSearchPicker = Query(default="school_students"),
+    class_workspace_item_id: str | None = Query(default=None, alias="classWorkspaceItemId"),
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> SchoolMemberSearchResponse:
     service = _service(db)
@@ -626,6 +627,7 @@ async def search_org_school_members(
         q=q,
         limit=limit,
         picker=picker,
+        class_workspace_item_id=class_workspace_item_id,
     )
 
 
@@ -686,6 +688,69 @@ async def bootstrap_org_class_students_table(
     await service.bootstrap()
     mt = _management_table_service(db)
     return await mt.bootstrap_class_students_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/parents-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_parents_table_workspace_item(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    item = await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=workspace_item_id,
+    )
+    if item.type != "class":
+        if item.type == "parent":
+            return await mt.bootstrap_school_parents_table(
+                org_id=org_id,
+                school_id=school_id,
+                user_id=user.user_id,
+                parent_workspace_item_id=workspace_item_id,
+            )
+        raise ValidationError(
+            "Workspace item cannot host a parents table.",
+            code="parents_table_workspace_type_invalid",
+        )
+    return await mt.bootstrap_class_parents_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/parents-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_class_parents_table(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_class_parents_table(
         org_id=org_id,
         school_id=school_id,
         user_id=user.user_id,

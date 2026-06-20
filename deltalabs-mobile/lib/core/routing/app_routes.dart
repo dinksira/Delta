@@ -167,7 +167,7 @@ abstract class AppRoutes {
   }
 
   static String parseClassWorkspaceTab(String? raw) {
-    const allowed = {'overview', 'sessions', 'people', 'academics', 'resources'};
+    const allowed = {'overview', 'sessions', 'people', 'parents', 'academics', 'resources'};
     final tab = raw?.trim().toLowerCase() ?? '';
     if (allowed.contains(tab)) return tab;
     return 'overview';

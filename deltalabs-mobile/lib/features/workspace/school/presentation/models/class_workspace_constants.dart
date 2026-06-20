@@ -27,7 +27,8 @@ abstract class ClassWorkspaceConstants {
   static const sections = <ClassWorkspaceSection>[
     ClassWorkspaceSection(id: 'overview', label: 'Overview'),
     ClassWorkspaceSection(id: 'sessions', label: 'Sessions'),
-    ClassWorkspaceSection(id: 'people', label: 'People'),
+    ClassWorkspaceSection(id: 'people', label: 'Students'),
+    ClassWorkspaceSection(id: 'parents', label: 'Parents'),
     ClassWorkspaceSection(id: 'academics', label: 'Academics'),
     ClassWorkspaceSection(id: 'resources', label: 'Resources'),
   ];
@@ -36,6 +37,7 @@ abstract class ClassWorkspaceConstants {
     'overview',
     'sessions',
     'people',
+    'parents',
     'academics',
     'resources',
   ];

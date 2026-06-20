@@ -12,6 +12,7 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.errors import OperationFailure
 
 from app.domain.management_table.repository import ManagementTableRepository
+from app.domain.management_table.schemas import MANAGEMENT_TABLE_DEFAULT_GROUP_ID
 from app.domain.school.schemas import MarketplaceSortBy, MarketplaceSortDirection, OfferListView, OfferStatus
 
 
@@ -496,11 +497,14 @@ class Repository:
             )
             return users[:safe_limit]
 
+        if picker not in {"school_students", "school_parents"}:
+            return []
+        role_key = "student" if picker == "school_students" else "parent"
         memberships = await self._db["school_memberships"].find(
             {
                 "school_id": school_id,
                 "status": "active",
-                "role_keys": "student",
+                "role_keys": role_key,
             },
             {"user_id": 1},
         ).to_list(length=5000)
@@ -509,6 +513,85 @@ class Repository:
             return []
 
         user_query: dict[str, Any] = {"$and": [{"_id": {"$in": student_ids}}, text_query]}
+        users = await (
+            self._db["users"]
+            .find(user_query)
+            .sort([("full_name", 1), ("username", 1)])
+            .limit(safe_limit)
+            .to_list(length=safe_limit)
+        )
+        return users
+
+    async def search_class_students_for_picker(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        q: str,
+        limit: int = 20,
+    ) -> list[dict[str, Any]]:
+        query_text = q.strip()
+        if not query_text:
+            return []
+        safe_limit = max(1, min(limit, 50))
+
+        class_item = await self.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id.strip(),
+        )
+        if class_item is None or str(class_item.get("type", "")) != "class":
+            return []
+
+        meta = class_item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        instance_id = str(meta_dict.get("studentsTableInstanceId") or "").strip()
+        student_col_id = str(meta_dict.get("studentsTableStudentColumnId") or "").strip()
+        if not instance_id or not student_col_id:
+            return []
+
+        mt = ManagementTableRepository(self._db)
+        rows, _total = await mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+            skip=0,
+            limit=2000,
+        )
+
+        user_ids: list[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            cells = row.get("cells")
+            if not isinstance(cells, dict):
+                continue
+            raw = cells.get(student_col_id)
+            if not isinstance(raw, dict):
+                continue
+            uid = str(raw.get("userId") or raw.get("user_id") or "").strip()
+            if uid and uid not in seen:
+                seen.add(uid)
+                user_ids.append(uid)
+
+        if not user_ids:
+            return []
+
+        terms = [part for part in re.split(r"\s+", query_text) if part]
+        search_fields = ("full_name", "username", "email", "email_normalized")
+
+        def _term_clause(term: str) -> dict[str, Any]:
+            regex = {"$regex": re.escape(term), "$options": "i"}
+            return {"$or": [{field: regex} for field in search_fields]}
+
+        text_query: dict[str, Any]
+        if len(terms) <= 1:
+            text_query = _term_clause(query_text)
+        else:
+            text_query = {"$and": [_term_clause(term) for term in terms]}
+
+        user_query: dict[str, Any] = {"$and": [{"_id": {"$in": user_ids}}, text_query]}
         users = await (
             self._db["users"]
             .find(user_query)

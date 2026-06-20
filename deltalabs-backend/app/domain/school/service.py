@@ -513,16 +513,32 @@ class Service:
         q: str,
         limit: int = 20,
         picker: SchoolMemberSearchPicker = "school_students",
+        class_workspace_item_id: str | None = None,
     ) -> SchoolMemberSearchResponse:
         school = await self._repository.find_school(org_id=org_id, school_id=school_id)
         if school is None:
             raise NotFoundError("School not found.", code="school_not_found")
-        docs = await self._repository.search_users_for_school_picker(
-            school_id=school_id,
-            q=q,
-            limit=limit,
-            picker=picker,
-        )
+        if picker == "class_students":
+            class_id = (class_workspace_item_id or "").strip()
+            if not class_id:
+                raise ValidationError(
+                    "classWorkspaceItemId is required when picker is class_students.",
+                    code="class_students_picker_missing_class",
+                )
+            docs = await self._repository.search_class_students_for_picker(
+                org_id=org_id,
+                school_id=school_id,
+                class_workspace_item_id=class_id,
+                q=q,
+                limit=limit,
+            )
+        else:
+            docs = await self._repository.search_users_for_school_picker(
+                school_id=school_id,
+                q=q,
+                limit=limit,
+                picker=picker,
+            )
         items: list[SchoolMemberSearchUserPublic] = []
         for doc in docs:
             items.append(

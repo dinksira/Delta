@@ -15,6 +15,7 @@ class MtGroupSection extends HookConsumerWidget {
     required this.definition,
     this.canMutate = false,
     this.personPicker = 'school_students',
+    this.classWorkspaceItemId,
     super.key,
   });
 
@@ -24,6 +25,7 @@ class MtGroupSection extends HookConsumerWidget {
   final MtDefinitionModel definition;
   final bool canMutate;
   final String personPicker;
+  final String? classWorkspaceItemId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -141,6 +143,7 @@ class MtGroupSection extends HookConsumerWidget {
                               personSearchOrgId: boardQuery.orgId,
                               personSearchSchoolId: boardQuery.schoolId,
                               personPicker: personPicker,
+                              classWorkspaceItemId: classWorkspaceItemId,
                               onCellCommit: canMutate
                                   ? (row, column, value) => runMutation(
                                         () => board.patchCell(

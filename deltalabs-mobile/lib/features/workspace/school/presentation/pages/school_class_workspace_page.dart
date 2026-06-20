@@ -6,6 +6,7 @@ import 'package:deltalabs_mobile/features/workspace/school/presentation/models/c
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_coming_soon_panel.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_overview_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_parents_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_students_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/utils/class_workspace_utils.dart';
@@ -306,6 +307,15 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
               );
             case 'people':
               return ClassStudentsTableTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onTableReady: refresh,
+              );
+            case 'parents':
+              return ClassParentsTableTab(
                 orgId: orgId,
                 schoolId: schoolId,
                 classItemId: classItemId,

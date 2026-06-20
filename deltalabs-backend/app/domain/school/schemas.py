@@ -187,6 +187,7 @@ SchoolWorkspaceItemType = Literal[
     "management-table",
     "resource",
     "student",
+    "parent",
     "service",
     "staff",
 ]
@@ -345,7 +346,7 @@ class SchoolMemberSearchResponse(BaseModel):
     items: list[SchoolMemberSearchUserPublic]
 
 
-SchoolMemberSearchPicker = Literal["school_students", "platform"]
+SchoolMemberSearchPicker = Literal["school_students", "school_parents", "class_students", "platform"]
 
 
 class OfferPublic(BaseModel):

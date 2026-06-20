@@ -35,6 +35,7 @@ class MtBoardGrid extends StatelessWidget {
     this.personSearchOrgId,
     this.personSearchSchoolId,
     this.personPicker = 'school_students',
+    this.classWorkspaceItemId,
     this.onCellCommit,
     this.onRenameColumn,
     this.onDeleteColumn,
@@ -49,6 +50,7 @@ class MtBoardGrid extends StatelessWidget {
   final String? personSearchOrgId;
   final String? personSearchSchoolId;
   final String personPicker;
+  final String? classWorkspaceItemId;
   final MtCellCommitHandler? onCellCommit;
   final MtColumnRenameHandler? onRenameColumn;
   final MtColumnDeleteHandler? onDeleteColumn;
@@ -141,7 +143,8 @@ class MtBoardGrid extends StatelessWidget {
       value: value,
       personSearchOrgId: personSearchOrgId,
       personSearchSchoolId: personSearchSchoolId,
-      personPicker: personPicker,
+      personPicker: column.resolvePersonPicker(personPicker),
+      classWorkspaceItemId: classWorkspaceItemId,
       onCommit: (next) => onCellCommit!(row, column, next),
     );
   }

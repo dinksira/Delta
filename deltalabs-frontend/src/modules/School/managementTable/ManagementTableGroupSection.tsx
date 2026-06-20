@@ -6,9 +6,15 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
-import type { ManagementTableColumnDto, ManagementTableRowDto, ManagementTableRowListResponseDto } from "@/modules/School/api";
+import type {
+  ManagementTableColumnDto,
+  ManagementTableRowDto,
+  ManagementTableRowListResponseDto,
+  SchoolMemberSearchPicker,
+} from "@/modules/School/api";
 import { createManagementTableRow, fetchManagementTableRows, patchManagementTableRowCells } from "@/modules/School/api";
 import { ManagementTableCellEditor } from "@/modules/School/managementTable/ManagementTableCellEditor";
+import { resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTableBoardViewsPopover } from "@/modules/School/managementTable/ManagementTableBoardViewsPopover";
 import { ManagementTableColumnHeadCell } from "@/modules/School/managementTable/ManagementTableColumnHeadCell";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
@@ -23,7 +29,8 @@ export type ManagementTableGroupSectionProps = Readonly<{
   columns: readonly ManagementTableColumnDto[];
   parentEnabled: boolean;
   onOpenAddColumn: (anchor: HTMLButtonElement) => void;
-  personPicker?: "school_students" | "platform";
+  personPicker?: SchoolMemberSearchPicker;
+  classWorkspaceItemId?: string;
 }>;
 
 export function ManagementTableGroupSection({
@@ -37,6 +44,7 @@ export function ManagementTableGroupSection({
   parentEnabled,
   onOpenAddColumn,
   personPicker = "school_students",
+  classWorkspaceItemId,
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
@@ -261,7 +269,8 @@ export function ManagementTableGroupSection({
                         value={row.cells[col.id]}
                         orgId={orgId}
                         schoolId={schoolId}
-                        personPicker={personPicker}
+                        personPicker={resolvePersonPickerForColumn(col, personPicker)}
+                        classWorkspaceItemId={classWorkspaceItemId}
                         onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
                       />
                     </td>
