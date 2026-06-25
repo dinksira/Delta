@@ -333,6 +333,140 @@ class ClassEnrollmentListResponse(BaseModel):
     items: list[ClassEnrollmentPublic]
 
 
+AttendanceMarkStatus = Literal["present", "absent", "late"]
+AttendanceDeviceType = Literal["qr_scanner", "fingerprint", "other"]
+AttendanceDeviceStatus = Literal["online", "offline"]
+AttendanceSessionTracking = Literal["manual", "device"]
+AttendanceFormulaOperation = Literal["sum", "average", "count_present"]
+AttendanceFormulaMode = Literal["preset", "custom"]
+AttendanceFaceTrackOption = Literal["random_sampling", "continuous"]
+
+
+class AttendanceFaceDetectionSettingsPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    section: str = "all"
+    track_option: AttendanceFaceTrackOption = Field(default="random_sampling", serialization_alias="trackOption")
+    sampling_interval_minutes: int = Field(default=5, serialization_alias="samplingIntervalMinutes")
+    presence_threshold_percent: int = Field(default=80, serialization_alias="presenceThresholdPercent")
+
+
+class AttendanceFormulaConfigPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    mode: AttendanceFormulaMode = "preset"
+    operation: AttendanceFormulaOperation = "sum"
+    session_ids: list[str] = Field(default_factory=list, serialization_alias="sessionIds")
+    custom_expression: str = Field(default="", serialization_alias="customExpression")
+
+
+class AttendanceRealtimeTrackPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = False
+    face_detection: bool = Field(default=False, serialization_alias="faceDetection")
+    voice_recognition: bool = Field(default=False, serialization_alias="voiceRecognition")
+    record_video: bool = Field(default=False, serialization_alias="recordVideo")
+    record_audio: bool = Field(default=False, serialization_alias="recordAudio")
+    face_detection_settings: AttendanceFaceDetectionSettingsPublic = Field(
+        default_factory=AttendanceFaceDetectionSettingsPublic,
+        serialization_alias="faceDetectionSettings",
+    )
+
+
+class AttendanceSessionPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    scheduled_at: datetime | None = Field(default=None, serialization_alias="scheduledAt")
+    hidden: bool = False
+    tracking_mode: AttendanceSessionTracking = Field(default="manual", serialization_alias="trackingMode")
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class AttendanceDevicePublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    name: str
+    device_type: AttendanceDeviceType = Field(serialization_alias="deviceType")
+    attendance_session_label: str = Field(serialization_alias="attendanceSessionLabel")
+    status: AttendanceDeviceStatus = "online"
+    last_synced_at: datetime | None = Field(default=None, serialization_alias="lastSyncedAt")
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+
+class ClassAttendanceStatePublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    sessions: list[AttendanceSessionPublic] = Field(default_factory=list)
+    devices: list[AttendanceDevicePublic] = Field(default_factory=list)
+    marks: dict[str, AttendanceMarkStatus] = Field(default_factory=dict)
+    formula_config: AttendanceFormulaConfigPublic = Field(
+        default_factory=AttendanceFormulaConfigPublic,
+        serialization_alias="formulaConfig",
+    )
+    realtime_track: AttendanceRealtimeTrackPublic = Field(
+        default_factory=AttendanceRealtimeTrackPublic,
+        serialization_alias="realtimeTrack",
+    )
+
+
+class AttendanceSessionSettingsInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    class_session_id: str = Field(min_length=1, max_length=64, alias="classSessionId")
+    hidden: bool = False
+    tracking_mode: AttendanceSessionTracking = Field(default="manual", alias="trackingMode")
+
+
+class AttendanceDeviceCreateInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str = Field(min_length=1, max_length=200)
+    device_type: AttendanceDeviceType = Field(default="fingerprint", alias="deviceType")
+    attendance_session_label: str = Field(default="Class Attendance", alias="attendanceSessionLabel")
+
+
+class AttendanceMarkPatchInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    student_id: str = Field(min_length=1, alias="studentId")
+    session_id: str = Field(min_length=1, alias="sessionId")
+    status: AttendanceMarkStatus | None = None
+
+
+class AttendanceFormulaConfigPutInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    mode: AttendanceFormulaMode = "preset"
+    operation: AttendanceFormulaOperation = "sum"
+    session_ids: list[str] = Field(default_factory=list, alias="sessionIds")
+    custom_expression: str = Field(default="", alias="customExpression")
+
+
+class AttendanceRealtimeTrackPutInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = False
+    face_detection: bool = Field(default=False, alias="faceDetection")
+    voice_recognition: bool = Field(default=False, alias="voiceRecognition")
+    record_video: bool = Field(default=False, alias="recordVideo")
+    record_audio: bool = Field(default=False, alias="recordAudio")
+    face_detection_settings: AttendanceFaceDetectionSettingsPublic = Field(
+        default_factory=AttendanceFaceDetectionSettingsPublic,
+        alias="faceDetectionSettings",
+    )
+
+
+class LeaveRequestSubmitInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    """Column id → value for student-fillable fields (not Student or Status)."""
+    cells: dict[str, Any] = Field(default_factory=dict)
+
+
 class SchoolMemberSearchUserPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -346,7 +480,7 @@ class SchoolMemberSearchResponse(BaseModel):
     items: list[SchoolMemberSearchUserPublic]
 
 
-SchoolMemberSearchPicker = Literal["school_students", "school_parents", "class_students", "platform"]
+SchoolMemberSearchPicker = Literal["school_students", "school_parents", "school_teachers", "class_students", "platform"]
 
 
 class OfferPublic(BaseModel):

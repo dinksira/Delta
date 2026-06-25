@@ -167,8 +167,19 @@ abstract class AppRoutes {
   }
 
   static String parseClassWorkspaceTab(String? raw) {
-    const allowed = {'overview', 'sessions', 'people', 'parents', 'academics', 'resources'};
+    const allowed = {
+      'overview',
+      'sessions',
+      'people',
+      'parents',
+      'attendance',
+      'teachers',
+      'resources',
+      // legacy alias from older builds
+      'academics',
+    };
     final tab = raw?.trim().toLowerCase() ?? '';
+    if (tab == 'academics') return 'attendance';
     if (allowed.contains(tab)) return tab;
     return 'overview';
   }

@@ -14,7 +14,11 @@ import type {
 } from "@/modules/School/api";
 import { createManagementTableRow, fetchManagementTableRows, patchManagementTableRowCells } from "@/modules/School/api";
 import { ManagementTableCellEditor } from "@/modules/School/managementTable/ManagementTableCellEditor";
-import { resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
+import {
+  columnUsesPersonPicker,
+  formatPersonCellLabel,
+  resolvePersonPickerForColumn,
+} from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTableBoardViewsPopover } from "@/modules/School/managementTable/ManagementTableBoardViewsPopover";
 import { ManagementTableColumnHeadCell } from "@/modules/School/managementTable/ManagementTableColumnHeadCell";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
@@ -31,6 +35,11 @@ export type ManagementTableGroupSectionProps = Readonly<{
   onOpenAddColumn: (anchor: HTMLButtonElement) => void;
   personPicker?: SchoolMemberSearchPicker;
   classWorkspaceItemId?: string;
+  /** When false, hide Add row — e.g. leave requests submitted by students only. */
+  allowAddRow?: boolean;
+  emptyRowsMessage?: string;
+  /** When set, only these column titles are editable (case-insensitive). Others are read-only. */
+  onlyEditableColumnTitles?: readonly string[];
 }>;
 
 export function ManagementTableGroupSection({
@@ -45,6 +54,9 @@ export function ManagementTableGroupSection({
   onOpenAddColumn,
   personPicker = "school_students",
   classWorkspaceItemId,
+  allowAddRow = true,
+  emptyRowsMessage = "No rows yet.",
+  onlyEditableColumnTitles,
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
@@ -93,15 +105,36 @@ export function ManagementTableGroupSection({
   const rowSummary = useMemo(() => {
     if (rowsQuery.isPending) return "Loading…";
     if (rowsQuery.isError) return "Could not load rows";
-    if (rows.length === 0) return "No rows";
+    if (rows.length === 0) return allowAddRow ? "No rows" : "No submissions";
     if (rows.length === 1) return "1 row";
     return `${rows.length} rows`;
-  }, [rows.length, rowsQuery.isError, rowsQuery.isPending]);
+  }, [allowAddRow, rows.length, rowsQuery.isError, rowsQuery.isPending]);
 
   const onCellCommit = (row: ManagementTableRowDto, columnId: string, next: unknown, immediate?: boolean) => {
     if (immediate !== false) {
       patchRowMutation.mutate({ rowId: row.id, cells: { [columnId]: next } });
     }
+  };
+
+  const isColumnEditable = (col: ManagementTableColumnDto) => {
+    if (!parentEnabled) return false;
+    if (!onlyEditableColumnTitles?.length) return true;
+    const title = col.title.trim().toLowerCase();
+    return onlyEditableColumnTitles.some((t) => t.trim().toLowerCase() === title);
+  };
+
+  const formatReadOnlyCell = (col: ManagementTableColumnDto, value: unknown) => {
+    if (col.type === "status" || col.type === "dropdown") {
+      const opts = col.settings?.options;
+      if (Array.isArray(opts)) {
+        const id = typeof value === "string" ? value : "";
+        const match = opts.find((o) => o && typeof o === "object" && "id" in o && String((o as { id: unknown }).id) === id);
+        if (match && typeof match === "object" && "label" in match) return String((match as { label: unknown }).label);
+      }
+    }
+    if (columnUsesPersonPicker(col)) return formatPersonCellLabel(value) || "—";
+    if (value === null || value === undefined || value === "") return "—";
+    return String(value);
   };
 
   return (
@@ -253,6 +286,12 @@ export function ManagementTableGroupSection({
                   {rowsQuery.error instanceof ApiError ? rowsQuery.error.message : "Could not load rows."}
                 </td>
               </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={sortedColumns.length + 2} className="px-3 py-8 text-center text-sm text-text-tertiary">
+                  {emptyRowsMessage}
+                </td>
+              </tr>
             ) : (
               rows.map((row) => (
                 <tr key={row.id} className="group/row last:[&>td]:border-b-0 hover:bg-surface-muted/40">
@@ -264,15 +303,21 @@ export function ManagementTableGroupSection({
                       key={col.id}
                       className="border-b border-l border-border-default bg-surface-default px-1.5 py-1.5 align-top group-hover/row:bg-surface-muted/40"
                     >
-                      <ManagementTableCellEditor
-                        column={col}
-                        value={row.cells[col.id]}
-                        orgId={orgId}
-                        schoolId={schoolId}
-                        personPicker={resolvePersonPickerForColumn(col, personPicker)}
-                        classWorkspaceItemId={classWorkspaceItemId}
-                        onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
-                      />
+                      {isColumnEditable(col) ? (
+                        <ManagementTableCellEditor
+                          column={col}
+                          value={row.cells[col.id]}
+                          orgId={orgId}
+                          schoolId={schoolId}
+                          personPicker={resolvePersonPickerForColumn(col, personPicker)}
+                          classWorkspaceItemId={classWorkspaceItemId}
+                          onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
+                        />
+                      ) : (
+                        <span className="block px-1 py-0.5 text-sm leading-snug text-text-primary">
+                          {formatReadOnlyCell(col, row.cells[col.id])}
+                        </span>
+                      )}
                     </td>
                   ))}
                   <td className="sticky right-0 z-[2] border-b border-l border-border-default bg-surface-default px-1.5 py-1.5 align-top shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/40" />
@@ -281,19 +326,21 @@ export function ManagementTableGroupSection({
             )}
           </tbody>
         </table>
-        <div className="border-t border-border-default bg-surface-muted/30 px-1.5 py-1.5">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="gap-1 text-xs"
-            disabled={addRowMutation.isPending || !enabled}
-            onClick={() => addRowMutation.mutate()}
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Add row
-          </Button>
-        </div>
+        {allowAddRow ? (
+          <div className="border-t border-border-default bg-surface-muted/30 px-1.5 py-1.5">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="gap-1 text-xs"
+              disabled={addRowMutation.isPending || !enabled}
+              onClick={() => addRowMutation.mutate()}
+            >
+              <Plus className="size-3.5" aria-hidden />
+              Add row
+            </Button>
+          </div>
+        ) : null}
       </div>
         </div>
       ) : null}

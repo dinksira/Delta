@@ -24,6 +24,8 @@ import {
   ClassSessionsEmptyState,
   ClassStudentsTablePanel,
   ClassParentsTablePanel,
+  ClassTeachersTablePanel,
+  ClassAttendancePanel,
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
 } from "@/modules/School/class";
@@ -66,6 +68,8 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const showClassSessions = !bottomNavSection || bottomNavSection === "class";
   const showClassStudents = bottomNavSection === "students";
   const showClassParents = bottomNavSection === "parents";
+  const showClassAttendance = bottomNavSection === "attendance";
+  const showClassTeachers = bottomNavSection === "teacher";
 
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
@@ -157,6 +161,9 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
       void queryClient.invalidateQueries({
         queryKey: schoolQueryKeys.classSessions(activeOrgId, cleanSchoolId, cleanClassId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: schoolQueryKeys.classAttendance(activeOrgId, cleanSchoolId, cleanClassId),
+      });
     },
     onError: (e) => {
       if (e instanceof ApiError) {
@@ -222,7 +229,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
         <p className="text-sm leading-relaxed text-text-secondary">
           This workspace item is not a class. Open it from the school workspace.
         </p>
-      ) : !showClassSessions && !showClassStudents && !showClassParents ? (
+      ) : !showClassSessions && !showClassStudents && !showClassParents && !showClassAttendance && !showClassTeachers ? (
         <div
           className="flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-16 text-center"
           role="status"
@@ -234,6 +241,36 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
             sessions.
           </p>
         </div>
+      ) : showClassTeachers ? (
+        activeOrgId ? (
+          <ClassTeachersTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassAttendance ? (
+        activeOrgId ? (
+          <ClassAttendancePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
       ) : showClassParents ? (
         activeOrgId ? (
           <ClassParentsTablePanel

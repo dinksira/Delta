@@ -4,10 +4,12 @@ import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/models/class_workspace_constants.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_attendance_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_coming_soon_panel.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_overview_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_parents_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_students_table_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_teachers_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/utils/class_workspace_utils.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_session_form_sheet.dart';
@@ -123,6 +125,13 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
 
         Future<void> refresh() async {
           ref.invalidate(schoolClassSessionsProvider(sessionsQuery));
+          ref.invalidate(
+            schoolClassAttendanceProvider((
+              orgId: orgId,
+              schoolId: schoolId,
+              classWorkspaceItemId: classItemId,
+            )),
+          );
           ref.invalidate(
             schoolWorkspaceItemProvider((
               orgId: orgId,
@@ -323,7 +332,24 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
                 canMutate: canMutate,
                 onTableReady: refresh,
               );
-            case 'academics':
+            case 'attendance':
+              return ClassAttendanceTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onGoToSessions: () => navigateTab('sessions'),
+              );
+            case 'teachers':
+              return ClassTeachersTableTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onTableReady: refresh,
+              );
             case 'resources':
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),

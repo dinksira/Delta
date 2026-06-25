@@ -456,6 +456,143 @@ export async function deleteClassSession(
   );
 }
 
+export type AttendanceMarkStatusDto = "present" | "absent" | "late";
+export type AttendanceDeviceTypeDto = "qr_scanner" | "fingerprint" | "other";
+export type AttendanceDeviceStatusDto = "online" | "offline";
+export type AttendanceSessionTrackingDto = "manual" | "device";
+
+export type AttendanceSessionDto = Readonly<{
+  id: string;
+  title: string;
+  scheduledAt: string | null;
+  hidden: boolean;
+  trackingMode: AttendanceSessionTrackingDto;
+  createdAt: string;
+}>;
+
+export type AttendanceDeviceDto = Readonly<{
+  id: string;
+  name: string;
+  deviceType: AttendanceDeviceTypeDto;
+  attendanceSessionLabel: string;
+  status: AttendanceDeviceStatusDto;
+  lastSyncedAt: string | null;
+  createdAt: string;
+}>;
+
+export type AttendanceFormulaConfigDto = Readonly<{
+  mode: "preset" | "custom";
+  operation: "sum" | "average" | "count_present";
+  sessionIds: readonly string[];
+  customExpression: string;
+}>;
+
+export type AttendanceFaceDetectionSettingsDto = Readonly<{
+  section: string;
+  trackOption: "random_sampling" | "continuous";
+  samplingIntervalMinutes: number;
+  presenceThresholdPercent: number;
+}>;
+
+export type AttendanceRealtimeTrackConfigDto = Readonly<{
+  enabled: boolean;
+  faceDetection: boolean;
+  voiceRecognition: boolean;
+  recordVideo: boolean;
+  recordAudio: boolean;
+  faceDetectionSettings: AttendanceFaceDetectionSettingsDto;
+}>;
+
+export type ClassAttendanceStateDto = Readonly<{
+  sessions: readonly AttendanceSessionDto[];
+  devices: readonly AttendanceDeviceDto[];
+  marks: Readonly<Record<string, AttendanceMarkStatusDto>>;
+  formulaConfig: AttendanceFormulaConfigDto;
+  realtimeTrack: AttendanceRealtimeTrackConfigDto;
+}>;
+
+export async function fetchClassAttendanceState(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.get<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance`,
+  );
+}
+
+export async function updateClassAttendanceSessionSettings(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{
+    classSessionId: string;
+    hidden?: boolean;
+    trackingMode?: AttendanceSessionTrackingDto;
+  }>,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.post<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance/sessions`,
+    { json: payload },
+  );
+}
+
+export async function registerClassAttendanceDevice(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{
+    name: string;
+    deviceType?: AttendanceDeviceTypeDto;
+    attendanceSessionLabel?: string;
+  }>,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.post<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance/devices`,
+    { json: payload },
+  );
+}
+
+export async function patchClassAttendanceMark(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{
+    studentId: string;
+    sessionId: string;
+    status: AttendanceMarkStatusDto | null;
+  }>,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.patch<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance/marks`,
+    { json: payload },
+  );
+}
+
+export async function putClassAttendanceFormulaConfig(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: AttendanceFormulaConfigDto,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.put<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance/formula-config`,
+    { json: payload },
+  );
+}
+
+export async function putClassAttendanceRealtimeTrack(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: AttendanceRealtimeTrackConfigDto,
+): Promise<ClassAttendanceStateDto> {
+  return apiClient.put<ClassAttendanceStateDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/attendance/realtime-track`,
+    { json: payload },
+  );
+}
+
 export async function fetchClassEnrollments(
   orgId: string,
   schoolId: string,
@@ -927,7 +1064,7 @@ export type SchoolMemberSearchResponseDto = Readonly<{
   items: readonly SchoolMemberSearchUserDto[];
 }>;
 
-export type SchoolMemberSearchPicker = "school_students" | "school_parents" | "class_students" | "platform";
+export type SchoolMemberSearchPicker = "school_students" | "school_parents" | "school_teachers" | "class_students" | "platform";
 
 export async function searchSchoolMembers(
   orgId: string,
@@ -983,6 +1120,38 @@ export async function bootstrapParentsTableWorkspaceItem(
 ): Promise<ManagementTableWorkspaceBootstrapDto> {
   return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
     `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/parents-table/bootstrap`,
+  );
+}
+
+export async function bootstrapLeaveRequestsTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(classWorkspaceItemId)}/leave-requests-table/bootstrap`,
+  );
+}
+
+export async function submitClassLeaveRequest(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: Readonly<{ cells: Record<string, unknown> }>,
+): Promise<ManagementTableRowDto> {
+  return apiClient.post<ManagementTableRowDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classWorkspaceItemId)}/leave-requests/submit`,
+    { json: payload },
+  );
+}
+
+export async function bootstrapTeachersTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(classWorkspaceItemId)}/teachers-table/bootstrap`,
   );
 }
 

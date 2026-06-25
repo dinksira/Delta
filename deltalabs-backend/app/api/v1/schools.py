@@ -37,6 +37,13 @@ from app.domain.school.schemas import (
     ClassEnrollmentCreateInput,
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
+    ClassAttendanceStatePublic,
+    AttendanceSessionSettingsInput,
+    AttendanceDeviceCreateInput,
+    AttendanceMarkPatchInput,
+    AttendanceFormulaConfigPutInput,
+    AttendanceRealtimeTrackPutInput,
+    LeaveRequestSubmitInput,
     SchoolMemberSearchPicker,
     SchoolMemberSearchResponse,
     MarketplaceBidInput,
@@ -546,6 +553,136 @@ async def delete_org_class_session(
 
 
 @org_router.get(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_class_attendance(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.get_class_attendance_state(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance/sessions",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def update_org_class_attendance_session_settings(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: AttendanceSessionSettingsInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_attendance_session_settings(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance/devices",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def register_org_class_attendance_device(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: AttendanceDeviceCreateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.register_attendance_device(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance/marks",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def patch_org_class_attendance_mark(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: AttendanceMarkPatchInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.patch_attendance_mark(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.put(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance/formula-config",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def put_org_class_attendance_formula_config(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: AttendanceFormulaConfigPutInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_attendance_formula_config(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.put(
+    "/{school_id}/classes/{class_workspace_item_id}/attendance/realtime-track",
+    response_model=ClassAttendanceStatePublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def put_org_class_attendance_realtime_track(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: AttendanceRealtimeTrackPutInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassAttendanceStatePublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.update_attendance_realtime_track(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
     "/{school_id}/classes/{class_workspace_item_id}/enrollments",
     response_model=ClassEnrollmentListResponse,
     dependencies=[Depends(require_org_membership)],
@@ -751,6 +888,151 @@ async def bootstrap_org_class_parents_table(
     await service.bootstrap()
     mt = _management_table_service(db)
     return await mt.bootstrap_class_parents_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/leave-requests-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_leave_requests_table_workspace_item(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    item = await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=workspace_item_id,
+    )
+    if item.type != "class":
+        raise ValidationError(
+            "Workspace item cannot host a leave requests table.",
+            code="leave_requests_table_workspace_type_invalid",
+        )
+    return await mt.bootstrap_class_leave_requests_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/leave-requests-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_class_leave_requests_table(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_class_leave_requests_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/leave-requests/submit",
+    response_model=ManagementTableRowPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def submit_org_class_leave_request(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: LeaveRequestSubmitInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableRowPublic:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.submit_class_leave_request(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/teachers-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_teachers_table_workspace_item(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    item = await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=workspace_item_id,
+    )
+    item_type = item.type
+    if item_type == "class":
+        return await mt.bootstrap_class_teachers_table(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user.user_id,
+            class_workspace_item_id=workspace_item_id,
+        )
+    if item_type == "staff":
+        return await mt.bootstrap_school_teachers_table(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user.user_id,
+            staff_workspace_item_id=workspace_item_id,
+        )
+    raise ValidationError(
+        "Workspace item cannot host a teachers table.",
+        code="teachers_table_workspace_type_invalid",
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/teachers-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_class_teachers_table(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_class_teachers_table(
         org_id=org_id,
         school_id=school_id,
         user_id=user.user_id,

@@ -27,6 +27,13 @@ This folder is the **human-friendly entry point** for understanding the project.
 - Feed frontend hierarchy (detailed): `feed-page/feed-frontend-component-hierarchy.md`
 - Feed frontend hierarchy (simple): `feed-page/feed-frontend-component-hierarchy-simple.md`
 - Marketplace offers details: `school-marketplace-offers-implementation-details.md`
+- **School product (structure + rosters) — start here**: `school-page/README.md`
+- School overview (plain language): `school-page/school-overview-user-brief.md`
+- School workspace concepts (department, class, course, MT): `school-page/school-organization-and-workspace-concepts.md`
+- School roster changes brief: `school-page/school-roster-changes-brief.md`
+- School capabilities & limitations: `school-page/school-capabilities-and-limitations.md`
+- School roster implementation (developers): `school-roster-page/README.md`
+- **School architecture decision guide (technical leads)**: `school-roster-page/school-system-architecture-decision-guide.md`
 
 ## Documentation organization guidance
 

@@ -29,7 +29,8 @@ abstract class ClassWorkspaceConstants {
     ClassWorkspaceSection(id: 'sessions', label: 'Sessions'),
     ClassWorkspaceSection(id: 'people', label: 'Students'),
     ClassWorkspaceSection(id: 'parents', label: 'Parents'),
-    ClassWorkspaceSection(id: 'academics', label: 'Academics'),
+    ClassWorkspaceSection(id: 'attendance', label: 'Attendance'),
+    ClassWorkspaceSection(id: 'teachers', label: 'Teachers'),
     ClassWorkspaceSection(id: 'resources', label: 'Resources'),
   ];
 
@@ -38,7 +39,8 @@ abstract class ClassWorkspaceConstants {
     'sessions',
     'people',
     'parents',
-    'academics',
+    'attendance',
+    'teachers',
     'resources',
   ];
 
@@ -53,36 +55,26 @@ abstract class ClassWorkspaceConstants {
       id: 'attendance',
       label: 'Attendance',
       icon: Icons.fingerprint_outlined,
-      targetTab: 'academics',
+      targetTab: 'attendance',
+    ),
+    ClassQuickAction(
+      id: 'teachers',
+      label: 'Teachers',
+      icon: Icons.person_outline_rounded,
+      targetTab: 'teachers',
     ),
     ClassQuickAction(
       id: 'assignments',
       label: 'Assignments',
       icon: Icons.assignment_outlined,
-      targetTab: 'academics',
-    ),
-    ClassQuickAction(
-      id: 'schedule',
-      label: 'Schedule',
-      icon: Icons.calendar_today_outlined,
-      targetTab: 'academics',
+      targetTab: 'resources',
     ),
   ];
 
   static const comingSoonCopy = <String, ({String title, String message, IconData icon})>{
-    'people': (
-      title: 'People',
-      message: 'Students, teachers, and parents will appear here.',
-      icon: Icons.people_outline_rounded,
-    ),
-    'academics': (
-      title: 'Academics',
-      message: 'Attendance, grades, assignments, and schedule are coming soon.',
-      icon: Icons.school_outlined,
-    ),
     'resources': (
       title: 'Resources',
-      message: 'Class assets and materials will appear here.',
+      message: 'Class assets, assignments, and schedule are coming soon.',
       icon: Icons.folder_open_outlined,
     ),
   };

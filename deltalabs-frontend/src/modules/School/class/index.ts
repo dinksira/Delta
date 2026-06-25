@@ -9,7 +9,10 @@ export { ClassNewSessionModals } from "@/modules/School/class/ClassNewSessionMod
 export { ClassStudentsSection } from "@/modules/School/class/ClassStudentsSection";
 export { ClassStudentsTablePanel } from "@/modules/School/class/ClassStudentsTablePanel";
 export { ClassParentsTablePanel } from "@/modules/School/class/ClassParentsTablePanel";
+export { ClassTeachersTablePanel } from "@/modules/School/class/ClassTeachersTablePanel";
+export { ClassAttendancePanel } from "@/modules/School/class/ClassAttendancePanel";
 export { ClassBottomNav } from "@/modules/School/class/ClassBottomNav";
+export { parseClassAttendanceView, type ClassAttendanceView } from "@/modules/School/class/classNavigation";
 export { ClassSessionMeetView } from "@/modules/School/class/ClassSessionMeetView";
 export { safeClassReturnHref } from "@/modules/School/class/classNavigation";
 export { userCanManageSchoolWorkspace as userCanManageSchoolClassWorkspace } from "@/modules/School/class/schoolClassPermissions";

@@ -73,6 +73,15 @@ class Repository:
             ],
             name="ix_school_class_sessions_org_school_class_time",
         )
+        await self._db["school_class_attendance"].create_index(
+            [
+                ("org_id", ASCENDING),
+                ("school_id", ASCENDING),
+                ("class_workspace_item_id", ASCENDING),
+            ],
+            unique=True,
+            name="uq_school_class_attendance_org_school_class",
+        )
         await self._db["class_enrollments"].create_index(
             [
                 ("org_id", ASCENDING),
@@ -360,6 +369,249 @@ class Repository:
         )
         return result.deleted_count > 0
 
+    def _class_attendance_filter(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> dict[str, str]:
+        return {
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+        }
+
+    def _default_class_attendance_doc(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        now: datetime,
+    ) -> dict[str, Any]:
+        return {
+            "_id": f"sca_{uuid4().hex}",
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+            "sessions": [],
+            "session_settings": {},
+            "devices": [],
+            "marks": {},
+            "formula_config": {
+                "mode": "preset",
+                "operation": "sum",
+                "session_ids": [],
+                "custom_expression": "",
+            },
+            "realtime_track": {
+                "enabled": False,
+                "face_detection": False,
+                "voice_recognition": False,
+                "record_video": False,
+                "record_audio": False,
+                "face_detection_settings": {
+                    "section": "all",
+                    "track_option": "random_sampling",
+                    "sampling_interval_minutes": 5,
+                    "presence_threshold_percent": 80,
+                },
+            },
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    async def get_or_create_class_attendance(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> dict[str, Any]:
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        doc = await self._db["school_class_attendance"].find_one(filt)
+        if doc is not None:
+            return doc
+        now = datetime.now(UTC)
+        new_doc = self._default_class_attendance_doc(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            now=now,
+        )
+        await self._db["school_class_attendance"].insert_one(new_doc)
+        return new_doc
+
+    async def upsert_class_attendance_session_settings(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        class_session_id: str,
+        hidden: bool,
+        tracking_mode: str,
+    ) -> dict[str, Any]:
+        await self.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        now = datetime.now(UTC)
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        await self._db["school_class_attendance"].update_one(
+            filt,
+            {
+                "$set": {
+                    f"session_settings.{class_session_id}": {
+                        "hidden": hidden,
+                        "tracking_mode": tracking_mode,
+                    },
+                    "updated_at": now,
+                },
+            },
+        )
+        refreshed = await self._db["school_class_attendance"].find_one(filt)
+        assert refreshed is not None
+        return refreshed
+
+    async def add_class_attendance_device(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        name: str,
+        device_type: str,
+        attendance_session_label: str,
+    ) -> dict[str, Any]:
+        await self.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        now = datetime.now(UTC)
+        device = {
+            "id": f"att_dev_{uuid4().hex[:12]}",
+            "name": name.strip(),
+            "device_type": device_type,
+            "attendance_session_label": attendance_session_label.strip() or "Class Attendance",
+            "status": "online",
+            "last_synced_at": now,
+            "created_at": now,
+        }
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        await self._db["school_class_attendance"].update_one(
+            filt,
+            {"$push": {"devices": device}, "$set": {"updated_at": now}},
+        )
+        refreshed = await self._db["school_class_attendance"].find_one(filt)
+        assert refreshed is not None
+        return refreshed
+
+    async def patch_class_attendance_mark(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        student_id: str,
+        session_id: str,
+        status: str | None,
+    ) -> dict[str, Any]:
+        await self.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        now = datetime.now(UTC)
+        mark_key = f"marks.{student_id.strip()}:{session_id.strip()}"
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        if status is None:
+            await self._db["school_class_attendance"].update_one(
+                filt,
+                {"$unset": {mark_key: ""}, "$set": {"updated_at": now}},
+            )
+        else:
+            await self._db["school_class_attendance"].update_one(
+                filt,
+                {"$set": {mark_key: status, "updated_at": now}},
+            )
+        refreshed = await self._db["school_class_attendance"].find_one(filt)
+        assert refreshed is not None
+        return refreshed
+
+    async def update_class_attendance_formula_config(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        formula_config: dict[str, Any],
+    ) -> dict[str, Any]:
+        await self.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        now = datetime.now(UTC)
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        await self._db["school_class_attendance"].update_one(
+            filt,
+            {"$set": {"formula_config": formula_config, "updated_at": now}},
+        )
+        refreshed = await self._db["school_class_attendance"].find_one(filt)
+        assert refreshed is not None
+        return refreshed
+
+    async def update_class_attendance_realtime_track(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        realtime_track: dict[str, Any],
+    ) -> dict[str, Any]:
+        await self.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        now = datetime.now(UTC)
+        filt = self._class_attendance_filter(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        await self._db["school_class_attendance"].update_one(
+            filt,
+            {"$set": {"realtime_track": realtime_track, "updated_at": now}},
+        )
+        refreshed = await self._db["school_class_attendance"].find_one(filt)
+        assert refreshed is not None
+        return refreshed
+
     async def list_class_enrollments(
         self,
         *,
@@ -409,6 +661,70 @@ class Repository:
                 "user_id": user_id,
             },
         )
+
+    async def find_workspace_item_by_leave_requests_instance_id(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["school_workspace_items"].find_one(
+            {
+                "org_id": org_id,
+                "school_id": school_id,
+                "metadata.leaveRequestsTableInstanceId": instance_id.strip(),
+            },
+        )
+
+    async def user_is_class_student_for_leave(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        user_id: str,
+    ) -> bool:
+        enrollment = await self.find_class_enrollment_for_user(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            user_id=user_id,
+        )
+        if enrollment is not None and str(enrollment.get("status", "")) == "active":
+            return True
+
+        class_item = await self.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=class_workspace_item_id.strip(),
+        )
+        if class_item is None or str(class_item.get("type", "")) != "class":
+            return False
+        meta = class_item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        instance_id = str(meta_dict.get("studentsTableInstanceId") or "").strip()
+        student_col_id = str(meta_dict.get("studentsTableStudentColumnId") or "").strip()
+        if not instance_id or not student_col_id:
+            return False
+
+        mt = ManagementTableRepository(self._db)
+        rows, _total = await mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+            skip=0,
+            limit=2000,
+        )
+        for row in rows:
+            cells = row.get("cells")
+            if not isinstance(cells, dict):
+                continue
+            raw = cells.get(student_col_id)
+            if isinstance(raw, dict) and str(raw.get("userId") or raw.get("user_id") or "").strip() == user_id:
+                return True
+        return False
 
     async def create_class_enrollment(
         self,
@@ -497,9 +813,15 @@ class Repository:
             )
             return users[:safe_limit]
 
-        if picker not in {"school_students", "school_parents"}:
+        if picker not in {"school_students", "school_parents", "school_teachers"}:
             return []
-        role_key = "student" if picker == "school_students" else "parent"
+        role_key = (
+            "student"
+            if picker == "school_students"
+            else "parent"
+            if picker == "school_parents"
+            else "teacher"
+        )
         memberships = await self._db["school_memberships"].find(
             {
                 "school_id": school_id,

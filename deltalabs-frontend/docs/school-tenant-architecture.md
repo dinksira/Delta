@@ -101,6 +101,7 @@ Move day-to-day permissions to **membership in a school**:
 
 ## 5. Related docs
 
+- Class/school **students & parents** rosters (MT bootstrap, pickers, flows): [`docs/school-page/README.md`](../../docs/school-page/README.md) (overview) and [`docs/school-roster-page/README.md`](../../docs/school-roster-page/README.md) (developer detail)
 - Marketplace phases: `school-marketplace-phased-plan.md` (if present in this repo).
 
 ---

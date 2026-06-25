@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:deltalabs_mobile/core/network/api_client.dart';
 import 'package:dio/dio.dart';
 import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_attendance_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_member_search_user_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
@@ -570,6 +571,110 @@ class SchoolRemoteDataSource {
     );
   }
 
+  Future<String> bootstrapClassTeachersTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return bootstrapTeachersTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
+  Future<SchoolClassAttendanceStateModel> fetchClassAttendanceState({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance',
+      );
+      final data = response.data;
+      if (data == null) {
+        return SchoolClassAttendanceStateModel(sessions: const [], devices: const [], marks: const {});
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassAttendanceStateModel> patchClassAttendanceMark({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String studentId,
+    required String sessionId,
+    required String? status,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.patch<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance/marks',
+        data: {
+          'studentId': studentId,
+          'sessionId': sessionId,
+          'status': status,
+        },
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Attendance mark patch returned empty response.');
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassAttendanceStateModel> updateClassAttendanceSessionSettings({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String classSessionId,
+    bool hidden = false,
+    String trackingMode = 'manual',
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance/sessions',
+        data: {
+          'classSessionId': classSessionId,
+          'hidden': hidden,
+          'trackingMode': trackingMode,
+        },
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Attendance session settings returned empty response.');
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassAttendanceStateModel> registerClassAttendanceDevice({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required String name,
+    String deviceType = 'fingerprint',
+    String attendanceSessionLabel = 'Class Attendance',
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance/devices',
+        data: {
+          'name': name,
+          'deviceType': deviceType,
+          'attendanceSessionLabel': attendanceSessionLabel,
+        },
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Device registration returned empty response.');
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
   Future<String> bootstrapStudentsTable({
     required String orgId,
     required String schoolId,
@@ -603,6 +708,24 @@ class SchoolRemoteDataSource {
         if (id.isNotEmpty) return id;
       }
       throw StateError('Parents table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<String> bootstrapTeachersTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/teachers-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Teachers table bootstrap did not return an instance id.');
     });
   }
 

@@ -84,6 +84,50 @@ export const CLASS_STUDENTS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAdd
 
 export const CLASS_PARENTS_TABLE_ADD_COLUMN_GROUPS = CLASS_STUDENTS_TABLE_ADD_COLUMN_GROUPS;
 
+export const CLASS_LEAVE_REQUESTS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Most used",
+    options: [
+      { id: "text", label: "Text", icon: TextCursor, supportedType: "text" },
+      { id: "date", label: "Date", icon: Calendar, supportedType: "date" },
+      { id: "textarea", label: "Long text", icon: AlignLeft, supportedType: "textarea" },
+      { id: "link", label: "Link / document", icon: Link2, supportedType: "link" },
+      { id: "status", label: "Status", icon: Tag, supportedType: "status" },
+    ],
+  },
+  {
+    title: "More",
+    options: [
+      { id: "number", label: "Number", icon: Hash, supportedType: "number" },
+      { id: "dropdown", label: "Dropdown", icon: Tag, supportedType: "dropdown" },
+      { id: "checkbox", label: "Checkbox", icon: CheckSquare, supportedType: "checkbox" },
+      { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
+    ],
+  },
+];
+
+export const CLASS_TEACHERS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Most used",
+    options: [
+      { id: "text", label: "Text", icon: TextCursor, supportedType: "text" },
+      { id: "link", label: "Link", icon: Link2, supportedType: "link" },
+      { id: "status", label: "Status", icon: Tag, supportedType: "status" },
+    ],
+  },
+  {
+    title: "More",
+    options: [
+      { id: "date", label: "Date", icon: Calendar, supportedType: "date" },
+      { id: "number", label: "Number", icon: Hash, supportedType: "number" },
+      { id: "dropdown", label: "Dropdown", icon: Tag, supportedType: "dropdown" },
+      { id: "checkbox", label: "Checkbox", icon: CheckSquare, supportedType: "checkbox" },
+      { id: "textarea", label: "Long text", icon: AlignLeft, supportedType: "textarea" },
+      { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
+    ],
+  },
+];
+
 export function filterAddColumnGroups(
   groups: readonly ManagementTableAddColumnGroup[],
   search: string,

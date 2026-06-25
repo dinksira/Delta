@@ -39,6 +39,17 @@ from app.domain.school.schemas import (
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
     ClassEnrollmentUserPublic,
+    ClassAttendanceStatePublic,
+    AttendanceSessionSettingsInput,
+    AttendanceDeviceCreateInput,
+    AttendanceMarkPatchInput,
+    AttendanceFormulaConfigPutInput,
+    AttendanceRealtimeTrackPutInput,
+    AttendanceSessionPublic,
+    AttendanceDevicePublic,
+    AttendanceFormulaConfigPublic,
+    AttendanceRealtimeTrackPublic,
+    AttendanceFaceDetectionSettingsPublic,
     SchoolMemberSearchPicker,
     SchoolMemberSearchResponse,
     SchoolMemberSearchUserPublic,
@@ -479,6 +490,244 @@ class Service:
         )
         if not ok:
             raise NotFoundError("Class session not found.", code="class_session_not_found")
+
+    async def get_class_attendance_state(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        doc = await self._repository.get_or_create_class_attendance(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def update_attendance_session_settings(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: AttendanceSessionSettingsInput,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        existing = await self._repository.find_class_session(
+            org_id=org_id,
+            school_id=school_id,
+            session_id=payload.class_session_id,
+        )
+        if existing is None:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        if str(existing.get("class_workspace_item_id", "")) != class_workspace_item_id:
+            raise NotFoundError("Class session not found.", code="class_session_not_found")
+        doc = await self._repository.upsert_class_attendance_session_settings(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            class_session_id=payload.class_session_id,
+            hidden=payload.hidden,
+            tracking_mode=payload.tracking_mode,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def register_attendance_device(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: AttendanceDeviceCreateInput,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        doc = await self._repository.add_class_attendance_device(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            name=payload.name,
+            device_type=payload.device_type,
+            attendance_session_label=payload.attendance_session_label,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def patch_attendance_mark(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: AttendanceMarkPatchInput,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        doc = await self._repository.patch_class_attendance_mark(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            student_id=payload.student_id,
+            session_id=payload.session_id,
+            status=payload.status,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def update_attendance_formula_config(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: AttendanceFormulaConfigPutInput,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        formula_config = {
+            "mode": payload.mode,
+            "operation": payload.operation,
+            "session_ids": list(payload.session_ids),
+            "custom_expression": payload.custom_expression,
+        }
+        doc = await self._repository.update_class_attendance_formula_config(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            formula_config=formula_config,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def update_attendance_realtime_track(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: AttendanceRealtimeTrackPutInput,
+    ) -> ClassAttendanceStatePublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        fds = payload.face_detection_settings
+        realtime_track = {
+            "enabled": payload.enabled,
+            "face_detection": payload.face_detection,
+            "voice_recognition": payload.voice_recognition,
+            "record_video": payload.record_video,
+            "record_audio": payload.record_audio,
+            "face_detection_settings": {
+                "section": fds.section,
+                "track_option": fds.track_option,
+                "sampling_interval_minutes": fds.sampling_interval_minutes,
+                "presence_threshold_percent": fds.presence_threshold_percent,
+            },
+        }
+        doc = await self._repository.update_class_attendance_realtime_track(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            realtime_track=realtime_track,
+        )
+        return await self._class_attendance_state_public(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=doc,
+        )
+
+    async def _class_attendance_state_public(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        attendance_doc: dict[str, object],
+    ) -> ClassAttendanceStatePublic:
+        merged = await self._merge_attendance_sessions(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            attendance_doc=attendance_doc,
+        )
+        return _map_class_attendance_state(merged)
+
+    async def _merge_attendance_sessions(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        attendance_doc: dict[str, object],
+    ) -> dict[str, object]:
+        class_sess_docs = await self._repository.list_class_sessions(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        settings_raw = attendance_doc.get("session_settings")
+        settings = dict(settings_raw) if isinstance(settings_raw, dict) else {}
+        sessions: list[dict[str, object]] = []
+        for cs in class_sess_docs:
+            cs_id = str(cs["_id"])
+            s_raw = settings.get(cs_id)
+            s_dict = dict(s_raw) if isinstance(s_raw, dict) else {}
+            tracking = s_dict.get("tracking_mode", "manual")
+            sessions.append(
+                {
+                    "id": cs_id,
+                    "title": str(cs.get("title", "")),
+                    "scheduled_at": cs.get("scheduled_at"),
+                    "hidden": bool(s_dict.get("hidden", False)),
+                    "tracking_mode": tracking if tracking in ("manual", "device") else "manual",
+                    "created_at": cs.get("created_at"),
+                },
+            )
+        return {**attendance_doc, "sessions": sessions}
 
     async def list_class_enrollments(
         self,
@@ -2084,6 +2333,95 @@ def _map_class_session(doc: dict[str, object]) -> ClassSessionPublic:
         creation_mode=creation_mode,  # type: ignore[arg-type]
         created_at=doc["created_at"],  # type: ignore[arg-type]
         updated_at=doc["updated_at"],  # type: ignore[arg-type]
+    )
+
+
+def _map_attendance_session(raw: dict[str, object]) -> AttendanceSessionPublic:
+    scheduled = raw.get("scheduled_at")
+    created = raw.get("created_at")
+    tracking = raw.get("tracking_mode")
+    return AttendanceSessionPublic(
+        id=str(raw.get("id", "")),
+        title=str(raw.get("title", "")),
+        scheduled_at=scheduled if isinstance(scheduled, datetime) else None,
+        hidden=bool(raw.get("hidden", False)),
+        tracking_mode=str(tracking) if tracking in ("manual", "device") else "manual",  # type: ignore[arg-type]
+        created_at=created if isinstance(created, datetime) else datetime.now(UTC),
+    )
+
+
+def _map_attendance_device(raw: dict[str, object]) -> AttendanceDevicePublic:
+    last_synced = raw.get("last_synced_at")
+    created = raw.get("created_at")
+    device_type = raw.get("device_type")
+    status = raw.get("status")
+    return AttendanceDevicePublic(
+        id=str(raw.get("id", "")),
+        name=str(raw.get("name", "")),
+        device_type=str(device_type) if device_type in ("qr_scanner", "fingerprint", "other") else "other",  # type: ignore[arg-type]
+        attendance_session_label=str(raw.get("attendance_session_label", "Class Attendance")),
+        status=str(status) if status in ("online", "offline") else "online",  # type: ignore[arg-type]
+        last_synced_at=last_synced if isinstance(last_synced, datetime) else None,
+        created_at=created if isinstance(created, datetime) else datetime.now(UTC),
+    )
+
+
+def _map_attendance_formula_config(raw: object) -> AttendanceFormulaConfigPublic:
+    if not isinstance(raw, dict):
+        return AttendanceFormulaConfigPublic()
+    mode = raw.get("mode")
+    operation = raw.get("operation")
+    session_ids = raw.get("session_ids")
+    return AttendanceFormulaConfigPublic(
+        mode=str(mode) if mode in ("preset", "custom") else "preset",  # type: ignore[arg-type]
+        operation=str(operation) if operation in ("sum", "average", "count_present") else "sum",  # type: ignore[arg-type]
+        session_ids=[str(x) for x in session_ids] if isinstance(session_ids, list) else [],
+        custom_expression=str(raw.get("custom_expression", "") or ""),
+    )
+
+
+def _map_attendance_face_detection_settings(raw: object) -> AttendanceFaceDetectionSettingsPublic:
+    if not isinstance(raw, dict):
+        return AttendanceFaceDetectionSettingsPublic()
+    track_option = raw.get("track_option")
+    return AttendanceFaceDetectionSettingsPublic(
+        section=str(raw.get("section", "all") or "all"),
+        track_option=str(track_option) if track_option in ("random_sampling", "continuous") else "random_sampling",  # type: ignore[arg-type]
+        sampling_interval_minutes=int(raw.get("sampling_interval_minutes", 5) or 5),
+        presence_threshold_percent=int(raw.get("presence_threshold_percent", 80) or 80),
+    )
+
+
+def _map_attendance_realtime_track(raw: object) -> AttendanceRealtimeTrackPublic:
+    if not isinstance(raw, dict):
+        return AttendanceRealtimeTrackPublic()
+    return AttendanceRealtimeTrackPublic(
+        enabled=bool(raw.get("enabled", False)),
+        face_detection=bool(raw.get("face_detection", False)),
+        voice_recognition=bool(raw.get("voice_recognition", False)),
+        record_video=bool(raw.get("record_video", False)),
+        record_audio=bool(raw.get("record_audio", False)),
+        face_detection_settings=_map_attendance_face_detection_settings(raw.get("face_detection_settings")),
+    )
+
+
+def _map_class_attendance_state(doc: dict[str, object]) -> ClassAttendanceStatePublic:
+    sessions_raw = doc.get("sessions")
+    devices_raw = doc.get("devices")
+    marks_raw = doc.get("marks")
+    sessions = [_map_attendance_session(s) for s in sessions_raw if isinstance(s, dict)] if isinstance(sessions_raw, list) else []
+    devices = [_map_attendance_device(d) for d in devices_raw if isinstance(d, dict)] if isinstance(devices_raw, list) else []
+    marks: dict[str, str] = {}
+    if isinstance(marks_raw, dict):
+        for key, value in marks_raw.items():
+            if value in ("present", "absent", "late"):
+                marks[str(key)] = value
+    return ClassAttendanceStatePublic(
+        sessions=sessions,
+        devices=devices,
+        marks=marks,  # type: ignore[arg-type]
+        formula_config=_map_attendance_formula_config(doc.get("formula_config")),
+        realtime_track=_map_attendance_realtime_track(doc.get("realtime_track")),
     )
 
 

@@ -11,7 +11,7 @@ export function columnUsesPersonPicker(column: ManagementTableColumnDto): boolea
   const editor = column.settings?.cellEditor;
   if (editor === "person") return true;
   const title = column.title.trim().toLowerCase();
-  return title === "student" || title === "parent";
+  return title === "student" || title === "parent" || title === "teacher";
 }
 
 export function resolvePersonPickerForColumn(
@@ -26,6 +26,10 @@ export function resolvePersonPickerForColumn(
     if (tableDefault === "platform") return "platform";
     if (tableDefault === "school_parents") return "class_students";
     return "school_students";
+  }
+  if (title === "teacher") {
+    if (tableDefault === "platform") return "platform";
+    return "school_teachers";
   }
   return tableDefault;
 }
