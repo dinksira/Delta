@@ -37,6 +37,11 @@ class ManagementTableRepository:
             name="ix_mgmt_inst_workspace_item",
             sparse=True,
         )
+        await inst_col.create_index(
+            [("org_id", ASCENDING), ("school_id", ASCENDING), ("workspace_item_id", ASCENDING), ("table_kind", ASCENDING)],
+            name="ix_mgmt_inst_workspace_kind",
+            sparse=True,
+        )
         await rows_col.create_index(
             [("instance_id", ASCENDING), ("position", ASCENDING)],
             name="ix_mgmt_rows_instance_position",
@@ -133,6 +138,7 @@ class ManagementTableRepository:
         definition_version: int,
         title: str,
         workspace_item_id: str | None,
+        table_kind: str | None = None,
     ) -> dict[str, Any]:
         now = datetime.now(UTC)
         doc = {
@@ -153,6 +159,8 @@ class ManagementTableRepository:
             "created_at": now,
             "updated_at": now,
         }
+        if table_kind:
+            doc["table_kind"] = table_kind
         await self._db["school_management_table_instances"].insert_one(doc)
         return doc
 
@@ -161,20 +169,34 @@ class ManagementTableRepository:
             {"_id": instance_id, "org_id": org_id, "school_id": school_id},
         )
 
+    def _workspace_kind_filter(self, *, workspace_item_id: str, table_kind: str | None) -> dict[str, Any]:
+        base: dict[str, Any] = {"workspace_item_id": workspace_item_id}
+        kind = (table_kind or "").strip()
+        if not kind or kind == "management":
+            base["$or"] = [
+                {"table_kind": {"$exists": False}},
+                {"table_kind": None},
+                {"table_kind": ""},
+                {"table_kind": "management"},
+            ]
+        else:
+            base["table_kind"] = kind
+        return base
+
     async def find_instance_by_workspace_item(
         self,
         *,
         org_id: str,
         school_id: str,
         workspace_item_id: str,
+        table_kind: str | None = None,
     ) -> dict[str, Any] | None:
-        return await self._db["school_management_table_instances"].find_one(
-            {
-                "org_id": org_id,
-                "school_id": school_id,
-                "workspace_item_id": workspace_item_id,
-            },
-        )
+        query: dict[str, Any] = {
+            "org_id": org_id,
+            "school_id": school_id,
+            **self._workspace_kind_filter(workspace_item_id=workspace_item_id, table_kind=table_kind),
+        }
+        return await self._db["school_management_table_instances"].find_one(query)
 
     def _rows_filter(self, *, org_id: str, school_id: str, instance_id: str, group_id: str) -> dict[str, Any]:
         base: dict[str, Any] = {"org_id": org_id, "school_id": school_id, "instance_id": instance_id}

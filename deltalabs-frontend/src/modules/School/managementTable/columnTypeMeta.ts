@@ -156,6 +156,51 @@ export const CLASS_GRADES_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddCo
   },
 ];
 
+const ASSIGNMENT_STATUS_OPTIONS = [
+  { id: "assigned", label: "Assigned" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "submitted", label: "Submitted" },
+  { id: "graded", label: "Graded" },
+  { id: "overdue", label: "Overdue" },
+  { id: "cancelled", label: "Cancelled" },
+];
+
+export const CLASS_ASSIGNMENTS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Tracking",
+    options: [
+      { id: "text", label: "Text", icon: TextCursor, supportedType: "text" },
+      { id: "date", label: "Date", icon: Calendar, supportedType: "date" },
+      {
+        id: "status",
+        label: "Status",
+        icon: Tag,
+        supportedType: "status",
+        columnSettings: { options: ASSIGNMENT_STATUS_OPTIONS },
+      },
+      {
+        id: "teacher",
+        label: "Teacher",
+        icon: User,
+        supportedType: "text",
+        columnTitle: "Teacher",
+        columnSettings: { cellEditor: "person" },
+      },
+      { id: "link", label: "Link / document", icon: Link2, supportedType: "link" },
+    ],
+  },
+  {
+    title: "More",
+    options: [
+      { id: "number", label: "Number", icon: Hash, supportedType: "number" },
+      { id: "dropdown", label: "Dropdown", icon: Tag, supportedType: "dropdown" },
+      { id: "checkbox", label: "Checkbox", icon: CheckSquare, supportedType: "checkbox" },
+      { id: "textarea", label: "Long text", icon: AlignLeft, supportedType: "textarea" },
+      { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
+    ],
+  },
+];
+
 const SCHEDULE_STATUS_OPTIONS = [
   { id: "scheduled", label: "Scheduled" },
   { id: "live", label: "Live" },

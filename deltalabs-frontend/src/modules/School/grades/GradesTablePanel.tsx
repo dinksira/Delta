@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
@@ -23,7 +23,9 @@ import {
   type ManagementTableAddColumnOption,
 } from "@/modules/School/managementTable/columnTypeMeta";
 import { ManagementTableGroupSection } from "@/modules/School/managementTable/ManagementTableGroupSection";
+import { MANAGEMENT_TABLE_WORKSPACE_KIND } from "@/modules/School/managementTable/managementTableWorkspaceKind";
 import { useManagementTableAddColumnPopover } from "@/modules/School/managementTable/useManagementTableAddColumnPopover";
+import { useManagementTableKindGuard } from "@/modules/School/managementTable/useManagementTableKindGuard";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 
 function bootstrapErrorMessage(error: unknown): string {
@@ -87,6 +89,22 @@ export function GradesTablePanel({
     queryFn: () => fetchManagementTableInstanceBundle(orgId, schoolId, instanceId!),
     enabled: Boolean(orgId && schoolId && instanceId),
     staleTime: 15_000,
+  });
+
+  const repairTableBootstrap = useCallback(() => {
+    setInstanceId(null);
+    bootstrapMutation.mutate();
+  }, [bootstrapMutation]);
+
+  useManagementTableKindGuard({
+    tableKind: MANAGEMENT_TABLE_WORKSPACE_KIND.grades,
+    instanceId,
+    bundle: bundleQuery.data,
+    canMutate,
+    bootstrapPending: bootstrapMutation.isPending,
+    onRepair: repairTableBootstrap,
+    isBundleValid: (bundle) =>
+      bundle.definition.columns.some((col) => col.title.trim().toLowerCase() === "student"),
   });
 
   const invalidateBundleAndRows = async () => {

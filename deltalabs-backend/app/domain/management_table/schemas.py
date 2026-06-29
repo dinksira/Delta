@@ -9,6 +9,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MANAGEMENT_TABLE_DEFAULT_GROUP_ID = "mtg_main"
 
+# One workspace item (e.g. class) can host several specialized tables — each kind is isolated.
+MANAGEMENT_TABLE_KIND_MANAGEMENT = "management"
+MANAGEMENT_TABLE_KIND_STUDENTS = "students"
+MANAGEMENT_TABLE_KIND_PARENTS = "parents"
+MANAGEMENT_TABLE_KIND_TEACHERS = "teachers"
+MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS = "leave_requests"
+MANAGEMENT_TABLE_KIND_GRADES = "grades"
+MANAGEMENT_TABLE_KIND_SCHEDULES = "schedules"
+MANAGEMENT_TABLE_KIND_ASSIGNMENTS = "assignments"
+
 ManagementTableVisibility = Literal["self_owned", "sharable"]
 ManagementTableDefinitionListScope = Literal["all", "template", "mine"]
 ManagementTableColumnType = Literal[
@@ -97,6 +107,7 @@ class ManagementTableInstanceCreateInput(BaseModel):
     definition_id: str = Field(alias="definitionId", min_length=1)
     title: str | None = Field(default=None, min_length=1, max_length=200)
     workspace_item_id: str | None = Field(default=None, alias="workspaceItemId")
+    table_kind: str | None = Field(default=None, alias="tableKind", max_length=64)
 
 
 class ManagementTableGroupPublic(BaseModel):
@@ -122,6 +133,7 @@ class ManagementTableInstancePublic(BaseModel):
     definition_id: str = Field(serialization_alias="definitionId")
     definition_version: int = Field(serialization_alias="definitionVersion")
     workspace_item_id: str | None = Field(default=None, serialization_alias="workspaceItemId")
+    table_kind: str | None = Field(default=None, serialization_alias="tableKind")
     title: str
     table_groups: list[ManagementTableGroupPublic] = Field(serialization_alias="tableGroups")
     created_at: datetime = Field(serialization_alias="createdAt")
@@ -231,6 +243,7 @@ def map_instance(doc: Mapping[str, Any]) -> ManagementTableInstancePublic:
         definition_id=str(doc["definition_id"]),
         definition_version=int(doc.get("definition_version", 1)),
         workspace_item_id=str(doc["workspace_item_id"]) if doc.get("workspace_item_id") else None,
+        table_kind=str(doc["table_kind"]) if doc.get("table_kind") else None,
         title=str(doc.get("title", "")),
         table_groups=map_table_groups(doc),
         created_at=doc["created_at"],  # type: ignore[arg-type]

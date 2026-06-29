@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
@@ -22,7 +22,9 @@ import {
   type ManagementTableAddColumnOption,
 } from "@/modules/School/managementTable/columnTypeMeta";
 import { ManagementTableGroupSection } from "@/modules/School/managementTable/ManagementTableGroupSection";
+import { MANAGEMENT_TABLE_WORKSPACE_KIND } from "@/modules/School/managementTable/managementTableWorkspaceKind";
 import { useManagementTableAddColumnPopover } from "@/modules/School/managementTable/useManagementTableAddColumnPopover";
+import { useManagementTableKindGuard } from "@/modules/School/managementTable/useManagementTableKindGuard";
 import { readParentsTableInstanceId } from "@/modules/School/parents/parentsTableMeta";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 
@@ -93,14 +95,21 @@ export function ParentsTablePanel({
     staleTime: 15_000,
   });
 
-  useEffect(() => {
-    if (!canMutate || !instanceId || bootstrapMutation.isPending || !bundleQuery.data) return;
-    const hasParentColumn = bundleQuery.data.definition.columns.some(
-      (col) => col.title.trim().toLowerCase() === "parent",
-    );
-    if (!hasParentColumn) bootstrapMutation.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canMutate, instanceId, bundleQuery.data]);
+  const repairTableBootstrap = useCallback(() => {
+    setInstanceId(null);
+    bootstrapMutation.mutate();
+  }, [bootstrapMutation]);
+
+  useManagementTableKindGuard({
+    tableKind: MANAGEMENT_TABLE_WORKSPACE_KIND.parents,
+    instanceId,
+    bundle: bundleQuery.data,
+    canMutate,
+    bootstrapPending: bootstrapMutation.isPending,
+    onRepair: repairTableBootstrap,
+    isBundleValid: (bundle) =>
+      bundle.definition.columns.some((col) => col.title.trim().toLowerCase() === "parent"),
+  });
 
   const invalidateBundleAndRows = async () => {
     if (!instanceId) return;

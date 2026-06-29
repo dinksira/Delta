@@ -12,6 +12,7 @@ export { ClassParentsTablePanel } from "@/modules/School/class/ClassParentsTable
 export { ClassTeachersTablePanel } from "@/modules/School/class/ClassTeachersTablePanel";
 export { ClassGradesTablePanel } from "@/modules/School/class/ClassGradesTablePanel";
 export { ClassScheduleTablePanel } from "@/modules/School/class/ClassScheduleTablePanel";
+export { ClassAssignmentsTablePanel } from "@/modules/School/class/ClassAssignmentsTablePanel";
 export { ClassAttendancePanel } from "@/modules/School/class/ClassAttendancePanel";
 export { ClassBottomNav } from "@/modules/School/class/ClassBottomNav";
 export { parseClassAttendanceView, type ClassAttendanceView } from "@/modules/School/class/classNavigation";

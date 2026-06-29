@@ -858,6 +858,8 @@ export type ManagementTableInstanceDto = Readonly<{
   definitionId: string;
   definitionVersion: number;
   workspaceItemId?: string | null;
+  /** Isolates specialized class tables (grades, parents, schedules, …) on the same workspace item. */
+  tableKind?: string | null;
   title: string;
   /** Present on API v2+; missing rows fall back to a single implicit main group. */
   tableGroups?: readonly ManagementTableGroupDto[];
@@ -1172,6 +1174,16 @@ export async function bootstrapSchedulesTableWorkspaceItem(
 ): Promise<ManagementTableWorkspaceBootstrapDto> {
   return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
     `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(classWorkspaceItemId)}/schedules-table/bootstrap`,
+  );
+}
+
+export async function bootstrapAssignmentsTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(classWorkspaceItemId)}/assignments-table/bootstrap`,
   );
 }
 

@@ -37,7 +37,9 @@ import {
   type ManagementTableAddColumnOption,
 } from "@/modules/School/managementTable/columnTypeMeta";
 import { ManagementTableGroupSection } from "@/modules/School/managementTable/ManagementTableGroupSection";
+import { MANAGEMENT_TABLE_WORKSPACE_KIND } from "@/modules/School/managementTable/managementTableWorkspaceKind";
 import { useManagementTableAddColumnPopover } from "@/modules/School/managementTable/useManagementTableAddColumnPopover";
+import { useManagementTableKindGuard } from "@/modules/School/managementTable/useManagementTableKindGuard";
 
 function bootstrapErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 404) {
@@ -105,6 +107,22 @@ export function ScheduleTablePanel({
     queryFn: () => fetchManagementTableInstanceBundle(orgId, schoolId, instanceId!),
     enabled: Boolean(orgId && schoolId && instanceId),
     staleTime: 15_000,
+  });
+
+  const repairTableBootstrap = useCallback(() => {
+    setInstanceId(null);
+    bootstrapMutation.mutate();
+  }, [bootstrapMutation]);
+
+  useManagementTableKindGuard({
+    tableKind: MANAGEMENT_TABLE_WORKSPACE_KIND.schedules,
+    instanceId,
+    bundle: bundleQuery.data,
+    canMutate,
+    bootstrapPending: bootstrapMutation.isPending,
+    onRepair: repairTableBootstrap,
+    isBundleValid: (bundle) =>
+      bundle.definition.columns.some((col) => col.title.trim().toLowerCase() === "session"),
   });
 
   const mainGroup = bundleQuery.data?.instance.tableGroups?.[0] ?? { id: "mtg_main", title: "Main Table", order: 0 };

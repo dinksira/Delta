@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 from uuid import uuid4
 
 from app.core.exceptions import NotFoundError, PermissionDeniedError, ValidationError
 from app.domain.management_table.repository import ManagementTableRepository
 from app.domain.management_table.schemas import (
     MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+    MANAGEMENT_TABLE_KIND_ASSIGNMENTS,
+    MANAGEMENT_TABLE_KIND_GRADES,
+    MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS,
+    MANAGEMENT_TABLE_KIND_MANAGEMENT,
+    MANAGEMENT_TABLE_KIND_PARENTS,
+    MANAGEMENT_TABLE_KIND_SCHEDULES,
+    MANAGEMENT_TABLE_KIND_STUDENTS,
+    MANAGEMENT_TABLE_KIND_TEACHERS,
     ManagementTableColumnAppendInput,
     ManagementTableColumnPatchInput,
     ManagementTableDefinitionCreateInput,
@@ -47,6 +55,25 @@ def _normalize_column_type(raw: str) -> str:
     return t
 
 
+def _normalize_table_kind(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+    kind = raw.strip()
+    return kind or None
+
+
+def _instance_table_kind(doc: Mapping[str, Any]) -> str:
+    raw = doc.get("table_kind")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    return MANAGEMENT_TABLE_KIND_MANAGEMENT
+
+
+def _instance_matches_table_kind(doc: Mapping[str, Any], expected_kind: str | None) -> bool:
+    expected = _normalize_table_kind(expected_kind) or MANAGEMENT_TABLE_KIND_MANAGEMENT
+    return _instance_table_kind(doc) == expected
+
+
 class ManagementTableService:
     def __init__(
         self,
@@ -61,6 +88,27 @@ class ManagementTableService:
         doc = await self._school.find_school(org_id=org_id, school_id=school_id)
         if doc is None:
             raise NotFoundError("School not found.", code="school_not_found")
+
+    async def _load_bootstrap_bundle_if_valid(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        table_kind: str,
+    ) -> ManagementTableInstanceBundleResponse | None:
+        inst = await self._mt.find_instance(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+        )
+        if inst is None or not _instance_matches_table_kind(inst, table_kind):
+            return None
+        return await self.get_instance_bundle(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id.strip(),
+        )
 
     async def list_definitions(
         self,
@@ -316,11 +364,13 @@ class ManagementTableService:
         )
         raw_ws = payload.workspace_item_id
         ws_id = raw_ws.strip() if isinstance(raw_ws, str) and raw_ws.strip() else None
+        table_kind = _normalize_table_kind(payload.table_kind)
         if ws_id:
             existing = await self._mt.find_instance_by_workspace_item(
                 org_id=org_id,
                 school_id=school_id,
                 workspace_item_id=ws_id,
+                table_kind=table_kind,
             )
             if existing is not None:
                 defn = await self.get_definition(
@@ -339,6 +389,7 @@ class ManagementTableService:
             definition_version=version,
             title=title,
             workspace_item_id=ws_id,
+            table_kind=table_kind,
         )
         return ManagementTableInstanceBundleResponse(
             instance=map_instance(inst),
@@ -817,17 +868,13 @@ class ManagementTableService:
         meta_dict = dict(meta) if isinstance(meta, dict) else {}
         existing_id = meta_dict.get("managementTableInstanceId")
         if isinstance(existing_id, str) and existing_id.strip():
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
-                instance_id=existing_id.strip(),
+                instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_MANAGEMENT,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id.strip(),
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -847,6 +894,7 @@ class ManagementTableService:
                 definition_id=created.id,
                 title=title,
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_MANAGEMENT,
             ),
         )
         meta_dict["managementTableInstanceId"] = bundle.instance.id
@@ -891,17 +939,13 @@ class ManagementTableService:
         meta_dict = dict(meta) if isinstance(meta, dict) else {}
         existing_id = meta_dict.get("studentsTableInstanceId")
         if isinstance(existing_id, str) and existing_id.strip():
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
-                instance_id=existing_id.strip(),
+                instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_STUDENTS,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id.strip(),
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -933,6 +977,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Students",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_STUDENTS,
             ),
         )
         meta_dict["studentsTableInstanceId"] = bundle.instance.id
@@ -1016,17 +1061,13 @@ class ManagementTableService:
         if existing_id and existing_id == students_instance_id:
             existing_id = ""
         if existing_id:
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
                 instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_PARENTS,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id,
-                )
+            if bundle is not None:
                 parent_col_id = meta_dict.get("parentsTableParentColumnId")
                 has_parent_col = any(
                     c.title.strip().lower() == "parent"
@@ -1077,6 +1118,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Parents",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_PARENTS,
             ),
         )
         meta_dict["parentsTableInstanceId"] = bundle.instance.id
@@ -1125,17 +1167,13 @@ class ManagementTableService:
         existing_id_raw = meta_dict.get("leaveRequestsTableInstanceId")
         existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
         if existing_id:
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
                 instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id,
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -1209,6 +1247,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Leave requests",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS,
             ),
         )
         meta_dict["leaveRequestsTableInstanceId"] = bundle.instance.id
@@ -1308,17 +1347,13 @@ class ManagementTableService:
         existing_id_raw = meta_dict.get("teachersTableInstanceId")
         existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
         if existing_id:
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
                 instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_TEACHERS,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id,
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -1371,6 +1406,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Teachers",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_TEACHERS,
             ),
         )
         meta_dict["teachersTableInstanceId"] = bundle.instance.id
@@ -1453,17 +1489,13 @@ class ManagementTableService:
         existing_id_raw = meta_dict.get("gradesTableInstanceId")
         existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
         if existing_id:
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
                 instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_GRADES,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id,
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -1524,6 +1556,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Grades",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_GRADES,
             ),
         )
         meta_dict["gradesTableInstanceId"] = bundle.instance.id
@@ -1588,17 +1621,13 @@ class ManagementTableService:
         existing_id_raw = meta_dict.get("schedulesTableInstanceId")
         existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
         if existing_id:
-            inst = await self._mt.find_instance(
+            bundle = await self._load_bootstrap_bundle_if_valid(
                 org_id=org_id,
                 school_id=school_id,
                 instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_SCHEDULES,
             )
-            if inst is not None:
-                bundle = await self.get_instance_bundle(
-                    org_id=org_id,
-                    school_id=school_id,
-                    instance_id=existing_id,
-                )
+            if bundle is not None:
                 return ManagementTableWorkspaceBootstrapResponse(
                     instance=bundle.instance,
                     definition=bundle.definition,
@@ -1630,6 +1659,7 @@ class ManagementTableService:
                 definition_id=str(definition_doc["_id"]),
                 title=f"{item_title} Schedule",
                 workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_SCHEDULES,
             ),
         )
         meta_dict["schedulesTableInstanceId"] = bundle.instance.id
@@ -1662,6 +1692,146 @@ class ManagementTableService:
             workspace_item_id=class_workspace_item_id,
             allowed_types=frozenset({"class"}),
             invalid_type_code="class_schedules_table_workspace_type_invalid",
+        )
+
+    async def bootstrap_assignments_table_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        workspace_item_id: str,
+        allowed_types: frozenset[str],
+        invalid_type_code: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        await self._require_school(org_id=org_id, school_id=school_id)
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+        )
+        if item is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        item_type = str(item.get("type", ""))
+        if item_type not in allowed_types:
+            raise ValidationError(
+                "Workspace item cannot host an assignments table.",
+                code=invalid_type_code,
+            )
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        existing_id_raw = meta_dict.get("assignmentsTableInstanceId")
+        existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
+        if existing_id:
+            bundle = await self._load_bootstrap_bundle_if_valid(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_ASSIGNMENTS,
+            )
+            if bundle is not None:
+                return ManagementTableWorkspaceBootstrapResponse(
+                    instance=bundle.instance,
+                    definition=bundle.definition,
+                    already_linked=True,
+                )
+        item_title = str(item.get("title", "Class")).strip() or "Class"
+        assignment_col_id = _new_column_id()
+        teacher_col_id = _new_column_id()
+        assignment_status_options = [
+            {"id": "assigned", "label": "Assigned"},
+            {"id": "in_progress", "label": "In Progress"},
+            {"id": "submitted", "label": "Submitted"},
+            {"id": "graded", "label": "Graded"},
+            {"id": "overdue", "label": "Overdue"},
+            {"id": "cancelled", "label": "Cancelled"},
+        ]
+        starter_columns: list[dict[str, Any]] = [
+            {
+                "id": assignment_col_id,
+                "title": "Assignment",
+                "type": "text",
+                "order": 0,
+                "settings": {},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Course",
+                "type": "text",
+                "order": 1,
+                "settings": {},
+            },
+            {
+                "id": teacher_col_id,
+                "title": "Teacher",
+                "type": "text",
+                "order": 2,
+                "settings": {"cellEditor": "person"},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Due Date",
+                "type": "date",
+                "order": 3,
+                "settings": {},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Status",
+                "type": "status",
+                "order": 4,
+                "settings": {"options": assignment_status_options},
+            },
+        ]
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id,
+            school_id=school_id,
+            title=f"{item_title} — Assignments",
+            visibility="self_owned",
+            created_by_user_id=user_id,
+            columns=starter_columns,
+        )
+        bundle = await self.create_instance(
+            org_id=org_id,
+            school_id=school_id,
+            payload=ManagementTableInstanceCreateInput(
+                definition_id=str(definition_doc["_id"]),
+                title=f"{item_title} Assignments",
+                workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_ASSIGNMENTS,
+            ),
+        )
+        meta_dict["assignmentsTableInstanceId"] = bundle.instance.id
+        meta_dict["assignmentsTableDefinitionId"] = bundle.definition.id
+        meta_dict["assignmentsTableAssignmentColumnId"] = assignment_col_id
+        meta_dict["assignmentsTableTeacherColumnId"] = teacher_col_id
+        await self._school.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+            updates={"metadata": meta_dict},
+        )
+        return ManagementTableWorkspaceBootstrapResponse(
+            instance=bundle.instance,
+            definition=bundle.definition,
+            already_linked=False,
+        )
+
+    async def bootstrap_class_assignments_table(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        class_workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        return await self.bootstrap_assignments_table_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user_id,
+            workspace_item_id=class_workspace_item_id,
+            allowed_types=frozenset({"class"}),
+            invalid_type_code="class_assignments_table_workspace_type_invalid",
         )
 
     async def sync_class_enrollment_row(
