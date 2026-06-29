@@ -1,70 +1,21 @@
 "use client";
 
 /** ################################ IMPORT ############################# */
-import type { ComponentType, RefObject } from "react";
+import type { RefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import {
-  Atom,
-  Award,
-  BookMarked,
-  Bus,
-  Calendar,
-  FlaskConical,
-  MoreHorizontal,
-  PanelsTopLeft,
-  PencilRuler,
-  Route,
-  Server,
-  User,
-} from "lucide-react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import {
+  CLASS_START_TILE_ICONS,
+  CLASS_START_TILES,
+  type ClassStartTile,
+} from "@/modules/School/class/classBottomNavConfig";
 /** ################################ /IMPORT ############################# */
 
-/** ################################ TYPES ############################# */
-export type ClassStartNavTarget =
-  | "class"
-  | "students"
-  | "parents"
-  | "attendance"
-  | "teacher"
-  | "schedules"
-  | "grade"
-  | "assignment";
-
-type StartTile = Readonly<{
-  key: string;
-  label: string;
-  Icon: ComponentType<{ className?: string; "aria-hidden"?: boolean | undefined }>;
-  /** When set, navigates the class workspace to this `nav` tab and closes the menu. */
-  targetNav?: ClassStartNavTarget;
-}>;
-/** ################################ /TYPES ############################# */
-
 /** ################################ CONSTANTS ############################# */
-/** 2×6 grid matching the reference (top → bottom, left → right). */
-const START_TILES: readonly StartTile[] = [
-  { key: "assets", label: "Assets", Icon: Server },
-  { key: "plans", label: "Plans", Icon: PanelsTopLeft },
-  { key: "labs", label: "Labs", Icon: FlaskConical },
-  { key: "rnd", label: "R & D", Icon: Atom },
-  { key: "schedules", label: "Schedules", Icon: Calendar, targetNav: "schedules" },
-  { key: "transport", label: "Transport", Icon: Bus },
-  { key: "student", label: "Student", Icon: User, targetNav: "students" },
-  { key: "grade", label: "Grade", Icon: Award, targetNav: "grade" },
-  { key: "roadmap", label: "Roadmap", Icon: Route },
-  { key: "materials", label: "Materials", Icon: PencilRuler },
-  { key: "courses", label: "Courses", Icon: BookMarked, targetNav: "assignment" },
-  { key: "other", label: "Other", Icon: MoreHorizontal },
-] as const;
-
-/** Panel size / position (fixed `bottom` = px from viewport bottom; larger = higher on screen). */
 const PANEL_H_MARGIN = 14;
 const PANEL_MIN_W = 320;
 const PANEL_MAX_W = 720;
-/** Space between Start button top and panel bottom edge. */
 const PANEL_GAP_ABOVE_ANCHOR = 32;
-/** Extra lift so the menu sits clearly above the bottom bar. */
 const PANEL_EXTRA_LIFT = 20;
 /** ################################ /CONSTANTS ############################# */
 
@@ -73,11 +24,10 @@ type ClassStartMenuProps = Readonly<{
   open: boolean;
   onClose: () => void;
   anchorRef: RefObject<HTMLButtonElement | null>;
-  getHref: (nav: ClassStartNavTarget) => string;
+  onSelectTile: (tile: ClassStartTile) => void;
 }>;
 
-export function ClassStartMenu({ open, onClose, anchorRef, getHref }: ClassStartMenuProps) {
-  const router = useRouter();
+export function ClassStartMenu({ open, onClose, anchorRef, onSelectTile }: ClassStartMenuProps) {
   const [panelStyle, setPanelStyle] = useState<{ left: number; bottom: number; width: number } | null>(null);
 
   const updatePosition = useCallback(() => {
@@ -120,10 +70,8 @@ export function ClassStartMenu({ open, onClose, anchorRef, getHref }: ClassStart
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const onPick = (tile: StartTile) => {
-    if (tile.targetNav) {
-      router.push(getHref(tile.targetNav));
-    }
+  const onPick = (tile: ClassStartTile) => {
+    onSelectTile(tile);
     onClose();
   };
 
@@ -155,8 +103,8 @@ export function ClassStartMenu({ open, onClose, anchorRef, getHref }: ClassStart
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grid grid-cols-6 gap-x-2 gap-y-6 sm:gap-x-4 sm:gap-y-8">
-          {START_TILES.map((tile) => {
-            const Icon = tile.Icon;
+          {CLASS_START_TILES.map((tile) => {
+            const Icon = CLASS_START_TILE_ICONS[tile.key];
             return (
               <button
                 key={tile.key}
@@ -165,7 +113,7 @@ export function ClassStartMenu({ open, onClose, anchorRef, getHref }: ClassStart
                 onClick={() => onPick(tile)}
                 className="flex flex-col items-center gap-1.5 rounded-lg p-2 text-primary-700 transition-colors hover:bg-primary-100 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400/70 sm:gap-2 sm:p-2"
               >
-                <Icon className="size-4 shrink-0 text-primary-600 sm:size-[1.125rem]" aria-hidden />
+                {Icon ? <Icon className="size-4 shrink-0 text-primary-600 sm:size-[1.125rem]" aria-hidden /> : null}
                 <span className="w-full truncate text-center text-[10px] font-medium leading-tight text-primary-800 sm:text-[11px]">
                   {tile.label}
                 </span>
@@ -180,3 +128,5 @@ export function ClassStartMenu({ open, onClose, anchorRef, getHref }: ClassStart
   return createPortal(portal, document.body);
 }
 /** ################################ /COMPONENT ############################# */
+
+export type { ClassStartTile };

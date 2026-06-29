@@ -32,6 +32,7 @@ import {
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
 } from "@/modules/School/class";
+import { isBuiltClassNavSection, type ClassNavId } from "@/modules/School/class/classBottomNavConfig";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 /** ################################ /IMPORT ############################# */
@@ -68,6 +69,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
     [cleanSchoolId, cleanClassId, searchParams],
   );
   const bottomNavSection = searchParams.get("nav");
+  const navSectionId = bottomNavSection?.trim() || "class";
   const showClassSessions = !bottomNavSection || bottomNavSection === "class";
   const showClassStudents = bottomNavSection === "students";
   const showClassParents = bottomNavSection === "parents";
@@ -235,7 +237,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
         <p className="text-sm leading-relaxed text-text-secondary">
           This workspace item is not a class. Open it from the school workspace.
         </p>
-      ) : !showClassSessions && !showClassStudents && !showClassParents && !showClassAttendance && !showClassTeachers && !showClassGrades && !showClassSchedules && !showClassAssignments ? (
+      ) : !isBuiltClassNavSection(navSectionId as ClassNavId) ? (
         <div
           className="flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-16 text-center"
           role="status"
