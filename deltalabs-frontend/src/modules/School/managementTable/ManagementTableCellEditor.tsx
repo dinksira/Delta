@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 
 import type { ManagementTableColumnDto, SchoolMemberSearchPicker } from "@/modules/School/api";
+import { columnUsesClassSessionPicker } from "@/modules/School/managementTable/managementTableClassSessionCell";
+import { ManagementTableClassSessionCellEditor } from "@/modules/School/managementTable/ManagementTableClassSessionCellEditor";
 import { columnUsesPersonPicker, resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTablePersonCellEditor } from "@/modules/School/managementTable/ManagementTablePersonCellEditor";
 
@@ -116,6 +118,18 @@ export function ManagementTableCellEditor({
   personPicker?: SchoolMemberSearchPicker;
   classWorkspaceItemId?: string;
 }>) {
+  if (columnUsesClassSessionPicker(column) && orgId && schoolId && classWorkspaceItemId) {
+    return (
+      <ManagementTableClassSessionCellEditor
+        orgId={orgId}
+        schoolId={schoolId}
+        classWorkspaceItemId={classWorkspaceItemId}
+        value={value}
+        onCommit={onCommit}
+      />
+    );
+  }
+
   if (columnUsesPersonPicker(column) && orgId && schoolId) {
     return (
       <ManagementTablePersonCellEditor
@@ -155,6 +169,18 @@ export function ManagementTableCellEditor({
   }
   if (t === "textarea") {
     return <TextareaCellEditor value={value} onCommit={onCommit} />;
+  }
+  const cellEditor = column.settings?.cellEditor;
+  if (cellEditor === "time" || column.title.trim().toLowerCase() === "time") {
+    const timeVal = typeof value === "string" ? value.slice(0, 5) : "";
+    return (
+      <input
+        type="time"
+        className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+        value={timeVal}
+        onChange={(e) => onCommit(e.target.value, true)}
+      />
+    );
   }
   if (t === "dropdown" || t === "status") {
     const opts = optionList(column.settings);

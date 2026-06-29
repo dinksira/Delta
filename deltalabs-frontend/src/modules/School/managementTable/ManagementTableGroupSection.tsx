@@ -19,9 +19,24 @@ import {
   formatPersonCellLabel,
   resolvePersonPickerForColumn,
 } from "@/modules/School/managementTable/managementTablePersonCell";
+import {
+  columnUsesClassSessionPicker,
+  formatClassSessionCellLabel,
+} from "@/modules/School/managementTable/managementTableClassSessionCell";
 import { ManagementTableBoardViewsPopover } from "@/modules/School/managementTable/ManagementTableBoardViewsPopover";
 import { ManagementTableColumnHeadCell } from "@/modules/School/managementTable/ManagementTableColumnHeadCell";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
+
+export type ScheduleTableChrome = Readonly<{
+  activeView: "main" | "calendar";
+  onViewChange: (view: "main" | "calendar") => void;
+  dateRangeLabel: string;
+  onDateRangePrev?: () => void;
+  onDateRangeNext?: () => void;
+  /** Calendar view has its own toolbar — hide duplicate week controls in the group header. */
+  hideToolbarDateRange?: boolean;
+  calendarContent: React.ReactNode;
+}>;
 
 export type ManagementTableGroupSectionProps = Readonly<{
   orgId: string;
@@ -40,6 +55,8 @@ export type ManagementTableGroupSectionProps = Readonly<{
   emptyRowsMessage?: string;
   /** When set, only these column titles are editable (case-insensitive). Others are read-only. */
   onlyEditableColumnTitles?: readonly string[];
+  /** Class schedule — Main Table / Calendar tabs, date range, calendar body. */
+  scheduleChrome?: ScheduleTableChrome;
 }>;
 
 export function ManagementTableGroupSection({
@@ -57,6 +74,7 @@ export function ManagementTableGroupSection({
   allowAddRow = true,
   emptyRowsMessage = "No rows yet.",
   onlyEditableColumnTitles,
+  scheduleChrome,
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
@@ -133,6 +151,7 @@ export function ManagementTableGroupSection({
       }
     }
     if (columnUsesPersonPicker(col)) return formatPersonCellLabel(value) || "—";
+    if (columnUsesClassSessionPicker(col)) return formatClassSessionCellLabel(value) || "—";
     if (value === null || value === undefined || value === "") return "—";
     return String(value);
   };
@@ -184,10 +203,29 @@ export function ManagementTableGroupSection({
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-full border border-border-default bg-surface-default px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-muted sm:px-4 sm:py-2"
-            title="Coming soon"
+            title={scheduleChrome && !scheduleChrome.hideToolbarDateRange ? "Previous week" : "Coming soon"}
+            onClick={
+              scheduleChrome && !scheduleChrome.hideToolbarDateRange
+                ? () => {
+                    scheduleChrome.onDateRangePrev?.();
+                  }
+                : undefined
+            }
+            disabled={!scheduleChrome || scheduleChrome.hideToolbarDateRange}
+            hidden={Boolean(scheduleChrome?.hideToolbarDateRange)}
           >
-            1th January ↔ 7th January
+            {scheduleChrome?.dateRangeLabel ?? "1th January ↔ 7th January"}
           </button>
+          {scheduleChrome && !scheduleChrome.hideToolbarDateRange ? (
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-full border border-border-default bg-surface-default px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-muted sm:px-4 sm:py-2"
+              title="Next week"
+              onClick={() => scheduleChrome.onDateRangeNext?.()}
+            >
+              →
+            </button>
+          ) : null}
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-full border border-border-default bg-surface-default px-3 py-1.5 text-xs font-medium text-text-secondary shadow-sm transition-colors hover:bg-surface-muted sm:px-4 sm:py-2"
@@ -213,7 +251,36 @@ export function ManagementTableGroupSection({
           className="rounded-b-xl border border-t-0 border-border-default bg-surface-default shadow-sm"
         >
       <div className="flex min-h-[44px] items-center gap-6 border-b border-border-default bg-surface-default px-3 pb-px pt-3">
-        <span className="border-b-2 border-primary-600 pb-2 text-sm font-semibold text-text-primary">Main Table</span>
+        {scheduleChrome ? (
+          <>
+            <button
+              type="button"
+              className={[
+                "pb-2 text-sm font-semibold transition-colors",
+                scheduleChrome.activeView === "main"
+                  ? "border-b-2 border-primary-600 text-text-primary"
+                  : "text-text-tertiary hover:text-text-secondary",
+              ].join(" ")}
+              onClick={() => scheduleChrome.onViewChange("main")}
+            >
+              Main Table
+            </button>
+            <button
+              type="button"
+              className={[
+                "pb-2 text-sm font-semibold transition-colors",
+                scheduleChrome.activeView === "calendar"
+                  ? "border-b-2 border-primary-600 text-text-primary"
+                  : "text-text-tertiary hover:text-text-secondary",
+              ].join(" ")}
+              onClick={() => scheduleChrome.onViewChange("calendar")}
+            >
+              Calendar
+            </button>
+          </>
+        ) : (
+          <span className="border-b-2 border-primary-600 pb-2 text-sm font-semibold text-text-primary">Main Table</span>
+        )}
         <button
           ref={boardViewsAnchorRef}
           type="button"
@@ -233,6 +300,9 @@ export function ManagementTableGroupSection({
         />
       </div>
 
+      {scheduleChrome?.activeView === "calendar" ? (
+        scheduleChrome.calendarContent
+      ) : (
       <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>
@@ -342,6 +412,7 @@ export function ManagementTableGroupSection({
           </div>
         ) : null}
       </div>
+      )}
         </div>
       ) : null}
     </div>

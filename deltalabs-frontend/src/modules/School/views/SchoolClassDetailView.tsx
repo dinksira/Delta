@@ -26,6 +26,7 @@ import {
   ClassParentsTablePanel,
   ClassTeachersTablePanel,
   ClassGradesTablePanel,
+  ClassScheduleTablePanel,
   ClassAttendancePanel,
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
@@ -72,6 +73,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const showClassAttendance = bottomNavSection === "attendance";
   const showClassTeachers = bottomNavSection === "teacher";
   const showClassGrades = bottomNavSection === "grade";
+  const showClassSchedules = bottomNavSection === "schedules";
 
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
@@ -231,7 +233,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
         <p className="text-sm leading-relaxed text-text-secondary">
           This workspace item is not a class. Open it from the school workspace.
         </p>
-      ) : !showClassSessions && !showClassStudents && !showClassParents && !showClassAttendance && !showClassTeachers && !showClassGrades ? (
+      ) : !showClassSessions && !showClassStudents && !showClassParents && !showClassAttendance && !showClassTeachers && !showClassGrades && !showClassSchedules ? (
         <div
           className="flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-16 text-center"
           role="status"
@@ -243,6 +245,21 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
             sessions.
           </p>
         </div>
+      ) : showClassSchedules ? (
+        activeOrgId ? (
+          <ClassScheduleTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
       ) : showClassGrades ? (
         activeOrgId ? (
           <ClassGradesTablePanel

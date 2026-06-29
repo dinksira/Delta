@@ -1096,6 +1096,62 @@ async def bootstrap_org_class_grades_table(
     )
 
 
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/schedules-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_schedules_table_workspace_item(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    item = await service.get_school_workspace_item(
+        org_id=org_id,
+        school_id=school_id,
+        item_id=workspace_item_id,
+    )
+    if item.type != "class":
+        raise ValidationError(
+            "Workspace item cannot host a schedules table.",
+            code="schedules_table_workspace_type_invalid",
+        )
+    return await mt.bootstrap_class_schedules_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=workspace_item_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/classes/{class_workspace_item_id}/schedules-table/bootstrap",
+    response_model=ManagementTableWorkspaceBootstrapResponse,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def bootstrap_org_class_schedules_table(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableWorkspaceBootstrapResponse:
+    service = _service(db)
+    await service.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.bootstrap_class_schedules_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
 @org_router.delete(
     "/{school_id}/classes/{class_workspace_item_id}/enrollments/{enrollment_id}",
     dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],

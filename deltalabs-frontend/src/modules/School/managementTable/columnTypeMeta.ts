@@ -4,11 +4,14 @@ import {
   AlignLeft,
   Calendar,
   CheckSquare,
+  Clock,
   File,
   Hash,
+  Home,
   Link2,
   Loader,
   Phone,
+  RotateCw,
   SquareKanban,
   Tag,
   TextCursor,
@@ -24,6 +27,9 @@ export type ManagementTableAddColumnOption = Readonly<{
   icon: LucideIcon;
   /** When omitted, the option is UI-only (coming soon). */
   supportedType?: ManagementTableColumnTypeDto;
+  /** Override default column title when appending (schedule presets). */
+  columnTitle?: string;
+  columnSettings?: Record<string, unknown>;
 }>;
 
 export type ManagementTableAddColumnGroup = Readonly<{
@@ -146,6 +152,62 @@ export const CLASS_GRADES_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddCo
       { id: "textarea", label: "Long text", icon: AlignLeft, supportedType: "textarea" },
       { id: "link", label: "Link", icon: Link2, supportedType: "link" },
       { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
+    ],
+  },
+];
+
+const SCHEDULE_STATUS_OPTIONS = [
+  { id: "scheduled", label: "Scheduled" },
+  { id: "live", label: "Live" },
+  { id: "completed", label: "Completed" },
+  { id: "cancelled", label: "Cancelled" },
+];
+
+export const CLASS_SCHEDULES_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Most used",
+    options: [
+      { id: "session", label: "Session", icon: RotateCw, supportedType: "text", columnTitle: "Session", columnSettings: { cellEditor: "class_session" } },
+      { id: "date", label: "Date", icon: Calendar, supportedType: "date", columnTitle: "Date" },
+      { id: "text", label: "Text", icon: TextCursor, supportedType: "text", columnTitle: "Text" },
+      {
+        id: "duration",
+        label: "Duration",
+        icon: Clock,
+        supportedType: "number",
+        columnTitle: "Duration",
+        columnSettings: { unit: "minutes" },
+      },
+    ],
+  },
+  {
+    title: "More",
+    options: [
+      {
+        id: "status",
+        label: "Status",
+        icon: Tag,
+        supportedType: "status",
+        columnTitle: "Status",
+        columnSettings: { options: SCHEDULE_STATUS_OPTIONS },
+      },
+      {
+        id: "time",
+        label: "Time",
+        icon: Clock,
+        supportedType: "text",
+        columnTitle: "Time",
+        columnSettings: { cellEditor: "time" },
+      },
+      {
+        id: "assign_teacher",
+        label: "Assign Teacher",
+        icon: User,
+        supportedType: "text",
+        columnTitle: "Assign Teacher",
+        columnSettings: { cellEditor: "person" },
+      },
+      { id: "class_room", label: "Class Room", icon: Home, supportedType: "text", columnTitle: "Class Room" },
     ],
   },
 ];
