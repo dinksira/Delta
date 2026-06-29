@@ -24,7 +24,7 @@ export function resolvePersonPickerForColumn(
   }
   if (title === "student") {
     if (tableDefault === "platform") return "platform";
-    if (tableDefault === "school_parents") return "class_students";
+    if (tableDefault === "school_parents" || tableDefault === "class_students") return "class_students";
     return "school_students";
   }
   if (title === "teacher") {

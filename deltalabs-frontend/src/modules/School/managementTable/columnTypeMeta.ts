@@ -128,6 +128,28 @@ export const CLASS_TEACHERS_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAdd
   },
 ];
 
+export const CLASS_GRADES_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Assessments",
+    options: [
+      { id: "number", label: "Number", icon: Hash, supportedType: "number" },
+      { id: "text", label: "Text", icon: TextCursor, supportedType: "text" },
+      { id: "status", label: "Status", icon: Tag, supportedType: "status" },
+    ],
+  },
+  {
+    title: "More",
+    options: [
+      { id: "date", label: "Date", icon: Calendar, supportedType: "date" },
+      { id: "dropdown", label: "Dropdown", icon: Tag, supportedType: "dropdown" },
+      { id: "checkbox", label: "Checkbox", icon: CheckSquare, supportedType: "checkbox" },
+      { id: "textarea", label: "Long text", icon: AlignLeft, supportedType: "textarea" },
+      { id: "link", label: "Link", icon: Link2, supportedType: "link" },
+      { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
+    ],
+  },
+];
+
 export function filterAddColumnGroups(
   groups: readonly ManagementTableAddColumnGroup[],
   search: string,

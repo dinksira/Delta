@@ -1424,6 +1424,141 @@ class ManagementTableService:
             include_role_subject_columns=False,
         )
 
+    async def bootstrap_grades_table_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        workspace_item_id: str,
+        allowed_types: frozenset[str],
+        invalid_type_code: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        await self._require_school(org_id=org_id, school_id=school_id)
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+        )
+        if item is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        item_type = str(item.get("type", ""))
+        if item_type not in allowed_types:
+            raise ValidationError(
+                "Workspace item cannot host a grades table.",
+                code=invalid_type_code,
+            )
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        existing_id_raw = meta_dict.get("gradesTableInstanceId")
+        existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
+        if existing_id:
+            inst = await self._mt.find_instance(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=existing_id,
+            )
+            if inst is not None:
+                bundle = await self.get_instance_bundle(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=existing_id,
+                )
+                return ManagementTableWorkspaceBootstrapResponse(
+                    instance=bundle.instance,
+                    definition=bundle.definition,
+                    already_linked=True,
+                )
+        item_title = str(item.get("title", "Class")).strip() or "Class"
+        student_col_id = _new_column_id()
+        teacher_col_id = _new_column_id()
+        starter_columns: list[dict[str, Any]] = [
+            {
+                "id": student_col_id,
+                "title": "Student",
+                "type": "text",
+                "order": 0,
+                "settings": {"cellEditor": "person"},
+            },
+            {
+                "id": teacher_col_id,
+                "title": "Teacher",
+                "type": "text",
+                "order": 1,
+                "settings": {"cellEditor": "person"},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Course Name",
+                "type": "text",
+                "order": 2,
+                "settings": {},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Quiz",
+                "type": "number",
+                "order": 3,
+                "settings": {},
+            },
+            {
+                "id": _new_column_id(),
+                "title": "Mid",
+                "type": "number",
+                "order": 4,
+                "settings": {},
+            },
+        ]
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id,
+            school_id=school_id,
+            title=f"{item_title} — Grades",
+            visibility="self_owned",
+            created_by_user_id=user_id,
+            columns=starter_columns,
+        )
+        bundle = await self.create_instance(
+            org_id=org_id,
+            school_id=school_id,
+            payload=ManagementTableInstanceCreateInput(
+                definition_id=str(definition_doc["_id"]),
+                title=f"{item_title} Grades",
+                workspace_item_id=workspace_item_id,
+            ),
+        )
+        meta_dict["gradesTableInstanceId"] = bundle.instance.id
+        meta_dict["gradesTableDefinitionId"] = bundle.definition.id
+        meta_dict["gradesTableStudentColumnId"] = student_col_id
+        meta_dict["gradesTableTeacherColumnId"] = teacher_col_id
+        await self._school.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+            updates={"metadata": meta_dict},
+        )
+        return ManagementTableWorkspaceBootstrapResponse(
+            instance=bundle.instance,
+            definition=bundle.definition,
+            already_linked=False,
+        )
+
+    async def bootstrap_class_grades_table(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        class_workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        return await self.bootstrap_grades_table_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            user_id=user_id,
+            workspace_item_id=class_workspace_item_id,
+            allowed_types=frozenset({"class"}),
+            invalid_type_code="class_grades_table_workspace_type_invalid",
+        )
+
     async def sync_class_enrollment_row(
         self,
         *,

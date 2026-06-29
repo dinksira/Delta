@@ -1155,6 +1155,16 @@ export async function bootstrapTeachersTableWorkspaceItem(
   );
 }
 
+export async function bootstrapGradesTableWorkspaceItem(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ManagementTableWorkspaceBootstrapDto> {
+  return apiClient.post<ManagementTableWorkspaceBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(classWorkspaceItemId)}/grades-table/bootstrap`,
+  );
+}
+
 export async function uploadSchoolDocumentFile(
   orgId: string,
   file: File,
