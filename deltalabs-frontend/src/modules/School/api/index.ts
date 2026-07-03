@@ -456,6 +456,94 @@ export async function deleteClassSession(
   );
 }
 
+export type ClassRoadmapContentStatusDto = "pending" | "completed";
+export type ClassRoadmapResourceKindDto = "session" | "course" | "assignment" | "exam" | "video";
+export type ClassRoadmapContentTypeDto = "video" | "exam" | "assignment" | "session" | "course";
+
+export type ClassRoadmapContentItemDto = Readonly<{
+  id: string;
+  kind: ClassRoadmapResourceKindDto;
+  contentType: ClassRoadmapContentTypeDto;
+  title: string;
+  subtitle?: string | null;
+  sourceKey?: string | null;
+  tags: readonly string[];
+  status: ClassRoadmapContentStatusDto;
+}>;
+
+export type ClassRoadmapSectionDto = Readonly<{
+  id: string;
+  title: string;
+  description: string;
+  tags: readonly string[];
+  collapsed: boolean;
+  contents: readonly ClassRoadmapContentItemDto[];
+}>;
+
+export type ClassRoadmapDto = Readonly<{
+  orgId: string;
+  schoolId: string;
+  classWorkspaceItemId: string;
+  sections: readonly ClassRoadmapSectionDto[];
+  currentSectionId: string | null;
+  currentContentId: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}>;
+
+export type ClassRoadmapPutInputDto = Readonly<{
+  sections: readonly ClassRoadmapSectionDto[];
+  currentSectionId?: string | null;
+  currentContentId?: string | null;
+}>;
+
+export type ClassRoadmapSidebarResourceDto = Readonly<{
+  id: string;
+  kind: ClassRoadmapResourceKindDto;
+  contentType: ClassRoadmapContentTypeDto;
+  title: string;
+  subtitle?: string | null;
+  sourceKey: string;
+}>;
+
+export type ClassRoadmapResourcesResponseDto = Readonly<{
+  sessions: readonly ClassRoadmapSidebarResourceDto[];
+  courses: readonly ClassRoadmapSidebarResourceDto[];
+  materials: readonly ClassRoadmapSidebarResourceDto[];
+}>;
+
+export async function fetchClassRoadmap(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ClassRoadmapDto> {
+  return apiClient.get<ClassRoadmapDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/roadmap`,
+  );
+}
+
+export async function putClassRoadmap(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+  payload: ClassRoadmapPutInputDto,
+): Promise<ClassRoadmapDto> {
+  return apiClient.put<ClassRoadmapDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/roadmap`,
+    { json: payload },
+  );
+}
+
+export async function fetchClassRoadmapResources(
+  orgId: string,
+  schoolId: string,
+  classWorkspaceItemId: string,
+): Promise<ClassRoadmapResourcesResponseDto> {
+  return apiClient.get<ClassRoadmapResourcesResponseDto>(
+    `/v1/orgs/${orgId}/schools/${schoolId}/classes/${encodeURIComponent(classWorkspaceItemId)}/roadmap/resources`,
+  );
+}
+
 export type AttendanceMarkStatusDto = "present" | "absent" | "late";
 export type AttendanceDeviceTypeDto = "qr_scanner" | "fingerprint" | "other";
 export type AttendanceDeviceStatusDto = "online" | "offline";

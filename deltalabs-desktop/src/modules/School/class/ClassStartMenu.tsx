@@ -6,7 +6,6 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CLASS_START_TILE_ICONS,
-  CLASS_START_TILES,
   type ClassStartTile,
 } from "@/modules/School/class/classBottomNavConfig";
 /** ################################ /IMPORT ############################# */
@@ -24,10 +23,11 @@ type ClassStartMenuProps = Readonly<{
   open: boolean;
   onClose: () => void;
   anchorRef: RefObject<HTMLButtonElement | null>;
+  tiles: readonly ClassStartTile[];
   onSelectTile: (tile: ClassStartTile) => void;
 }>;
 
-export function ClassStartMenu({ open, onClose, anchorRef, onSelectTile }: ClassStartMenuProps) {
+export function ClassStartMenu({ open, onClose, anchorRef, tiles, onSelectTile }: ClassStartMenuProps) {
   const [panelStyle, setPanelStyle] = useState<{ left: number; bottom: number; width: number } | null>(null);
 
   const updatePosition = useCallback(() => {
@@ -102,8 +102,8 @@ export function ClassStartMenu({ open, onClose, anchorRef, onSelectTile }: Class
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="grid grid-cols-6 gap-x-2 gap-y-6 sm:gap-x-4 sm:gap-y-8">
-          {CLASS_START_TILES.map((tile) => {
+        <div className="grid grid-cols-4 gap-x-2 gap-y-6 sm:grid-cols-6 sm:gap-x-4 sm:gap-y-8">
+          {tiles.map((tile) => {
             const Icon = CLASS_START_TILE_ICONS[tile.key];
             return (
               <button

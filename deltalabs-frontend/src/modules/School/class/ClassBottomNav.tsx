@@ -14,6 +14,7 @@ import {
   iconForNavSlot,
   parseClassNavId,
   readStoredLastNavSlot,
+  startMenuTiles,
   type ClassFixedNavId,
   type ClassNavId,
   type ClassStartTile,
@@ -82,13 +83,13 @@ export function ClassBottomNav() {
     ];
   }, [lastSlot]);
 
+  const menuTiles = useMemo(() => startMenuTiles(lastSlot), [lastSlot]);
+
   const onSelectStartTile = useCallback(
     (tile: ClassStartTile) => {
-      if (!tile.pinnedInBar) {
-        const next: StoredLastNavSlot = { key: tile.key, label: tile.label, navId: tile.navId };
-        setLastSlot(next);
-        if (classItemId) writeStoredLastNavSlot(classItemId, next);
-      }
+      const next: StoredLastNavSlot = { key: tile.key, label: tile.label, navId: tile.navId };
+      setLastSlot(next);
+      if (classItemId) writeStoredLastNavSlot(classItemId, next);
       router.push(hrefFor(tile.navId));
       setStartOpen(false);
     },
@@ -159,6 +160,7 @@ export function ClassBottomNav() {
         open={startOpen}
         onClose={() => setStartOpen(false)}
         anchorRef={startButtonRef}
+        tiles={menuTiles}
         onSelectTile={onSelectStartTile}
       />
     </nav>

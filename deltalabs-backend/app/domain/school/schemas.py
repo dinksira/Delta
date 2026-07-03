@@ -523,3 +523,97 @@ class OfferCreateInput(BaseModel):
 class OfferStatusUpdateInput(BaseModel):
     status: OfferStatus
     amendment_data: dict[str, object] | None = Field(default=None, serialization_alias="amendmentData")
+
+
+# --- Class roadmap (sections + class path contents) ---
+
+ClassRoadmapResourceKind = Literal["session", "course", "assignment", "exam", "video"]
+ClassRoadmapContentType = Literal["video", "exam", "assignment", "session", "course"]
+ClassRoadmapContentStatus = Literal["pending", "completed"]
+
+
+class ClassRoadmapContentItemInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(min_length=1, max_length=80)
+    kind: ClassRoadmapResourceKind
+    content_type: ClassRoadmapContentType = Field(alias="contentType")
+    title: str = Field(min_length=1, max_length=300)
+    subtitle: str | None = Field(default=None, max_length=500)
+    source_key: str | None = Field(default=None, alias="sourceKey", max_length=200)
+    tags: list[str] = Field(default_factory=list)
+    status: ClassRoadmapContentStatus = "pending"
+
+
+class ClassRoadmapSectionInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(min_length=1, max_length=80)
+    title: str = Field(min_length=1, max_length=300)
+    description: str = Field(default="", max_length=4000)
+    tags: list[str] = Field(default_factory=list)
+    collapsed: bool = False
+    contents: list[ClassRoadmapContentItemInput] = Field(default_factory=list)
+
+
+class ClassRoadmapPutInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    sections: list[ClassRoadmapSectionInput] = Field(default_factory=list)
+    current_section_id: str | None = Field(default=None, alias="currentSectionId")
+    current_content_id: str | None = Field(default=None, alias="currentContentId")
+
+
+class ClassRoadmapContentItemPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    kind: ClassRoadmapResourceKind
+    content_type: ClassRoadmapContentType = Field(serialization_alias="contentType")
+    title: str
+    subtitle: str | None = None
+    source_key: str | None = Field(default=None, serialization_alias="sourceKey")
+    tags: list[str] = Field(default_factory=list)
+    status: ClassRoadmapContentStatus
+
+
+class ClassRoadmapSectionPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    collapsed: bool
+    contents: list[ClassRoadmapContentItemPublic] = Field(default_factory=list)
+
+
+class ClassRoadmapPublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    org_id: str = Field(serialization_alias="orgId")
+    school_id: str = Field(serialization_alias="schoolId")
+    class_workspace_item_id: str = Field(serialization_alias="classWorkspaceItemId")
+    sections: list[ClassRoadmapSectionPublic] = Field(default_factory=list)
+    current_section_id: str | None = Field(default=None, serialization_alias="currentSectionId")
+    current_content_id: str | None = Field(default=None, serialization_alias="currentContentId")
+    created_at: datetime | None = Field(default=None, serialization_alias="createdAt")
+    updated_at: datetime | None = Field(default=None, serialization_alias="updatedAt")
+
+
+class ClassRoadmapSidebarResourcePublic(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    kind: ClassRoadmapResourceKind
+    content_type: ClassRoadmapContentType = Field(serialization_alias="contentType")
+    title: str
+    subtitle: str | None = None
+    source_key: str = Field(serialization_alias="sourceKey")
+
+
+class ClassRoadmapResourcesResponse(BaseModel):
+    sessions: list[ClassRoadmapSidebarResourcePublic] = Field(default_factory=list)
+    courses: list[ClassRoadmapSidebarResourcePublic] = Field(default_factory=list)
+    materials: list[ClassRoadmapSidebarResourcePublic] = Field(default_factory=list)
+

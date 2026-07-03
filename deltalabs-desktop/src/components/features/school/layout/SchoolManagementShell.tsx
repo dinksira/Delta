@@ -28,6 +28,8 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
   const isDepartmentWorkspaceRoute = /^\/features\/school\/[^/]+\/department\//.test(pathname);
   /** School student registration: `/features/school/:id/student/...` — same treatment as class workspace. */
   const isStudentRegistrationRoute = /^\/features\/school\/[^/]+\/student\//.test(pathname);
+  /** School parent registration: `/features/school/:id/parent/...` — same treatment as student registration. */
+  const isParentRegistrationRoute = /^\/features\/school\/[^/]+\/parent\//.test(pathname);
   /** Live session room: full viewport, no horizontal gutters (Meet-style). */
   const isClassSessionMeetRoute = /^\/features\/school\/[^/]+\/class\/[^/]+\/session\/[^/]+$/.test(pathname);
   /** Management table hub + editor: same full-width body as class workspace (no icon rail). */
@@ -49,6 +51,7 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
       isClassWorkspaceRoute ||
       isDepartmentWorkspaceRoute ||
       isStudentRegistrationRoute ||
+      isParentRegistrationRoute ||
       isManagementTableRoute ? null : (
         <SchoolIconRail />
       )}

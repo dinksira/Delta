@@ -2,13 +2,11 @@ import type { LucideIcon } from "lucide-react";
 import {
   Atom,
   Award,
-  BookMarked,
   Bus,
   Calendar,
   ClipboardList,
   FlaskConical,
   Fingerprint,
-  MoreHorizontal,
   PanelsTopLeft,
   PencilRuler,
   Presentation,
@@ -43,8 +41,6 @@ export type ClassStartTile = Readonly<{
   key: string;
   label: string;
   navId: ClassNavId;
-  /** Already pinned in the bar — Start only navigates, does not replace the last slot. */
-  pinnedInBar?: boolean;
 }>;
 
 export type StoredLastNavSlot = Readonly<{
@@ -78,15 +74,22 @@ export const CLASS_START_TILES: readonly ClassStartTile[] = [
   { key: "plans", label: "Plans", navId: "plans" },
   { key: "labs", label: "Labs", navId: "labs" },
   { key: "rnd", label: "R & D", navId: "rnd" },
-  { key: "schedules", label: "Schedules", navId: "schedules", pinnedInBar: true },
   { key: "transport", label: "Transport", navId: "transport" },
-  { key: "student", label: "Student", navId: "students", pinnedInBar: true },
-  { key: "grade", label: "Grade", navId: "grade", pinnedInBar: true },
   { key: "roadmap", label: "Roadmap", navId: "roadmap" },
   { key: "materials", label: "Materials", navId: "materials" },
-  { key: "courses", label: "Courses", navId: "assignment" },
-  { key: "other", label: "Other", navId: "other" },
+  { key: "assignment", label: "Assignment", navId: "assignment" },
 ] as const;
+
+/** Nav ids already shown on the fixed bottom bar (seven tabs + swappable last slot). */
+export function bottomBarNavIds(lastSlot: StoredLastNavSlot): ReadonlySet<ClassNavId> {
+  return new Set<ClassNavId>([...CLASS_FIXED_NAV_IDS, lastSlot.navId]);
+}
+
+/** Start menu tiles — only items whose `navId` is not already on the bottom bar. */
+export function startMenuTiles(lastSlot: StoredLastNavSlot): readonly ClassStartTile[] {
+  const onBar = bottomBarNavIds(lastSlot);
+  return CLASS_START_TILES.filter((tile) => !onBar.has(tile.navId));
+}
 
 export const CLASS_START_TILE_ICONS: Record<string, LucideIcon> = {
   assets: Server,
@@ -99,8 +102,6 @@ export const CLASS_START_TILE_ICONS: Record<string, LucideIcon> = {
   grade: Award,
   roadmap: Route,
   materials: PencilRuler,
-  courses: BookMarked,
-  other: MoreHorizontal,
   assignment: ClipboardList,
 };
 
@@ -186,6 +187,7 @@ export function isBuiltClassNavSection(navId: ClassNavId): boolean {
     navId === "teacher" ||
     navId === "schedules" ||
     navId === "grade" ||
-    navId === "assignment"
+    navId === "assignment" ||
+    navId === "roadmap"
   );
 }

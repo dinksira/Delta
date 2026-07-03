@@ -34,6 +34,9 @@ from app.domain.school.schemas import (
     ClassSessionListResponse,
     ClassSessionPublic,
     ClassSessionUpdateInput,
+    ClassRoadmapPublic,
+    ClassRoadmapPutInput,
+    ClassRoadmapResourcesResponse,
     ClassEnrollmentCreateInput,
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
@@ -550,6 +553,68 @@ async def delete_org_class_session(
         session_id=session_id,
     )
     return {"status": "deleted", "sessionId": session_id}
+
+
+@org_router.get(
+    "/{school_id}/classes/{class_workspace_item_id}/roadmap",
+    response_model=ClassRoadmapPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_class_roadmap(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassRoadmapPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.get_class_roadmap(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
+
+
+@org_router.put(
+    "/{school_id}/classes/{class_workspace_item_id}/roadmap",
+    response_model=ClassRoadmapPublic,
+    dependencies=[Depends(require_org_permission("school:manage", scope_type="org"))],
+)
+async def put_org_class_roadmap(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    payload: ClassRoadmapPutInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassRoadmapPublic:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.put_class_roadmap(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
+    "/{school_id}/classes/{class_workspace_item_id}/roadmap/resources",
+    response_model=ClassRoadmapResourcesResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_class_roadmap_resources(
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ClassRoadmapResourcesResponse:
+    service = _service(db)
+    await service.bootstrap()
+    return await service.list_class_roadmap_resources(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+    )
 
 
 @org_router.get(

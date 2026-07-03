@@ -98,6 +98,15 @@ class Repository:
             partialFilterExpression={"status": "active"},
             name="uq_class_enrollments_active_user_class",
         )
+        await self._db["school_class_roadmaps"].create_index(
+            [
+                ("org_id", ASCENDING),
+                ("school_id", ASCENDING),
+                ("class_workspace_item_id", ASCENDING),
+            ],
+            unique=True,
+            name="uq_school_class_roadmaps_org_school_class",
+        )
         await ManagementTableRepository(self._db).ensure_indexes()
 
     async def ping(self) -> bool:
@@ -1731,6 +1740,54 @@ class Repository:
             {"$set": {"status": "inactive", "updated_at": now}},
         )
         return int(result.modified_count)
+
+    async def find_class_roadmap(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> dict[str, Any] | None:
+        return await self._db["school_class_roadmaps"].find_one(
+            {
+                "org_id": org_id,
+                "school_id": school_id,
+                "class_workspace_item_id": class_workspace_item_id,
+            },
+        )
+
+    async def upsert_class_roadmap(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        sections: list[dict[str, Any]],
+        current_section_id: str | None,
+        current_content_id: str | None,
+    ) -> dict[str, Any]:
+        now = datetime.now(UTC)
+        filt = {
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+        }
+        existing = await self._db["school_class_roadmaps"].find_one(filt)
+        doc_id = str(existing["_id"]) if existing else f"scr_{uuid4().hex}"
+        created_at = existing.get("created_at", now) if existing else now
+        doc = {
+            "_id": doc_id,
+            "org_id": org_id,
+            "school_id": school_id,
+            "class_workspace_item_id": class_workspace_item_id,
+            "sections": sections,
+            "current_section_id": current_section_id,
+            "current_content_id": current_content_id,
+            "created_at": created_at,
+            "updated_at": now,
+        }
+        await self._db["school_class_roadmaps"].replace_one(filt, doc, upsert=True)
+        return doc
 
 
 def _slugify(value: str) -> str:

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import NotFoundError, PermissionDeniedError, ValidationError
+from app.domain.management_table.repository import ManagementTableRepository
+from app.domain.management_table.schemas import MANAGEMENT_TABLE_DEFAULT_GROUP_ID
 from app.domain.school.repository import Repository
 from app.domain.school.schemas import (
     MarketplaceBidInput,
@@ -35,6 +38,10 @@ from app.domain.school.schemas import (
     ClassSessionListResponse,
     ClassSessionPublic,
     ClassSessionUpdateInput,
+    ClassRoadmapPutInput,
+    ClassRoadmapPublic,
+    ClassRoadmapResourcesResponse,
+    ClassRoadmapSidebarResourcePublic,
     ClassEnrollmentCreateInput,
     ClassEnrollmentListResponse,
     ClassEnrollmentPublic,
@@ -490,6 +497,208 @@ class Service:
         )
         if not ok:
             raise NotFoundError("Class session not found.", code="class_session_not_found")
+
+    async def get_class_roadmap(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> ClassRoadmapPublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        doc = await self._repository.find_class_roadmap(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        if doc is None:
+            return _default_class_roadmap_public(
+                org_id=org_id,
+                school_id=school_id,
+                class_workspace_item_id=class_workspace_item_id,
+            )
+        return _map_class_roadmap(doc)
+
+    async def put_class_roadmap(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+        payload: ClassRoadmapPutInput,
+    ) -> ClassRoadmapPublic:
+        await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        sections = [_serialize_roadmap_section(section) for section in payload.sections]
+        current_section_id = payload.current_section_id
+        current_content_id = payload.current_content_id
+        if sections and not current_section_id:
+            current_section_id = str(sections[0]["id"])
+        if current_section_id and not any(str(s["id"]) == current_section_id for s in sections):
+            current_section_id = str(sections[0]["id"]) if sections else None
+            current_content_id = None
+        if current_content_id:
+            section = next((s for s in sections if str(s["id"]) == current_section_id), None)
+            contents = section.get("contents", []) if isinstance(section, dict) else []
+            if not any(str(c.get("id")) == current_content_id for c in contents if isinstance(c, dict)):
+                current_content_id = None
+
+        doc = await self._repository.upsert_class_roadmap(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+            sections=sections,
+            current_section_id=current_section_id,
+            current_content_id=current_content_id,
+        )
+        return _map_class_roadmap(doc)
+
+    async def list_class_roadmap_resources(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        class_workspace_item_id: str,
+    ) -> ClassRoadmapResourcesResponse:
+        class_item = await self._require_class_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            class_item_id=class_workspace_item_id,
+        )
+        session_docs = await self._repository.list_class_sessions(
+            org_id=org_id,
+            school_id=school_id,
+            class_workspace_item_id=class_workspace_item_id,
+        )
+        sessions: list[ClassRoadmapSidebarResourcePublic] = []
+        materials: list[ClassRoadmapSidebarResourcePublic] = []
+        for doc in session_docs:
+            session_id = str(doc["_id"])
+            session_type = str(doc.get("session_type", "virtual"))
+            title = str(doc.get("title", "Session")).strip() or "Session"
+            description = doc.get("description")
+            subtitle = str(description).strip() if isinstance(description, str) and description.strip() else None
+            content_type = "video" if session_type == "virtual" else "session"
+            resource = ClassRoadmapSidebarResourcePublic(
+                id=f"session_{session_id}",
+                kind="session",
+                content_type=content_type,  # type: ignore[arg-type]
+                title=title,
+                subtitle=subtitle,
+                source_key=session_id,
+            )
+            sessions.append(resource)
+            if session_type == "virtual":
+                materials.append(
+                    ClassRoadmapSidebarResourcePublic(
+                        id=f"video_{session_id}",
+                        kind="video",
+                        content_type="video",
+                        title=title,
+                        subtitle=subtitle or "Virtual session",
+                        source_key=session_id,
+                    ),
+                )
+
+        course_docs = await self._repository.list_school_workspace_items(
+            org_id=org_id,
+            school_id=school_id,
+            item_type="course",
+        )
+        courses = [
+            ClassRoadmapSidebarResourcePublic(
+                id=f"course_{doc['_id']}",
+                kind="course",
+                content_type="course",
+                title=str(doc.get("title", "Course")).strip() or "Course",
+                subtitle=(
+                    str(doc.get("description")).strip()
+                    if isinstance(doc.get("description"), str) and str(doc.get("description")).strip()
+                    else None
+                ),
+                source_key=str(doc["_id"]),
+            )
+            for doc in course_docs
+        ]
+
+        meta = class_item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        mt_repo = ManagementTableRepository(self._repository._db)
+
+        assignments_instance_id = meta_dict.get("assignmentsTableInstanceId")
+        if isinstance(assignments_instance_id, str) and assignments_instance_id.strip():
+            assignment_col_id = meta_dict.get("assignmentsTableAssignmentColumnId")
+            rows, _total = await mt_repo.list_rows(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=assignments_instance_id.strip(),
+                group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+                skip=0,
+                limit=500,
+            )
+            for row in rows:
+                row_id = str(row["_id"])
+                cells = row.get("cells")
+                cell_map = dict(cells) if isinstance(cells, dict) else {}
+                title = _roadmap_cell_text(
+                    cell_map,
+                    assignment_col_id if isinstance(assignment_col_id, str) else None,
+                    fallback="Assignment",
+                )
+                materials.append(
+                    ClassRoadmapSidebarResourcePublic(
+                        id=f"assignment_{row_id}",
+                        kind="assignment",
+                        content_type="assignment",
+                        title=title,
+                        subtitle="Class assignment",
+                        source_key=row_id,
+                    ),
+                )
+
+        schedules_instance_id = meta_dict.get("schedulesTableInstanceId")
+        if isinstance(schedules_instance_id, str) and schedules_instance_id.strip():
+            session_col_id = meta_dict.get("schedulesTableSessionColumnId")
+            rows, _total = await mt_repo.list_rows(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=schedules_instance_id.strip(),
+                group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+                skip=0,
+                limit=500,
+            )
+            for row in rows:
+                row_id = str(row["_id"])
+                cells = row.get("cells")
+                cell_map = dict(cells) if isinstance(cells, dict) else {}
+                title = _roadmap_cell_text(
+                    cell_map,
+                    session_col_id if isinstance(session_col_id, str) else None,
+                    fallback="Scheduled exam",
+                )
+                materials.append(
+                    ClassRoadmapSidebarResourcePublic(
+                        id=f"exam_{row_id}",
+                        kind="exam",
+                        content_type="exam",
+                        title=title,
+                        subtitle="Scheduled assessment",
+                        source_key=row_id,
+                    ),
+                )
+
+        return ClassRoadmapResourcesResponse(
+            sessions=sessions,
+            courses=courses,
+            materials=materials,
+        )
 
     async def get_class_attendance_state(
         self,
@@ -2310,6 +2519,156 @@ def _map_class_enrollment(
             email=(str(user_doc["email"]) if user_doc.get("email") is not None else None),
             full_name=(str(user_doc["full_name"]) if user_doc.get("full_name") is not None else None),
         ),
+    )
+
+
+def _roadmap_cell_text(
+    cells: dict[str, object],
+    column_id: str | None,
+    *,
+    fallback: str,
+) -> str:
+    if column_id:
+        raw = cells.get(column_id)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+        if isinstance(raw, dict):
+            label = raw.get("label") or raw.get("title") or raw.get("name")
+            if isinstance(label, str) and label.strip():
+                return label.strip()
+    for value in cells.values():
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            label = value.get("label") or value.get("title") or value.get("name")
+            if isinstance(label, str) and label.strip():
+                return label.strip()
+    return fallback
+
+
+def _default_roadmap_section_dict() -> dict[str, object]:
+    section_id = f"section_{uuid4().hex[:8]}"
+    return {
+        "id": section_id,
+        "title": "Section 1",
+        "description": "",
+        "tags": [],
+        "collapsed": False,
+        "contents": [],
+    }
+
+
+def _default_class_roadmap_public(
+    *,
+    org_id: str,
+    school_id: str,
+    class_workspace_item_id: str,
+) -> ClassRoadmapPublic:
+    section = _default_roadmap_section_dict()
+    return ClassRoadmapPublic(
+        org_id=org_id,
+        school_id=school_id,
+        class_workspace_item_id=class_workspace_item_id,
+        sections=[_map_class_roadmap_section(section)],
+        current_section_id=str(section["id"]),
+        current_content_id=None,
+        created_at=None,
+        updated_at=None,
+    )
+
+
+def _serialize_roadmap_section(section: object) -> dict[str, object]:
+    from app.domain.school.schemas import ClassRoadmapSectionInput
+
+    if isinstance(section, ClassRoadmapSectionInput):
+        data = section
+    else:
+        data = ClassRoadmapSectionInput.model_validate(section)
+    return {
+        "id": data.id,
+        "title": data.title.strip(),
+        "description": data.description,
+        "tags": list(data.tags),
+        "collapsed": data.collapsed,
+        "contents": [
+            {
+                "id": content.id,
+                "kind": content.kind,
+                "content_type": content.content_type,
+                "title": content.title.strip(),
+                "subtitle": content.subtitle,
+                "source_key": content.source_key,
+                "tags": list(content.tags),
+                "status": content.status,
+            }
+            for content in data.contents
+        ],
+    }
+
+
+def _map_class_roadmap_content(raw: dict[str, object]) -> object:
+    from app.domain.school.schemas import ClassRoadmapContentItemPublic
+
+    kind = str(raw.get("kind", "session"))
+    content_type = str(raw.get("content_type", kind))
+    status = str(raw.get("status", "pending"))
+    tags_raw = raw.get("tags")
+    tags = [str(t) for t in tags_raw] if isinstance(tags_raw, list) else []
+    subtitle = raw.get("subtitle")
+    source_key = raw.get("source_key")
+    return ClassRoadmapContentItemPublic(
+        id=str(raw.get("id", "")),
+        kind=kind if kind in ("session", "course", "assignment", "exam", "video") else "session",  # type: ignore[arg-type]
+        content_type=content_type if content_type in ("video", "exam", "assignment", "session", "course") else "session",  # type: ignore[arg-type]
+        title=str(raw.get("title", "")),
+        subtitle=(str(subtitle) if subtitle is not None else None),
+        source_key=(str(source_key) if source_key is not None else None),
+        tags=tags,
+        status=status if status in ("pending", "completed") else "pending",  # type: ignore[arg-type]
+    )
+
+
+def _map_class_roadmap_section(raw: dict[str, object]) -> object:
+    from app.domain.school.schemas import ClassRoadmapSectionPublic
+
+    contents_raw = raw.get("contents")
+    contents = (
+        [_map_class_roadmap_content(dict(item)) for item in contents_raw if isinstance(item, dict)]
+        if isinstance(contents_raw, list)
+        else []
+    )
+    tags_raw = raw.get("tags")
+    tags = [str(t) for t in tags_raw] if isinstance(tags_raw, list) else []
+    return ClassRoadmapSectionPublic(
+        id=str(raw.get("id", "")),
+        title=str(raw.get("title", "Section")),
+        description=str(raw.get("description", "")),
+        tags=tags,
+        collapsed=bool(raw.get("collapsed", False)),
+        contents=contents,  # type: ignore[arg-type]
+    )
+
+
+def _map_class_roadmap(doc: dict[str, object]) -> ClassRoadmapPublic:
+    sections_raw = doc.get("sections")
+    sections = (
+        [_map_class_roadmap_section(dict(item)) for item in sections_raw if isinstance(item, dict)]
+        if isinstance(sections_raw, list)
+        else []
+    )
+    current_section_id = doc.get("current_section_id")
+    current_content_id = doc.get("current_content_id")
+    created_at = doc.get("created_at")
+    updated_at = doc.get("updated_at")
+    return ClassRoadmapPublic(
+        org_id=str(doc["org_id"]),
+        school_id=str(doc["school_id"]),
+        class_workspace_item_id=str(doc["class_workspace_item_id"]),
+        sections=sections,  # type: ignore[arg-type]
+        current_section_id=(str(current_section_id) if current_section_id else None),
+        current_content_id=(str(current_content_id) if current_content_id else None),
+        created_at=created_at if isinstance(created_at, datetime) else None,
+        updated_at=updated_at if isinstance(updated_at, datetime) else None,
     )
 
 

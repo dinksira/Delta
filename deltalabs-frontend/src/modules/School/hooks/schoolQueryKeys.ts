@@ -22,6 +22,12 @@ export const schoolQueryKeys = {
   /** GET …/classes/:classWorkspaceItemId/enrollments */
   classEnrollments: (orgId: string, schoolId: string, classWorkspaceItemId: string) =>
     ["school", "class-enrollments", orgId, schoolId, classWorkspaceItemId] as const,
+  /** GET/PUT …/classes/:classWorkspaceItemId/roadmap */
+  classRoadmap: (orgId: string, schoolId: string, classWorkspaceItemId: string) =>
+    ["school", "class-roadmap", orgId, schoolId, classWorkspaceItemId] as const,
+  /** GET …/classes/:classWorkspaceItemId/roadmap/resources */
+  classRoadmapResources: (orgId: string, schoolId: string, classWorkspaceItemId: string) =>
+    ["school", "class-roadmap-resources", orgId, schoolId, classWorkspaceItemId] as const,
   marketplace: (
     orgId: string,
     view: string,

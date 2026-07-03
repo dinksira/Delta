@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { SchoolConfirmActionModal } from "@/components/features/school/master/SchoolConfirmActionModal";
 import { ApiError } from "@/lib/apiClient";
 import type { ManagementTableColumnDto } from "@/modules/School/api";
 import { deleteManagementTableColumn, patchManagementTableColumn } from "@/modules/School/api";
@@ -53,6 +54,7 @@ export function ManagementTableColumnHeadCell({
   const menuPanelRef = useRef<HTMLDivElement | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [inlineEditing, setInlineEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState(column.title);
@@ -79,6 +81,7 @@ export function ManagementTableColumnHeadCell({
   const deleteMutation = useMutation({
     mutationFn: () => deleteManagementTableColumn(orgId, schoolId, definitionId, column.id),
     onSuccess: async () => {
+      setConfirmRemoveOpen(false);
       setMenuOpen(false);
       setInlineEditing(false);
       await invalidateSchema();
@@ -325,20 +328,30 @@ export function ManagementTableColumnHeadCell({
                 disabled={!canRemove || deleteMutation.isPending}
                 onClick={() => {
                   if (!canRemove) return;
-                  if (
-                    !window.confirm(
-                      `Remove column “${column.title}”? Row data for this field will stay in the database but will no longer appear in the table.`,
-                    )
-                  ) {
-                    return;
-                  }
-                  deleteMutation.mutate();
+                  setMenuOpen(false);
+                  setConfirmRemoveOpen(true);
                 }}
               >
                 <Trash2 className="size-4 shrink-0" aria-hidden />
                 <span className="flex-1 font-medium">Remove</span>
               </button>
             </div>,
+            document.body,
+          )
+        : null}
+
+      {confirmRemoveOpen && typeof document !== "undefined"
+        ? createPortal(
+            <SchoolConfirmActionModal
+              open={confirmRemoveOpen}
+              title={`Remove column “${column.title}”?`}
+              description="Row data for this field will stay in the database but will no longer appear in the table."
+              confirmLabel="Remove column"
+              confirmTone="danger"
+              pending={deleteMutation.isPending}
+              onCancel={() => setConfirmRemoveOpen(false)}
+              onConfirm={() => deleteMutation.mutate()}
+            />,
             document.body,
           )
         : null}

@@ -28,6 +28,7 @@ import {
   ClassGradesTablePanel,
   ClassScheduleTablePanel,
   ClassAssignmentsTablePanel,
+  ClassRoadmapPanel,
   ClassAttendancePanel,
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
@@ -78,6 +79,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const showClassGrades = bottomNavSection === "grade";
   const showClassSchedules = bottomNavSection === "schedules";
   const showClassAssignments = bottomNavSection === "assignment";
+  const showClassRoadmap = bottomNavSection === "roadmap";
 
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
@@ -223,11 +225,15 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const headerTitle = wrongType ? "Class" : (classItemQuery.data?.title ?? "Class");
 
   return (
-    <main className="min-h-0" aria-label="Class workspace">
+    <main
+      className={showClassRoadmap ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "min-h-0"}
+      aria-label="Class workspace"
+    >
       <ClassPageHeader
         title={headerTitle}
         loading={pageLoading}
         wrongType={wrongType}
+        compact={showClassRoadmap}
         onBack={() => router.push(returnHref)}
       />
 
@@ -249,6 +255,18 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
             sessions.
           </p>
         </div>
+      ) : showClassRoadmap ? (
+        activeOrgId ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ClassRoadmapPanel
+              orgId={activeOrgId}
+              schoolId={cleanSchoolId}
+              classItemId={cleanClassId}
+              classMetadata={classItemQuery.data?.metadata ?? null}
+              canMutate={canMutate && !accessPending}
+            />
+          </div>
+        ) : null
       ) : showClassAssignments ? (
         activeOrgId ? (
           <ClassAssignmentsTablePanel

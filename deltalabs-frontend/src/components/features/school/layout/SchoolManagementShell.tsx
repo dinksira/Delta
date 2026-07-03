@@ -3,7 +3,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { SchoolIconRail } from "@/components/features/school/layout/SchoolIconRail";
 import { SchoolWorkspaceSessionSync } from "@/components/features/school/layout/SchoolWorkspaceSessionSync";
@@ -16,6 +16,7 @@ import { SchoolWorkspaceSessionSync } from "@/components/features/school/layout/
  */
 export function SchoolManagementShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isCreateFlow = pathname.startsWith("/features/school/create");
   const isSchoolDetailRoute =
     /^\/features\/school\/[^/]+$/.test(pathname) &&
@@ -29,8 +30,14 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
   const isDepartmentWorkspaceRoute = /^\/features\/school\/[^/]+\/department\//.test(pathname);
   /** School student registration: `/features/school/:id/student/...` — same treatment as class workspace. */
   const isStudentRegistrationRoute = /^\/features\/school\/[^/]+\/student\//.test(pathname);
+  /** School parent registration: `/features/school/:id/parent/...` — same treatment as student registration. */
+  const isParentRegistrationRoute = /^\/features\/school\/[^/]+\/parent\//.test(pathname);
   /** Live session room: full viewport, no horizontal gutters (Meet-style). */
   const isClassSessionMeetRoute = /^\/features\/school\/[^/]+\/class\/[^/]+\/session\/[^/]+$/.test(pathname);
+  /** Class roadmap tab: timeline + sidebar scroll inside the panel, not the page. */
+  const isClassRoadmapView =
+    isClassWorkspaceRoute && !isClassSessionMeetRoute && searchParams.get("nav") === "roadmap";
+  const useContainedViewport = isClassSessionMeetRoute || isClassRoadmapView;
   /** Management table hub + editor: same full-width body as class workspace (no icon rail). */
   const isManagementTableRoute = /^\/features\/school\/[^/]+\/management-tables/.test(pathname);
 
@@ -52,14 +59,19 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
       isClassWorkspaceRoute ||
       isDepartmentWorkspaceRoute ||
       isStudentRegistrationRoute ||
+      isParentRegistrationRoute ||
       isManagementTableRoute ? null : (
         <SchoolIconRail />
       )}
       <div
         className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-canvas"
       >
-        {isClassSessionMeetRoute ? (
-          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">{children}</div>
+        {useContainedViewport ? (
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden pl-2 pr-6 md:pl-2 md:pr-8 xl:pl-2 xl:pr-10">
+              {children}
+            </div>
+          </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
             <div className="pl-2 pr-6 md:pl-2 md:pr-8 xl:pl-2 xl:pr-10">{children}</div>
