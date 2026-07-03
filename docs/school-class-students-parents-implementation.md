@@ -1,6 +1,8 @@
 # School class students & parents — moved
 
-This document was split into **classified docs** (same pattern as [`feed-page/`](./feed-page/README.md) and [`au-page/`](./au-page/SUBMISSION.md)).
+This document was split into **classified docs** (same pattern as [`feed-page/`](../feed-page/README.md) and [`au-page/`](../au-page/SUBMISSION.md)).
+
+**Architecture hub (how everything connects):** [school-page/delta-labs-school-architecture-how-it-connects.md](./school-page/delta-labs-school-architecture-how-it-connects.md)
 
 **Start here (everyone):** [school-page/README.md](./school-page/README.md)
 
@@ -11,6 +13,7 @@ This document was split into **classified docs** (same pattern as [`feed-page/`]
 | Topic | Document |
 |-------|----------|
 | School product hub | [school-page/README.md](./school-page/README.md) |
+| Architecture & why things connect | [delta-labs-school-architecture-how-it-connects.md](./school-page/delta-labs-school-architecture-how-it-connects.md) |
 | Org, department, class, course, MT | [school-organization-and-workspace-concepts.md](./school-page/school-organization-and-workspace-concepts.md) |
 | What changed & why (rosters) | [school-roster-changes-brief.md](./school-page/school-roster-changes-brief.md) |
 | Access & permissions | [school-access-and-permissions.md](./school-page/school-access-and-permissions.md) |
