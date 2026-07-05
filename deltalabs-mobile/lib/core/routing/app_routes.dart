@@ -174,6 +174,7 @@ abstract class AppRoutes {
       'parents',
       'attendance',
       'teachers',
+      'grades',
       'resources',
       // legacy alias from older builds
       'academics',

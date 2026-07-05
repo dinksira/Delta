@@ -142,6 +142,11 @@ class LoginNotifier extends _$LoginNotifier {
       return 'Connection timed out. Please try again.';
     }
     if (failure is ServerFailure) {
+      if (failure.statusCode == 503) {
+        return failure.message.isNotEmpty
+            ? failure.message
+            : 'API server is unavailable. Check that the backend is running.';
+      }
       return 'Server error. Please try again later.';
     }
     return 'Something went wrong. Please try again.';

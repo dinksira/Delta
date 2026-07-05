@@ -67,7 +67,7 @@ class ErrorHandler {
   }
 
   static Failure _fromStatusCode(int? statusCode, dynamic data) {
-    final message = _extractMessage(data);
+    final message = _extractMessage(data) ?? _messageForStatus(statusCode, data);
     final code = statusCode?.toString();
 
     return switch (statusCode) {
@@ -90,11 +90,29 @@ class ErrorHandler {
     };
   }
 
+  static String? _messageForStatus(int? statusCode, dynamic data) {
+    if (statusCode == 503 && _isSuspendedHostingResponse(data)) {
+      return 'The hosted API is suspended. Point the app to your local backend '
+          '(flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8081/v1) '
+          'or restore the Render service.';
+    }
+    return null;
+  }
+
+  static bool _isSuspendedHostingResponse(dynamic data) {
+    if (data is! String) return false;
+    final lower = data.toLowerCase();
+    return lower.contains('service suspended') || lower.contains('service has been suspended');
+  }
+
   static String? _extractMessage(dynamic data) {
     if (data is Map<String, dynamic>) {
       return data['message'] as String? ??
           data['error'] as String? ??
           data['detail'] as String?;
+    }
+    if (data is String && _isSuspendedHostingResponse(data)) {
+      return 'The hosted API is suspended. Use a local backend or restore Render.';
     }
     return null;
   }

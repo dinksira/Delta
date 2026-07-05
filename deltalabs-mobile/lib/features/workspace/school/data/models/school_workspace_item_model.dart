@@ -135,6 +135,13 @@ class SchoolWorkspaceItemModel {
     return text.isEmpty ? null : text;
   }
 
+  String? get gradesTableInstanceId {
+    final value = metadata['gradesTableInstanceId'] ?? metadata['grades_table_instance_id'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   String? get studentsTableStudentColumnId {
     final value =
         metadata['studentsTableStudentColumnId'] ?? metadata['students_table_student_column_id'];

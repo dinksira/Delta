@@ -583,6 +583,18 @@ class SchoolRemoteDataSource {
     );
   }
 
+  Future<String> bootstrapClassGradesTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return bootstrapGradesTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
   Future<SchoolClassAttendanceStateModel> fetchClassAttendanceState({
     required String orgId,
     required String schoolId,
@@ -726,6 +738,24 @@ class SchoolRemoteDataSource {
         if (id.isNotEmpty) return id;
       }
       throw StateError('Teachers table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<String> bootstrapGradesTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/grades-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Grades table bootstrap did not return an instance id.');
     });
   }
 

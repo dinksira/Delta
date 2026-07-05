@@ -4,4 +4,4 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 void main() async {
   await bootstrap(() => const ProviderScope(child: DeltaLabsApp()));
-}
+}          

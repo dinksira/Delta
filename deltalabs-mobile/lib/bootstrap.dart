@@ -42,7 +42,8 @@ Future<void> bootstrap(FutureOr<Widget> Function() builder) async {
       initialAppRoute = token != null ? AppRoutes.feed : AppRoutes.login;
 
       AppLogger.info(
-        'Bootstrap complete — launching DeltaLabs at $initialAppRoute',
+        'Bootstrap complete — env=${AppConfig.instance.environment.name} '
+        'api=${AppConfig.instance.apiBaseUrl} route=$initialAppRoute',
       );
 
       runApp(await builder());

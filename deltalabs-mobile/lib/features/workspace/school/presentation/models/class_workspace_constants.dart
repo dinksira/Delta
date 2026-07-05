@@ -31,6 +31,7 @@ abstract class ClassWorkspaceConstants {
     ClassWorkspaceSection(id: 'parents', label: 'Parents'),
     ClassWorkspaceSection(id: 'attendance', label: 'Attendance'),
     ClassWorkspaceSection(id: 'teachers', label: 'Teachers'),
+    ClassWorkspaceSection(id: 'grades', label: 'Grade'),
     ClassWorkspaceSection(id: 'resources', label: 'Resources'),
   ];
 
@@ -41,6 +42,7 @@ abstract class ClassWorkspaceConstants {
     'parents',
     'attendance',
     'teachers',
+    'grades',
     'resources',
   ];
 
@@ -62,6 +64,12 @@ abstract class ClassWorkspaceConstants {
       label: 'Teachers',
       icon: Icons.person_outline_rounded,
       targetTab: 'teachers',
+    ),
+    ClassQuickAction(
+      id: 'grades',
+      label: 'Grade',
+      icon: Icons.grade_outlined,
+      targetTab: 'grades',
     ),
     ClassQuickAction(
       id: 'assignments',

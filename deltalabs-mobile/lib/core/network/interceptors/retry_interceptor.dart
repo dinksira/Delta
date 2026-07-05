@@ -44,6 +44,10 @@ class RetryInterceptor extends Interceptor {
   }
 
   bool _shouldRetry(DioException err) {
+    final data = err.response?.data;
+    if (err.response?.statusCode == 503 && _isSuspendedHostingResponse(data)) {
+      return false;
+    }
     return switch (err.type) {
       DioExceptionType.connectionTimeout => true,
       DioExceptionType.receiveTimeout => true,
@@ -52,6 +56,12 @@ class RetryInterceptor extends Interceptor {
         (err.response?.statusCode ?? 0) >= 500,
       _ => false,
     };
+  }
+
+  bool _isSuspendedHostingResponse(dynamic data) {
+    if (data is! String) return false;
+    final lower = data.toLowerCase();
+    return lower.contains('service suspended') || lower.contains('service has been suspended');
   }
 
   Duration _backoffDelay(int attempt) {
