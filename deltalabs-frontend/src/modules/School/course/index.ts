@@ -1,6 +1,7 @@
 export { CourseBottomNav } from "@/modules/School/course/CourseBottomNav";
 export { CourseIntroPanel } from "@/modules/School/course/CourseIntroPanel";
 export { CoursePageHeader } from "@/modules/School/course/CoursePageHeader";
+export { CourseQaPanel } from "@/modules/School/course/CourseQaPanel";
 export { CourseStartMenu } from "@/modules/School/course/CourseStartMenu";
 export { CourseWorkspaceRouteLayout } from "@/modules/School/course/CourseWorkspaceRouteLayout";
 export {

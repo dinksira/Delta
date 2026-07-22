@@ -28,6 +28,20 @@ from app.domain.management_table.schemas import (
     ManagementTableWorkspaceBootstrapResponse,
 )
 from app.domain.management_table.service import ManagementTableService
+from app.domain.course_qa.repository import CourseQaRepository
+from app.domain.course_qa.schemas import (
+    CourseQaAnswerCreateInput,
+    CourseQaAnswerPublic,
+    CourseQaAnswerUpdateInput,
+    CourseQaCommentCreateInput,
+    CourseQaQuestionCreateInput,
+    CourseQaQuestionDetailPublic,
+    CourseQaQuestionListResponse,
+    CourseQaQuestionPublic,
+    CourseQaQuestionUpdateInput,
+    CourseQaVoteInput,
+)
+from app.domain.course_qa.service import CourseQaService
 from app.domain.school.repository import Repository
 from app.domain.school.schemas import (
     ClassSessionCreateInput,
@@ -95,6 +109,32 @@ def _management_table_service(
         mt_repo=ManagementTableRepository(db),
         school_repo=repo,
     )
+
+
+def _course_qa_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> CourseQaService:
+    return CourseQaService(
+        qa_repo=CourseQaRepository(db),
+        school_repo=Repository(db),
+    )
+
+
+async def _user_can_manage_school(
+    *,
+    db: AsyncIOMotorDatabase[dict[str, object]],
+    org_id: str,
+    user_id: str,
+) -> bool:
+    authz = _authz_service(db)
+    decision = await authz.authorize(
+        user_id=user_id,
+        payload=PermissionCheckRequest(
+            org_id=org_id,
+            permission="school:manage",
+            scope_type="org",
+            scope_id=org_id,
+        ),
+    )
+    return bool(decision.allowed)
 
 
 def _authz_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> AuthorizationService:
@@ -1995,6 +2035,300 @@ async def bootstrap_org_school_workspace_management_table(
         school_id=school_id,
         user_id=user.user_id,
         workspace_item_id=workspace_item_id,
+    )
+
+
+# —— Course Q&A (Stack Overflow–style, scoped to a course workspace item) ——
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions",
+    response_model=CourseQaQuestionListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_course_qa_questions(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    q: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionListResponse:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    can_manage = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await qa.list_questions(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        viewer_user_id=user.user_id,
+        can_manage=can_manage,
+        q=q,
+        tag=tag,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions",
+    response_model=CourseQaQuestionPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_course_qa_question(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    payload: CourseQaQuestionCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.create_question(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}",
+    response_model=CourseQaQuestionDetailPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_course_qa_question(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionDetailPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    can_manage = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await qa.get_question(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        viewer_user_id=user.user_id,
+        can_manage=can_manage,
+        increment_view=True,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}",
+    response_model=CourseQaQuestionPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_course_qa_question(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    payload: CourseQaQuestionUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    can_manage = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await qa.update_question(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        user_id=user.user_id,
+        can_manage=can_manage,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}/vote",
+    response_model=CourseQaQuestionPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def vote_org_course_qa_question(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    payload: CourseQaVoteInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.vote_question(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}/bookmark",
+    response_model=CourseQaQuestionPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def bookmark_org_course_qa_question(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.bookmark_question(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        user_id=user.user_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}/answers",
+    response_model=CourseQaAnswerPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_course_qa_answer(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    payload: CourseQaAnswerCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaAnswerPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.create_answer(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/answers/{answer_id}",
+    response_model=CourseQaAnswerPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_course_qa_answer(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    answer_id: str,
+    payload: CourseQaAnswerUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaAnswerPublic:
+    del course_workspace_item_id  # path keeps course scope consistent with siblings
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    can_manage = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await qa.update_answer(
+        org_id=org_id,
+        school_id=school_id,
+        answer_id=answer_id,
+        user_id=user.user_id,
+        can_manage=can_manage,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/answers/{answer_id}/vote",
+    response_model=CourseQaAnswerPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def vote_org_course_qa_answer(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    answer_id: str,
+    payload: CourseQaVoteInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaAnswerPublic:
+    del course_workspace_item_id
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.vote_answer(
+        org_id=org_id,
+        school_id=school_id,
+        answer_id=answer_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/questions/{question_id}/answers/{answer_id}/approve",
+    response_model=CourseQaQuestionDetailPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def approve_org_course_qa_answer(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    question_id: str,
+    answer_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaQuestionDetailPublic:
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    can_manage = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await qa.approve_answer(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        question_id=question_id,
+        answer_id=answer_id,
+        user_id=user.user_id,
+        can_manage=can_manage,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/qa/answers/{answer_id}/comments",
+    response_model=CourseQaAnswerPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def comment_org_course_qa_answer(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    answer_id: str,
+    payload: CourseQaCommentCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseQaAnswerPublic:
+    del course_workspace_item_id
+    qa = _course_qa_service(db)
+    await qa.bootstrap()
+    return await qa.comment_on_answer(
+        org_id=org_id,
+        school_id=school_id,
+        answer_id=answer_id,
+        user_id=user.user_id,
+        payload=payload,
     )
 
 

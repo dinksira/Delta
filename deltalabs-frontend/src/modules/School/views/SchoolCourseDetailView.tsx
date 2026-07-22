@@ -9,6 +9,7 @@ import { fetchOrgAccess, fetchSchoolWorkspaceItem } from "@/modules/School/api";
 import { userCanManageSchoolWorkspace } from "@/modules/School/class/schoolClassPermissions";
 import { CourseIntroPanel } from "@/modules/School/course/CourseIntroPanel";
 import { CoursePageHeader } from "@/modules/School/course/CoursePageHeader";
+import { CourseQaPanel } from "@/modules/School/course/CourseQaPanel";
 import {
   isBuiltCourseNavSection,
   parseCourseNavId,
@@ -85,6 +86,13 @@ export function SchoolCourseDetailView({ schoolId, courseItemId }: SchoolCourseD
         </p>
       ) : !isBuiltCourseNavSection(activeNav) ? (
         <ComingSoonSection navId={activeNav} />
+      ) : activeOrgId && courseItemQuery.data && activeNav === "qa" ? (
+        <CourseQaPanel
+          orgId={activeOrgId}
+          schoolId={cleanSchoolId}
+          courseItem={courseItemQuery.data}
+          canMutate={canMutate && !accessPending}
+        />
       ) : activeOrgId && courseItemQuery.data ? (
         <CourseIntroPanel
           orgId={activeOrgId}

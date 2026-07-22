@@ -1416,4 +1416,207 @@ export async function uploadSchoolDocumentFile(
     publishToFeed: false,
   });
 }
+
+/* —— Course Q&A —— */
+
+export type CourseQaAuthorDto = Readonly<{
+  userId: string;
+  username: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}>;
+
+export type CourseQaCommentDto = Readonly<{
+  id: string;
+  text: string;
+  author: CourseQaAuthorDto;
+  createdAt: string;
+}>;
+
+export type CourseQaAnswerDto = Readonly<{
+  id: string;
+  questionId: string;
+  body: string;
+  author: CourseQaAuthorDto;
+  isAnonymous: boolean;
+  voteScore: number;
+  myVote: number;
+  isAccepted: boolean;
+  comments: readonly CourseQaCommentDto[];
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CourseQaQuestionDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  courseWorkspaceItemId: string;
+  title: string;
+  body: string;
+  tags: readonly string[];
+  visibility: "public" | "private";
+  pricing: "free" | "paid";
+  status: "open" | "closed" | "trash";
+  author: CourseQaAuthorDto;
+  voteScore: number;
+  myVote: number;
+  viewCount: number;
+  answerCount: number;
+  acceptedAnswerId: string | null;
+  bookmarkedByMe: boolean;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CourseQaQuestionDetailDto = CourseQaQuestionDto &
+  Readonly<{ answers: readonly CourseQaAnswerDto[] }>;
+
+export type CourseQaQuestionListResponseDto = Readonly<{
+  items: readonly CourseQaQuestionDto[];
+  total: number;
+}>;
+
+function courseQaBase(orgId: string, schoolId: string, courseId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/courses/${encodeURIComponent(courseId)}/qa`;
+}
+
+export async function fetchCourseQaQuestions(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  opts?: Readonly<{ q?: string; tag?: string }>,
+): Promise<CourseQaQuestionListResponseDto> {
+  const searchParams: Record<string, string> = {};
+  if (opts?.q?.trim()) searchParams.q = opts.q.trim();
+  if (opts?.tag?.trim()) searchParams.tag = opts.tag.trim();
+  return apiClient.get<CourseQaQuestionListResponseDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions`,
+    Object.keys(searchParams).length ? { searchParams } : undefined,
+  );
+}
+
+export async function createCourseQaQuestion(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  payload: Readonly<{
+    title: string;
+    body: string;
+    tags?: readonly string[];
+    visibility?: "public" | "private";
+    pricing?: "free" | "paid";
+  }>,
+): Promise<CourseQaQuestionDto> {
+  return apiClient.post<CourseQaQuestionDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions`,
+    { json: payload },
+  );
+}
+
+export async function fetchCourseQaQuestion(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+): Promise<CourseQaQuestionDetailDto> {
+  return apiClient.get<CourseQaQuestionDetailDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}`,
+  );
+}
+
+export async function updateCourseQaQuestion(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+  payload: Readonly<{
+    title?: string;
+    body?: string;
+    tags?: readonly string[];
+    visibility?: "public" | "private";
+    pricing?: "free" | "paid";
+    status?: "open" | "closed" | "trash";
+  }>,
+): Promise<CourseQaQuestionDto> {
+  return apiClient.patch<CourseQaQuestionDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}`,
+    { json: payload },
+  );
+}
+
+export async function voteCourseQaQuestion(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+  value: 1 | -1,
+): Promise<CourseQaQuestionDto> {
+  return apiClient.post<CourseQaQuestionDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}/vote`,
+    { json: { value } },
+  );
+}
+
+export async function bookmarkCourseQaQuestion(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+): Promise<CourseQaQuestionDto> {
+  return apiClient.post<CourseQaQuestionDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}/bookmark`,
+  );
+}
+
+export async function createCourseQaAnswer(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+  payload: Readonly<{ body: string; isAnonymous?: boolean }>,
+): Promise<CourseQaAnswerDto> {
+  return apiClient.post<CourseQaAnswerDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}/answers`,
+    { json: payload },
+  );
+}
+
+export async function voteCourseQaAnswer(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  answerId: string,
+  value: 1 | -1,
+): Promise<CourseQaAnswerDto> {
+  return apiClient.post<CourseQaAnswerDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/answers/${encodeURIComponent(answerId)}/vote`,
+    { json: { value } },
+  );
+}
+
+export async function approveCourseQaAnswer(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  questionId: string,
+  answerId: string,
+): Promise<CourseQaQuestionDetailDto> {
+  return apiClient.post<CourseQaQuestionDetailDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/questions/${encodeURIComponent(questionId)}/answers/${encodeURIComponent(answerId)}/approve`,
+  );
+}
+
+export async function commentCourseQaAnswer(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  answerId: string,
+  text: string,
+): Promise<CourseQaAnswerDto> {
+  return apiClient.post<CourseQaAnswerDto>(
+    `${courseQaBase(orgId, schoolId, courseId)}/answers/${encodeURIComponent(answerId)}/comments`,
+    { json: { text } },
+  );
+}
 /** ################################ /COMPONENT ############################# */

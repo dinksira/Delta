@@ -61,4 +61,10 @@ export const schoolQueryKeys = {
     ["school", "management-tables", "instance", orgId, schoolId, instanceId] as const,
   managementTableRows: (orgId: string, schoolId: string, instanceId: string, groupId: string, page: number) =>
     ["school", "management-tables", "rows", orgId, schoolId, instanceId, groupId, page] as const,
+  /** GET …/courses/:courseId/qa/questions */
+  courseQaQuestions: (orgId: string, schoolId: string, courseId: string, q: string, tag: string) =>
+    ["school", "course-qa", "questions", orgId, schoolId, courseId, q, tag] as const,
+  /** GET …/courses/:courseId/qa/questions/:questionId */
+  courseQaQuestion: (orgId: string, schoolId: string, courseId: string, questionId: string) =>
+    ["school", "course-qa", "question", orgId, schoolId, courseId, questionId] as const,
 } as const;
