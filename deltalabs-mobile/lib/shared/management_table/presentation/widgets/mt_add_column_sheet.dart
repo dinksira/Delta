@@ -1,30 +1,34 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
-import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_column_type_meta.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-Future<MtColumnType?> showMtAddColumnSheet(BuildContext context) {
-  return showModalBottomSheet<MtColumnType>(
+Future<MtAppendColumnSpec?> showMtAddColumnSheet(
+  BuildContext context, {
+  List<MtAddColumnGroup> groups = mtAddColumnGroups,
+}) {
+  return showModalBottomSheet<MtAppendColumnSpec>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
-    builder: (ctx) => const _MtAddColumnSheet(),
+    builder: (ctx) => _MtAddColumnSheet(groups: groups),
   );
 }
 
 class _MtAddColumnSheet extends HookWidget {
-  const _MtAddColumnSheet();
+  const _MtAddColumnSheet({required this.groups});
+
+  final List<MtAddColumnGroup> groups;
 
   @override
   Widget build(BuildContext context) {
     final search = useState('');
     final query = search.value.trim().toLowerCase();
 
-    final groups = mtAddColumnGroups
+    final filtered = groups
         .map((group) {
           final options = group.options
               .where(
@@ -84,7 +88,7 @@ class _MtAddColumnSheet extends HookWidget {
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final group in groups) ...[
+                  for (final group in filtered) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
                       child: Text(
@@ -112,7 +116,7 @@ class _MtAddColumnSheet extends HookWidget {
                       },
                     ),
                   ],
-                  if (groups.isEmpty)
+                  if (filtered.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Text(
@@ -154,7 +158,13 @@ class _AddColumnTile extends StatelessWidget {
             );
             return;
           }
-          Navigator.of(context).pop(option.supportedType);
+          Navigator.of(context).pop(
+            MtAppendColumnSpec(
+              type: option.supportedType!,
+              title: option.columnTitle,
+              settings: option.columnSettings,
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),

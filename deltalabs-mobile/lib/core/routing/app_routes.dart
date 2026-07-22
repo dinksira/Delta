@@ -41,6 +41,8 @@ abstract class AppRoutes {
       '/workspace/school/detail/:schoolId/department/:departmentItemId';
   static const String workspaceSchoolClass =
       '/workspace/school/detail/:schoolId/class/:classItemId';
+  static const String workspaceSchoolCourse =
+      '/workspace/school/detail/:schoolId/course/:courseItemId';
   static const String workspaceSchoolStudent =
       '/workspace/school/detail/:schoolId/student/:studentItemId';
   static const String workspaceSchoolClassSession =
@@ -109,6 +111,9 @@ abstract class AppRoutes {
   static String workspaceSchoolClassPath(String schoolId, String classItemId) =>
       '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/class/${Uri.encodeComponent(classItemId)}';
 
+  static String workspaceSchoolCoursePath(String schoolId, String courseItemId) =>
+      '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/course/${Uri.encodeComponent(courseItemId)}';
+
   static String workspaceSchoolStudentPath(String schoolId, String studentItemId) =>
       '/workspace/school/detail/${Uri.encodeComponent(schoolId)}/student/${Uri.encodeComponent(studentItemId)}';
 
@@ -175,6 +180,9 @@ abstract class AppRoutes {
       'attendance',
       'teachers',
       'grades',
+      'schedules',
+      'assignments',
+      'roadmap',
       'resources',
       // legacy alias from older builds
       'academics',
@@ -183,6 +191,41 @@ abstract class AppRoutes {
     if (tab == 'academics') return 'attendance';
     if (allowed.contains(tab)) return tab;
     return 'overview';
+  }
+
+  static const String courseWorkspaceTabQueryKey = 'tab';
+
+  static String workspaceSchoolCourseUri(
+    String schoolId,
+    String courseItemId, {
+    String? tab,
+    String? instanceId,
+  }) {
+    final uri = Uri(
+      path: workspaceSchoolCoursePath(schoolId, courseItemId),
+      queryParameters: {
+        if (tab != null && tab.isNotEmpty && tab != 'intro') courseWorkspaceTabQueryKey: tab,
+        if (instanceId != null && instanceId.isNotEmpty) instanceQueryKey: instanceId,
+      },
+    );
+    return uri.toString();
+  }
+
+  static String parseCourseWorkspaceTab(String? raw) {
+    const allowed = {
+      'intro',
+      'qa',
+      'exercise',
+      'summary',
+      'score',
+      'supplement',
+      'resources',
+      'roadmap',
+      'communication',
+    };
+    final tab = raw?.trim().toLowerCase() ?? '';
+    if (allowed.contains(tab)) return tab;
+    return 'intro';
   }
 
   static String workspaceSchoolManagementTablePath(

@@ -4,6 +4,7 @@ import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.
 import 'package:deltalabs_mobile/features/workspace/school/data/data_sources/school_remote_data_source.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_attendance_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_roadmap_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
@@ -179,6 +180,34 @@ final schoolClassAttendanceProvider =
     FutureProvider.family<SchoolClassAttendanceStateModel, SchoolClassAttendanceQuery>(
   (ref, query) {
     return ref.read(schoolRemoteDataSourceProvider).fetchClassAttendanceState(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          classWorkspaceItemId: query.classWorkspaceItemId,
+        );
+  },
+);
+
+typedef SchoolClassRoadmapQuery = ({
+  String orgId,
+  String schoolId,
+  String classWorkspaceItemId,
+});
+
+final schoolClassRoadmapProvider =
+    FutureProvider.family<SchoolClassRoadmapModel, SchoolClassRoadmapQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchClassRoadmap(
+          orgId: query.orgId,
+          schoolId: query.schoolId,
+          classWorkspaceItemId: query.classWorkspaceItemId,
+        );
+  },
+);
+
+final schoolClassRoadmapResourcesProvider =
+    FutureProvider.family<SchoolClassRoadmapResourcesModel, SchoolClassRoadmapQuery>(
+  (ref, query) {
+    return ref.read(schoolRemoteDataSourceProvider).fetchClassRoadmapResources(
           orgId: query.orgId,
           schoolId: query.schoolId,
           classWorkspaceItemId: query.classWorkspaceItemId,

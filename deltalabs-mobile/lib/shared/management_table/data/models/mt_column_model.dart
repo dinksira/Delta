@@ -68,6 +68,16 @@ class MtColumnModel {
       title.trim().toLowerCase() == 'teacher' ||
       title.trim().toLowerCase() == 'assign teacher';
 
+  /// Matches web `columnUsesClassSessionPicker`.
+  bool get usesClassSessionPicker =>
+      settings['cellEditor']?.toString() == 'class_session' ||
+      title.trim().toLowerCase() == 'session';
+
+  /// Matches web time cell editor (`cellEditor: "time"` or title "Time").
+  bool get usesTimeEditor =>
+      settings['cellEditor']?.toString() == 'time' ||
+      title.trim().toLowerCase() == 'time';
+
   String resolvePersonPicker(String tableDefault) {
     final normalizedTitle = title.trim().toLowerCase();
     if (normalizedTitle == 'parent') {

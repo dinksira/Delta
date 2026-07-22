@@ -6,6 +6,7 @@ import 'package:deltalabs_mobile/features/workspace/data/models/my_school_model.
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_attendance_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_enrollment_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_member_search_user_model.dart';
+import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_roadmap_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_session_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_detail_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_marketplace_item_model.dart';
@@ -595,6 +596,30 @@ class SchoolRemoteDataSource {
     );
   }
 
+  Future<String> bootstrapClassSchedulesTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return bootstrapSchedulesTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
+  Future<String> bootstrapClassAssignmentsTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return bootstrapAssignmentsTable(
+      orgId: orgId,
+      schoolId: schoolId,
+      workspaceItemId: classWorkspaceItemId,
+    );
+  }
+
   Future<SchoolClassAttendanceStateModel> fetchClassAttendanceState({
     required String orgId,
     required String schoolId,
@@ -606,9 +631,83 @@ class SchoolRemoteDataSource {
       );
       final data = response.data;
       if (data == null) {
-        return SchoolClassAttendanceStateModel(sessions: const [], devices: const [], marks: const {});
+        return SchoolClassAttendanceStateModel(
+          sessions: const [],
+          devices: const [],
+          marks: const {},
+        );
       }
       return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassAttendanceStateModel> putClassAttendanceFormulaConfig({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required AttendanceFormulaConfigModel config,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.put<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance/formula-config',
+        data: config.toJson(),
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Attendance formula config returned empty response.');
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassAttendanceStateModel> putClassAttendanceRealtimeTrack({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required AttendanceRealtimeTrackConfigModel config,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.put<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/attendance/realtime-track',
+        data: config.toJson(),
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Attendance realtime track returned empty response.');
+      }
+      return SchoolClassAttendanceStateModel.fromJson(data);
+    });
+  }
+
+  Future<String> bootstrapLeaveRequestsTable({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$classWorkspaceItemId/leave-requests-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Leave requests table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<void> submitClassLeaveRequest({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required Map<String, dynamic> cells,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/leave-requests/submit',
+        data: {'cells': cells},
+      );
     });
   }
 
@@ -759,6 +858,99 @@ class SchoolRemoteDataSource {
     });
   }
 
+  Future<String> bootstrapSchedulesTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/schedules-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Schedules table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<String> bootstrapAssignmentsTable({
+    required String orgId,
+    required String schoolId,
+    required String workspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/workspace/items/$workspaceItemId/assignments-table/bootstrap',
+      );
+      final instance = response.data?['instance'];
+      if (instance is Map<String, dynamic>) {
+        final id = (instance['id'] ?? '').toString();
+        if (id.isNotEmpty) return id;
+      }
+      throw StateError('Assignments table bootstrap did not return an instance id.');
+    });
+  }
+
+  Future<SchoolClassRoadmapModel> fetchClassRoadmap({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/roadmap',
+      );
+      final data = response.data;
+      if (data == null) {
+        return SchoolClassRoadmapModel.empty(
+          orgId: orgId,
+          schoolId: schoolId,
+          classWorkspaceItemId: classWorkspaceItemId,
+        );
+      }
+      return SchoolClassRoadmapModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassRoadmapModel> putClassRoadmap({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+    required SchoolClassRoadmapModel roadmap,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.put<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/roadmap',
+        data: roadmap.toPutJson(),
+      );
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Roadmap put returned empty response.');
+      }
+      return SchoolClassRoadmapModel.fromJson(data);
+    });
+  }
+
+  Future<SchoolClassRoadmapResourcesModel> fetchClassRoadmapResources({
+    required String orgId,
+    required String schoolId,
+    required String classWorkspaceItemId,
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final response = await _api.get<Map<String, dynamic>>(
+        '/orgs/$orgId/schools/$schoolId/classes/$classWorkspaceItemId/roadmap/resources',
+      );
+      final data = response.data;
+      if (data == null) {
+        return const SchoolClassRoadmapResourcesModel();
+      }
+      return SchoolClassRoadmapResourcesModel.fromJson(data);
+    });
+  }
+
   List<String>? _cachedMyOrgIds;
 
   Future<T> _withOrgMembership<T>(String orgId, Future<T> Function() action) async {
@@ -796,6 +988,50 @@ class SchoolRemoteDataSource {
       data: payload,
     );
     return response.data ?? {};
+  }
+
+  Future<String> uploadCourseIntroMedia({
+    required String orgId,
+    required String filename,
+    required String contentType,
+    required Uint8List bytes,
+    bool publishToFeed = false,
+    String caption = 'Course intro video',
+  }) async {
+    return _withOrgMembership(orgId, () async {
+      final intentResponse = await _api.post<Map<String, dynamic>>(
+        '/orgs/$orgId/media/upload-intent',
+        data: {
+          'filename': filename,
+          'content_type': contentType,
+          'file_size_bytes': bytes.length,
+          'caption': caption,
+          'hashtags': <String>[],
+          'visibility': publishToFeed ? 'public' : 'org',
+          'publish_to_feed': publishToFeed,
+        },
+      );
+      final data = intentResponse.data ?? {};
+      final uploadUrl = data['uploadUrl'] as String? ?? data['upload_url'] as String?;
+      final mediaId = data['mediaId'] as String? ?? data['media_id'] as String?;
+      if (uploadUrl == null || mediaId == null) {
+        throw Exception('Invalid upload intent response');
+      }
+
+      final plainDio = Dio();
+      final uploadRes = await plainDio.put<void>(
+        uploadUrl,
+        data: bytes,
+        options: Options(
+          headers: {'Content-Type': contentType},
+          validateStatus: (s) => s != null && s >= 200 && s < 300,
+        ),
+      );
+      if (uploadRes.statusCode == null || uploadRes.statusCode! >= 300) {
+        throw Exception('Failed to upload course intro media');
+      }
+      return 'media://$mediaId';
+    });
   }
 
   Future<String> uploadSchoolDocumentFile({

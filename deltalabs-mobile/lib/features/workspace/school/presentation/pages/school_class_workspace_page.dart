@@ -5,10 +5,13 @@ import 'package:deltalabs_mobile/features/workspace/school/data/models/school_cl
 import 'package:deltalabs_mobile/features/workspace/school/presentation/models/class_workspace_constants.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_attendance_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_assignments_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_coming_soon_panel.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_overview_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_grades_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_parents_table_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_roadmap_tab.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_schedules_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_students_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_teachers_table_tab.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
@@ -128,6 +131,20 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
           ref.invalidate(schoolClassSessionsProvider(sessionsQuery));
           ref.invalidate(
             schoolClassAttendanceProvider((
+              orgId: orgId,
+              schoolId: schoolId,
+              classWorkspaceItemId: classItemId,
+            )),
+          );
+          ref.invalidate(
+            schoolClassRoadmapProvider((
+              orgId: orgId,
+              schoolId: schoolId,
+              classWorkspaceItemId: classItemId,
+            )),
+          );
+          ref.invalidate(
+            schoolClassRoadmapResourcesProvider((
               orgId: orgId,
               schoolId: schoolId,
               classWorkspaceItemId: classItemId,
@@ -341,6 +358,7 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
                 classItem: classItem,
                 canMutate: canMutate,
                 onGoToSessions: () => navigateTab('sessions'),
+                onTableReady: refresh,
               );
             case 'teachers':
               return ClassTeachersTableTab(
@@ -359,6 +377,31 @@ class SchoolClassWorkspacePage extends HookConsumerWidget {
                 classItem: classItem,
                 canMutate: canMutate,
                 onTableReady: refresh,
+              );
+            case 'schedules':
+              return ClassSchedulesTableTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onTableReady: refresh,
+              );
+            case 'assignments':
+              return ClassAssignmentsTableTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                classItem: classItem,
+                canMutate: canMutate,
+                onTableReady: refresh,
+              );
+            case 'roadmap':
+              return ClassRoadmapTab(
+                orgId: orgId,
+                schoolId: schoolId,
+                classItemId: classItemId,
+                canMutate: canMutate,
               );
             case 'resources':
               return ListView(

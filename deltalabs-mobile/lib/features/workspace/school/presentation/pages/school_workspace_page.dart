@@ -400,6 +400,15 @@ class SchoolWorkspacePage extends HookConsumerWidget {
             );
             return;
           }
+          if (item.opensAsCourse) {
+            context.push(
+              withInstanceRoute(
+                AppRoutes.workspaceSchoolCoursePath(schoolId, item.id),
+              ),
+              extra: current,
+            );
+            return;
+          }
           if (item.opensAsStudent) {
             context.push(
               withInstanceRoute(

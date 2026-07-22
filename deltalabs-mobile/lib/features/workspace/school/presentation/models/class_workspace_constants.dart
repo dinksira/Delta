@@ -32,6 +32,9 @@ abstract class ClassWorkspaceConstants {
     ClassWorkspaceSection(id: 'attendance', label: 'Attendance'),
     ClassWorkspaceSection(id: 'teachers', label: 'Teachers'),
     ClassWorkspaceSection(id: 'grades', label: 'Grade'),
+    ClassWorkspaceSection(id: 'schedules', label: 'Schedules'),
+    ClassWorkspaceSection(id: 'assignments', label: 'Assignments'),
+    ClassWorkspaceSection(id: 'roadmap', label: 'Roadmap'),
     ClassWorkspaceSection(id: 'resources', label: 'Resources'),
   ];
 
@@ -43,6 +46,9 @@ abstract class ClassWorkspaceConstants {
     'attendance',
     'teachers',
     'grades',
+    'schedules',
+    'assignments',
+    'roadmap',
     'resources',
   ];
 
@@ -60,29 +66,35 @@ abstract class ClassWorkspaceConstants {
       targetTab: 'attendance',
     ),
     ClassQuickAction(
-      id: 'teachers',
-      label: 'Teachers',
-      icon: Icons.person_outline_rounded,
-      targetTab: 'teachers',
-    ),
-    ClassQuickAction(
       id: 'grades',
       label: 'Grade',
       icon: Icons.grade_outlined,
       targetTab: 'grades',
     ),
     ClassQuickAction(
+      id: 'schedules',
+      label: 'Schedules',
+      icon: Icons.calendar_month_outlined,
+      targetTab: 'schedules',
+    ),
+    ClassQuickAction(
       id: 'assignments',
       label: 'Assignments',
       icon: Icons.assignment_outlined,
-      targetTab: 'resources',
+      targetTab: 'assignments',
+    ),
+    ClassQuickAction(
+      id: 'roadmap',
+      label: 'Roadmap',
+      icon: Icons.route_outlined,
+      targetTab: 'roadmap',
     ),
   ];
 
   static const comingSoonCopy = <String, ({String title, String message, IconData icon})>{
     'resources': (
       title: 'Resources',
-      message: 'Class assets, assignments, and schedule are coming soon.',
+      message: 'Class assets and materials library are coming soon.',
       icon: Icons.folder_open_outlined,
     ),
   };

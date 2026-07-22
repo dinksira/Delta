@@ -142,6 +142,29 @@ class SchoolWorkspaceItemModel {
     return text.isEmpty ? null : text;
   }
 
+  String? get schedulesTableInstanceId {
+    final value = metadata['schedulesTableInstanceId'] ?? metadata['schedules_table_instance_id'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String? get assignmentsTableInstanceId {
+    final value =
+        metadata['assignmentsTableInstanceId'] ?? metadata['assignments_table_instance_id'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String? get leaveRequestsTableInstanceId {
+    final value = metadata['leaveRequestsTableInstanceId'] ??
+        metadata['leave_requests_table_instance_id'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
   String? get studentsTableStudentColumnId {
     final value =
         metadata['studentsTableStudentColumnId'] ?? metadata['students_table_student_column_id'];
@@ -156,6 +179,8 @@ class SchoolWorkspaceItemModel {
 
   bool get opensAsClass => type == SchoolWorkspaceItemType.classItem;
 
+  bool get opensAsCourse => type == SchoolWorkspaceItemType.course;
+
   bool get opensAsManagementTable => type == SchoolWorkspaceItemType.managementTable;
 
   bool get opensAsStudent => type == SchoolWorkspaceItemType.student;
@@ -164,6 +189,7 @@ class SchoolWorkspaceItemModel {
       opensAsFolder ||
       opensAsDepartment ||
       opensAsClass ||
+      opensAsCourse ||
       opensAsManagementTable ||
       opensAsStudent;
 }

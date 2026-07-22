@@ -9,6 +9,7 @@ __pycache__/
 htmlcov/
 dist/
 *.egg-info/
+.data/
 
 # Markdown (planning/docs local); keep root README for PyPI / clone instructions
 *.md

@@ -21,6 +21,7 @@ import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/sc
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_edit_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_session_room_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_class_workspace_page.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_course_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_student_registration_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_department_workspace_page.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/pages/school_home_page.dart';
@@ -262,6 +263,24 @@ GoRouter appRouter(Ref ref) {
                 },
               ),
             ],
+          ),
+          GoRoute(
+            path: AppRoutes.workspaceSchoolCourse,
+            name: 'school-course',
+            builder: (_, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              final courseItemId = state.pathParameters['courseItemId'] ?? '';
+              final extra = state.extra;
+              final tab = AppRoutes.parseCourseWorkspaceTab(
+                state.uri.queryParameters[AppRoutes.courseWorkspaceTabQueryKey],
+              );
+              return SchoolCourseWorkspacePage(
+                schoolId: schoolId,
+                courseItemId: courseItemId,
+                school: extra is MySchoolModel ? extra : null,
+                initialTab: tab,
+              );
+            },
           ),
           GoRoute(
             path: AppRoutes.workspaceSchoolStudent,

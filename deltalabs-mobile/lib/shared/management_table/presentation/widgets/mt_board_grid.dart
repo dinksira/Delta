@@ -1,10 +1,10 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_model.dart';
-import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_definition_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_row_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_board_grid_utils.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_cell_display.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_column_type_meta.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_add_column_sheet.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_cell_editor.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_column_head_cell.dart';
@@ -24,7 +24,7 @@ typedef MtColumnRenameHandler = Future<void> Function(
 
 typedef MtColumnDeleteHandler = Future<void> Function(MtColumnModel column);
 
-typedef MtColumnAppendHandler = Future<void> Function(MtColumnType type);
+typedef MtColumnAppendHandler = Future<void> Function(MtAppendColumnSpec spec);
 
 class MtBoardGrid extends StatelessWidget {
   const MtBoardGrid({
@@ -36,6 +36,9 @@ class MtBoardGrid extends StatelessWidget {
     this.personSearchSchoolId,
     this.personPicker = 'school_students',
     this.classWorkspaceItemId,
+    this.addColumnGroups = mtAddColumnGroups,
+    this.onlyEditableColumnTitles,
+    this.emptyMessage = 'No rows in this table yet',
     this.onCellCommit,
     this.onRenameColumn,
     this.onDeleteColumn,
@@ -51,6 +54,9 @@ class MtBoardGrid extends StatelessWidget {
   final String? personSearchSchoolId;
   final String personPicker;
   final String? classWorkspaceItemId;
+  final List<MtAddColumnGroup> addColumnGroups;
+  final Set<String>? onlyEditableColumnTitles;
+  final String emptyMessage;
   final MtCellCommitHandler? onCellCommit;
   final MtColumnRenameHandler? onRenameColumn;
   final MtColumnDeleteHandler? onDeleteColumn;
@@ -70,9 +76,12 @@ class MtBoardGrid extends StatelessWidget {
 
     Future<void> openAddColumn() async {
       if (!schemaEnabled) return;
-      final type = await showMtAddColumnSheet(context);
-      if (type == null) return;
-      await onAppendColumn!(type);
+      final spec = await showMtAddColumnSheet(
+        context,
+        groups: addColumnGroups,
+      );
+      if (spec == null) return;
+      await onAppendColumn!(spec);
     }
 
     final tableColumns = <DlManagementTableColumn<MtRowModel>>[
@@ -129,13 +138,21 @@ class MtBoardGrid extends StatelessWidget {
         ),
       ),
       columns: tableColumns,
-      emptyMessage: 'No rows in this table yet',
+      emptyMessage: emptyMessage,
+    );
+  }
+
+  bool _isColumnEditable(MtColumnModel column) {
+    if (onlyEditableColumnTitles == null) return true;
+    final normalized = column.title.trim().toLowerCase();
+    return onlyEditableColumnTitles!.any(
+      (title) => title.trim().toLowerCase() == normalized,
     );
   }
 
   Widget _buildCell(MtColumnModel column, MtRowModel row) {
     final value = row.cellValue(column.id);
-    if (readOnly || onCellCommit == null) {
+    if (readOnly || onCellCommit == null || !_isColumnEditable(column)) {
       return buildMtCellDisplayWidget(column, value);
     }
     return MtCellEditor(

@@ -2,15 +2,18 @@ import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_class_attendance_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/utils/attendance_formula_utils.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/utils/class_attendance_utils.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_leave_requests_panel.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_state_panel.dart';
+import 'package:deltalabs_mobile/shared/management_table/data/models/mt_row_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/providers/management_table_providers.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-enum _AttendanceSubview { marks, devices }
+enum _AttendanceSubview { marks, leave, devices }
 
 class ClassAttendanceTab extends HookConsumerWidget {
   const ClassAttendanceTab({
@@ -20,6 +23,7 @@ class ClassAttendanceTab extends HookConsumerWidget {
     required this.classItem,
     required this.canMutate,
     required this.onGoToSessions,
+    required this.onTableReady,
     super.key,
   });
 
@@ -29,6 +33,7 @@ class ClassAttendanceTab extends HookConsumerWidget {
   final SchoolWorkspaceItemModel classItem;
   final bool canMutate;
   final VoidCallback onGoToSessions;
+  final VoidCallback onTableReady;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,6 +91,86 @@ class ClassAttendanceTab extends HookConsumerWidget {
       }
     }
 
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      children: [
+        const Text(
+          'Attendance',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Session columns come from the Class tab. Mark each student per session.',
+          style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        SegmentedButton<_AttendanceSubview>(
+          segments: const [
+            ButtonSegment(
+              value: _AttendanceSubview.marks,
+              label: Text('Marks'),
+              icon: Icon(Icons.grid_on_outlined, size: 18),
+            ),
+            ButtonSegment(
+              value: _AttendanceSubview.leave,
+              label: Text('Leave'),
+              icon: Icon(Icons.event_busy_outlined, size: 18),
+            ),
+            ButtonSegment(
+              value: _AttendanceSubview.devices,
+              label: Text('Devices'),
+              icon: Icon(Icons.fingerprint_outlined, size: 18),
+            ),
+          ],
+          selected: {subview.value},
+          onSelectionChanged: (value) => subview.value = value.first,
+        ),
+        const SizedBox(height: 16),
+        if (subview.value == _AttendanceSubview.leave)
+          ClassLeaveRequestsPanel(
+            orgId: orgId,
+            schoolId: schoolId,
+            classItemId: classItemId,
+            classItem: classItem,
+            canMutate: canMutate,
+            onTableReady: onTableReady,
+          )
+        else
+          _buildMarksOrDevicesBody(
+            context: context,
+            ref: ref,
+            subview: subview.value,
+            attendanceAsync: attendanceAsync,
+            attendanceQuery: attendanceQuery,
+            studentsInstanceId: studentsInstanceId,
+            rowsAsync: rowsAsync,
+            patching: patching,
+            toggleMark: toggleMark,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMarksOrDevicesBody({
+    required BuildContext context,
+    required WidgetRef ref,
+    required _AttendanceSubview subview,
+    required AsyncValue<SchoolClassAttendanceStateModel> attendanceAsync,
+    required SchoolClassAttendanceQuery attendanceQuery,
+    required String? studentsInstanceId,
+    required AsyncValue<MtRowListModel>? rowsAsync,
+    required ValueNotifier<bool> patching,
+    required Future<void> Function({
+      required String studentId,
+      required String sessionId,
+      required String? current,
+    }) toggleMark,
+  }) {
     return attendanceAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 48),
@@ -111,48 +196,15 @@ class ClassAttendanceTab extends HookConsumerWidget {
         final studentsLoading =
             studentsInstanceId != null && (rowsAsync?.isLoading ?? false);
 
-        return ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-          children: [
-            const Text(
-              'Attendance',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Session columns come from the Class tab. Mark each student per session.',
-              style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            SegmentedButton<_AttendanceSubview>(
-              segments: const [
-                ButtonSegment(
-                  value: _AttendanceSubview.marks,
-                  label: Text('Marks'),
-                  icon: Icon(Icons.grid_on_outlined, size: 18),
-                ),
-                ButtonSegment(
-                  value: _AttendanceSubview.devices,
-                  label: Text('Devices'),
-                  icon: Icon(Icons.fingerprint_outlined, size: 18),
-                ),
-              ],
-              selected: {subview.value},
-              onSelectionChanged: (value) => subview.value = value.first,
-            ),
-            const SizedBox(height: 16),
-            if (subview.value == _AttendanceSubview.marks)
-              _AttendanceMarksPanel(
+        final body = subview == _AttendanceSubview.marks
+            ? _AttendanceMarksPanel(
                 sessions: attendance.sessions,
                 students: students,
                 studentsLoading: studentsLoading,
                 hasStudentsTable: studentsInstanceId != null,
                 marks: attendance.marks,
+                formulaConfig: attendance.formulaConfig,
+                realtimeTrack: attendance.realtimeTrack,
                 canMutate: canMutate,
                 patching: patching.value,
                 onGoToSessions: onGoToSessions,
@@ -165,9 +217,25 @@ class ClassAttendanceTab extends HookConsumerWidget {
                           attendanceQuery: attendanceQuery,
                         )
                     : null,
+                onEditFormula: canMutate
+                    ? () => _showFormulaSettingsSheet(
+                          context: context,
+                          ref: ref,
+                          config: attendance.formulaConfig,
+                          sessions: attendance.sessions,
+                          attendanceQuery: attendanceQuery,
+                        )
+                    : null,
+                onEditRealtime: canMutate
+                    ? () => _showRealtimeSettingsSheet(
+                          context: context,
+                          ref: ref,
+                          config: attendance.realtimeTrack,
+                          attendanceQuery: attendanceQuery,
+                        )
+                    : null,
               )
-            else
-              _AttendanceDevicesPanel(
+            : _AttendanceDevicesPanel(
                 devices: attendance.devices,
                 sessions: attendance.sessions,
                 canMutate: canMutate,
@@ -177,8 +245,13 @@ class ClassAttendanceTab extends HookConsumerWidget {
                   sessions: attendance.sessions,
                   attendanceQuery: attendanceQuery,
                 ),
-              ),
-            if (patching.value)
+              );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            body,
+            if (patching.value && subview == _AttendanceSubview.marks)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: Center(
@@ -203,11 +276,15 @@ class _AttendanceMarksPanel extends StatelessWidget {
     required this.studentsLoading,
     required this.hasStudentsTable,
     required this.marks,
+    required this.formulaConfig,
+    required this.realtimeTrack,
     required this.canMutate,
     required this.patching,
     required this.onGoToSessions,
     required this.onToggleMark,
     this.onSessionSettings,
+    this.onEditFormula,
+    this.onEditRealtime,
   });
 
   final List<SchoolAttendanceSessionModel> sessions;
@@ -215,6 +292,8 @@ class _AttendanceMarksPanel extends StatelessWidget {
   final bool studentsLoading;
   final bool hasStudentsTable;
   final Map<String, String> marks;
+  final AttendanceFormulaConfigModel formulaConfig;
+  final AttendanceRealtimeTrackConfigModel realtimeTrack;
   final bool canMutate;
   final bool patching;
   final VoidCallback onGoToSessions;
@@ -224,6 +303,8 @@ class _AttendanceMarksPanel extends StatelessWidget {
     required String? current,
   }) onToggleMark;
   final void Function(SchoolAttendanceSessionModel session)? onSessionSettings;
+  final VoidCallback? onEditFormula;
+  final VoidCallback? onEditRealtime;
 
   @override
   Widget build(BuildContext context) {
@@ -259,6 +340,8 @@ class _AttendanceMarksPanel extends StatelessWidget {
         message: 'Add students on the Students tab, then return here to mark attendance.',
       );
     }
+
+    final formulaLabel = formatFormulaExpression(formulaConfig, sessions);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -314,8 +397,61 @@ class _AttendanceMarksPanel extends StatelessWidget {
                       ),
                     ),
                   ),
+                  DataColumn(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 88,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('Formula', style: TextStyle(fontWeight: FontWeight.w700)),
+                              Text(
+                                formulaLabel,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontFamily: 'monospace',
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (onEditFormula != null) ...[
+                          InkWell(
+                            onTap: onEditFormula,
+                            child: const Icon(Icons.tune_rounded, size: 16, color: AppColors.textHint),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  DataColumn(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Realtime', style: TextStyle(fontWeight: FontWeight.w700)),
+                        if (onEditRealtime != null) ...[
+                          const SizedBox(width: 2),
+                          InkWell(
+                            onTap: onEditRealtime,
+                            child: const Icon(Icons.tune_rounded, size: 16, color: AppColors.textHint),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
                 rows: students.map((student) {
+                  final formulaValue = evaluateAttendanceFormula(
+                    studentId: student.id,
+                    config: formulaConfig,
+                    sessions: sessions,
+                    marks: marks,
+                  );
                   return DataRow(
                     cells: [
                       DataCell(
@@ -344,6 +480,18 @@ class _AttendanceMarksPanel extends StatelessWidget {
                           ),
                         );
                       }),
+                      DataCell(
+                        Text(
+                          formulaValue is int ? '$formulaValue' : formulaValue.toString(),
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        _RealtimeStatusChip(enabled: realtimeTrack.enabled),
+                      ),
                     ],
                   );
                 }).toList(),
@@ -352,6 +500,45 @@ class _AttendanceMarksPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RealtimeStatusChip extends StatelessWidget {
+  const _RealtimeStatusChip({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: enabled ? const Color(0xFFE8F5E9) : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: enabled ? const Color(0xFF2E7D32).withValues(alpha: 0.35) : AppColors.inputBorder,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.sensors_rounded : Icons.sensors_off_rounded,
+            size: 14,
+            color: enabled ? const Color(0xFF2E7D32) : AppColors.textHint,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            enabled ? 'On' : 'Off',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: enabled ? const Color(0xFF2E7D32) : AppColors.textHint,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -687,4 +874,377 @@ Future<void> _showRegisterDeviceSheet({
   );
 
   nameController.dispose();
+}
+
+Future<void> _showFormulaSettingsSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AttendanceFormulaConfigModel config,
+  required List<SchoolAttendanceSessionModel> sessions,
+  required SchoolClassAttendanceQuery attendanceQuery,
+}) async {
+  var draft = config;
+  var saving = false;
+  final customController = TextEditingController(text: config.customExpression);
+
+  bool isSessionIncluded(String sessionId) {
+    if (draft.sessionIds.isEmpty) return true;
+    return draft.sessionIds.contains(sessionId);
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              0,
+              20,
+              20 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Formula column',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Aggregate session marks into a formula column.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'preset', label: Text('Quick')),
+                      ButtonSegment(value: 'custom', label: Text('Custom')),
+                    ],
+                    selected: {draft.mode},
+                    onSelectionChanged: saving
+                        ? null
+                        : (value) => setState(() {
+                              draft = draft.copyWith(mode: value.first);
+                            }),
+                  ),
+                  const SizedBox(height: 16),
+                  if (draft.mode == 'preset') ...[
+                    DropdownButtonFormField<String>(
+                      value: draft.operation,
+                      decoration: const InputDecoration(labelText: 'Function'),
+                      items: const [
+                        DropdownMenuItem(value: 'sum', child: Text('SUM — total present marks')),
+                        DropdownMenuItem(value: 'average', child: Text('AVERAGE — mean across columns')),
+                        DropdownMenuItem(
+                          value: 'count_present',
+                          child: Text('COUNT — present/late sessions'),
+                        ),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (v) => setState(() {
+                                draft = draft.copyWith(operation: v ?? 'sum');
+                              }),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Columns to include',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const Text(
+                      'None selected = all session columns.',
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    for (final session in sessions)
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(session.title),
+                        value: isSessionIncluded(session.id),
+                        onChanged: saving
+                            ? null
+                            : (_) {
+                                final allIds = sessions.map((s) => s.id).toList();
+                                final effective =
+                                    draft.sessionIds.isNotEmpty ? draft.sessionIds : allIds;
+                                final set = effective.toSet();
+                                if (set.contains(session.id)) {
+                                  set.remove(session.id);
+                                } else {
+                                  set.add(session.id);
+                                }
+                                final next = set.toList();
+                                setState(() {
+                                  draft = draft.copyWith(
+                                    sessionIds: next.length == allIds.length ? [] : next,
+                                  );
+                                });
+                              },
+                      ),
+                  ] else ...[
+                    TextField(
+                      controller: customController,
+                      decoration: const InputDecoration(
+                        labelText: 'Custom expression',
+                        hintText: '{Session 1} * 0.5 + {Session 2}',
+                      ),
+                      maxLines: 3,
+                      enabled: !saving,
+                      onChanged: (v) => draft = draft.copyWith(customExpression: v),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceGrey,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        formatFormulaExpression(draft, sessions),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            setState(() => saving = true);
+                            try {
+                              final payload = draft.copyWith(
+                                customExpression: customController.text.trim(),
+                              );
+                              await ref
+                                  .read(schoolRemoteDataSourceProvider)
+                                  .putClassAttendanceFormulaConfig(
+                                    orgId: attendanceQuery.orgId,
+                                    schoolId: attendanceQuery.schoolId,
+                                    classWorkspaceItemId:
+                                        attendanceQuery.classWorkspaceItemId,
+                                    config: payload,
+                                  );
+                              ref.invalidate(schoolClassAttendanceProvider(attendanceQuery));
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not save formula settings')),
+                                );
+                              }
+                            } finally {
+                              if (context.mounted) setState(() => saving = false);
+                            }
+                          },
+                    child: Text(saving ? 'Saving…' : 'Save'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  customController.dispose();
+}
+
+Future<void> _showRealtimeSettingsSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AttendanceRealtimeTrackConfigModel config,
+  required SchoolClassAttendanceQuery attendanceQuery,
+}) async {
+  var draft = config;
+  var saving = false;
+  var faceSection = config.faceDetectionSettings.section;
+  var faceTrackOption = config.faceDetectionSettings.trackOption;
+  var faceSamplingMinutes = config.faceDetectionSettings.samplingIntervalMinutes;
+  var facePresencePercent = config.faceDetectionSettings.presenceThresholdPercent;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          AttendanceRealtimeTrackConfigModel buildPayload() {
+            return draft.copyWith(
+              faceDetectionSettings: draft.faceDetectionSettings.copyWith(
+                section: faceSection,
+                trackOption: faceTrackOption,
+                samplingIntervalMinutes: faceSamplingMinutes,
+                presenceThresholdPercent: facePresencePercent,
+              ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              0,
+              20,
+              20 + MediaQuery.paddingOf(context).bottom,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Realtime tracking',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Enabled'),
+                    value: draft.enabled,
+                    onChanged: saving ? null : (v) => setState(() => draft = draft.copyWith(enabled: v)),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Face detection'),
+                    value: draft.faceDetection,
+                    onChanged: !draft.enabled || saving
+                        ? null
+                        : (v) => setState(() => draft = draft.copyWith(faceDetection: v)),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Voice recognition'),
+                    value: draft.voiceRecognition,
+                    onChanged: !draft.enabled || saving
+                        ? null
+                        : (v) => setState(() => draft = draft.copyWith(voiceRecognition: v)),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8, bottom: 4),
+                    child: Text(
+                      'Record options',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Record video'),
+                    value: draft.recordVideo,
+                    onChanged: !draft.enabled || saving
+                        ? null
+                        : (v) => setState(() => draft = draft.copyWith(recordVideo: v)),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Record audio'),
+                    value: draft.recordAudio,
+                    onChanged: !draft.enabled || saving
+                        ? null
+                        : (v) => setState(() => draft = draft.copyWith(recordAudio: v)),
+                  ),
+                  if (draft.enabled && draft.faceDetection) ...[
+                    const Divider(height: 24),
+                    const Text(
+                      'Face detection settings',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: const InputDecoration(labelText: 'Section'),
+                      controller: TextEditingController(text: faceSection),
+                      enabled: !saving,
+                      onChanged: (v) => faceSection = v,
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: faceTrackOption,
+                      decoration: const InputDecoration(labelText: 'Track option'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'random_sampling',
+                          child: Text('Random sampling'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'continuous',
+                          child: Text('Continuous'),
+                        ),
+                      ],
+                      onChanged: saving
+                          ? null
+                          : (v) => setState(() => faceTrackOption = v ?? 'random_sampling'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Sampling interval (minutes)',
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(text: '$faceSamplingMinutes'),
+                      enabled: !saving,
+                      onChanged: (v) {
+                        final parsed = int.tryParse(v);
+                        if (parsed != null) faceSamplingMinutes = parsed;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      decoration: const InputDecoration(
+                        labelText: 'Presence threshold (%)',
+                      ),
+                      keyboardType: TextInputType.number,
+                      controller: TextEditingController(text: '$facePresencePercent'),
+                      enabled: !saving,
+                      onChanged: (v) {
+                        final parsed = int.tryParse(v);
+                        if (parsed != null) facePresencePercent = parsed;
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            setState(() => saving = true);
+                            try {
+                              await ref
+                                  .read(schoolRemoteDataSourceProvider)
+                                  .putClassAttendanceRealtimeTrack(
+                                    orgId: attendanceQuery.orgId,
+                                    schoolId: attendanceQuery.schoolId,
+                                    classWorkspaceItemId:
+                                        attendanceQuery.classWorkspaceItemId,
+                                    config: buildPayload(),
+                                  );
+                              ref.invalidate(schoolClassAttendanceProvider(attendanceQuery));
+                              if (context.mounted) Navigator.of(context).pop();
+                            } catch (_) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not save realtime settings')),
+                                );
+                              }
+                            } finally {
+                              if (context.mounted) setState(() => saving = false);
+                            }
+                          },
+                    child: Text(saving ? 'Saving…' : 'Save'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_class_session_cell.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_person_cell.dart';
 import 'package:flutter/material.dart';
 
@@ -18,6 +19,14 @@ String formatMtCellDisplay(MtColumnModel column, Object? value) {
   if (column.usesPersonPicker) {
     final person = MtPersonCellValue.fromRaw(value);
     return person.displayName;
+  }
+  if (column.usesClassSessionPicker) {
+    return MtClassSessionCellValue.fromRaw(value).displayLabel;
+  }
+  if (column.usesTimeEditor) {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    return text.length >= 5 ? text.substring(0, 5) : text;
   }
   if (value == null) return '';
 
@@ -52,6 +61,39 @@ Widget buildMtCellDisplayWidget(MtColumnModel column, Object? value) {
       checked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
       size: 20,
       color: checked ? AppColors.primary : AppColors.textHint,
+    );
+  }
+
+  if (column.usesClassSessionPicker) {
+    final session = MtClassSessionCellValue.fromRaw(value);
+    final label = session.displayLabel;
+    if (label.isEmpty) {
+      return const Text(
+        '—',
+        style: TextStyle(fontSize: 13, color: AppColors.textHint),
+      );
+    }
+    return Row(
+      children: [
+        Icon(
+          Icons.event_repeat_rounded,
+          size: 14,
+          color: AppColors.primary.withValues(alpha: 0.85),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

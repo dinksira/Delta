@@ -59,6 +59,15 @@ class MediaIngestCallbackResponse(BaseModel):
     status: str
 
 
+class MediaCompleteUploadResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    media_id: str = Field(serialization_alias="mediaId")
+    status: str
+    playback_url: str = Field(serialization_alias="playbackUrl")
+    publish_to_feed: bool = Field(serialization_alias="publishToFeed")
+
+
 class MediaPublic(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -73,6 +82,7 @@ class MediaPublic(BaseModel):
     hashtags: list[str]
     publish_to_feed: bool = Field(serialization_alias="publishToFeed")
     upload_object_key: str = Field(serialization_alias="uploadObjectKey")
+    playback_url: str | None = Field(default=None, serialization_alias="playbackUrl")
     hls_url: str | None = Field(default=None, serialization_alias="hlsUrl")
     poster_url: str | None = Field(default=None, serialization_alias="posterUrl")
     duration_seconds: float | None = Field(default=None, serialization_alias="durationSeconds")

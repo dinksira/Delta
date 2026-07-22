@@ -6,11 +6,13 @@ class SchoolSimpleBackHeader extends StatelessWidget {
   const SchoolSimpleBackHeader({
     required this.title,
     required this.onBack,
+    this.trailing,
     super.key,
   });
 
   final String title;
   final VoidCallback onBack;
+  final Widget? trailing;
 
   static const padding = EdgeInsets.fromLTRB(4, 2, 16, 6);
 
@@ -41,6 +43,7 @@ class SchoolSimpleBackHeader extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailing != null) trailing!,
           ],
         ),
       ),

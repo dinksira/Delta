@@ -3,7 +3,9 @@ import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_m
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_column_type.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_cell_display.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_cell_value.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_class_session_cell.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_person_cell.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_class_session_picker_sheet.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_person_picker_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +45,24 @@ class MtCellEditor extends StatelessWidget {
         classWorkspaceItemId: classWorkspaceItemId,
         onCommit: onCommit,
       );
+    }
+
+    if (column.usesClassSessionPicker &&
+        personSearchOrgId != null &&
+        personSearchSchoolId != null &&
+        classWorkspaceItemId != null &&
+        classWorkspaceItemId!.isNotEmpty) {
+      return _MtClassSessionPickerEditor(
+        value: value,
+        orgId: personSearchOrgId!,
+        schoolId: personSearchSchoolId!,
+        classWorkspaceItemId: classWorkspaceItemId!,
+        onCommit: onCommit,
+      );
+    }
+
+    if (column.usesTimeEditor) {
+      return _MtTimeEditor(value: value, onCommit: onCommit);
     }
 
     switch (column.type) {
@@ -144,6 +164,82 @@ class _MtPersonPickerEditor extends StatelessWidget {
             Expanded(
               child: Text(
                 label.isEmpty ? emptyHint : label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: label.isEmpty ? AppColors.textHint : AppColors.textPrimary,
+                  fontWeight: label.isEmpty ? FontWeight.w500 : FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.expand_more_rounded, size: 18, color: AppColors.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MtClassSessionPickerEditor extends StatelessWidget {
+  const _MtClassSessionPickerEditor({
+    required this.value,
+    required this.orgId,
+    required this.schoolId,
+    required this.classWorkspaceItemId,
+    required this.onCommit,
+  });
+
+  final Object? value;
+  final String orgId;
+  final String schoolId;
+  final String classWorkspaceItemId;
+  final MtCellCommitCallback onCommit;
+
+  Future<void> _openPicker(BuildContext context) async {
+    final current = MtClassSessionCellValue.fromRaw(value);
+    final selected = await showMtClassSessionPickerSheet(
+      context,
+      orgId: orgId,
+      schoolId: schoolId,
+      classWorkspaceItemId: classWorkspaceItemId,
+      current: current.isEmpty ? null : current,
+    );
+    if (selected == null) return;
+    if (selected.isEmpty) {
+      onCommit(null);
+      return;
+    }
+    onCommit(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = MtClassSessionCellValue.fromRaw(value);
+    final label = session.displayLabel;
+
+    return InkWell(
+      onTap: () => _openPicker(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceGrey,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.inputBorder.withValues(alpha: 0.8)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.event_repeat_rounded,
+              size: 16,
+              color: label.isEmpty ? AppColors.textHint : AppColors.primary,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label.isEmpty ? 'Select session' : label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -426,6 +522,78 @@ class _MtDateEditor extends StatelessWidget {
             fontSize: 13,
             color: _isoDate.isEmpty ? AppColors.textHint : AppColors.textPrimary,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stores `HH:mm` — matches web `<input type="time">`.
+class _MtTimeEditor extends StatelessWidget {
+  const _MtTimeEditor({required this.value, required this.onCommit});
+
+  final Object? value;
+  final MtCellCommitCallback onCommit;
+
+  String get _hhmm {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    if (text.length >= 5) return text.substring(0, 5);
+    return text;
+  }
+
+  TimeOfDay _parseOrNow() {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(_hhmm);
+    if (match != null) {
+      final h = int.tryParse(match.group(1)!);
+      final m = int.tryParse(match.group(2)!);
+      if (h != null && m != null && h >= 0 && h <= 23 && m >= 0 && m <= 59) {
+        return TimeOfDay(hour: h, minute: m);
+      }
+    }
+    return TimeOfDay.now();
+  }
+
+  Future<void> _pickTime(BuildContext context) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _parseOrNow(),
+    );
+    if (picked == null) return;
+    final next =
+        '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+    if (next != _hhmm) onCommit(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _hhmm.isEmpty ? 'Pick time' : _hhmm;
+    return InkWell(
+      onTap: () => _pickTime(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 14,
+              color: _hhmm.isEmpty ? AppColors.textHint : AppColors.primary,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _hhmm.isEmpty ? AppColors.textHint : AppColors.textPrimary,
+                  fontWeight: _hhmm.isEmpty ? FontWeight.w500 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

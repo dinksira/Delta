@@ -152,16 +152,20 @@ class Settings(BaseSettings):
         description="Maximum marketplace bid/buy creations allowed per bidder within the configured window (0 disables).",
     )
     media_storage_provider: str = Field(
-        default="s3",
-        description="Object storage provider identifier (e.g. s3, r2, gcs)",
+        default="local",
+        description="Object storage provider identifier (local, s3, r2, gcs)",
     )
     media_storage_bucket: str = Field(
         default="delta-labs-media",
         description="Object storage bucket/container for uploaded media",
     )
     media_upload_base_url: str = Field(
-        default="https://upload.example.com",
-        description="Base URL used to mint direct-upload intent URLs",
+        default="http://127.0.0.1:8081",
+        description="Public API origin used to mint local direct-upload URLs (no /v1 suffix). Must match uvicorn host:port.",
+    )
+    media_local_root: str = Field(
+        default=".data/media",
+        description="Filesystem root for MEDIA_STORAGE_PROVIDER=local uploads",
     )
     media_aws_region: str = Field(
         default="us-east-1",
@@ -186,13 +190,20 @@ class Settings(BaseSettings):
         description="TTL for presigned upload URLs",
     )
     media_cdn_base_url: str = Field(
-        default="https://cdn.example.com",
-        description="CDN base URL used for playback URLs",
+        default="http://127.0.0.1:8081",
+        description="CDN base URL used for playback URLs (local: same as MEDIA_UPLOAD_BASE_URL)",
     )
     media_ingest_shared_secret: str = Field(
         default="replace-media-ingest-secret",
         min_length=8,
         description="Shared secret expected in X-Ingest-Secret for ingest callbacks",
+    )
+    media_auto_complete_after_upload: bool = Field(
+        default=True,
+        description=(
+            "When true, mark media ready with a progressive playback URL after upload "
+            "(local PUT or client complete). Disable when a real transcoder posts ingest."
+        ),
     )
 
     cors_origins: str = Field(

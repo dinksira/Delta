@@ -19,53 +19,200 @@ This is the **single narrative** for understanding how the School product fits t
 | Roster decisions (ADRs) | [school-roster-design-decisions.md](../school-roster-page/school-roster-design-decisions.md) |
 | Admin step-by-step flows | [school-roster-user-flows.md](../school-roster-page/school-roster-user-flows.md) |
 | Technical checklist / APIs | [school-system-architecture-decision-guide.md](../school-roster-page/school-system-architecture-decision-guide.md) |
+| Class feature (flows, FE/BE standards) | [school-class-page/README.md](../school-class-page/README.md) |
 | Class roadmap | [class-roadmap-architecture.md](./class-roadmap-architecture.md) |
 | Permissions | [school-access-and-permissions.md](./school-access-and-permissions.md) |
 | What works today | [school-capabilities-and-limitations.md](./school-capabilities-and-limitations.md) |
 
 ---
 
-## 1. Platform layers — who owns what
+## 1. User → Org → School — main architecture (for feature developers)
 
-Delta Labs is multi-tenant. For schools, think in four layers:
+**Read this first.** School features sit on top of three stacked layers. Each layer answers a different question.
+
+| Layer | Mongo collections | Question it answers |
+|-------|-------------------|---------------------|
+| **User** | `users`, `user_sessions` | Who is logged in? |
+| **Org (tenant)** | `orgs`, `org_memberships`, `role_bindings`, `role_definitions` | Can this user call APIs in this tenant? What can they change? |
+| **School** | `schools`, `school_memberships`, `school_workspace_items`, … | Which school are we in? What is inside it? |
+
+### 1.1 The stack (ownership chain)
 
 ```mermaid
 flowchart TB
-  subgraph Global["Global identity"]
-    User["User — one Delta Labs account"]
+  subgraph L1["① User — global identity · not tied to one school or org"]
+    U["users<br/>────────────<br/>One Delta Labs account<br/>username · email · phone · profile<br/>Same person can join many orgs & schools"]
+    SESS["user_sessions<br/>────────────<br/>Active login session<br/>Bearer token resolves to user_id<br/>Answers: who is calling the API?"]
+    U ---|"login creates"| SESS
   end
 
-  subgraph Tenant["Tenant boundary"]
-    Org["Organization — billing, org admin, school:manage"]
+  subgraph L2["② Org — tenant boundary · gates /v1/orgs/{orgId}/… APIs"]
+    O["orgs<br/>────────────<br/>Tenant / workspace<br/>billing · policy · shared admin<br/>Every school points here via org_id"]
+    OM["org_memberships<br/>────────────<br/>User ↔ org link · status active<br/>First API gate: not a member → 403"]
+    RB["role_bindings<br/>────────────<br/>User ↔ role at scope<br/>org · school · course · lab<br/>e.g. org_owner, school_admin"]
+    RD["role_definitions<br/>────────────<br/>Role catalog · seeded at startup<br/>role_key → permissions<br/>school:manage · course:teach · *"]
+    O -->|"has members"| OM
+    RB -->|"role_key expands to"| RD
   end
 
-  subgraph SchoolLayer["Operational unit"]
-    School["School — what admins see in My School"]
+  subgraph L3["③ School — operational unit inside org · what users navigate"]
+    S["schools<br/>────────────<br/>One school · name · slug · type<br/>Always has org_id parent<br/>My School opens this"]
+    SM["school_memberships<br/>────────────<br/>User ↔ school · role_keys<br/>school_owner · student · parent · teacher<br/>My School list · pickers · labels"]
+    WSI["school_workspace_items<br/>────────────<br/>Tree: folder · dept · class · course<br/>student/parent holders · tables<br/>parent_id + metadata"]
+    S -->|"owns workspace tree"| WSI
   end
 
-  subgraph Content["School workspace tree"]
-    Items["Workspace items — folder, department, class, course, tables, …"]
-  end
-
-  subgraph Roles["Per-school roles"]
-    Mem["school_memberships — student, parent, school_owner, …"]
-  end
-
-  User --> Mem
-  Mem --> School
-  School --> Org
-  School --> Items
+  SESS -->|"authenticated user_id"| OM
+  SESS -->|"authenticated user_id"| RB
+  SESS -->|"authenticated user_id"| SM
+  O -->|"org_id FK"| S
+  S -->|"school_id FK"| SM
 ```
 
-| Layer | Stored in | Why it exists |
-|-------|-----------|---------------|
-| **User** | `users` | One login across schools, courses, labs |
-| **Organization** | `orgs` | Tenant: who pays, who has org-wide admin permissions |
-| **School** | `schools` | The unit a school team operates day to day |
-| **Workspace item** | `school_workspace_items` | Everything the school “owns” in a navigable tree |
-| **School membership** | `school_memberships` | “This user is a student/parent/owner **at this school**” |
+**Ownership rule:** `Org` owns `School`. `School` owns the workspace tree. `User` is global and links in through **two different membership tables** (see §1.2).
 
-**Key decision:** Roles are **per school**, not global. The same person can be a student at School A and staff elsewhere.
+### 1.2 Two memberships — do not confuse them
+
+```mermaid
+flowchart LR
+  U["User"]
+
+  subgraph AuthZ["Org RBAC — gates API calls"]
+    OM["org_memberships"]
+    RB["role_bindings"]
+    PERM["permissions<br/>school:manage, school:read, …"]
+    OM --> RB --> PERM
+  end
+
+  subgraph SchoolUX["School membership — gates My School list"]
+    SM["school_memberships<br/>role_keys: school_owner, student, parent"]
+  end
+
+  U --> OM
+  U --> SM
+  SM --> S["schools"]
+  RB --> O["orgs"]
+  O --> S
+```
+
+| | `org_memberships` + `role_bindings` | `school_memberships` |
+|---|-------------------------------------|----------------------|
+| **Purpose** | Permission checks on `/v1/orgs/{orgId}/…` | “My schools” list, person pickers, role labels |
+| **Checked by** | `require_org_membership`, `require_org_permission` | `GET /v1/me/schools`, roster search |
+| **Typical admin** | `org_owner` → `*` or `school:manage` | `school_owner` |
+| **Typical student** | Often **not** in org yet (gap today) | `student` after registration row saved |
+| **Code** | `app/domain/authorization/` | `app/domain/school/repository.py` |
+
+**Rule of thumb for new features:**
+
+- **Mutating** school structure, rosters, tables, sessions → need `school:manage` via org RBAC.
+- **Listing** which schools a user belongs to → `GET /v1/me/schools` (reads `school_memberships`).
+- **Never** assume `school_memberships` alone grants API access.
+
+### 1.3 Request flow (every school API call)
+
+```mermaid
+sequenceDiagram
+  participant Client as Web / Mobile / Desktop
+  participant API as FastAPI route
+  participant Auth as deps.py
+  participant AuthZ as authorization/service
+  participant Sch as school/service
+
+  Client->>API: Bearer token + /v1/orgs/{orgId}/schools/{schoolId}/…
+  API->>Auth: get_current_user
+  Auth-->>API: user_id from user_sessions
+  API->>AuthZ: require_org_membership OR require_org_permission
+  AuthZ->>AuthZ: 1) org_memberships active?
+  AuthZ->>AuthZ: 2) role_bindings for scope chain
+  AuthZ->>AuthZ: 3) union permissions from role_definitions
+  alt denied
+    AuthZ-->>Client: 403 permission_denied
+  else allowed
+    API->>Sch: business logic (always scoped org_id + school_id)
+    Sch-->>Client: response
+  end
+```
+
+**Scope chain detail:** when checking `scope_type=school`, the engine also checks org-wide bindings (`scope_type=org`). So `org_owner` at org scope still passes `school:manage` on a specific school.
+
+### 1.4 Create-school flow (how User, Org, School get linked)
+
+```mermaid
+flowchart TD
+  A["POST /v1/schools<br/>(authenticated user)"] --> B{User already<br/>org_owner?}
+  B -->|yes| C["Reuse first owned org_id"]
+  B -->|no| D["Create new org<br/>user → org_owner"]
+  C --> E["INSERT schools<br/>org_id = tenant"]
+  D --> E
+  E --> F["UPSERT school_memberships<br/>role_keys: school_owner"]
+  E --> G["INSERT school_workspace_items<br/>root department"]
+  F --> H["School appears in GET /v1/me/schools"]
+  D --> I["User can call /v1/orgs/{orgId}/…<br/>via org_memberships + role_bindings"]
+```
+
+**Code entry points:**
+
+- `app/api/v1/schools.py` → `create_school_me`
+- `app/domain/authorization/service.py` → `create_workspace_org_for_school_owner`
+- `app/domain/school/service.py` → `create_school`
+
+### 1.5 IDs a feature developer needs
+
+| When building… | You need | Where it comes from |
+|----------------|----------|---------------------|
+| Any org-scoped API | `orgId` | `school.org_id`, or `GET /v1/me/schools` |
+| School workspace / class / MT | `schoolId` | Route param, workspace item’s `school_id` |
+| Class tab features | `classItemId` | `school_workspace_items._id` where `type=class` |
+| Management table data | `instanceId` | Class metadata or bootstrap response |
+| Permission-gated UI | `permissions[]` | `GET /v1/orgs/{orgId}/access` |
+
+**API prefix pattern:**
+
+```
+/v1/orgs/{orgId}/schools/{schoolId}/workspace/items/...
+/v1/orgs/{orgId}/schools/{schoolId}/management-tables/...
+/v1/orgs/{orgId}/schools/{schoolId}/classes/{classItemId}/...
+```
+
+User-centric shortcuts (no `orgId` in path):
+
+```
+GET  /v1/me/schools          → list from school_memberships
+POST /v1/schools             → create school (+ org if needed)
+```
+
+### 1.6 Register student flow (school layer → membership sync)
+
+Roster features follow this pattern:
+
+```mermaid
+flowchart LR
+  A["Workspace item<br/>type: student"] --> B["Bootstrap MT instance<br/>school_students table"]
+  B --> C["Admin saves row<br/>person picker → user_id"]
+  C --> D["management_table/service<br/>sync membership"]
+  D --> E["UPSERT school_memberships<br/>role_keys += student"]
+  E --> F["User in pickers<br/>GET /v1/me/schools"]
+```
+
+Class assignment is a **second step**: link the registered student in the class Student tab (management table row on the class). That does **not** create a new school registration.
+
+### 1.7 Collection reference
+
+| Collection | FK / keys | Owned by |
+|------------|-----------|----------|
+| `users` | `_id` | global |
+| `orgs` | `_id` | platform |
+| `org_memberships` | `org_id`, `user_id` | org |
+| `role_bindings` | `org_id`, `subject_user_id`, `scope_type`, `scope_id`, `role_key` | org |
+| `schools` | `_id`, **`org_id`** | org |
+| `school_memberships` | `user_id`, `school_id`, `org_id`, `role_keys[]` | school |
+| `school_workspace_items` | `org_id`, `school_id`, `parent_id`, `type` | school |
+| `class_enrollments` | `org_id`, `school_id`, `class_workspace_item_id`, `user_id` | class |
+
+**Key decision:** Org is the **tenant and API gate**. School is the **product unit** users navigate. `school_memberships` labels who belongs to a school; **org RBAC** decides who can edit it.
+
+**Go deeper on permissions:** [school-access-and-permissions.md](./school-access-and-permissions.md) · [authz-org-rbac-design.md](../au-page/authz-org-rbac-design.md)
 
 ---
 

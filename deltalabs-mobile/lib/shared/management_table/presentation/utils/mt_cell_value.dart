@@ -23,5 +23,12 @@ Object? normalizeMtCellValue(MtColumnType type, Object? raw) {
 bool mtCellValuesEqual(MtColumnType type, Object? a, Object? b) {
   final left = normalizeMtCellValue(type, a);
   final right = normalizeMtCellValue(type, b);
+  if (left is Map && right is Map) {
+    if (left.length != right.length) return false;
+    for (final key in left.keys) {
+      if (!right.containsKey(key) || left[key] != right[key]) return false;
+    }
+    return true;
+  }
   return left == right;
 }

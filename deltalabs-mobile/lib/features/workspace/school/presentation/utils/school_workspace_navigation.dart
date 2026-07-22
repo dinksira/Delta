@@ -20,7 +20,9 @@ abstract class SchoolWorkspaceNavigation {
     final uri = GoRouterState.of(context).uri;
     final path = uri.path;
 
-    if (path.contains('/department/') || path.contains('/class/')) {
+    if (path.contains('/department/') ||
+        path.contains('/class/') ||
+        path.contains('/course/')) {
       if (context.canPop()) {
         context.pop();
         return;

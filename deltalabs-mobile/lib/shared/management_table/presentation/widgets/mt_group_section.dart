@@ -1,6 +1,7 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/shared/management_table/data/models/mt_definition_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/providers/management_table_providers.dart';
+import 'package:deltalabs_mobile/shared/management_table/presentation/utils/mt_column_type_meta.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_board_grid.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,10 @@ class MtGroupSection extends HookConsumerWidget {
     this.canMutate = false,
     this.personPicker = 'school_students',
     this.classWorkspaceItemId,
+    this.addColumnGroups = mtAddColumnGroups,
+    this.allowAddRow = true,
+    this.onlyEditableColumnTitles,
+    this.emptyRowsMessage,
     super.key,
   });
 
@@ -26,6 +31,10 @@ class MtGroupSection extends HookConsumerWidget {
   final bool canMutate;
   final String personPicker;
   final String? classWorkspaceItemId;
+  final List<MtAddColumnGroup> addColumnGroups;
+  final bool allowAddRow;
+  final Set<String>? onlyEditableColumnTitles;
+  final String? emptyRowsMessage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -144,6 +153,10 @@ class MtGroupSection extends HookConsumerWidget {
                               personSearchSchoolId: boardQuery.schoolId,
                               personPicker: personPicker,
                               classWorkspaceItemId: classWorkspaceItemId,
+                              addColumnGroups: addColumnGroups,
+                              onlyEditableColumnTitles: onlyEditableColumnTitles,
+                              emptyMessage: emptyRowsMessage ??
+                                  'No rows in this table yet',
                               onCellCommit: canMutate
                                   ? (row, column, value) => runMutation(
                                         () => board.patchCell(
@@ -168,13 +181,17 @@ class MtGroupSection extends HookConsumerWidget {
                                       )
                                   : null,
                               onAppendColumn: canMutate
-                                  ? (type) => runMutation(
-                                        () => board.appendColumn(type),
+                                  ? (spec) => runMutation(
+                                        () => board.appendColumn(
+                                          spec.type,
+                                          title: spec.title,
+                                          settings: spec.settings,
+                                        ),
                                         'Could not add column. Try again.',
                                       )
                                   : null,
                             ),
-                            if (canMutate) ...[
+                            if (canMutate && allowAddRow) ...[
                               const SizedBox(height: 12),
                               Align(
                                 alignment: Alignment.centerLeft,

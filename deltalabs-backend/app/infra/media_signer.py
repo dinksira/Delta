@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import time
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -9,7 +12,7 @@ from app.core.config import Settings
 
 
 # ################################ INFRA ################################
-# S3-compatible presigned upload URL generation with local fallback mode.
+# S3-compatible presigned upload URL generation with local disk mode.
 @dataclass(slots=True)
 class SignedUpload:
     upload_url: str
@@ -31,6 +34,11 @@ def sign_media_upload_put_url(
         )
         if signed is not None:
             return signed
+        # Local/dev convenience: fall back to disk when cloud keys are missing.
+        if settings.env == "local":
+            return _local_upload_url(settings=settings, object_key=object_key)
+    if provider == "local" or settings.env == "local":
+        return _local_upload_url(settings=settings, object_key=object_key)
     return _fallback_upload_url(settings=settings, object_key=object_key)
 
 
@@ -46,6 +54,7 @@ def _try_sign_s3_compatible_upload(
         return None
     try:
         import boto3  # type: ignore[import-not-found]
+        from botocore.client import Config as BotoConfig  # type: ignore[import-not-found]
     except Exception:
         return None
 
@@ -55,6 +64,10 @@ def _try_sign_s3_compatible_upload(
         endpoint_url=settings.media_s3_endpoint_url,
         aws_access_key_id=key_id,
         aws_secret_access_key=secret,
+        config=BotoConfig(
+            signature_version="s3v4",
+            s3={"addressing_style": "path" if settings.media_s3_endpoint_url else "auto"},
+        ),
     )
     expires = settings.media_upload_intent_ttl_seconds
     url = client.generate_presigned_url(
@@ -68,6 +81,51 @@ def _try_sign_s3_compatible_upload(
         HttpMethod="PUT",
     )
     return SignedUpload(upload_url=str(url), expires_in_seconds=expires)
+
+
+def _local_signing_secret(settings: Settings) -> bytes:
+    raw = (settings.media_ingest_shared_secret or "local-media-dev-secret").encode("utf-8")
+    return raw
+
+
+def build_local_upload_signature(*, settings: Settings, object_key: str, expires_at: int) -> str:
+    message = f"{object_key}:{expires_at}".encode("utf-8")
+    return hmac.new(_local_signing_secret(settings), message, hashlib.sha256).hexdigest()
+
+
+def verify_local_upload_signature(
+    *,
+    settings: Settings,
+    object_key: str,
+    expires_at: int,
+    signature: str,
+) -> bool:
+    if expires_at < int(time.time()):
+        return False
+    expected = build_local_upload_signature(
+        settings=settings,
+        object_key=object_key,
+        expires_at=expires_at,
+    )
+    return hmac.compare_digest(expected, signature.strip().lower())
+
+
+def _local_upload_url(*, settings: Settings, object_key: str) -> SignedUpload:
+    expires = settings.media_upload_intent_ttl_seconds
+    expires_at = int(time.time()) + expires
+    signature = build_local_upload_signature(
+        settings=settings,
+        object_key=object_key,
+        expires_at=expires_at,
+    )
+    base = settings.media_upload_base_url.rstrip("/")
+    prefix = settings.api_v1_prefix.rstrip("/")
+    encoded_key = quote(object_key, safe="/")
+    upload_url = (
+        f"{base}{prefix}/media/local-upload/{encoded_key}"
+        f"?expires={expires_at}&sig={signature}"
+    )
+    return SignedUpload(upload_url=upload_url, expires_in_seconds=expires)
 
 
 def _fallback_upload_url(*, settings: Settings, object_key: str) -> SignedUpload:

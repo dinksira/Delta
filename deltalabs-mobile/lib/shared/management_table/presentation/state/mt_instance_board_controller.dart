@@ -204,18 +204,25 @@ class MtInstanceBoardController extends ChangeNotifier {
     }
   }
 
-  Future<void> appendColumn(MtColumnType type) async {
+  Future<void> appendColumn(
+    MtColumnType type, {
+    String? title,
+    Map<String, dynamic>? settings,
+  }) async {
     final bundle = _state.bundle;
     if (bundle == null) return;
 
     final definition = bundle.definition;
     final pendingId = mtPendingId('col_');
+    final resolvedSettings = settings ?? defaultSettingsForColumnType(type);
     final pending = MtColumnModel(
       id: pendingId,
-      title: defaultTitleForColumnType(type),
+      title: (title?.trim().isNotEmpty ?? false)
+          ? title!.trim()
+          : defaultTitleForColumnType(type),
       type: type,
       order: definition.columns.length,
-      settings: defaultSettingsForColumnType(type),
+      settings: Map<String, dynamic>.from(resolvedSettings),
     );
     final previousBundle = bundle;
     _applyDefinition(definition.copyWithColumns([...definition.columns, pending]));

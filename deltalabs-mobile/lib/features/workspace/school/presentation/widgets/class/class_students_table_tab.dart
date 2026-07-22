@@ -1,10 +1,9 @@
 import 'package:deltalabs_mobile/core/theme/app_colors.dart';
 import 'package:deltalabs_mobile/features/workspace/school/data/models/school_workspace_item_model.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/providers/school_providers.dart';
+import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/class/class_mt_groups_list.dart';
 import 'package:deltalabs_mobile/features/workspace/school/presentation/widgets/school_state_panel.dart';
-import 'package:deltalabs_mobile/shared/management_table/data/models/mt_table_group_model.dart';
 import 'package:deltalabs_mobile/shared/management_table/presentation/providers/management_table_providers.dart';
-import 'package:deltalabs_mobile/shared/management_table/presentation/widgets/mt_group_section.dart';
 import 'package:deltalabs_mobile/shared/widgets/loading/dl_loading_indicator.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -153,7 +152,6 @@ class ClassStudentsTableTab extends HookConsumerWidget {
         }
 
         final groups = bundle.instance.tableGroups;
-        final mainGroup = groups.isNotEmpty ? groups.first : MtTableGroupModel.fallbackMain();
 
         return ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -177,12 +175,12 @@ class ClassStudentsTableTab extends HookConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            MtGroupSection(
+            ClassMtGroupsList(
               boardQuery: boardQuery,
-              groupId: mainGroup.id,
-              groupTitle: mainGroup.title,
               definition: bundle.definition,
+              groups: groups,
               canMutate: canMutate,
+              classWorkspaceItemId: classItemId,
             ),
           ],
         );

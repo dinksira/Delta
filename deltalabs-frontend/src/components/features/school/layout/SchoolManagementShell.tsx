@@ -26,6 +26,8 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
 
   /** Class deep-link matches `/features/school/:id/class/...` — same full-width body as school workspace (no icon rail). */
   const isClassWorkspaceRoute = /^\/features\/school\/[^/]+\/class\//.test(pathname);
+  /** Course workspace: `/features/school/:id/course/...` — same treatment as class workspace. */
+  const isCourseWorkspaceRoute = /^\/features\/school\/[^/]+\/course\//.test(pathname);
   /** Department workspace: `/features/school/:id/department/...` — same treatment as class workspace. */
   const isDepartmentWorkspaceRoute = /^\/features\/school\/[^/]+\/department\//.test(pathname);
   /** School student registration: `/features/school/:id/student/...` — same treatment as class workspace. */
@@ -57,6 +59,7 @@ export function SchoolManagementShell({ children }: Readonly<{ children: ReactNo
     <div className="flex min-h-0 w-full flex-1 items-stretch gap-3 overflow-x-visible overflow-y-hidden bg-surface-canvas md:gap-4 lg:gap-5">
       {isSchoolDetailRoute ||
       isClassWorkspaceRoute ||
+      isCourseWorkspaceRoute ||
       isDepartmentWorkspaceRoute ||
       isStudentRegistrationRoute ||
       isParentRegistrationRoute ||

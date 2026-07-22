@@ -30,6 +30,10 @@ class Repository:
             [("status", ASCENDING), ("updated_at", DESCENDING)],
             name="ix_media_assets_status_updated",
         )
+        await self._db["media_assets"].create_index(
+            [("upload_object_key", ASCENDING)],
+            name="ix_media_assets_upload_object_key",
+        )
 
     async def insert_media_asset(self, doc: dict[str, Any]) -> None:
         await self._db["media_assets"].insert_one(doc)
@@ -41,6 +45,9 @@ class Repository:
         if org_id is not None:
             query["org_id"] = org_id
         return await self._db["media_assets"].find_one(query)
+
+    async def find_media_asset_by_object_key(self, *, object_key: str) -> dict[str, Any] | None:
+        return await self._db["media_assets"].find_one({"upload_object_key": object_key})
 
     async def update_media_asset(
         self,
@@ -59,6 +66,13 @@ class Repository:
             return
         now = datetime.now(UTC)
         media_id = str(media_doc["_id"])
+        video_src = str(
+            media_doc.get("playback_url")
+            or media_doc.get("hls_url")
+            or media_doc.get("upload_url_fallback")
+            or ""
+        )
+        poster = media_doc.get("poster_url")
         await self._db["content_items"].update_one(
             {"_id": media_id},
             {
@@ -67,9 +81,9 @@ class Repository:
                     "content_type": "video",
                     "created_at": media_doc.get("created_at", now),
                     "updated_at": now,
-                    "video_src": str(
-                        media_doc.get("hls_url") or media_doc.get("upload_url_fallback") or ""
-                    ),
+                    "video_src": video_src,
+                    "poster_url": str(poster) if poster else "",
+                    "duration_seconds": media_doc.get("duration_seconds"),
                     "media_tone": 0,
                     "caption": str(media_doc.get("caption", "")),
                     "hashtags": [str(tag) for tag in media_doc.get("hashtags", [])],
@@ -94,6 +108,11 @@ class Repository:
             hashtags=[str(tag) for tag in doc.get("hashtags", [])],
             publish_to_feed=bool(doc.get("publish_to_feed", False)),
             upload_object_key=str(doc.get("upload_object_key", "")),
+            playback_url=(
+                str(doc["playback_url"])
+                if doc.get("playback_url") is not None
+                else (str(doc["hls_url"]) if doc.get("hls_url") is not None else None)
+            ),
             hls_url=(str(doc["hls_url"]) if doc.get("hls_url") is not None else None),
             poster_url=(str(doc["poster_url"]) if doc.get("poster_url") is not None else None),
             duration_seconds=(

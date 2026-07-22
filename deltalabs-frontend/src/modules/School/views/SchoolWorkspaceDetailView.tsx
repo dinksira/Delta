@@ -941,6 +941,16 @@ export function SchoolWorkspaceDetailView({
     );
   };
 
+  const navigateToCourseDetail = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/course/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
   const navigateToStudentRegistration = (item: { id: string }) => {
     const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     router.push(
@@ -990,6 +1000,8 @@ export function SchoolWorkspaceDetailView({
 
   const itemOpensAsClassDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "class";
 
+  const itemOpensAsCourseDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "course";
+
   const itemOpensAsStudentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "student";
 
   const itemOpensAsParentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "parent";
@@ -1000,6 +1012,7 @@ export function SchoolWorkspaceDetailView({
     itemOpensAsFolder(item) ||
     itemOpensAsDepartmentRoute(item) ||
     itemOpensAsClassDetail(item) ||
+    itemOpensAsCourseDetail(item) ||
     itemOpensAsStudentRegistration(item) ||
     itemOpensAsParentRegistration(item) ||
     itemOpensAsManagementTable(item);
@@ -1029,6 +1042,7 @@ export function SchoolWorkspaceDetailView({
       if (cleanDepartmentRootId) navigateIntoWorkspaceFolder(item);
       else navigateToDepartmentDetail(item);
     } else if (itemOpensAsClassDetail(item)) navigateToClassDetail(item);
+    else if (itemOpensAsCourseDetail(item)) navigateToCourseDetail(item);
     else if (itemOpensAsStudentRegistration(item)) navigateToStudentRegistration(item);
     else if (itemOpensAsParentRegistration(item)) navigateToParentRegistration(item);
     else if (itemOpensAsManagementTable(item)) navigateToManagementTableWorkspace(item);
@@ -1491,11 +1505,13 @@ export function SchoolWorkspaceDetailView({
                                 : "Open department"
                               : itemOpensAsClassDetail(item)
                                 ? "Open class workspace"
-                                : itemOpensAsStudentRegistration(item)
-                                  ? "Open student registration"
-                                  : itemOpensAsParentRegistration(item)
-                                    ? "Open parent registration"
-                                    : "Only departments, folders, classes, and registration areas can be opened here."
+                                : itemOpensAsCourseDetail(item)
+                                  ? "Open course workspace"
+                                  : itemOpensAsStudentRegistration(item)
+                                    ? "Open student registration"
+                                    : itemOpensAsParentRegistration(item)
+                                      ? "Open parent registration"
+                                      : "Only departments, folders, classes, courses, and registration areas can be opened here."
                         }
                         onClick={() => {
                           onPrimaryOpenWorkspaceItem(item);

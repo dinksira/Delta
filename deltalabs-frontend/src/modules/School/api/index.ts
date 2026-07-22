@@ -31,6 +31,11 @@ export type MediaUploadIntentResponseDto = Readonly<{
   expiresInSeconds: number;
   provider: string;
   bucket: string;
+  /** Backend may also emit snake_case depending on serialization settings. */
+  media_id?: string;
+  object_key?: string;
+  upload_url?: string;
+  expires_in_seconds?: number;
 }>;
 
 export type SchoolDto = Readonly<{
@@ -891,8 +896,38 @@ export async function createOrgMediaUploadIntent(
   });
 }
 
-export async function fetchOrgMedia(orgId: string, mediaId: string) {
-  return apiClient.get(`/v1/orgs/${orgId}/media/${mediaId}`);
+export async function completeOrgMediaUpload(
+  orgId: string,
+  mediaId: string,
+): Promise<
+  Readonly<{
+    mediaId: string;
+    status: string;
+    playbackUrl: string;
+    publishToFeed: boolean;
+    media_id?: string;
+    playback_url?: string;
+    publish_to_feed?: boolean;
+  }>
+> {
+  return apiClient.post(`/v1/orgs/${encodeURIComponent(orgId)}/media/${encodeURIComponent(mediaId)}/complete`);
+}
+
+export type OrgMediaAssetDto = Readonly<{
+  id: string;
+  orgId?: string;
+  status?: string;
+  playbackUrl?: string | null;
+  playback_url?: string | null;
+  hlsUrl?: string | null;
+  hls_url?: string | null;
+  posterUrl?: string | null;
+  uploadObjectKey?: string;
+  sourceFilename?: string;
+}>;
+
+export async function fetchOrgMedia(orgId: string, mediaId: string): Promise<OrgMediaAssetDto> {
+  return apiClient.get<OrgMediaAssetDto>(`/v1/orgs/${orgId}/media/${mediaId}`);
 }
 
 /** Management tables — flexible column templates and row data (Monday-style boards). */
@@ -1275,33 +1310,110 @@ export async function bootstrapAssignmentsTableWorkspaceItem(
   );
 }
 
-export async function uploadSchoolDocumentFile(
+function isPlaceholderMediaUploadUrl(uploadUrl: string): boolean {
+  return (
+    uploadUrl.includes("replace-with-presigned-token") ||
+    uploadUrl.includes("token=replace-with") ||
+    (uploadUrl.includes("upload.example.com") && !uploadUrl.includes("/media/local-upload/"))
+  );
+}
+
+function resolveMediaUploadIntent(intent: MediaUploadIntentResponseDto): Readonly<{
+  mediaId: string;
+  objectKey: string;
+  uploadUrl: string;
+}> {
+  const mediaId = intent.mediaId || intent.media_id || "";
+  const objectKey = intent.objectKey || intent.object_key || "";
+  const uploadUrl = intent.uploadUrl || intent.upload_url || "";
+  return { mediaId, objectKey, uploadUrl };
+}
+
+/**
+ * Shared school media upload — same TikTok/feed pipeline (`upload-intent` → presigned PUT).
+ * Used by documents and Course Intro videos.
+ */
+export async function uploadSchoolMediaFile(
   orgId: string,
   file: File,
-): Promise<Readonly<{ mediaId: string; objectKey: string; referenceUrl: string }>> {
-  const intent = await createOrgMediaUploadIntent(orgId, {
+  opts?: Readonly<{
+    caption?: string;
+    visibility?: "public" | "org" | "private";
+    publishToFeed?: boolean;
+  }>,
+): Promise<
+  Readonly<{ mediaId: string; objectKey: string; referenceUrl: string; playbackUrl: string }>
+> {
+  const contentType = file.type || "application/octet-stream";
+  const intentRaw = await createOrgMediaUploadIntent(orgId, {
     filename: file.name,
-    content_type: file.type || "application/octet-stream",
+    content_type: contentType,
     file_size_bytes: file.size,
-    caption: "School document",
+    caption: opts?.caption ?? "School media",
     hashtags: [],
-    visibility: "org",
-    publish_to_feed: false,
+    visibility: opts?.visibility ?? "org",
+    publish_to_feed: opts?.publishToFeed ?? false,
   });
-  const uploadRes = await fetch(intent.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/octet-stream",
-    },
-    body: file,
-  });
-  if (!uploadRes.ok) {
-    throw new Error("Failed to upload document file.");
+  const intent = resolveMediaUploadIntent(intentRaw);
+
+  if (!intent.mediaId || !intent.uploadUrl) {
+    throw new Error("Upload intent response was missing mediaId or uploadUrl.");
   }
+  if (isPlaceholderMediaUploadUrl(intent.uploadUrl)) {
+    throw new Error(
+      "Media storage is not configured. Use MEDIA_STORAGE_PROVIDER=local (restart API) or set MinIO/S3/R2 credentials.",
+    );
+  }
+
+  let uploadRes: Response;
+  try {
+    uploadRes = await fetch(intent.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: file,
+    });
+  } catch {
+    throw new Error(
+      "Could not reach media storage (network/CORS). Check the presigned upload URL and bucket CORS for PUT from this origin.",
+    );
+  }
+  if (!uploadRes.ok) {
+    throw new Error(`Failed to upload file to storage (HTTP ${uploadRes.status}).`);
+  }
+
+  let playbackUrl = "";
+  try {
+    const completed = await completeOrgMediaUpload(orgId, intent.mediaId);
+    playbackUrl = completed.playbackUrl || completed.playback_url || "";
+  } catch {
+    // Local PUT already auto-completes; resolve via media GET below if needed.
+  }
+
+  if (!playbackUrl) {
+    try {
+      const asset = await fetchOrgMedia(orgId, intent.mediaId);
+      playbackUrl = asset.playbackUrl || asset.playback_url || asset.hlsUrl || asset.hls_url || "";
+    } catch {
+      /* keep empty — UI can still show placeholder */
+    }
+  }
+
   return {
     mediaId: intent.mediaId,
     objectKey: intent.objectKey,
     referenceUrl: `media://${intent.mediaId}`,
+    playbackUrl,
   };
+}
+
+export async function uploadSchoolDocumentFile(
+  orgId: string,
+  file: File,
+): Promise<Readonly<{ mediaId: string; objectKey: string; referenceUrl: string }>> {
+  return uploadSchoolMediaFile(orgId, file, {
+    caption: "School document",
+    visibility: "org",
+    publishToFeed: false,
+  });
 }
 /** ################################ /COMPONENT ############################# */
