@@ -42,6 +42,30 @@ from app.domain.course_qa.schemas import (
     CourseQaVoteInput,
 )
 from app.domain.course_qa.service import CourseQaService
+from app.domain.course_exercise.repository import CourseExerciseRepository
+from app.domain.course_exercise.schemas import (
+    CourseExerciseCreateInput,
+    CourseExerciseListResponse,
+    CourseExercisePublic,
+    CourseExerciseUpdateInput,
+)
+from app.domain.course_exercise.service import CourseExerciseService
+from app.domain.ghost_resources.repository import GhostResourcesRepository
+from app.domain.ghost_resources.schemas import (
+    GhostCreateInput,
+    GhostEdgeCreateInput,
+    GhostEventListResponse,
+    GhostFulfillInput,
+    GhostListResponse,
+    GhostMyWorkResponse,
+    GhostNodeCreateInput,
+    GhostNodeReviewInput,
+    GhostNodeSubmitInput,
+    GhostNodeUpdateInput,
+    GhostPublic,
+    GhostUpdateInput,
+)
+from app.domain.ghost_resources.service import GhostResourcesService
 from app.domain.school.repository import Repository
 from app.domain.school.schemas import (
     ClassSessionCreateInput,
@@ -115,6 +139,21 @@ def _course_qa_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> CourseQaS
     return CourseQaService(
         qa_repo=CourseQaRepository(db),
         school_repo=Repository(db),
+    )
+
+
+def _course_exercise_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> CourseExerciseService:
+    return CourseExerciseService(
+        exercise_repo=CourseExerciseRepository(db),
+        school_repo=Repository(db),
+    )
+
+
+def _ghost_resources_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> GhostResourcesService:
+    return GhostResourcesService(
+        ghost_repo=GhostResourcesRepository(db),
+        school_repo=Repository(db),
+        mt_service=_management_table_service(db),
     )
 
 
@@ -2329,6 +2368,417 @@ async def comment_org_course_qa_answer(
         answer_id=answer_id,
         user_id=user.user_id,
         payload=payload,
+    )
+
+
+# —— Course Exercise & Test ——
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/exercises",
+    response_model=CourseExerciseListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_course_exercises(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    kind: Literal["exercise", "test"] | None = Query(default=None),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseExerciseListResponse:
+    svc = _course_exercise_service(db)
+    await svc.bootstrap()
+    return await svc.list_exercises(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        kind=kind,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/exercises",
+    response_model=CourseExercisePublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_course_exercise(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    payload: CourseExerciseCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseExercisePublic:
+    svc = _course_exercise_service(db)
+    await svc.bootstrap()
+    return await svc.create_exercise(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/courses/{course_workspace_item_id}/exercises/{exercise_id}",
+    response_model=CourseExercisePublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_course_exercise(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    exercise_id: str,
+    payload: CourseExerciseUpdateInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseExercisePublic:
+    svc = _course_exercise_service(db)
+    await svc.bootstrap()
+    return await svc.update_exercise(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        exercise_id=exercise_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/courses/{course_workspace_item_id}/exercises/{exercise_id}",
+    dependencies=[Depends(require_org_membership)],
+)
+async def delete_org_course_exercise(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    exercise_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, str]:
+    svc = _course_exercise_service(db)
+    await svc.bootstrap()
+    await svc.delete_exercise(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        exercise_id=exercise_id,
+    )
+    return {"status": "deleted", "exerciseId": exercise_id}
+
+
+# —— Ghost Resources (host-agnostic: course | class | department | school) ——
+
+
+@org_router.get(
+    "/{school_id}/ghosts",
+    response_model=GhostListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_school_ghosts(
+    org_id: str,
+    school_id: str,
+    hostType: str | None = Query(default=None, alias="hostType"),
+    hostId: str | None = Query(default=None, alias="hostId"),
+    status: str | None = Query(default=None),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostListResponse:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.list_ghosts(
+        org_id=org_id,
+        school_id=school_id,
+        host_type=hostType,
+        host_workspace_item_id=hostId,
+        status=status,
+    )
+
+
+@org_router.post(
+    "/{school_id}/ghosts",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_school_ghost(
+    org_id: str,
+    school_id: str,
+    payload: GhostCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.create_ghost(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
+    "/{school_id}/ghosts/my-work",
+    response_model=GhostMyWorkResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_school_ghost_my_work(
+    org_id: str,
+    school_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostMyWorkResponse:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.list_my_work(org_id=org_id, school_id=school_id, user_id=user.user_id)
+
+
+@org_router.get(
+    "/{school_id}/ghosts/{ghost_id}",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_school_ghost(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+
+@org_router.patch(
+    "/{school_id}/ghosts/{ghost_id}",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_school_ghost(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    payload: GhostUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.update_ghost(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/variants",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_school_ghost_variant(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    payload: GhostNodeCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.create_node(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/ghosts/{ghost_id}/variants/{variant_id}",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_school_ghost_variant(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    variant_id: str,
+    payload: GhostNodeUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.update_node(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        variant_id=variant_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/variants/{variant_id}/submit",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def submit_org_school_ghost_variant(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    variant_id: str,
+    payload: GhostNodeSubmitInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.submit_node(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        variant_id=variant_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/variants/{variant_id}/review",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def review_org_school_ghost_variant(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    variant_id: str,
+    payload: GhostNodeReviewInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.review_node(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        variant_id=variant_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/edges",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_school_ghost_edge(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    payload: GhostEdgeCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.create_edge(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/ghosts/{ghost_id}/edges/{edge_id}",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def delete_org_school_ghost_edge(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    edge_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.delete_edge(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        edge_id=edge_id,
+        user_id=user.user_id,
+    )
+
+
+@org_router.get(
+    "/{school_id}/ghosts/{ghost_id}/events",
+    response_model=GhostEventListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_school_ghost_events(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostEventListResponse:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.list_events(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/fulfill",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def fulfill_org_school_ghost(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    payload: GhostFulfillInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.fulfill_ghost(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/workspace/items/{workspace_item_id}/ghost-ops-table/bootstrap",
+    dependencies=[Depends(require_org_membership)],
+)
+async def bootstrap_org_ghost_ops_table(
+    org_id: str,
+    school_id: str,
+    workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, object]:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    return await svc.ensure_ops_table(
+        org_id=org_id,
+        school_id=school_id,
+        user_id=user.user_id,
+        host_workspace_item_id=workspace_item_id,
     )
 
 

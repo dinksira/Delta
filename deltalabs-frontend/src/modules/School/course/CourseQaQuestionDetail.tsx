@@ -208,7 +208,7 @@ export function CourseQaQuestionDetail({
               {authorLabel(q.author)}
             </span>
             <span>Asked {relativeTimeLabel(q.createdAt)}</span>
-            <span className="font-medium text-primary-700">Replay privately</span>
+                        <span className="font-medium text-primary-700">Reply privately</span>
           </div>
         </div>
 

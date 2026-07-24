@@ -16,6 +16,7 @@ import {
   fetchManagementTableInstanceBundle,
 } from "@/modules/School/api";
 import { CLASS_WORKSPACE_LAYOUT } from "@/modules/School/class/layoutConstants";
+import { GhostDrawer } from "@/modules/School/ghost";
 import { ManagementTableAddColumnPopover } from "@/modules/School/managementTable/ManagementTableAddColumnPopover";
 import {
   MANAGEMENT_TABLE_ADD_COLUMN_GROUPS,
@@ -25,6 +26,10 @@ import {
   type ManagementTableAddColumnOption,
 } from "@/modules/School/managementTable/columnTypeMeta";
 import { ManagementTableGroupSection } from "@/modules/School/managementTable/ManagementTableGroupSection";
+import {
+  MANAGEMENT_TABLE_WORKSPACE_KIND,
+  instanceMatchesTableKind,
+} from "@/modules/School/managementTable/managementTableWorkspaceKind";
 import { useManagementTableAddColumnPopover } from "@/modules/School/managementTable/useManagementTableAddColumnPopover";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
@@ -44,6 +49,8 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupTitle, setNewGroupTitle] = useState("");
+  const [ghostOpen, setGhostOpen] = useState(false);
+  const [ghostId, setGhostId] = useState<string | null>(null);
 
   const bundleQuery = useQuery({
     queryKey: schoolQueryKeys.managementTableInstance(orgId, schoolId, instanceId),
@@ -118,6 +125,12 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
   const instanceTitle = bundleQuery.data?.instance.title ?? "Loading…";
   const templateTitle = bundleQuery.data?.definition.title ?? "—";
   const columns = bundleQuery.data?.definition.columns ?? [];
+  const isGhostOpsTable = Boolean(
+    bundleQuery.data &&
+      instanceMatchesTableKind(bundleQuery.data.instance, MANAGEMENT_TABLE_WORKSPACE_KIND.ghosts),
+  );
+  const ghostHostWorkspaceItemId =
+    bundleQuery.data?.instance.workspaceItemId?.trim() || "";
 
   return (
     <div className={["mx-auto max-w-[100rem] pb-24", CLASS_WORKSPACE_LAYOUT.routeBodyTopPadding].join(" ")}>
@@ -140,7 +153,9 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
             </span>
             <div className="min-w-0 flex-1 pr-1">
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 sm:gap-x-3">
-                <h1 className={[CLASS_WORKSPACE_LAYOUT.pageHeaderTitleClass, "shrink-0"].join(" ")}>Management Table</h1>
+                <h1 className={[CLASS_WORKSPACE_LAYOUT.pageHeaderTitleClass, "shrink-0"].join(" ")}>
+                  {isGhostOpsTable ? "Ghost Management Table" : "Management Table"}
+                </h1>
                 <p className="min-w-0 truncate text-xs text-text-tertiary sm:text-sm">
                   <span className="font-medium text-text-secondary">{instanceTitle}</span>
                   <span aria-hidden className="px-1.5 text-text-tertiary sm:px-2">
@@ -166,10 +181,20 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
           definitionId={bundleQuery.data?.definition.id ?? ""}
           instanceId={instanceId}
           groupId={g.id}
-          groupTitle={g.title}
+          groupTitle={isGhostOpsTable ? "Ghost Ops" : g.title}
           columns={columns}
           parentEnabled={enabled && Boolean(bundleQuery.data)}
+          appearance={isGhostOpsTable ? "ghostOps" : "default"}
+          boardTabLabel={isGhostOpsTable ? "Ghost Ops" : undefined}
           onOpenAddColumn={addColumn.openFromButton}
+          onOpenGhost={
+            isGhostOpsTable
+              ? (id) => {
+                  setGhostId(id);
+                  setGhostOpen(true);
+                }
+              : undefined
+          }
         />
       ))}
 
@@ -186,6 +211,21 @@ export function ManagementTableEditorView({ schoolId, instanceId }: ManagementTa
           New table group
         </Button>
       </div>
+
+      {isGhostOpsTable && ghostHostWorkspaceItemId ? (
+        <GhostDrawer
+          open={ghostOpen}
+          canMutate={enabled}
+          ghostId={ghostId}
+          host={{
+            orgId,
+            schoolId,
+            hostType: "course",
+            hostWorkspaceItemId: ghostHostWorkspaceItemId,
+          }}
+          onClose={() => setGhostOpen(false)}
+        />
+      ) : null}
 
       {newGroupDialogOpen ? (
         <>

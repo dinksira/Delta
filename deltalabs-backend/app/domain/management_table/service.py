@@ -10,6 +10,7 @@ from app.domain.management_table.repository import ManagementTableRepository
 from app.domain.management_table.schemas import (
     MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
     MANAGEMENT_TABLE_KIND_ASSIGNMENTS,
+    MANAGEMENT_TABLE_KIND_GHOSTS,
     MANAGEMENT_TABLE_KIND_GRADES,
     MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS,
     MANAGEMENT_TABLE_KIND_MANAGEMENT,
@@ -1817,6 +1818,602 @@ class ManagementTableService:
             already_linked=False,
         )
 
+    async def bootstrap_ghost_ops_table_workspace_item(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        user_id: str,
+        workspace_item_id: str,
+    ) -> ManagementTableWorkspaceBootstrapResponse:
+        """Ops board for Ghost Resources (mirror — not Property/Chain editor)."""
+        await self._require_school(org_id=org_id, school_id=school_id)
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+        )
+        if item is None:
+            raise NotFoundError("Workspace item not found.", code="workspace_item_not_found")
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        existing_id_raw = meta_dict.get("ghostOpsTableInstanceId")
+        existing_id = existing_id_raw.strip() if isinstance(existing_id_raw, str) else ""
+        if existing_id:
+            bundle = await self._load_bootstrap_bundle_if_valid(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=existing_id,
+                table_kind=MANAGEMENT_TABLE_KIND_GHOSTS,
+            )
+            if bundle is not None:
+                await self._ensure_ghost_ops_extra_columns(
+                    org_id=org_id,
+                    school_id=school_id,
+                    workspace_item_id=workspace_item_id,
+                    meta_dict=meta_dict,
+                    definition_id=bundle.definition.id,
+                )
+                return ManagementTableWorkspaceBootstrapResponse(
+                    instance=bundle.instance,
+                    definition=(
+                        await self.get_instance_bundle(
+                            org_id=org_id, school_id=school_id, instance_id=bundle.instance.id
+                        )
+                    ).definition,
+                    already_linked=True,
+                )
+
+        item_title = str(item.get("title", "Workspace")).strip() or "Workspace"
+        col_title = _new_column_id()
+        col_kind = _new_column_id()
+        col_desc = _new_column_id()
+        col_req = _new_column_id()
+        col_chain = _new_column_id()
+        col_blocked = _new_column_id()
+        col_impl = _new_column_id()
+        col_assignee = _new_column_id()
+        col_status = _new_column_id()
+        col_due = _new_column_id()
+        col_open = _new_column_id()
+        status_options = [
+            {"id": "open", "label": "Open"},
+            {"id": "in_progress", "label": "In progress"},
+            {"id": "submitted", "label": "Submitted"},
+            {"id": "approved", "label": "Approved"},
+            {"id": "fulfilled", "label": "Fulfilled"},
+            {"id": "cancelled", "label": "Cancelled"},
+        ]
+        impl_options = [
+            {"id": "same_base", "label": "Same Base"},
+            {"id": "branch_base", "label": "Branch Base"},
+        ]
+        kind_options = [
+            {"id": "ghost", "label": "Ghost"},
+            {"id": "variant", "label": "Variant"},
+        ]
+        starter_columns: list[dict[str, Any]] = [
+            {"id": col_title, "title": "Item", "type": "text", "order": 0, "settings": {}},
+            {
+                "id": col_kind,
+                "title": "Kind",
+                "type": "status",
+                "order": 1,
+                "settings": {"options": kind_options},
+            },
+            {"id": col_desc, "title": "Description", "type": "textarea", "order": 2, "settings": {}},
+            {"id": col_req, "title": "Requirements", "type": "text", "order": 3, "settings": {}},
+            {"id": col_chain, "title": "Chain node", "type": "text", "order": 4, "settings": {}},
+            {"id": col_blocked, "title": "Requires", "type": "text", "order": 5, "settings": {}},
+            {
+                "id": col_impl,
+                "title": "Implementation",
+                "type": "status",
+                "order": 6,
+                "settings": {"options": impl_options},
+            },
+            {
+                "id": col_assignee,
+                "title": "Assignee",
+                "type": "text",
+                "order": 7,
+                "settings": {"cellEditor": "person"},
+            },
+            {
+                "id": col_status,
+                "title": "Status",
+                "type": "status",
+                "order": 8,
+                "settings": {"options": status_options},
+            },
+            {"id": col_due, "title": "Due", "type": "date", "order": 9, "settings": {}},
+            {"id": col_open, "title": "Open ghost", "type": "link", "order": 10, "settings": {}},
+        ]
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id,
+            school_id=school_id,
+            title=f"{item_title} — Ghost ops",
+            visibility="self_owned",
+            created_by_user_id=user_id,
+            columns=starter_columns,
+        )
+        bundle = await self.create_instance(
+            org_id=org_id,
+            school_id=school_id,
+            payload=ManagementTableInstanceCreateInput(
+                definition_id=str(definition_doc["_id"]),
+                title=f"{item_title} Ghost ops",
+                workspace_item_id=workspace_item_id,
+                table_kind=MANAGEMENT_TABLE_KIND_GHOSTS,
+            ),
+        )
+        meta_dict["ghostOpsTableInstanceId"] = bundle.instance.id
+        meta_dict["ghostOpsTableDefinitionId"] = bundle.definition.id
+        meta_dict["ghostOpsColTitleId"] = col_title
+        meta_dict["ghostOpsColKindId"] = col_kind
+        meta_dict["ghostOpsColDescriptionId"] = col_desc
+        meta_dict["ghostOpsColRequirementsId"] = col_req
+        meta_dict["ghostOpsColChainNodeId"] = col_chain
+        meta_dict["ghostOpsColBlockedById"] = col_blocked
+        meta_dict["ghostOpsColImplementationId"] = col_impl
+        meta_dict["ghostOpsColAssigneeId"] = col_assignee
+        meta_dict["ghostOpsColStatusId"] = col_status
+        meta_dict["ghostOpsColDueId"] = col_due
+        meta_dict["ghostOpsColOpenId"] = col_open
+        await self._school.update_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=workspace_item_id,
+            updates={"metadata": meta_dict},
+        )
+        return ManagementTableWorkspaceBootstrapResponse(
+            instance=bundle.instance,
+            definition=bundle.definition,
+            already_linked=False,
+        )
+
+    async def _ensure_ghost_ops_extra_columns(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        workspace_item_id: str,
+        meta_dict: dict[str, Any],
+        definition_id: str,
+    ) -> None:
+        """Migrate older ghost-ops tables to include Property columns + kind."""
+        needed = (
+            "ghostOpsColKindId",
+            "ghostOpsColDescriptionId",
+            "ghostOpsColRequirementsId",
+        )
+        missing_meta = [k for k in needed if not (isinstance(meta_dict.get(k), str) and meta_dict.get(k))]
+        doc = await self._mt.find_definition(
+            org_id=org_id, school_id=school_id, definition_id=definition_id
+        )
+        if doc is None:
+            return
+        raw_cols = doc.get("columns")
+        columns: list[dict[str, Any]] = [dict(c) for c in raw_cols] if isinstance(raw_cols, list) else []
+        by_title = {
+            str(c.get("title") or "").strip().lower(): c for c in columns if isinstance(c, dict)
+        }
+        changed = False
+        meta_changed = False
+
+        # Soft-rename legacy titles when present.
+        for col in columns:
+            title = str(col.get("title") or "").strip()
+            if title == "Ghost title":
+                col["title"] = "Item"
+                changed = True
+            elif title == "Blocked by":
+                col["title"] = "Requires"
+                changed = True
+
+        kind_options = [
+            {"id": "ghost", "label": "Ghost"},
+            {"id": "variant", "label": "Variant"},
+        ]
+
+        def _ensure_col(
+            *,
+            meta_key: str,
+            title: str,
+            col_type: str,
+            settings: dict[str, Any] | None = None,
+            insert_after_title: str | None = None,
+        ) -> str:
+            nonlocal changed, meta_changed
+            existing_id = meta_dict.get(meta_key)
+            if isinstance(existing_id, str) and existing_id.strip():
+                # Keep meta id even if column was renamed; ensure column still exists.
+                if any(str(c.get("id")) == existing_id for c in columns):
+                    return existing_id.strip()
+            # Reuse by title if user already added one.
+            hit = by_title.get(title.lower())
+            if hit and hit.get("id"):
+                cid = str(hit["id"])
+                if meta_dict.get(meta_key) != cid:
+                    meta_dict[meta_key] = cid
+                    meta_changed = True
+                return cid
+            cid = _new_column_id()
+            max_order = max((int(c.get("order", 0)) for c in columns), default=-1)
+            order = max_order + 1
+            if insert_after_title:
+                for i, c in enumerate(columns):
+                    if str(c.get("title") or "").strip().lower() == insert_after_title.lower():
+                        order = int(c.get("order", i)) + 1
+                        for later in columns[i + 1 :]:
+                            later["order"] = int(later.get("order", 0)) + 1
+                        break
+            columns.append(
+                {
+                    "id": cid,
+                    "title": title,
+                    "type": col_type,
+                    "order": order,
+                    "settings": dict(settings or {}),
+                }
+            )
+            by_title[title.lower()] = columns[-1]
+            meta_dict[meta_key] = cid
+            changed = True
+            meta_changed = True
+            return cid
+
+        if missing_meta or not all(
+            isinstance(meta_dict.get(k), str) and meta_dict.get(k) for k in needed
+        ):
+            _ensure_col(
+                meta_key="ghostOpsColKindId",
+                title="Kind",
+                col_type="status",
+                settings={"options": kind_options},
+                insert_after_title="Item",
+            )
+            _ensure_col(
+                meta_key="ghostOpsColDescriptionId",
+                title="Description",
+                col_type="textarea",
+                insert_after_title="Kind",
+            )
+            _ensure_col(
+                meta_key="ghostOpsColRequirementsId",
+                title="Requirements",
+                col_type="text",
+                insert_after_title="Description",
+            )
+
+        if changed:
+            await self._mt.update_definition(
+                org_id=org_id,
+                school_id=school_id,
+                definition_id=definition_id,
+                title=None,
+                visibility=None,
+                columns=columns,
+            )
+        if meta_changed or missing_meta:
+            await self._school.update_school_workspace_item(
+                org_id=org_id,
+                school_id=school_id,
+                item_id=workspace_item_id,
+                updates={"metadata": meta_dict},
+            )
+
+    async def sync_ghost_ops_tree(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        host_workspace_item_id: str,
+        ghost_id: str,
+        title: str,
+        description: str,
+        requirements: str,
+        implementation: str,
+        status: str,
+        due_at: str | None,
+        variants: list[dict[str, Any]],
+        chain_node: str = "",
+        blocked_by: str = "",
+        assignee: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Upsert ghost parent row + nested variant rows (Monday-style). Returns parent row id."""
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=host_workspace_item_id,
+        )
+        if item is None:
+            return None
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        instance_id_raw = meta_dict.get("ghostOpsTableInstanceId")
+        if not isinstance(instance_id_raw, str) or not instance_id_raw.strip():
+            return None
+        instance_id = instance_id_raw.strip()
+        definition_id_raw = meta_dict.get("ghostOpsTableDefinitionId")
+        if isinstance(definition_id_raw, str) and definition_id_raw.strip():
+            await self._ensure_ghost_ops_extra_columns(
+                org_id=org_id,
+                school_id=school_id,
+                workspace_item_id=host_workspace_item_id,
+                meta_dict=meta_dict,
+                definition_id=definition_id_raw.strip(),
+            )
+            refreshed = await self._school.find_school_workspace_item(
+                org_id=org_id,
+                school_id=school_id,
+                item_id=host_workspace_item_id,
+            )
+            if refreshed is not None:
+                meta = refreshed.get("metadata")
+                meta_dict = dict(meta) if isinstance(meta, dict) else meta_dict
+
+        col_title = meta_dict.get("ghostOpsColTitleId")
+        col_kind = meta_dict.get("ghostOpsColKindId")
+        col_desc = meta_dict.get("ghostOpsColDescriptionId")
+        col_req = meta_dict.get("ghostOpsColRequirementsId")
+        col_chain = meta_dict.get("ghostOpsColChainNodeId")
+        col_blocked = meta_dict.get("ghostOpsColBlockedById")
+        col_impl = meta_dict.get("ghostOpsColImplementationId")
+        col_assignee = meta_dict.get("ghostOpsColAssigneeId")
+        col_status = meta_dict.get("ghostOpsColStatusId")
+        col_due = meta_dict.get("ghostOpsColDueId")
+        col_open = meta_dict.get("ghostOpsColOpenId")
+        required_cols = (
+            col_title,
+            col_chain,
+            col_blocked,
+            col_impl,
+            col_assignee,
+            col_status,
+            col_due,
+            col_open,
+        )
+        if not all(isinstance(x, str) and x for x in required_cols):
+            return None
+
+        group_id = MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        ghost_open_key = f"ghost:{ghost_id}"
+        prefix = f"ghost:{ghost_id}"
+
+        rows, _total = await self._mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=group_id,
+            skip=0,
+            limit=2000,
+        )
+        bundle = await self.get_instance_bundle(
+            org_id=org_id, school_id=school_id, instance_id=instance_id
+        )
+        col_ids = {c.id for c in bundle.definition.columns}
+
+        def _normalize_impl(raw: str) -> str:
+            return raw if raw in {"same_base", "branch_base"} else "same_base"
+
+        def _row_open_key(row: Mapping[str, Any]) -> str:
+            cells = row.get("cells")
+            if not isinstance(cells, dict):
+                return ""
+            return str(cells.get(str(col_open)) or "")
+
+        rows_by_open: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            key = _row_open_key(row)
+            if key:
+                rows_by_open[key] = row
+
+        desired_keys: set[str] = {ghost_open_key}
+        variant_keys: dict[str, str] = {}
+        for v in variants:
+            vid = str(v.get("id") or "").strip()
+            if not vid:
+                continue
+            key = f"{prefix}:variant:{vid}"
+            variant_keys[vid] = key
+            desired_keys.add(key)
+
+        async def _upsert_row(
+            *,
+            open_key: str,
+            cells_patch: dict[str, Any],
+            parent_row_id: str | None,
+            position: int,
+        ) -> str:
+            existing = rows_by_open.get(open_key)
+            if existing is not None:
+                cells = existing.get("cells")
+                merged = dict(cells) if isinstance(cells, dict) else {}
+                merged.update({k: v for k, v in cells_patch.items() if k in col_ids})
+                merged[str(col_open)] = open_key
+                row_id = str(existing["_id"])
+                await self._mt.update_row_cells(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=instance_id,
+                    row_id=row_id,
+                    cells=merged,
+                )
+                await self._mt.update_row_parent(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=instance_id,
+                    row_id=row_id,
+                    parent_row_id=parent_row_id,
+                )
+                return row_id
+
+            cells: dict[str, Any] = {}
+            for col in bundle.definition.columns:
+                if col.type == "checkbox":
+                    cells[col.id] = False
+                elif col.type == "number":
+                    cells[col.id] = None
+                else:
+                    cells[col.id] = ""
+            cells.update({k: v for k, v in cells_patch.items() if k in col_ids})
+            cells = {k: v for k, v in cells.items() if k in col_ids}
+            cells[str(col_open)] = open_key
+            doc = await self._mt.insert_row(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                group_id=group_id,
+                position=position,
+                cells=cells,
+                parent_row_id=parent_row_id,
+            )
+            rows_by_open[open_key] = doc
+            return str(doc["_id"])
+
+        max_pos = await self._mt.max_row_position(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=group_id,
+        )
+        next_pos = (max_pos + 1) if max_pos is not None else 0
+
+        ghost_cells: dict[str, Any] = {
+            str(col_title): title,
+            str(col_chain): chain_node or "",
+            str(col_blocked): blocked_by or "",
+            str(col_impl): _normalize_impl(implementation),
+            str(col_assignee): assignee if isinstance(assignee, dict) else "",
+            str(col_status): status,
+            str(col_due): due_at or "",
+            str(col_open): ghost_open_key,
+        }
+        if isinstance(col_kind, str) and col_kind:
+            ghost_cells[str(col_kind)] = "ghost"
+        if isinstance(col_desc, str) and col_desc:
+            ghost_cells[str(col_desc)] = description or ""
+        if isinstance(col_req, str) and col_req:
+            ghost_cells[str(col_req)] = requirements or ""
+
+        parent_row_id = await _upsert_row(
+            open_key=ghost_open_key,
+            cells_patch=ghost_cells,
+            parent_row_id=None,
+            position=next_pos,
+        )
+        next_pos += 1
+
+        # Resolve parents in topological-ish order: parents before children.
+        pending = list(variants)
+        resolved_row_ids: dict[str, str] = {ghost_open_key: parent_row_id}
+        guard = 0
+        while pending and guard < len(variants) + 5:
+            guard += 1
+            progressed = False
+            still: list[dict[str, Any]] = []
+            for v in pending:
+                vid = str(v.get("id") or "").strip()
+                if not vid:
+                    continue
+                open_key = variant_keys[vid]
+                parent_vid = v.get("parent_variant_id")
+                parent_vid_s = str(parent_vid).strip() if parent_vid else ""
+                if parent_vid_s and parent_vid_s in variant_keys:
+                    parent_open = variant_keys[parent_vid_s]
+                    if parent_open not in resolved_row_ids:
+                        still.append(v)
+                        continue
+                    nest_under = resolved_row_ids[parent_open]
+                else:
+                    nest_under = parent_row_id
+
+                node_status = str(v.get("status") or "open")
+                if node_status == "merged":
+                    node_status = "approved"
+                assignee = v.get("assignee")
+                variant_cells: dict[str, Any] = {
+                    str(col_title): str(v.get("name") or "Variant"),
+                    str(col_chain): str(v.get("name") or ""),
+                    str(col_blocked): str(v.get("blocked_by") or ""),
+                    str(col_impl): _normalize_impl(str(v.get("implementation") or "same_base")),
+                    str(col_assignee): assignee if isinstance(assignee, dict) else "",
+                    str(col_status): node_status,
+                    str(col_due): due_at or "",
+                    str(col_open): open_key,
+                }
+                if isinstance(col_kind, str) and col_kind:
+                    variant_cells[str(col_kind)] = "variant"
+                if isinstance(col_desc, str) and col_desc:
+                    variant_cells[str(col_desc)] = ""
+                if isinstance(col_req, str) and col_req:
+                    variant_cells[str(col_req)] = ""
+
+                row_id = await _upsert_row(
+                    open_key=open_key,
+                    cells_patch=variant_cells,
+                    parent_row_id=nest_under,
+                    position=next_pos,
+                )
+                next_pos += 1
+                resolved_row_ids[open_key] = row_id
+                progressed = True
+            pending = still
+            if not progressed:
+                break
+
+        # Drop stale rows for this ghost (deleted variants / legacy flat duplicates).
+        for row in rows:
+            key = _row_open_key(row)
+            if key != prefix and not key.startswith(f"{prefix}:variant:"):
+                continue
+            if key in desired_keys:
+                continue
+            await self._mt.delete_row(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                row_id=str(row["_id"]),
+            )
+
+        return parent_row_id
+
+    async def sync_ghost_ops_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        host_workspace_item_id: str,
+        ghost_id: str,
+        title: str,
+        chain_node: str,
+        blocked_by: str,
+        implementation: str,
+        assignee: dict[str, Any] | None,
+        status: str,
+        due_at: str | None,
+        open_href: str,
+    ) -> str | None:
+        """Backward-compatible single-row upsert; prefer sync_ghost_ops_tree."""
+        _ = open_href
+        return await self.sync_ghost_ops_tree(
+            org_id=org_id,
+            school_id=school_id,
+            host_workspace_item_id=host_workspace_item_id,
+            ghost_id=ghost_id,
+            title=title,
+            description="",
+            requirements="",
+            implementation=implementation,
+            status=status,
+            due_at=due_at,
+            variants=[],
+            chain_node=chain_node,
+            blocked_by=blocked_by,
+            assignee=assignee,
+        )
+
     async def bootstrap_class_assignments_table(
         self,
         *,
@@ -1866,8 +2463,8 @@ class ManagementTableService:
             school_id=school_id,
             instance_id=instance_id.strip(),
             group_id=group_id,
-            page=1,
-            page_size=1000,
+            skip=0,
+            limit=1000,
         )
         person_value: dict[str, Any] = {
             "userId": normalized_user_id,

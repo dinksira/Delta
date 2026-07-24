@@ -270,9 +270,10 @@ class ManagementTableRepository:
         group_id: str,
         position: int,
         cells: dict[str, Any],
+        parent_row_id: str | None = None,
     ) -> dict[str, Any]:
         now = datetime.now(UTC)
-        doc = {
+        doc: dict[str, Any] = {
             "_id": _new_id("mtr"),
             "org_id": org_id,
             "school_id": school_id,
@@ -283,8 +284,55 @@ class ManagementTableRepository:
             "created_at": now,
             "updated_at": now,
         }
+        if parent_row_id:
+            doc["parent_row_id"] = parent_row_id
         await self._db["school_management_table_rows"].insert_one(doc)
         return doc
+
+    async def delete_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+    ) -> bool:
+        result = await self._db["school_management_table_rows"].delete_one(
+            {
+                "_id": row_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+            },
+        )
+        return result.deleted_count > 0
+
+    async def update_row_parent(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+        parent_row_id: str | None,
+    ) -> bool:
+        now = datetime.now(UTC)
+        if parent_row_id:
+            update: dict[str, Any] = {
+                "$set": {"parent_row_id": parent_row_id, "updated_at": now},
+            }
+        else:
+            update = {"$unset": {"parent_row_id": ""}, "$set": {"updated_at": now}}
+        result = await self._db["school_management_table_rows"].update_one(
+            {
+                "_id": row_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+            },
+            update,
+        )
+        return result.matched_count > 0
 
     async def find_row(
         self,

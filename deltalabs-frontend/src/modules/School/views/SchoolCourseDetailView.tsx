@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { fetchOrgAccess, fetchSchoolWorkspaceItem } from "@/modules/School/api";
 import { userCanManageSchoolWorkspace } from "@/modules/School/class/schoolClassPermissions";
+import { CourseExercisePanel } from "@/modules/School/course/CourseExercisePanel";
 import { CourseIntroPanel } from "@/modules/School/course/CourseIntroPanel";
 import { CoursePageHeader } from "@/modules/School/course/CoursePageHeader";
 import { CourseQaPanel } from "@/modules/School/course/CourseQaPanel";
@@ -88,6 +89,13 @@ export function SchoolCourseDetailView({ schoolId, courseItemId }: SchoolCourseD
         <ComingSoonSection navId={activeNav} />
       ) : activeOrgId && courseItemQuery.data && activeNav === "qa" ? (
         <CourseQaPanel
+          orgId={activeOrgId}
+          schoolId={cleanSchoolId}
+          courseItem={courseItemQuery.data}
+          canMutate={canMutate && !accessPending}
+        />
+      ) : activeOrgId && courseItemQuery.data && activeNav === "exercise" ? (
+        <CourseExercisePanel
           orgId={activeOrgId}
           schoolId={cleanSchoolId}
           courseItem={courseItemQuery.data}

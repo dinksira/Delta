@@ -76,7 +76,7 @@ export function parseCourseNavId(raw: string | null): CourseNavId {
 }
 
 export function isBuiltCourseNavSection(navId: CourseNavId): boolean {
-  return navId === "intro" || navId === "qa";
+  return navId === "intro" || navId === "qa" || navId === "exercise";
 }
 
 /** Safe decode of `returnTo` for course → school workspace navigation. */

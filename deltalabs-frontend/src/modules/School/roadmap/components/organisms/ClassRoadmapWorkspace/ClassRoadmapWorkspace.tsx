@@ -6,6 +6,9 @@ import { ROADMAP_WORKSPACE_HEIGHT_CLASS } from "@/modules/School/roadmap/roadmap
 import type { ClassRoadmapDocument, ClassRoadmapSidebarResource } from "@/modules/School/roadmap/types";
 
 export function ClassRoadmapWorkspace({
+  orgId,
+  schoolId,
+  classItemId,
   doc,
   sessions,
   courses,
@@ -22,6 +25,9 @@ export function ClassRoadmapWorkspace({
   onToggleContentComplete,
   onReorderContent,
 }: Readonly<{
+  orgId: string;
+  schoolId: string;
+  classItemId: string;
   doc: ClassRoadmapDocument;
   sessions: readonly ClassRoadmapSidebarResource[];
   courses: readonly ClassRoadmapSidebarResource[];
@@ -73,6 +79,10 @@ export function ClassRoadmapWorkspace({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-h-0 lg:max-w-sm">
         <ClassRoadmapResourcesSidebar
+          orgId={orgId}
+          schoolId={schoolId}
+          classItemId={classItemId}
+          canMutate={canMutate}
           sessions={sessions}
           courses={courses}
           materials={materials}

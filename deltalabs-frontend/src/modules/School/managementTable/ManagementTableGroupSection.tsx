@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Plus, SlidersHorizontal, Wrench } from "lucide-react";
-import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
@@ -23,6 +23,10 @@ import {
   columnUsesClassSessionPicker,
   formatClassSessionCellLabel,
 } from "@/modules/School/managementTable/managementTableClassSessionCell";
+import { isGhostDeepLink, parseGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
+import { ManagementTableGhostRequirementsCell } from "@/modules/School/managementTable/ManagementTableGhostRequirementsCell";
+import { isGhostRequirementsColumn } from "@/modules/School/managementTable/managementTableGhostRequirements";
+import { flattenManagementTableRows, groupHierarchyBlocks } from "@/modules/School/managementTable/managementTableRowHierarchy";
 import { ManagementTableBoardViewsPopover } from "@/modules/School/managementTable/ManagementTableBoardViewsPopover";
 import { ManagementTableColumnHeadCell } from "@/modules/School/managementTable/ManagementTableColumnHeadCell";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
@@ -57,6 +61,14 @@ export type ManagementTableGroupSectionProps = Readonly<{
   onlyEditableColumnTitles?: readonly string[];
   /** Class schedule — Main Table / Calendar tabs, date range, calendar body. */
   scheduleChrome?: ScheduleTableChrome;
+  /** Click handler for `ghost:{id}` deep-link cells (Open ghost column / link type). */
+  onOpenGhost?: (ghostId: string) => void;
+  /** Visual variant — ghost ops board uses distinct chrome from generic tables. */
+  appearance?: "default" | "ghostOps";
+  /** Label for the board tab under the group header (default: Main Table). */
+  boardTabLabel?: string;
+  /** Hide date-range / tag / tools chrome (ghost ops uses a leaner header). */
+  hideUtilityChrome?: boolean;
 }>;
 
 export function ManagementTableGroupSection({
@@ -75,13 +87,21 @@ export function ManagementTableGroupSection({
   emptyRowsMessage = "No rows yet.",
   onlyEditableColumnTitles,
   scheduleChrome,
+  onOpenGhost,
+  appearance = "default",
+  boardTabLabel,
+  hideUtilityChrome = false,
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
   const boardViewsAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [boardViewsOpen, setBoardViewsOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [collapsedRowIds, setCollapsedRowIds] = useState<Set<string>>(() => new Set());
   const enabled = parentEnabled && Boolean(groupId);
+  const isGhostOps = appearance === "ghostOps";
+  const resolvedBoardTab = boardTabLabel ?? (isGhostOps ? "Ghost Ops" : "Main Table");
+  const hideChrome = hideUtilityChrome || isGhostOps;
 
   const rowsQuery = useQuery({
     queryKey: schoolQueryKeys.managementTableRows(orgId, schoolId, instanceId, groupId, 1),
@@ -119,14 +139,37 @@ export function ManagementTableGroupSection({
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
   const rows = rowsQuery.data?.items ?? [];
+  const flatRows = useMemo(
+    () => flattenManagementTableRows(rows, collapsedRowIds),
+    [rows, collapsedRowIds],
+  );
+  const hierarchyBlocks = useMemo(() => groupHierarchyBlocks(flatRows), [flatRows]);
+  const rootRowCount = useMemo(
+    () => rows.filter((r) => !r.parentRowId || !rows.some((x) => x.id === r.parentRowId)).length,
+    [rows],
+  );
+
+  const toggleRowCollapsed = (rowId: string) => {
+    setCollapsedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
 
   const rowSummary = useMemo(() => {
     if (rowsQuery.isPending) return "Loading…";
     if (rowsQuery.isError) return "Could not load rows";
     if (rows.length === 0) return allowAddRow ? "No rows" : "No submissions";
+    const nested = rows.length - rootRowCount;
+    if (nested > 0) {
+      if (rootRowCount === 1) return nested === 1 ? "1 item · 1 subitem" : `1 item · ${nested} subitems`;
+      return `${rootRowCount} items · ${nested} subitems`;
+    }
     if (rows.length === 1) return "1 row";
     return `${rows.length} rows`;
-  }, [allowAddRow, rows.length, rowsQuery.isError, rowsQuery.isPending]);
+  }, [allowAddRow, rootRowCount, rows.length, rowsQuery.isError, rowsQuery.isPending]);
 
   const onCellCommit = (row: ManagementTableRowDto, columnId: string, next: unknown, immediate?: boolean) => {
     if (immediate !== false) {
@@ -142,6 +185,7 @@ export function ManagementTableGroupSection({
   };
 
   const formatReadOnlyCell = (col: ManagementTableColumnDto, value: unknown) => {
+    if (isGhostDeepLink(value)) return "Open";
     if (col.type === "status" || col.type === "dropdown") {
       const opts = col.settings?.options;
       if (Array.isArray(opts)) {
@@ -156,14 +200,57 @@ export function ManagementTableGroupSection({
     return String(value);
   };
 
+  const renderDataCell = (row: ManagementTableRowDto, col: ManagementTableColumnDto) => {
+    if (isGhostRequirementsColumn(col.title) && orgId) {
+      return <ManagementTableGhostRequirementsCell orgId={orgId} value={row.cells[col.id]} />;
+    }
+    if (isColumnEditable(col)) {
+      return (
+        <ManagementTableCellEditor
+          column={col}
+          value={row.cells[col.id]}
+          orgId={orgId}
+          schoolId={schoolId}
+          personPicker={resolvePersonPickerForColumn(col, personPicker)}
+          classWorkspaceItemId={classWorkspaceItemId}
+          onOpenGhost={onOpenGhost}
+          onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
+        />
+      );
+    }
+    if (isGhostDeepLink(row.cells[col.id])) {
+      return (
+        <button
+          type="button"
+          className="inline-flex h-7 items-center rounded px-1 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
+          onClick={() => {
+            const id = parseGhostDeepLink(row.cells[col.id]);
+            if (id) onOpenGhost?.(id);
+          }}
+        >
+          Open
+        </button>
+      );
+    }
+    return (
+      <span className="block truncate px-1 text-sm leading-7 text-text-primary" title={formatReadOnlyCell(col, row.cells[col.id])}>
+        {formatReadOnlyCell(col, row.cells[col.id])}
+      </span>
+    );
+  };
+
+  const colSpanAll = sortedColumns.length + 2;
+
   return (
-    <div className="mt-10 first:mt-8">
+    <div className={["mt-10 first:mt-8", isGhostOps ? "rounded-2xl ring-1 ring-[#9eb6c4]/60" : ""].join(" ")}>
       <div
         className={[
           "flex min-h-[2.75rem] items-stretch overflow-hidden rounded-t-xl border",
           expanded
             ? "border-transparent border-b-0 bg-transparent shadow-none"
-            : "rounded-b-xl border-border-default bg-[#cfd9e4] shadow-sm",
+            : isGhostOps
+              ? "rounded-b-xl border-[#b7c9d4] bg-[#d7e4ec] shadow-sm"
+              : "rounded-b-xl border-border-default bg-[#cfd9e4] shadow-sm",
         ].join(" ")}
       >
         <button
@@ -176,7 +263,13 @@ export function ManagementTableGroupSection({
           aria-controls={regionId}
           onClick={() => setExpanded((v) => !v)}
         >
-          <span className="w-1 shrink-0 self-stretch rounded-full bg-primary-500" aria-hidden />
+          <span
+            className={[
+              "w-1 shrink-0 self-stretch rounded-full",
+              isGhostOps ? "bg-[#2f5d73]" : "bg-primary-500",
+            ].join(" ")}
+            aria-hidden
+          />
           <ChevronDown
             className={[
               "size-4 shrink-0 text-text-secondary transition-transform duration-200 ease-out",
@@ -190,10 +283,16 @@ export function ManagementTableGroupSection({
                 <span className="mr-1 text-text-tertiary">#</span>
                 {groupTitle}
               </span>
+              {isGhostOps ? (
+                <span className="rounded-md bg-[#2f5d73] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  Ghost
+                </span>
+              ) : null}
             </div>
             <p className="mt-px text-[11px] leading-tight text-text-tertiary">{rowSummary}</p>
           </div>
         </button>
+        {!hideChrome ? (
         <div
           className={[
             "flex shrink-0 flex-wrap items-center justify-end gap-1.5 border-l px-2 py-1.5 sm:px-2.5",
@@ -243,14 +342,24 @@ export function ManagementTableGroupSection({
             Tools
           </button>
         </div>
+        ) : null}
       </div>
 
       {expanded ? (
         <div
           id={regionId}
-          className="rounded-b-xl border border-t-0 border-border-default bg-surface-default shadow-sm"
+          className={[
+            "rounded-b-xl border border-t-0 bg-surface-default shadow-sm",
+            isGhostOps ? "border-[#b7c9d4]" : "border-border-default",
+          ].join(" ")}
         >
-      <div className="flex min-h-[44px] items-center gap-6 border-b border-border-default bg-surface-default px-3 pb-px pt-3">
+      {!isGhostOps || scheduleChrome ? (
+      <div
+        className={[
+          "flex min-h-[44px] items-center gap-6 border-b px-3 pb-px pt-3",
+          isGhostOps ? "border-[#d5e2ea] bg-[#f3f7fa]" : "border-border-default bg-surface-default",
+        ].join(" ")}
+      >
         {scheduleChrome ? (
           <>
             <button
@@ -279,7 +388,9 @@ export function ManagementTableGroupSection({
             </button>
           </>
         ) : (
-          <span className="border-b-2 border-primary-600 pb-2 text-sm font-semibold text-text-primary">Main Table</span>
+          <span className="border-b-2 border-primary-600 pb-2 text-sm font-semibold text-text-primary">
+            {resolvedBoardTab}
+          </span>
         )}
         <button
           ref={boardViewsAnchorRef}
@@ -299,6 +410,7 @@ export function ManagementTableGroupSection({
           anchorRef={boardViewsAnchorRef}
         />
       </div>
+      ) : null}
 
       {scheduleChrome?.activeView === "calendar" ? (
         scheduleChrome.calendarContent
@@ -307,13 +419,13 @@ export function ManagementTableGroupSection({
         <table className="min-w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="bg-[#e8edf3] text-left text-text-secondary">
-              <th className="sticky left-0 z-[4] w-9 border-b border-r border-white bg-[#e8edf3] px-1.5 py-1.5 shadow-[2px_0_10px_rgba(2,24,43,0.08)]">
+              <th className="sticky left-0 z-[4] w-10 border-b border-r border-white bg-[#e8edf3] px-1 py-1 shadow-[2px_0_10px_rgba(2,24,43,0.08)]">
                 <span className="sr-only">Select</span>
               </th>
               {sortedColumns.map((col) => (
                 <th
                   key={col.id}
-                  className="group/colhead relative min-w-[140px] border-b border-l border-white p-0 font-medium align-top"
+                  className="group/colhead relative min-w-[120px] border-b border-l border-white p-0 font-medium align-middle"
                 >
                   <ManagementTableColumnHeadCell
                     orgId={orgId}
@@ -326,19 +438,17 @@ export function ManagementTableGroupSection({
                   />
                 </th>
               ))}
-              <th className="sticky right-0 z-[4] min-w-[158px] border-b border-l border-white bg-[#e8edf3] px-1.5 py-1.5 font-medium shadow-[-2px_0_10px_rgba(2,24,43,0.08)]">
+              <th className="sticky right-0 z-[4] min-w-[120px] border-b border-l border-white bg-[#e8edf3] px-1 py-1 font-medium shadow-[-2px_0_10px_rgba(2,24,43,0.08)]">
                 <button
                   type="button"
-                  className="inline-flex w-full items-center justify-between gap-1.5 rounded-md border border-transparent bg-transparent px-1.5 py-1 text-left text-xs font-medium text-text-secondary transition-colors hover:bg-white/60"
+                  className="inline-flex h-7 w-full items-center gap-1.5 rounded-md px-1 text-left text-xs font-medium text-text-secondary transition-colors hover:bg-white/60"
                   onClick={(e) => onOpenAddColumn(e.currentTarget)}
                   disabled={!enabled}
                 >
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-default bg-surface-default text-text-secondary">
-                      <Plus className="size-3.5" aria-hidden />
-                    </span>
-                    Add column
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-border-default bg-surface-default text-text-secondary">
+                    <Plus className="size-3" aria-hidden />
                   </span>
+                  Add column
                 </button>
               </th>
             </tr>
@@ -346,53 +456,194 @@ export function ManagementTableGroupSection({
           <tbody>
             {rowsQuery.isPending ? (
               <tr>
-                <td colSpan={sortedColumns.length + 2} className="px-3 py-6 text-center text-text-tertiary">
+                <td colSpan={colSpanAll} className="px-3 py-6 text-center text-text-tertiary">
                   Loading rows…
                 </td>
               </tr>
             ) : rowsQuery.isError ? (
               <tr>
-                <td colSpan={sortedColumns.length + 2} className="px-3 py-6 text-center text-sm text-red-600">
+                <td colSpan={colSpanAll} className="px-3 py-6 text-center text-sm text-red-600">
                   {rowsQuery.error instanceof ApiError ? rowsQuery.error.message : "Could not load rows."}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={sortedColumns.length + 2} className="px-3 py-8 text-center text-sm text-text-tertiary">
+                <td colSpan={colSpanAll} className="px-3 py-8 text-center text-sm text-text-tertiary">
                   {emptyRowsMessage}
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr key={row.id} className="group/row last:[&>td]:border-b-0 hover:bg-surface-muted/40">
-                  <td className="sticky left-0 z-[2] border-b border-r border-border-default bg-surface-default px-1.5 py-1.5 align-middle shadow-[2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/40">
-                    <input type="checkbox" className="size-3.5 rounded border-border-default" disabled aria-label="Row select (coming soon)" />
-                  </td>
-                  {sortedColumns.map((col) => (
-                    <td
-                      key={col.id}
-                      className="border-b border-l border-border-default bg-surface-default px-1.5 py-1.5 align-top group-hover/row:bg-surface-muted/40"
-                    >
-                      {isColumnEditable(col) ? (
-                        <ManagementTableCellEditor
-                          column={col}
-                          value={row.cells[col.id]}
-                          orgId={orgId}
-                          schoolId={schoolId}
-                          personPicker={resolvePersonPickerForColumn(col, personPicker)}
-                          classWorkspaceItemId={classWorkspaceItemId}
-                          onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
-                        />
-                      ) : (
-                        <span className="block px-1 py-0.5 text-sm leading-snug text-text-primary">
-                          {formatReadOnlyCell(col, row.cells[col.id])}
-                        </span>
-                      )}
-                    </td>
-                  ))}
-                  <td className="sticky right-0 z-[2] border-b border-l border-border-default bg-surface-default px-1.5 py-1.5 align-top shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/40" />
-                </tr>
-              ))
+              hierarchyBlocks.map(({ parent, descendants }) => {
+                const parentExpanded = parent.hasChildren && !collapsedRowIds.has(parent.row.id);
+                const childCount = descendants.length;
+                return (
+                  <Fragment key={parent.row.id}>
+                    <tr className="group/row hover:bg-surface-muted/30">
+                      <td className="sticky left-0 z-[2] h-9 border-b border-r border-border-default bg-surface-default px-1 align-middle shadow-[2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30">
+                        <div className="flex items-center gap-0.5">
+                          {parent.hasChildren ? (
+                            <button
+                              type="button"
+                              className="inline-flex size-5 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-black/[0.06]"
+                              aria-expanded={parentExpanded}
+                              aria-label={parentExpanded ? "Collapse subitems" : "Expand subitems"}
+                              onClick={() => toggleRowCollapsed(parent.row.id)}
+                            >
+                              <ChevronDown
+                                className={[
+                                  "size-3.5 transition-transform",
+                                  parentExpanded ? "rotate-0" : "-rotate-90",
+                                ].join(" ")}
+                                aria-hidden
+                              />
+                            </button>
+                          ) : (
+                            <span className="inline-block size-5 shrink-0" aria-hidden />
+                          )}
+                          <input
+                            type="checkbox"
+                            className="size-3.5 rounded border-border-default"
+                            disabled
+                            aria-label="Row select (coming soon)"
+                          />
+                        </div>
+                      </td>
+                      {sortedColumns.map((col, colIndex) => (
+                        <td
+                          key={col.id}
+                          className="h-9 border-b border-l border-border-default bg-surface-default px-1 align-middle group-hover/row:bg-surface-muted/30"
+                        >
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {colIndex === 0 && childCount > 0 ? (
+                              <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#dbe7ef] px-1.5 text-[10px] font-bold text-[#2f5d73]">
+                                {childCount}
+                              </span>
+                            ) : null}
+                            <div className="min-w-0 flex-1">{renderDataCell(parent.row, col)}</div>
+                          </div>
+                        </td>
+                      ))}
+                      <td className="sticky right-0 z-[2] h-9 border-b border-l border-border-default bg-surface-default shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30" />
+                    </tr>
+
+                    {parentExpanded ? (
+                      <tr>
+                        <td
+                          colSpan={colSpanAll}
+                          className="border-b border-border-default bg-surface-default p-0"
+                        >
+                          {/* Nested subitem board — inset so main grid lines do not run through the gutter */}
+                          <div className="py-2 pl-10 pr-3">
+                            <div className="overflow-hidden rounded-lg border border-[#b8cddc] bg-[#f7fafc] shadow-[0_1px_2px_rgba(2,24,43,0.04)]">
+                              <div className="flex min-w-0">
+                                <span
+                                  className="w-1.5 shrink-0 bg-[#5b9fd4]"
+                                  aria-hidden
+                                />
+                                <div className="min-w-0 flex-1 overflow-x-auto">
+                                  <table className="min-w-full border-separate border-spacing-0 text-sm">
+                                    <thead>
+                                      <tr className="bg-[#e7f0f6] text-left text-[#5a7184]">
+                                        <th className="w-9 border-b border-[#d5e3ee] px-1 py-1.5">
+                                          <span className="sr-only">Select</span>
+                                        </th>
+                                        {sortedColumns.map((col, colIndex) => (
+                                          <th
+                                            key={`subhead-${parent.row.id}-${col.id}`}
+                                            className="min-w-[120px] border-b border-l border-[#d5e3ee] px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                                          >
+                                            {colIndex === 0 ? "Subitem" : col.title}
+                                          </th>
+                                        ))}
+                                        <th className="min-w-[40px] border-b border-l border-[#d5e3ee] px-1 py-1.5" />
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {descendants.map((child, childIndex) => {
+                                        const isLast = childIndex === descendants.length - 1;
+                                        const rowBorder = isLast ? "" : "border-b border-[#e3ebf1]";
+                                        return (
+                                          <tr
+                                            key={child.row.id}
+                                            className="group/sub hover:bg-[#eef5fa]"
+                                          >
+                                            <td
+                                              className={[
+                                                "h-9 bg-[#f7fafc] px-1 align-middle group-hover/sub:bg-[#eef5fa]",
+                                                rowBorder,
+                                              ].join(" ")}
+                                            >
+                                              <div
+                                                className="flex items-center gap-0.5"
+                                                style={{
+                                                  paddingLeft: Math.max(0, child.depth - 1) * 14,
+                                                }}
+                                              >
+                                                {child.hasChildren ? (
+                                                  <button
+                                                    type="button"
+                                                    className="inline-flex size-5 shrink-0 items-center justify-center rounded text-text-tertiary hover:bg-black/[0.05]"
+                                                    aria-expanded={!collapsedRowIds.has(child.row.id)}
+                                                    aria-label={
+                                                      collapsedRowIds.has(child.row.id)
+                                                        ? "Expand nested variants"
+                                                        : "Collapse nested variants"
+                                                    }
+                                                    onClick={() => toggleRowCollapsed(child.row.id)}
+                                                  >
+                                                    <ChevronDown
+                                                      className={[
+                                                        "size-3.5 transition-transform",
+                                                        collapsedRowIds.has(child.row.id)
+                                                          ? "-rotate-90"
+                                                          : "rotate-0",
+                                                      ].join(" ")}
+                                                      aria-hidden
+                                                    />
+                                                  </button>
+                                                ) : (
+                                                  <span className="inline-block size-5 shrink-0" aria-hidden />
+                                                )}
+                                                <input
+                                                  type="checkbox"
+                                                  className="size-3.5 rounded border-border-default"
+                                                  disabled
+                                                  aria-label="Subitem select (coming soon)"
+                                                />
+                                              </div>
+                                            </td>
+                                            {sortedColumns.map((col) => (
+                                              <td
+                                                key={col.id}
+                                                className={[
+                                                  "h-9 border-l border-[#e3ebf1] bg-[#f7fafc] px-1 align-middle group-hover/sub:bg-[#eef5fa]",
+                                                  rowBorder,
+                                                ].join(" ")}
+                                              >
+                                                {renderDataCell(child.row, col)}
+                                              </td>
+                                            ))}
+                                            <td
+                                              className={[
+                                                "h-9 border-l border-[#e3ebf1] bg-[#f7fafc] group-hover/sub:bg-[#eef5fa]",
+                                                rowBorder,
+                                              ].join(" ")}
+                                            />
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

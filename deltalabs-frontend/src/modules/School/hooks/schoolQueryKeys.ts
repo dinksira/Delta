@@ -67,4 +67,19 @@ export const schoolQueryKeys = {
   /** GET …/courses/:courseId/qa/questions/:questionId */
   courseQaQuestion: (orgId: string, schoolId: string, courseId: string, questionId: string) =>
     ["school", "course-qa", "question", orgId, schoolId, courseId, questionId] as const,
+  /** GET …/courses/:courseId/exercises?kind= */
+  courseExercises: (orgId: string, schoolId: string, courseId: string, kind: string) =>
+    ["school", "course-exercises", orgId, schoolId, courseId, kind] as const,
+  /** GET …/ghosts?hostType=&hostId= */
+  ghosts: (orgId: string, schoolId: string, hostType: string, hostId: string) =>
+    ["school", "ghosts", orgId, schoolId, hostType, hostId] as const,
+  /** GET …/ghosts/:ghostId */
+  ghost: (orgId: string, schoolId: string, ghostId: string) =>
+    ["school", "ghost", orgId, schoolId, ghostId] as const,
+  /** GET …/ghosts/:ghostId/events */
+  ghostEvents: (orgId: string, schoolId: string, ghostId: string) =>
+    ["school", "ghost-events", orgId, schoolId, ghostId] as const,
+  /** GET …/ghosts/my-work */
+  ghostMyWork: (orgId: string, schoolId: string) =>
+    ["school", "ghost-my-work", orgId, schoolId] as const,
 } as const;

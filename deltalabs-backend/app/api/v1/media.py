@@ -141,6 +141,7 @@ async def get_local_media_object(object_key: str) -> FileResponse:
         path,
         media_type=media_type or "application/octet-stream",
         filename=path.name,
+        content_disposition_type="inline",
     )
 
 

@@ -10,6 +10,7 @@ export const MANAGEMENT_TABLE_WORKSPACE_KIND = {
   grades: "grades",
   schedules: "schedules",
   assignments: "assignments",
+  ghosts: "ghosts",
 } as const;
 
 export type ManagementTableWorkspaceKind =

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { ManagementTableColumnDto, SchoolMemberSearchPicker } from "@/modules/School/api";
 import { columnUsesClassSessionPicker } from "@/modules/School/managementTable/managementTableClassSessionCell";
 import { ManagementTableClassSessionCellEditor } from "@/modules/School/managementTable/ManagementTableClassSessionCellEditor";
+import { parseGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
 import { columnUsesPersonPicker, resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTablePersonCellEditor } from "@/modules/School/managementTable/ManagementTablePersonCellEditor";
 
@@ -36,7 +37,7 @@ function NumberCellEditor({
   return (
     <input
       type="number"
-      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+      className="h-7 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm leading-none outline-none focus:border-primary-300"
       value={numDraft}
       onChange={(e) => setNumDraft(e.target.value)}
       onBlur={() => {
@@ -60,10 +61,12 @@ function TextareaCellEditor({
   useEffect(() => {
     setDraft(str);
   }, [str]);
+  // Compact single-line in board; full text still editable (scroll horizontally / tooltip).
   return (
-    <textarea
-      className="min-h-[2rem] w-full min-w-0 resize-y rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
-      rows={2}
+    <input
+      type="text"
+      title={draft || undefined}
+      className="h-7 w-full min-w-0 truncate rounded border border-transparent bg-transparent px-1 text-sm leading-none outline-none focus:border-primary-300"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -91,7 +94,7 @@ function DefaultTextCellEditor({
   return (
     <input
       type={columnType === "link" ? "url" : "text"}
-      className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+      className="h-7 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm leading-none outline-none focus:border-primary-300"
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -109,6 +112,7 @@ export function ManagementTableCellEditor({
   schoolId,
   personPicker = "school_students",
   classWorkspaceItemId,
+  onOpenGhost,
 }: Readonly<{
   column: ManagementTableColumnDto;
   value: unknown;
@@ -117,6 +121,8 @@ export function ManagementTableCellEditor({
   schoolId?: string;
   personPicker?: SchoolMemberSearchPicker;
   classWorkspaceItemId?: string;
+  /** Opens Ghost drawer for `ghost:{id}` deep-link cells (any column type). */
+  onOpenGhost?: (ghostId: string) => void;
 }>) {
   if (columnUsesClassSessionPicker(column) && orgId && schoolId && classWorkspaceItemId) {
     return (
@@ -143,6 +149,24 @@ export function ManagementTableCellEditor({
     );
   }
 
+  const ghostId = parseGhostDeepLink(value);
+  if (ghostId) {
+    return (
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
+        title="Open ghost"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onOpenGhost?.(ghostId);
+        }}
+      >
+        Open
+      </button>
+    );
+  }
+
   const t = column.type;
   if (t === "checkbox") {
     return (
@@ -161,7 +185,7 @@ export function ManagementTableCellEditor({
     return (
       <input
         type="date"
-        className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+        className="h-7 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm leading-none outline-none focus:border-primary-300"
         value={typeof value === "string" ? value.slice(0, 10) : ""}
         onChange={(e) => onCommit(e.target.value, true)}
       />
@@ -176,7 +200,7 @@ export function ManagementTableCellEditor({
     return (
       <input
         type="time"
-        className="w-full min-w-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+        className="h-7 w-full min-w-0 rounded border border-transparent bg-transparent px-1 text-sm leading-none outline-none focus:border-primary-300"
         value={timeVal}
         onChange={(e) => onCommit(e.target.value, true)}
       />
@@ -187,7 +211,7 @@ export function ManagementTableCellEditor({
     const strVal = typeof value === "string" ? value : "";
     return (
       <select
-        className="w-full max-w-full rounded border border-transparent bg-transparent py-0.5 text-sm leading-snug outline-none focus:border-primary-300"
+        className="h-7 w-full max-w-full rounded border border-transparent bg-transparent text-sm leading-none outline-none focus:border-primary-300"
         value={strVal}
         onChange={(e) => onCommit(e.target.value, true)}
       >

@@ -999,6 +999,8 @@ export type ManagementTableRowDto = Readonly<{
   id: string;
   instanceId: string;
   groupId?: string | null;
+  /** Monday-style subitem: child rows nest under this parent row id. */
+  parentRowId?: string | null;
   position: number;
   cells: Readonly<Record<string, unknown>>;
   createdAt: string;
@@ -1617,6 +1619,387 @@ export async function commentCourseQaAnswer(
   return apiClient.post<CourseQaAnswerDto>(
     `${courseQaBase(orgId, schoolId, courseId)}/answers/${encodeURIComponent(answerId)}/comments`,
     { json: { text } },
+  );
+}
+
+/* —— Course Exercise & Test —— */
+
+export type CourseExerciseAuthorDto = Readonly<{
+  userId: string;
+  username: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+}>;
+
+export type CourseExerciseDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  courseWorkspaceItemId: string;
+  kind: "exercise" | "test";
+  title: string;
+  timeTaken: string;
+  totalQuestions: number;
+  coverImageUrl: string;
+  orgLabel: string;
+  createdBy: CourseExerciseAuthorDto;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CourseExerciseListResponseDto = Readonly<{
+  items: readonly CourseExerciseDto[];
+  total: number;
+}>;
+
+function courseExerciseBase(orgId: string, schoolId: string, courseId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/courses/${encodeURIComponent(courseId)}/exercises`;
+}
+
+export async function fetchCourseExercises(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  kind?: "exercise" | "test",
+): Promise<CourseExerciseListResponseDto> {
+  return apiClient.get<CourseExerciseListResponseDto>(courseExerciseBase(orgId, schoolId, courseId), {
+    searchParams: kind ? { kind } : undefined,
+  });
+}
+
+export async function createCourseExercise(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  payload: Readonly<{
+    title: string;
+    timeTaken?: string;
+    totalQuestions?: number;
+    kind?: "exercise" | "test";
+    coverImageUrl?: string;
+    orgLabel?: string;
+  }>,
+): Promise<CourseExerciseDto> {
+  return apiClient.post<CourseExerciseDto>(courseExerciseBase(orgId, schoolId, courseId), {
+    json: payload,
+  });
+}
+
+export async function updateCourseExercise(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  exerciseId: string,
+  payload: Readonly<{
+    title?: string;
+    timeTaken?: string;
+    totalQuestions?: number;
+    coverImageUrl?: string;
+    orgLabel?: string;
+  }>,
+): Promise<CourseExerciseDto> {
+  return apiClient.patch<CourseExerciseDto>(
+    `${courseExerciseBase(orgId, schoolId, courseId)}/${encodeURIComponent(exerciseId)}`,
+    { json: payload },
+  );
+}
+
+export async function deleteCourseExercise(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  exerciseId: string,
+): Promise<void> {
+  await apiClient.delete(
+    `${courseExerciseBase(orgId, schoolId, courseId)}/${encodeURIComponent(exerciseId)}`,
+  );
+}
+
+/* —— Ghost Resources (host-agnostic) —— */
+
+export type GhostHostType = "course" | "class" | "department" | "school";
+export type GhostImplementationType = "same_base" | "branch_base";
+export type GhostStatus = "open" | "in_progress" | "fulfilled" | "cancelled";
+export type GhostNodeRole = "end" | "dependency" | "variant";
+export type GhostNodeStatus =
+  | "open"
+  | "in_progress"
+  | "submitted"
+  | "approved"
+  | "rejected"
+  | "merged"
+  | "abandoned";
+
+export type GhostRequirementAttachmentDto = Readonly<{
+  mediaId: string;
+  fileName: string;
+}>;
+
+export type GhostNodeDto = Readonly<{
+  id: string;
+  ghostId: string;
+  name: string;
+  role: GhostNodeRole;
+  isDefault: boolean;
+  required: boolean;
+  implementationType: GhostImplementationType;
+  assigneeUserIds: readonly string[];
+  status: GhostNodeStatus;
+  blocked: boolean;
+  blockedByVariantIds: readonly string[];
+  availableInputs: readonly Readonly<Record<string, unknown>>[];
+  submissionNote: string | null;
+  forkedFromVariantId: string | null;
+  workingHeadVersion: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type GhostEdgeDto = Readonly<{
+  id: string;
+  ghostId: string;
+  fromVariantId: string;
+  toVariantId: string;
+  createdAt: string;
+}>;
+
+export type GhostDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  hostType: GhostHostType;
+  hostWorkspaceItemId: string;
+  title: string;
+  description: string;
+  requirementAttachments: readonly GhostRequirementAttachmentDto[];
+  implementationType: GhostImplementationType;
+  dueAt: string | null;
+  resourceKind: string;
+  slotKey: string;
+  status: GhostStatus;
+  defaultVariantId: string | null;
+  createdByUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  promotedResource: Readonly<Record<string, unknown>> | null;
+  canFulfill: boolean;
+  nodes: readonly GhostNodeDto[];
+  edges: readonly GhostEdgeDto[];
+}>;
+
+export type GhostListResponseDto = Readonly<{
+  items: readonly GhostDto[];
+  total: number;
+}>;
+
+export type GhostEventDto = Readonly<{
+  id: string;
+  ghostId: string;
+  type: string;
+  actorUserId: string;
+  meta: Readonly<Record<string, unknown>>;
+  createdAt: string;
+}>;
+
+export type GhostEventListResponseDto = Readonly<{
+  items: readonly GhostEventDto[];
+  total: number;
+}>;
+
+function ghostBase(orgId: string, schoolId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/ghosts`;
+}
+
+export async function fetchSchoolGhosts(
+  orgId: string,
+  schoolId: string,
+  opts?: Readonly<{ hostType?: GhostHostType; hostId?: string; status?: string }>,
+): Promise<GhostListResponseDto> {
+  const searchParams: Record<string, string> = {};
+  if (opts?.hostType) searchParams.hostType = opts.hostType;
+  if (opts?.hostId) searchParams.hostId = opts.hostId;
+  if (opts?.status) searchParams.status = opts.status;
+  return apiClient.get<GhostListResponseDto>(ghostBase(orgId, schoolId), {
+    searchParams: Object.keys(searchParams).length ? searchParams : undefined,
+  });
+}
+
+export async function fetchSchoolGhost(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+): Promise<GhostDto> {
+  return apiClient.get<GhostDto>(`${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}`);
+}
+
+export async function createSchoolGhost(
+  orgId: string,
+  schoolId: string,
+  payload: Readonly<{
+    hostType: GhostHostType;
+    hostWorkspaceItemId: string;
+    title?: string;
+    description?: string;
+    implementationType?: GhostImplementationType;
+    dueAt?: string | null;
+    resourceKind?: string;
+    slotKey?: string;
+    defaultNodeName?: string;
+  }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(ghostBase(orgId, schoolId), { json: payload });
+}
+
+export async function updateSchoolGhost(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  payload: Readonly<{
+    title?: string;
+    description?: string;
+    implementationType?: GhostImplementationType;
+    dueAt?: string | null;
+    requirementAttachments?: readonly GhostRequirementAttachmentDto[];
+    status?: GhostStatus;
+  }>,
+): Promise<GhostDto> {
+  return apiClient.patch<GhostDto>(`${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}`, {
+    json: payload,
+  });
+}
+
+export async function createSchoolGhostVariant(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  payload: Readonly<{
+    name: string;
+    role?: GhostNodeRole;
+    implementationType?: GhostImplementationType;
+    required?: boolean;
+    isDefault?: boolean;
+    connectFromVariantId?: string | null;
+  }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/variants`,
+    { json: payload },
+  );
+}
+
+export async function submitSchoolGhostVariant(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  variantId: string,
+  payload?: Readonly<{ note?: string; outputRefs?: readonly Record<string, unknown>[] }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/variants/${encodeURIComponent(variantId)}/submit`,
+    { json: { note: payload?.note ?? "", outputRefs: payload?.outputRefs ?? [] } },
+  );
+}
+
+export async function reviewSchoolGhostVariant(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  variantId: string,
+  payload: Readonly<{
+    decision: "approve" | "changes_requested" | "reject";
+    note?: string;
+  }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/variants/${encodeURIComponent(variantId)}/review`,
+    { json: payload },
+  );
+}
+
+export async function createSchoolGhostEdge(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  payload: Readonly<{ fromVariantId: string; toVariantId: string }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/edges`,
+    { json: payload },
+  );
+}
+
+export async function deleteSchoolGhostEdge(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  edgeId: string,
+): Promise<GhostDto> {
+  return apiClient.delete<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/edges/${encodeURIComponent(edgeId)}`,
+  );
+}
+
+export async function fetchSchoolGhostEvents(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+): Promise<GhostEventListResponseDto> {
+  return apiClient.get<GhostEventListResponseDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/events`,
+  );
+}
+
+export async function fulfillSchoolGhost(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  payload?: Readonly<{ endVariantId?: string | null }>,
+): Promise<GhostDto> {
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/fulfill`,
+    { json: { endVariantId: payload?.endVariantId ?? null } },
+  );
+}
+
+export type GhostMyWorkItemDto = Readonly<{
+  ghostId: string;
+  ghostTitle: string;
+  hostType: GhostHostType;
+  hostWorkspaceItemId: string;
+  variantId: string;
+  variantName: string;
+  status: GhostNodeStatus;
+  blocked: boolean;
+  implementationType: GhostImplementationType;
+  dueAt: string | null;
+}>;
+
+export type GhostMyWorkResponseDto = Readonly<{
+  items: readonly GhostMyWorkItemDto[];
+  total: number;
+}>;
+
+export type GhostOpsTableBootstrapDto = Readonly<{
+  instanceId: string;
+  definitionId: string;
+  alreadyLinked: boolean;
+}>;
+
+export async function fetchGhostMyWork(
+  orgId: string,
+  schoolId: string,
+): Promise<GhostMyWorkResponseDto> {
+  return apiClient.get<GhostMyWorkResponseDto>(`${ghostBase(orgId, schoolId)}/my-work`);
+}
+
+export async function bootstrapGhostOpsTable(
+  orgId: string,
+  schoolId: string,
+  workspaceItemId: string,
+): Promise<GhostOpsTableBootstrapDto> {
+  return apiClient.post<GhostOpsTableBootstrapDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/workspace/items/${encodeURIComponent(workspaceItemId)}/ghost-ops-table/bootstrap`,
   );
 }
 /** ################################ /COMPONENT ############################# */

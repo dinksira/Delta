@@ -570,7 +570,7 @@ function CourseTableBoard({
         </div>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-border-default">
+      <div className="flex items-center gap-1">
         {tableGroups.map((g) => {
           const active = g.id === currentGroup?.id;
           return (

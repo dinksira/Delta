@@ -358,7 +358,7 @@ export function CourseIntroPanel({
 
       {/* Intro sub-tabs — Direct View only (Figma hides these in Management Table) */}
       {viewMode === "direct" ? (
-        <div className="flex items-end gap-1 overflow-x-auto border-b border-border-default [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex items-end gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {COURSE_INTRO_SUB_TABS.map((tab) => {
             const active = tab.id === subTab;
             return (

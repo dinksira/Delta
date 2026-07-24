@@ -18,6 +18,7 @@ MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS = "leave_requests"
 MANAGEMENT_TABLE_KIND_GRADES = "grades"
 MANAGEMENT_TABLE_KIND_SCHEDULES = "schedules"
 MANAGEMENT_TABLE_KIND_ASSIGNMENTS = "assignments"
+MANAGEMENT_TABLE_KIND_GHOSTS = "ghosts"
 
 ManagementTableVisibility = Literal["self_owned", "sharable"]
 ManagementTableDefinitionListScope = Literal["all", "template", "mine"]
@@ -155,6 +156,11 @@ class ManagementTableRowPublic(BaseModel):
     id: str
     instance_id: str = Field(serialization_alias="instanceId")
     group_id: str | None = Field(default=None, serialization_alias="groupId")
+    parent_row_id: str | None = Field(
+        default=None,
+        alias="parentRowId",
+        serialization_alias="parentRowId",
+    )
     position: int
     cells: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(serialization_alias="createdAt")
@@ -255,10 +261,13 @@ def map_row(doc: Mapping[str, Any]) -> ManagementTableRowPublic:
     cells = doc.get("cells")
     raw_gid = doc.get("group_id")
     gid = str(raw_gid) if isinstance(raw_gid, str) and raw_gid.strip() else None
+    raw_parent = doc.get("parent_row_id")
+    parent_id = str(raw_parent) if isinstance(raw_parent, str) and raw_parent.strip() else None
     return ManagementTableRowPublic(
         id=str(doc["_id"]),
         instance_id=str(doc["instance_id"]),
         group_id=gid,
+        parent_row_id=parent_id,
         position=int(doc.get("position", 0)),
         cells=dict(cells) if isinstance(cells, dict) else {},
         created_at=doc["created_at"],  # type: ignore[arg-type]
