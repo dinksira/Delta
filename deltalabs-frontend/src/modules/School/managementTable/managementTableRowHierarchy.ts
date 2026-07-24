@@ -18,10 +18,10 @@ function readParentId(row: ManagementTableRowDto): string {
   return typeof snake === "string" ? snake.trim() : "";
 }
 
-/** Flatten parent/child rows for Monday-style nested display. */
+/** Flatten parent/child rows for Monday-style nested display. Parents start collapsed unless listed in `expandedIds`. */
 export function flattenManagementTableRows(
   rows: readonly ManagementTableRowDto[],
-  collapsedIds: ReadonlySet<string>,
+  expandedIds: ReadonlySet<string>,
 ): ManagementTableFlatRow[] {
   const idSet = new Set(rows.map((r) => r.id));
   const byParent = new Map<string | null, ManagementTableRowDto[]>();
@@ -43,7 +43,7 @@ export function flattenManagementTableRows(
     for (const row of byParent.get(parentId) ?? []) {
       const children = byParent.get(row.id) ?? [];
       out.push({ row, depth, hasChildren: children.length > 0 });
-      if (children.length > 0 && !collapsedIds.has(row.id)) {
+      if (children.length > 0 && expandedIds.has(row.id)) {
         walk(row.id, depth + 1);
       }
     }

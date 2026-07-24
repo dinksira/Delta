@@ -30,6 +30,7 @@ from app.domain.management_table.schemas import (
     ManagementTableInstanceCreateInput,
     ManagementTableRowCellsPatchInput,
     ManagementTableRowListResponse,
+    ManagementTableRowMoveInput,
     ManagementTableRowPublic,
     ManagementTableTableGroupCreateInput,
     ManagementTableWorkspaceBootstrapResponse,
@@ -692,6 +693,141 @@ class ManagementTableService:
             instance_id=instance_id,
             cells=existing_cells,
         )
+        return map_row(refreshed)
+
+    async def delete_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+    ) -> None:
+        row = await self._mt.find_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            row_id=row_id,
+        )
+        if row is None:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        group_id = str(row.get("group_id") or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        items, _total = await self._mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=group_id,
+            skip=0,
+            limit=5000,
+        )
+        children_by_parent: dict[str, list[str]] = {}
+        for item in items:
+            parent = str(item.get("parent_row_id") or "").strip()
+            if not parent:
+                continue
+            children_by_parent.setdefault(parent, []).append(str(item["_id"]))
+
+        to_delete: list[str] = []
+        stack = [row_id]
+        seen: set[str] = set()
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            to_delete.append(current)
+            stack.extend(children_by_parent.get(current, []))
+
+        deleted = await self._mt.delete_rows_by_ids(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            row_ids=to_delete,
+        )
+        if deleted < 1:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+
+    async def move_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+        payload: ManagementTableRowMoveInput,
+    ) -> ManagementTableRowPublic:
+        row = await self._mt.find_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            row_id=row_id,
+        )
+        if row is None:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        group_id = str(row.get("group_id") or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        parent_raw = row.get("parent_row_id")
+        parent_row_id = str(parent_raw).strip() if parent_raw else None
+        siblings = await self._mt.list_sibling_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=group_id,
+            parent_row_id=parent_row_id,
+        )
+        index = next((i for i, s in enumerate(siblings) if str(s["_id"]) == row_id), -1)
+        if index < 0:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        if payload.direction == "up":
+            swap_index = index - 1
+        else:
+            swap_index = index + 1
+        if swap_index < 0 or swap_index >= len(siblings):
+            raise ValidationError(
+                "Row is already at the edge of its sibling list.",
+                code="management_table_row_move_edge",
+            )
+        other = siblings[swap_index]
+        other_id = str(other["_id"])
+        my_pos = int(row.get("position", index))
+        other_pos = int(other.get("position", swap_index))
+        if my_pos == other_pos:
+            # Positions can collide (e.g. ghost sync inserts); fall back to index order.
+            await self._mt.update_row_position(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                row_id=row_id,
+                position=swap_index,
+            )
+            await self._mt.update_row_position(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                row_id=other_id,
+                position=index,
+            )
+        else:
+            await self._mt.update_row_position(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                row_id=row_id,
+                position=other_pos,
+            )
+            await self._mt.update_row_position(
+                org_id=org_id,
+                school_id=school_id,
+                instance_id=instance_id,
+                row_id=other_id,
+                position=my_pos,
+            )
+        refreshed = await self._mt.find_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            row_id=row_id,
+        )
+        assert refreshed is not None
         return map_row(refreshed)
 
     async def _maybe_sync_school_student_membership_from_row(

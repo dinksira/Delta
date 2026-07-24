@@ -23,6 +23,7 @@ from app.domain.management_table.schemas import (
     ManagementTableInstanceCreateInput,
     ManagementTableRowCellsPatchInput,
     ManagementTableRowListResponse,
+    ManagementTableRowMoveInput,
     ManagementTableRowPublic,
     ManagementTableTableGroupCreateInput,
     ManagementTableWorkspaceBootstrapResponse,
@@ -2044,6 +2045,58 @@ async def patch_org_school_management_table_row(
     await school.bootstrap()
     mt = _management_table_service(db)
     return await mt.patch_row(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        row_id=row_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/management-tables/instances/{instance_id}/rows/{row_id}",
+    status_code=204,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def delete_org_school_management_table_row(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    row_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> None:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    await mt.delete_row(
+        org_id=org_id,
+        school_id=school_id,
+        instance_id=instance_id,
+        row_id=row_id,
+    )
+
+
+@org_router.post(
+    "/{school_id}/management-tables/instances/{instance_id}/rows/{row_id}/move",
+    response_model=ManagementTableRowPublic,
+    dependencies=[
+        Depends(require_org_permission("school:manage", scope_type="school", scope_id_param="school_id")),
+    ],
+)
+async def move_org_school_management_table_row(
+    org_id: str,
+    school_id: str,
+    instance_id: str,
+    row_id: str,
+    payload: ManagementTableRowMoveInput,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> ManagementTableRowPublic:
+    school = _service(db)
+    await school.bootstrap()
+    mt = _management_table_service(db)
+    return await mt.move_row(
         org_id=org_id,
         school_id=school_id,
         instance_id=instance_id,

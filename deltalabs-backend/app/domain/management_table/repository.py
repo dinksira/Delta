@@ -389,3 +389,72 @@ class ManagementTableRepository:
         if doc is None:
             return None
         return int(doc.get("position", 0))
+
+    async def update_row_position(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+        position: int,
+    ) -> bool:
+        now = datetime.now(UTC)
+        result = await self._db["school_management_table_rows"].update_one(
+            {
+                "_id": row_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+            },
+            {"$set": {"position": position, "updated_at": now}},
+        )
+        return result.matched_count > 0
+
+    async def list_sibling_rows(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        group_id: str,
+        parent_row_id: str | None,
+    ) -> list[dict[str, Any]]:
+        base = self._rows_filter(org_id=org_id, school_id=school_id, instance_id=instance_id, group_id=group_id)
+        if parent_row_id:
+            filt: dict[str, Any] = {**base, "parent_row_id": parent_row_id}
+        else:
+            root_parent = {
+                "$or": [
+                    {"parent_row_id": {"$exists": False}},
+                    {"parent_row_id": None},
+                    {"parent_row_id": ""},
+                ],
+            }
+            filt = {"$and": [base, root_parent]}
+        cursor = (
+            self._db["school_management_table_rows"]
+            .find(filt)
+            .sort([("position", ASCENDING), ("created_at", ASCENDING)])
+        )
+        return await cursor.to_list(length=2000)
+
+    async def delete_rows_by_ids(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_ids: list[str],
+    ) -> int:
+        if not row_ids:
+            return 0
+        result = await self._db["school_management_table_rows"].delete_many(
+            {
+                "_id": {"$in": row_ids},
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+            },
+        )
+        return int(result.deleted_count)

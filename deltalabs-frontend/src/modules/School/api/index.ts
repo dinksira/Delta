@@ -1170,6 +1170,30 @@ export async function patchManagementTableRowCells(
   );
 }
 
+export async function deleteManagementTableRow(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  rowId: string,
+): Promise<void> {
+  await apiClient.delete(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/rows/${encodeURIComponent(rowId)}`,
+  );
+}
+
+export async function moveManagementTableRow(
+  orgId: string,
+  schoolId: string,
+  instanceId: string,
+  rowId: string,
+  direction: "up" | "down",
+): Promise<ManagementTableRowDto> {
+  return apiClient.post<ManagementTableRowDto>(
+    `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/management-tables/instances/${encodeURIComponent(instanceId)}/rows/${encodeURIComponent(rowId)}/move`,
+    { json: { direction } },
+  );
+}
+
 export async function bootstrapManagementTableWorkspaceItem(
   orgId: string,
   schoolId: string,

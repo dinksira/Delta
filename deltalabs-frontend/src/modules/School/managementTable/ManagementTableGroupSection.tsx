@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Plus, SlidersHorizontal, Wrench } from "lucide-react";
-import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
@@ -12,7 +12,13 @@ import type {
   ManagementTableRowListResponseDto,
   SchoolMemberSearchPicker,
 } from "@/modules/School/api";
-import { createManagementTableRow, fetchManagementTableRows, patchManagementTableRowCells } from "@/modules/School/api";
+import {
+  createManagementTableRow,
+  deleteManagementTableRow,
+  fetchManagementTableRows,
+  moveManagementTableRow,
+  patchManagementTableRowCells,
+} from "@/modules/School/api";
 import { ManagementTableCellEditor } from "@/modules/School/managementTable/ManagementTableCellEditor";
 import {
   columnUsesPersonPicker,
@@ -23,12 +29,13 @@ import {
   columnUsesClassSessionPicker,
   formatClassSessionCellLabel,
 } from "@/modules/School/managementTable/managementTableClassSessionCell";
-import { isGhostDeepLink, parseGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
+import { isGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
 import { ManagementTableGhostRequirementsCell } from "@/modules/School/managementTable/ManagementTableGhostRequirementsCell";
 import { isGhostRequirementsColumn } from "@/modules/School/managementTable/managementTableGhostRequirements";
 import { flattenManagementTableRows, groupHierarchyBlocks } from "@/modules/School/managementTable/managementTableRowHierarchy";
 import { ManagementTableBoardViewsPopover } from "@/modules/School/managementTable/ManagementTableBoardViewsPopover";
 import { ManagementTableColumnHeadCell } from "@/modules/School/managementTable/ManagementTableColumnHeadCell";
+import { ManagementTableSelectionBar } from "@/modules/School/managementTable/ManagementTableSelectionBar";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 
 export type ScheduleTableChrome = Readonly<{
@@ -97,11 +104,18 @@ export function ManagementTableGroupSection({
   const boardViewsAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [boardViewsOpen, setBoardViewsOpen] = useState(false);
   const [expanded, setExpanded] = useState(true);
-  const [collapsedRowIds, setCollapsedRowIds] = useState<Set<string>>(() => new Set());
+  /** Rows whose subitems are visible. Empty = all parents collapsed (default). */
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(() => new Set());
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(() => new Set());
   const enabled = parentEnabled && Boolean(groupId);
   const isGhostOps = appearance === "ghostOps";
   const resolvedBoardTab = boardTabLabel ?? (isGhostOps ? "Ghost Ops" : "Main Table");
   const hideChrome = hideUtilityChrome || isGhostOps;
+
+  useEffect(() => {
+    setSelectedRowIds(new Set());
+    setExpandedRowIds(new Set());
+  }, [groupId, instanceId]);
 
   const rowsQuery = useQuery({
     queryKey: schoolQueryKeys.managementTableRows(orgId, schoolId, instanceId, groupId, 1),
@@ -137,20 +151,126 @@ export function ManagementTableGroupSection({
     },
   });
 
+  const deleteRowsMutation = useMutation({
+    mutationFn: async (rowIds: string[]) => {
+      for (const id of rowIds) {
+        await deleteManagementTableRow(orgId, schoolId, instanceId, id);
+      }
+    },
+    onSuccess: async () => {
+      setSelectedRowIds(new Set());
+      await invalidateRows();
+    },
+  });
+
+  const moveRowMutation = useMutation({
+    mutationFn: ({ rowId, direction }: { rowId: string; direction: "up" | "down" }) =>
+      moveManagementTableRow(orgId, schoolId, instanceId, rowId, direction),
+    onSuccess: invalidateRows,
+  });
+
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
   const rows = rowsQuery.data?.items ?? [];
   const flatRows = useMemo(
-    () => flattenManagementTableRows(rows, collapsedRowIds),
-    [rows, collapsedRowIds],
+    () => flattenManagementTableRows(rows, expandedRowIds),
+    [rows, expandedRowIds],
   );
   const hierarchyBlocks = useMemo(() => groupHierarchyBlocks(flatRows), [flatRows]);
   const rootRowCount = useMemo(
     () => rows.filter((r) => !r.parentRowId || !rows.some((x) => x.id === r.parentRowId)).length,
     [rows],
   );
+  const rowsById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
-  const toggleRowCollapsed = (rowId: string) => {
-    setCollapsedRowIds((prev) => {
+  /** Direct child counts for the badge — works while the parent is collapsed. */
+  const directChildCountByParent = useMemo(() => {
+    const counts = new Map<string, number>();
+    const idSet = new Set(rows.map((r) => r.id));
+    for (const row of rows) {
+      const parent = row.parentRowId?.trim();
+      if (!parent || !idSet.has(parent)) continue;
+      counts.set(parent, (counts.get(parent) ?? 0) + 1);
+    }
+    return counts;
+  }, [rows]);
+
+  const isSyncedGhostRow = useCallback((row: ManagementTableRowDto) => {
+    return Object.values(row.cells).some((value) => isGhostDeepLink(value));
+  }, []);
+
+  const toggleRowSelected = useCallback((rowId: string) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }, []);
+
+  const visibleRowIds = useMemo(() => flatRows.map((f) => f.row.id), [flatRows]);
+  const allVisibleSelected =
+    visibleRowIds.length > 0 && visibleRowIds.every((id) => selectedRowIds.has(id));
+  const someVisibleSelected = visibleRowIds.some((id) => selectedRowIds.has(id));
+
+  const toggleSelectAllVisible = () => {
+    setSelectedRowIds((prev) => {
+      if (allVisibleSelected) {
+        const next = new Set(prev);
+        for (const id of visibleRowIds) next.delete(id);
+        return next;
+      }
+      const next = new Set(prev);
+      for (const id of visibleRowIds) next.add(id);
+      return next;
+    });
+  };
+
+  const selectedList = useMemo(() => [...selectedRowIds], [selectedRowIds]);
+
+  const selectionHasSyncedGhost = useMemo(() => {
+    return selectedList.some((id) => {
+      const row = rowsById.get(id);
+      return row ? isSyncedGhostRow(row) : false;
+    });
+  }, [isSyncedGhostRow, rowsById, selectedList]);
+
+  const canDeleteSelection = selectedList.length > 0 && !selectionHasSyncedGhost && enabled;
+
+  const siblingMoveState = useMemo(() => {
+    if (selectedList.length !== 1) {
+      return { canMoveUp: false, canMoveDown: false };
+    }
+    const row = rowsById.get(selectedList[0]!);
+    if (!row) return { canMoveUp: false, canMoveDown: false };
+    const parentKey = row.parentRowId ?? null;
+    const siblings = rows
+      .filter((r) => (r.parentRowId ?? null) === parentKey)
+      .slice()
+      .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id));
+    const index = siblings.findIndex((r) => r.id === row.id);
+    return {
+      canMoveUp: index > 0,
+      canMoveDown: index >= 0 && index < siblings.length - 1,
+    };
+  }, [rows, rowsById, selectedList]);
+
+  /** Prefer deleting ancestors only — BE cascades descendants. */
+  const rowIdsToDelete = useMemo(() => {
+    const selected = new Set(selectedList);
+    return selectedList.filter((id) => {
+      let parent = rowsById.get(id)?.parentRowId ?? null;
+      while (parent) {
+        if (selected.has(parent)) return false;
+        parent = rowsById.get(parent)?.parentRowId ?? null;
+      }
+      return true;
+    });
+  }, [rowsById, selectedList]);
+
+  const selectionBusy = deleteRowsMutation.isPending || moveRowMutation.isPending;
+
+  const toggleRowExpanded = (rowId: string) => {
+    setExpandedRowIds((prev) => {
       const next = new Set(prev);
       if (next.has(rowId)) next.delete(rowId);
       else next.add(rowId);
@@ -420,7 +540,17 @@ export function ManagementTableGroupSection({
           <thead>
             <tr className="bg-[#e8edf3] text-left text-text-secondary">
               <th className="sticky left-0 z-[4] w-10 border-b border-r border-white bg-[#e8edf3] px-1 py-1 shadow-[2px_0_10px_rgba(2,24,43,0.08)]">
-                <span className="sr-only">Select</span>
+                <input
+                  type="checkbox"
+                  className="ml-5 size-3.5 rounded border-border-default"
+                  checked={allVisibleSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected;
+                  }}
+                  disabled={!enabled || visibleRowIds.length === 0}
+                  aria-label="Select all visible rows"
+                  onChange={toggleSelectAllVisible}
+                />
               </th>
               {sortedColumns.map((col) => (
                 <th
@@ -474,12 +604,25 @@ export function ManagementTableGroupSection({
               </tr>
             ) : (
               hierarchyBlocks.map(({ parent, descendants }) => {
-                const parentExpanded = parent.hasChildren && !collapsedRowIds.has(parent.row.id);
-                const childCount = descendants.length;
+                const parentExpanded = parent.hasChildren && expandedRowIds.has(parent.row.id);
+                const childCount = directChildCountByParent.get(parent.row.id) ?? 0;
+                const parentSelected = selectedRowIds.has(parent.row.id);
                 return (
                   <Fragment key={parent.row.id}>
-                    <tr className="group/row hover:bg-surface-muted/30">
-                      <td className="sticky left-0 z-[2] h-9 border-b border-r border-border-default bg-surface-default px-1 align-middle shadow-[2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30">
+                    <tr
+                      className={[
+                        "group/row hover:bg-surface-muted/30",
+                        parentSelected ? "bg-primary-50/50" : "",
+                      ].join(" ")}
+                    >
+                      <td
+                        className={[
+                          "sticky left-0 z-[2] h-9 border-b border-r border-border-default px-1 align-middle shadow-[2px_0_10px_rgba(2,24,43,0.06)]",
+                          parentSelected
+                            ? "bg-primary-50/50 group-hover/row:bg-primary-50/70"
+                            : "bg-surface-default group-hover/row:bg-surface-muted/30",
+                        ].join(" ")}
+                      >
                         <div className="flex items-center gap-0.5">
                           {parent.hasChildren ? (
                             <button
@@ -487,7 +630,7 @@ export function ManagementTableGroupSection({
                               className="inline-flex size-5 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-black/[0.06]"
                               aria-expanded={parentExpanded}
                               aria-label={parentExpanded ? "Collapse subitems" : "Expand subitems"}
-                              onClick={() => toggleRowCollapsed(parent.row.id)}
+                              onClick={() => toggleRowExpanded(parent.row.id)}
                             >
                               <ChevronDown
                                 className={[
@@ -503,15 +646,22 @@ export function ManagementTableGroupSection({
                           <input
                             type="checkbox"
                             className="size-3.5 rounded border-border-default"
-                            disabled
-                            aria-label="Row select (coming soon)"
+                            checked={parentSelected}
+                            disabled={!enabled}
+                            aria-label="Select row"
+                            onChange={() => toggleRowSelected(parent.row.id)}
                           />
                         </div>
                       </td>
                       {sortedColumns.map((col, colIndex) => (
                         <td
                           key={col.id}
-                          className="h-9 border-b border-l border-border-default bg-surface-default px-1 align-middle group-hover/row:bg-surface-muted/30"
+                          className={[
+                            "h-9 border-b border-l border-border-default px-1 align-middle",
+                            parentSelected
+                              ? "bg-primary-50/50 group-hover/row:bg-primary-50/70"
+                              : "bg-surface-default group-hover/row:bg-surface-muted/30",
+                          ].join(" ")}
                         >
                           <div className="flex min-w-0 items-center gap-1.5">
                             {colIndex === 0 && childCount > 0 ? (
@@ -523,7 +673,14 @@ export function ManagementTableGroupSection({
                           </div>
                         </td>
                       ))}
-                      <td className="sticky right-0 z-[2] h-9 border-b border-l border-border-default bg-surface-default shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30" />
+                      <td
+                        className={[
+                          "sticky right-0 z-[2] h-9 border-b border-l border-border-default shadow-[-2px_0_10px_rgba(2,24,43,0.06)]",
+                          parentSelected
+                            ? "bg-primary-50/50 group-hover/row:bg-primary-50/70"
+                            : "bg-surface-default group-hover/row:bg-surface-muted/30",
+                        ].join(" ")}
+                      />
                     </tr>
 
                     {parentExpanded ? (
@@ -562,14 +719,21 @@ export function ManagementTableGroupSection({
                                       {descendants.map((child, childIndex) => {
                                         const isLast = childIndex === descendants.length - 1;
                                         const rowBorder = isLast ? "" : "border-b border-[#e3ebf1]";
+                                        const childSelected = selectedRowIds.has(child.row.id);
                                         return (
                                           <tr
                                             key={child.row.id}
-                                            className="group/sub hover:bg-[#eef5fa]"
+                                            className={[
+                                              "group/sub hover:bg-[#eef5fa]",
+                                              childSelected ? "bg-[#dceaf4]" : "",
+                                            ].join(" ")}
                                           >
                                             <td
                                               className={[
-                                                "h-9 bg-[#f7fafc] px-1 align-middle group-hover/sub:bg-[#eef5fa]",
+                                                "h-9 px-1 align-middle",
+                                                childSelected
+                                                  ? "bg-[#dceaf4] group-hover/sub:bg-[#d3e4f0]"
+                                                  : "bg-[#f7fafc] group-hover/sub:bg-[#eef5fa]",
                                                 rowBorder,
                                               ].join(" ")}
                                             >
@@ -583,20 +747,20 @@ export function ManagementTableGroupSection({
                                                   <button
                                                     type="button"
                                                     className="inline-flex size-5 shrink-0 items-center justify-center rounded text-text-tertiary hover:bg-black/[0.05]"
-                                                    aria-expanded={!collapsedRowIds.has(child.row.id)}
+                                                    aria-expanded={expandedRowIds.has(child.row.id)}
                                                     aria-label={
-                                                      collapsedRowIds.has(child.row.id)
-                                                        ? "Expand nested variants"
-                                                        : "Collapse nested variants"
+                                                      expandedRowIds.has(child.row.id)
+                                                        ? "Collapse nested variants"
+                                                        : "Expand nested variants"
                                                     }
-                                                    onClick={() => toggleRowCollapsed(child.row.id)}
+                                                    onClick={() => toggleRowExpanded(child.row.id)}
                                                   >
                                                     <ChevronDown
                                                       className={[
                                                         "size-3.5 transition-transform",
-                                                        collapsedRowIds.has(child.row.id)
-                                                          ? "-rotate-90"
-                                                          : "rotate-0",
+                                                        expandedRowIds.has(child.row.id)
+                                                          ? "rotate-0"
+                                                          : "-rotate-90",
                                                       ].join(" ")}
                                                       aria-hidden
                                                     />
@@ -607,8 +771,10 @@ export function ManagementTableGroupSection({
                                                 <input
                                                   type="checkbox"
                                                   className="size-3.5 rounded border-border-default"
-                                                  disabled
-                                                  aria-label="Subitem select (coming soon)"
+                                                  checked={childSelected}
+                                                  disabled={!enabled}
+                                                  aria-label="Select subitem"
+                                                  onChange={() => toggleRowSelected(child.row.id)}
                                                 />
                                               </div>
                                             </td>
@@ -616,7 +782,10 @@ export function ManagementTableGroupSection({
                                               <td
                                                 key={col.id}
                                                 className={[
-                                                  "h-9 border-l border-[#e3ebf1] bg-[#f7fafc] px-1 align-middle group-hover/sub:bg-[#eef5fa]",
+                                                  "h-9 border-l border-[#e3ebf1] px-1 align-middle",
+                                                  childSelected
+                                                    ? "bg-[#dceaf4] group-hover/sub:bg-[#d3e4f0]"
+                                                    : "bg-[#f7fafc] group-hover/sub:bg-[#eef5fa]",
                                                   rowBorder,
                                                 ].join(" ")}
                                               >
@@ -625,7 +794,10 @@ export function ManagementTableGroupSection({
                                             ))}
                                             <td
                                               className={[
-                                                "h-9 border-l border-[#e3ebf1] bg-[#f7fafc] group-hover/sub:bg-[#eef5fa]",
+                                                "h-9 border-l border-[#e3ebf1]",
+                                                childSelected
+                                                  ? "bg-[#dceaf4] group-hover/sub:bg-[#d3e4f0]"
+                                                  : "bg-[#f7fafc] group-hover/sub:bg-[#eef5fa]",
                                                 rowBorder,
                                               ].join(" ")}
                                             />
@@ -665,6 +837,36 @@ export function ManagementTableGroupSection({
       </div>
       )}
         </div>
+      ) : null}
+
+      {selectedList.length > 0 ? (
+        <ManagementTableSelectionBar
+          selectedCount={selectedList.length}
+          canDelete={canDeleteSelection}
+          deleteDisabledReason={
+            selectionHasSyncedGhost
+              ? "Ghost Ops rows are managed from the Ghost drawer and would return on sync."
+              : undefined
+          }
+          canMoveUp={enabled && siblingMoveState.canMoveUp}
+          canMoveDown={enabled && siblingMoveState.canMoveDown}
+          busy={selectionBusy}
+          onClear={() => setSelectedRowIds(new Set())}
+          onDelete={() => {
+            if (!canDeleteSelection || rowIdsToDelete.length === 0) return;
+            deleteRowsMutation.mutate(rowIdsToDelete);
+          }}
+          onMoveUp={() => {
+            const id = selectedList[0];
+            if (!id || !siblingMoveState.canMoveUp) return;
+            moveRowMutation.mutate({ rowId: id, direction: "up" });
+          }}
+          onMoveDown={() => {
+            const id = selectedList[0];
+            if (!id || !siblingMoveState.canMoveDown) return;
+            moveRowMutation.mutate({ rowId: id, direction: "down" });
+          }}
+        />
       ) : null}
     </div>
   );

@@ -180,6 +180,12 @@ class ManagementTableRowCellsPatchInput(BaseModel):
     cells: dict[str, Any] = Field(default_factory=dict)
 
 
+class ManagementTableRowMoveInput(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    direction: Literal["up", "down"]
+
+
 class ManagementTableWorkspaceBootstrapResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
