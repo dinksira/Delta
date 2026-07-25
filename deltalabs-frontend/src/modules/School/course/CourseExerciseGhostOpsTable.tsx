@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Table2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/theme";
@@ -10,9 +11,13 @@ import type { ManagementTableColumnTypeDto } from "@/modules/School/api";
 import {
   appendManagementTableColumn,
   bootstrapGhostOpsTable,
+  ensureSchoolGhostExerciseDraft,
   fetchManagementTableInstanceBundle,
+  fetchSchoolGhost,
 } from "@/modules/School/api";
 import { GhostDrawer } from "@/modules/School/ghost";
+import { GhostUploadWorkSheet } from "@/modules/School/ghost/GhostUploadWorkSheet";
+import { parseGhostOpsOpenKey } from "@/modules/School/managementTable/managementTableGhostOpsStatus";
 import { ManagementTableAddColumnPopover } from "@/modules/School/managementTable/ManagementTableAddColumnPopover";
 import {
   MANAGEMENT_TABLE_ADD_COLUMN_GROUPS,
@@ -59,11 +64,14 @@ export function CourseExerciseGhostOpsTable({
   showPageHeader?: boolean;
 }>) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [instanceId, setInstanceId] = useState<string | null>(
     () => preferredInstanceId?.trim() || readGhostOpsTableInstanceId(itemMetadata),
   );
   const [ghostOpen, setGhostOpen] = useState(false);
   const [ghostId, setGhostId] = useState<string | null>(null);
+  const [uploadWork, setUploadWork] = useState<{ ghostId: string; variantId: string } | null>(null);
+  const [workError, setWorkError] = useState<string | null>(null);
   const addColumn = useManagementTableAddColumnPopover();
 
   useEffect(() => {
@@ -165,6 +173,55 @@ export function CourseExerciseGhostOpsTable({
     setGhostOpen(true);
   };
 
+  const openWorkMutation = useMutation({
+    mutationFn: async (id: string) => {
+      let ghost = await fetchSchoolGhost(orgId, schoolId, id);
+      if (ghost.resourceKind !== "exercise" && ghost.resourceKind !== "test") {
+        throw new Error("Open work is only available for Exercise or Test ghosts.");
+      }
+      const end =
+        ghost.nodes.find((n) => n.role === "end") ??
+        ghost.nodes.find((n) => n.isDefault) ??
+        ghost.nodes[0];
+      if (!end) throw new Error("Ghost has no end node.");
+      const head = end.workingHead ?? {};
+      let draftId =
+        typeof head.exerciseDraftId === "string"
+          ? head.exerciseDraftId.trim()
+          : typeof head.exercise_draft_id === "string"
+            ? head.exercise_draft_id.trim()
+            : "";
+      if (!draftId) {
+        ghost = await ensureSchoolGhostExerciseDraft(orgId, schoolId, id, end.id);
+        const refreshed =
+          ghost.nodes.find((n) => n.id === end.id) ??
+          ghost.nodes.find((n) => n.role === "end") ??
+          ghost.nodes[0];
+        const rh = refreshed?.workingHead ?? {};
+        draftId =
+          typeof rh.exerciseDraftId === "string"
+            ? rh.exerciseDraftId.trim()
+            : typeof rh.exercise_draft_id === "string"
+              ? rh.exercise_draft_id.trim()
+              : "";
+      }
+      if (!draftId) throw new Error("Could not link an exercise draft.");
+      return {
+        courseItemId: ghost.hostWorkspaceItemId || workspaceItemId,
+        exerciseId: draftId,
+      };
+    },
+    onSuccess: ({ courseItemId, exerciseId }) => {
+      setWorkError(null);
+      router.push(
+        `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(exerciseId)}/edit`,
+      );
+    },
+    onError: (err) => {
+      setWorkError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Could not open work.");
+    },
+  });
+
   if (!instanceId) {
     if (bootstrapMutation.isPending) {
       return <div className="h-40 animate-pulse rounded-xl border border-border-default bg-surface-muted/40" />;
@@ -240,8 +297,9 @@ export function CourseExerciseGhostOpsTable({
               </span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-text-tertiary">
-              Parent rows are ghosts; nested subitems are chain variants. Click{" "}
-              <span className="font-medium text-text-secondary">Open</span> to edit Property / Chain.
+              <span className="font-medium text-text-secondary">Work</span> opens the right surface:
+              exercise builder on the parent, or upload/preview for image (and other file) variants.
+              Then request approval. Creators/managers approve or reject after reviewing the file.
             </p>
           </div>
         </div>
@@ -253,6 +311,7 @@ export function CourseExerciseGhostOpsTable({
       {bootstrapMutation.isPending ? (
         <p className="text-xs font-medium text-[#2f5d73]">Syncing ghost ↔ variant hierarchy…</p>
       ) : null}
+      {workError ? <p className="text-sm text-red-600">{workError}</p> : null}
       <ManagementTableGroupSection
         orgId={orgId}
         schoolId={schoolId}
@@ -261,14 +320,25 @@ export function CourseExerciseGhostOpsTable({
         groupId={mainGroup.id}
         groupTitle="Ghost Ops"
         columns={columns}
-        parentEnabled={canMutate}
+        parentEnabled
         personPicker="platform"
         appearance="ghostOps"
         boardTabLabel="Ghost Ops"
         allowAddRow={false}
+        onlyEditableColumnTitles={canMutate ? ["Assignee", "Status"] : ["Status"]}
         emptyRowsMessage="No ghosts yet. Create one from Direct View."
         onOpenAddColumn={addColumn.openFromButton}
         onOpenGhost={openGhost}
+        onOpenWork={(openKey) => {
+          const parsed = parseGhostOpsOpenKey(openKey);
+          if (!parsed) return;
+          if (parsed.variantId) {
+            setUploadWork({ ghostId: parsed.ghostId, variantId: parsed.variantId });
+            return;
+          }
+          openWorkMutation.mutate(parsed.ghostId);
+        }}
+        onOpenUploadWork={(args) => setUploadWork(args)}
       />
       <ManagementTableAddColumnPopover
         open={addColumn.open}
@@ -293,6 +363,17 @@ export function CourseExerciseGhostOpsTable({
         }}
         onClose={() => setGhostOpen(false)}
       />
+      {uploadWork ? (
+        <GhostUploadWorkSheet
+          open
+          orgId={orgId}
+          schoolId={schoolId}
+          ghostId={uploadWork.ghostId}
+          variantId={uploadWork.variantId}
+          canReview={canMutate}
+          onClose={() => setUploadWork(null)}
+        />
+      ) : null}
     </section>
   );
 }

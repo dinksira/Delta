@@ -15,7 +15,9 @@ GhostNodeRole = Literal["end", "dependency", "variant"]
 GhostNodeStatus = Literal[
     "open",
     "in_progress",
+    "stuck",
     "submitted",
+    "changes_requested",
     "approved",
     "rejected",
     "merged",
@@ -55,6 +57,7 @@ class GhostNodePublic(BaseModel):
     submission_note: str | None = Field(default=None, serialization_alias="submissionNote")
     forked_from_variant_id: str | None = Field(default=None, serialization_alias="forkedFromVariantId")
     working_head_version: int = Field(default=1, serialization_alias="workingHeadVersion")
+    working_head: dict[str, Any] = Field(default_factory=dict, serialization_alias="workingHead")
     sort_order: int = Field(serialization_alias="sortOrder")
     created_at: datetime = Field(serialization_alias="createdAt")
     updated_at: datetime = Field(serialization_alias="updatedAt")
@@ -163,7 +166,12 @@ class GhostNodeUpdateInput(BaseModel):
     implementation_type: GhostImplementationType | None = Field(default=None, alias="implementationType")
     required: bool | None = None
     status: GhostNodeStatus | None = None
+    status_note: str | None = Field(default=None, alias="statusNote", max_length=2000)
     assignee_user_ids: list[str] | None = Field(default=None, alias="assigneeUserIds")
+    # Simple/external deliverable draft (image, PDF, …) before formal submit.
+    media_id: str | None = Field(default=None, alias="mediaId", max_length=120)
+    file_name: str | None = Field(default=None, alias="fileName", max_length=260)
+    preview_url: str | None = Field(default=None, alias="previewUrl", max_length=2000)
 
 
 class GhostEdgeCreateInput(BaseModel):

@@ -62,7 +62,7 @@ export function ManagementTableSelectionBar({
           <SelectionAction
             label="Delete"
             disabled={!canDelete || busy}
-            title={!canDelete ? deleteDisabledReason : undefined}
+            title={deleteDisabledReason ?? label}
             onClick={onDelete}
             icon={<Trash2 className="size-4" aria-hidden />}
             danger

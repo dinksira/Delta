@@ -5,6 +5,7 @@ import { ChevronDown, Plus, SlidersHorizontal, Wrench } from "lucide-react";
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/theme";
+import { SchoolConfirmActionModal } from "@/components/features/school/master/SchoolConfirmActionModal";
 import { ApiError } from "@/lib/apiClient";
 import type {
   ManagementTableColumnDto,
@@ -18,6 +19,7 @@ import {
   fetchManagementTableRows,
   moveManagementTableRow,
   patchManagementTableRowCells,
+  updateSchoolGhost,
 } from "@/modules/School/api";
 import { ManagementTableCellEditor } from "@/modules/School/managementTable/ManagementTableCellEditor";
 import {
@@ -29,7 +31,17 @@ import {
   columnUsesClassSessionPicker,
   formatClassSessionCellLabel,
 } from "@/modules/School/managementTable/managementTableClassSessionCell";
-import { isGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
+import {
+  isGhostDeepLink,
+  parseGhostDeepLink,
+} from "@/modules/School/managementTable/managementTableGhostCell";
+import {
+  applyGhostOpsStatusChange,
+  ghostOpsStatusNeedsNote,
+  ghostOpsStatusNoteCopy,
+  type GhostOpsStatusNoteKind,
+} from "@/modules/School/managementTable/managementTableGhostOpsStatus";
+import { GhostStatusNoteModal } from "@/modules/School/ghost/GhostStatusNoteModal";
 import { ManagementTableGhostRequirementsCell } from "@/modules/School/managementTable/ManagementTableGhostRequirementsCell";
 import { isGhostRequirementsColumn } from "@/modules/School/managementTable/managementTableGhostRequirements";
 import { flattenManagementTableRows, groupHierarchyBlocks } from "@/modules/School/managementTable/managementTableRowHierarchy";
@@ -70,6 +82,10 @@ export type ManagementTableGroupSectionProps = Readonly<{
   scheduleChrome?: ScheduleTableChrome;
   /** Click handler for `ghost:{id}` deep-link cells (Open ghost column / link type). */
   onOpenGhost?: (ghostId: string) => void;
+  /** Ghost Ops: open the linked exercise/test workspace (end-node draft). */
+  onOpenWork?: (openKey: string) => void;
+  /** When Status needs a file upload first (image/document variants). */
+  onOpenUploadWork?: (args: { ghostId: string; variantId: string }) => void;
   /** Visual variant — ghost ops board uses distinct chrome from generic tables. */
   appearance?: "default" | "ghostOps";
   /** Label for the board tab under the group header (default: Main Table). */
@@ -95,6 +111,8 @@ export function ManagementTableGroupSection({
   onlyEditableColumnTitles,
   scheduleChrome,
   onOpenGhost,
+  onOpenWork,
+  onOpenUploadWork,
   appearance = "default",
   boardTabLabel,
   hideUtilityChrome = false,
@@ -107,6 +125,14 @@ export function ManagementTableGroupSection({
   /** Rows whose subitems are visible. Empty = all parents collapsed (default). */
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(() => new Set());
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(() => new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [statusNotePending, setStatusNotePending] = useState<{
+    openKey: unknown;
+    nextStatus: string;
+    kind: NonNullable<GhostOpsStatusNoteKind>;
+  } | null>(null);
+  const [statusNoteBusy, setStatusNoteBusy] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const enabled = parentEnabled && Boolean(groupId);
   const isGhostOps = appearance === "ghostOps";
   const resolvedBoardTab = boardTabLabel ?? (isGhostOps ? "Ghost Ops" : "Main Table");
@@ -115,6 +141,7 @@ export function ManagementTableGroupSection({
   useEffect(() => {
     setSelectedRowIds(new Set());
     setExpandedRowIds(new Set());
+    setDeleteConfirmOpen(false);
   }, [groupId, instanceId]);
 
   const rowsQuery = useQuery({
@@ -153,13 +180,47 @@ export function ManagementTableGroupSection({
 
   const deleteRowsMutation = useMutation({
     mutationFn: async (rowIds: string[]) => {
+      if (isGhostOps) {
+        const latestRows = rowsQuery.data?.items ?? [];
+        const byId = new Map(latestRows.map((r) => [r.id, r]));
+        const ghostIds = new Set<string>();
+        for (const id of rowIds) {
+          const row = byId.get(id);
+          if (!row) continue;
+          for (const value of Object.values(row.cells)) {
+            const gid = parseGhostDeepLink(value);
+            if (gid) ghostIds.add(gid);
+          }
+        }
+        if (ghostIds.size === 0) {
+          throw new Error("Could not resolve ghost ids for the selected rows.");
+        }
+        for (const ghostId of ghostIds) {
+          await updateSchoolGhost(orgId, schoolId, ghostId, { status: "cancelled" });
+        }
+        // Belt-and-suspenders: remove mirror rows even if sync cleanup missed them.
+        for (const id of rowIds) {
+          try {
+            await deleteManagementTableRow(orgId, schoolId, instanceId, id);
+          } catch {
+            /* already removed by cascade / sync */
+          }
+        }
+        return;
+      }
       for (const id of rowIds) {
         await deleteManagementTableRow(orgId, schoolId, instanceId, id);
       }
     },
     onSuccess: async () => {
       setSelectedRowIds(new Set());
+      setDeleteConfirmOpen(false);
       await invalidateRows();
+      if (isGhostOps) {
+        await queryClient.invalidateQueries({
+          queryKey: ["school", "ghosts", orgId, schoolId],
+        });
+      }
     },
   });
 
@@ -234,7 +295,10 @@ export function ManagementTableGroupSection({
     });
   }, [isSyncedGhostRow, rowsById, selectedList]);
 
-  const canDeleteSelection = selectedList.length > 0 && !selectionHasSyncedGhost && enabled;
+  const canDeleteSelection =
+    selectedList.length > 0 &&
+    enabled &&
+    (isGhostOps || !selectionHasSyncedGhost);
 
   const siblingMoveState = useMemo(() => {
     if (selectedList.length !== 1) {
@@ -291,10 +355,55 @@ export function ManagementTableGroupSection({
     return `${rows.length} rows`;
   }, [allowAddRow, rootRowCount, rows.length, rowsQuery.isError, rowsQuery.isPending]);
 
-  const onCellCommit = (row: ManagementTableRowDto, columnId: string, next: unknown, immediate?: boolean) => {
-    if (immediate !== false) {
-      patchRowMutation.mutate({ rowId: row.id, cells: { [columnId]: next } });
+  const runGhostOpsStatus = async (openKey: unknown, nextStatus: string, note?: string) => {
+    const result = await applyGhostOpsStatusChange({
+      orgId,
+      schoolId,
+      openKey,
+      nextStatus,
+      note,
+    });
+    if (result.openUploadWork) {
+      onOpenUploadWork?.(result.openUploadWork);
+      return;
     }
+    if (!result.ok) return;
+    await queryClient.invalidateQueries({
+      queryKey: ["school", "management-tables", "rows", orgId, schoolId, instanceId],
+    });
+  };
+
+  const onCellCommit = (row: ManagementTableRowDto, columnId: string, next: unknown, immediate?: boolean) => {
+    if (immediate === false) return;
+    const col = columns.find((c) => c.id === columnId);
+    const title = col?.title.trim().toLowerCase() ?? "";
+
+    // Ghost Ops Status → ghost APIs + in-app note modal (never window.prompt).
+    if (isGhostOps && title === "status" && typeof next === "string") {
+      const openKey = Object.values(row.cells).find((v) => isGhostDeepLink(v));
+      const noteKind = ghostOpsStatusNeedsNote(next);
+      if (noteKind) {
+        setStatusError(null);
+        setStatusNotePending({ openKey, nextStatus: next, kind: noteKind });
+        return;
+      }
+      void (async () => {
+        try {
+          await runGhostOpsStatus(openKey, next);
+        } catch (err) {
+          setStatusError(
+            err instanceof ApiError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "Could not update status.",
+          );
+        }
+      })();
+      return;
+    }
+
+    patchRowMutation.mutate({ rowId: row.id, cells: { [columnId]: next } });
   };
 
   const isColumnEditable = (col: ManagementTableColumnDto) => {
@@ -334,22 +443,38 @@ export function ManagementTableGroupSection({
           personPicker={resolvePersonPickerForColumn(col, personPicker)}
           classWorkspaceItemId={classWorkspaceItemId}
           onOpenGhost={onOpenGhost}
+          onOpenWork={onOpenWork}
           onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
         />
       );
     }
     if (isGhostDeepLink(row.cells[col.id])) {
+      const cellValue = row.cells[col.id];
+      const id = parseGhostDeepLink(cellValue);
+      const showWork = Boolean(onOpenWork && id && isGhostDeepLink(cellValue));
       return (
-        <button
-          type="button"
-          className="inline-flex h-7 items-center rounded px-1 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
-          onClick={() => {
-            const id = parseGhostDeepLink(row.cells[col.id]);
-            if (id) onOpenGhost?.(id);
-          }}
-        >
-          Open
-        </button>
+        <div className="flex flex-wrap items-center gap-1 px-0.5">
+          <button
+            type="button"
+            className="inline-flex h-7 items-center rounded px-1 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
+            onClick={() => {
+              if (id) onOpenGhost?.(id);
+            }}
+          >
+            Ghost
+          </button>
+          {showWork ? (
+            <button
+              type="button"
+              className="inline-flex h-7 items-center rounded px-1 text-sm font-semibold text-[#2f5d73] underline-offset-2 hover:bg-[#eef4f8] hover:underline"
+              onClick={() => {
+                if (typeof cellValue === "string") onOpenWork?.(cellValue);
+              }}
+            >
+              Work
+            </button>
+          ) : null}
+        </div>
       );
     }
     return (
@@ -844,9 +969,11 @@ export function ManagementTableGroupSection({
           selectedCount={selectedList.length}
           canDelete={canDeleteSelection}
           deleteDisabledReason={
-            selectionHasSyncedGhost
+            !isGhostOps && selectionHasSyncedGhost
               ? "Ghost Ops rows are managed from the Ghost drawer and would return on sync."
-              : undefined
+              : isGhostOps
+                ? "Cancels the ghost work-order and removes it from this board."
+                : undefined
           }
           canMoveUp={enabled && siblingMoveState.canMoveUp}
           canMoveDown={enabled && siblingMoveState.canMoveDown}
@@ -854,7 +981,7 @@ export function ManagementTableGroupSection({
           onClear={() => setSelectedRowIds(new Set())}
           onDelete={() => {
             if (!canDeleteSelection || rowIdsToDelete.length === 0) return;
-            deleteRowsMutation.mutate(rowIdsToDelete);
+            setDeleteConfirmOpen(true);
           }}
           onMoveUp={() => {
             const id = selectedList[0];
@@ -867,6 +994,94 @@ export function ManagementTableGroupSection({
             moveRowMutation.mutate({ rowId: id, direction: "down" });
           }}
         />
+      ) : null}
+
+      {statusError ? (
+        <p className="fixed bottom-[7.5rem] left-1/2 z-[190] -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow">
+          {statusError}
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => setStatusError(null)}
+          >
+            Dismiss
+          </button>
+        </p>
+      ) : null}
+
+      <GhostStatusNoteModal
+        open={Boolean(statusNotePending)}
+        title={statusNotePending ? ghostOpsStatusNoteCopy(statusNotePending.kind).title : ""}
+        description={
+          statusNotePending ? ghostOpsStatusNoteCopy(statusNotePending.kind).description : ""
+        }
+        confirmLabel={
+          statusNotePending ? ghostOpsStatusNoteCopy(statusNotePending.kind).confirmLabel : "Continue"
+        }
+        required={statusNotePending ? ghostOpsStatusNoteCopy(statusNotePending.kind).required : false}
+        confirmTone={
+          statusNotePending ? ghostOpsStatusNoteCopy(statusNotePending.kind).confirmTone : "primary"
+        }
+        pending={statusNoteBusy}
+        onCancel={() => {
+          if (statusNoteBusy) return;
+          setStatusNotePending(null);
+        }}
+        onConfirm={(note) => {
+          if (!statusNotePending) return;
+          const pending = statusNotePending;
+          setStatusNoteBusy(true);
+          void (async () => {
+            try {
+              await runGhostOpsStatus(pending.openKey, pending.nextStatus, note);
+              setStatusNotePending(null);
+            } catch (err) {
+              setStatusError(
+                err instanceof ApiError
+                  ? err.message
+                  : err instanceof Error
+                    ? err.message
+                    : "Could not update status.",
+              );
+            } finally {
+              setStatusNoteBusy(false);
+            }
+          })();
+        }}
+      />
+
+      <SchoolConfirmActionModal
+        open={deleteConfirmOpen && rowIdsToDelete.length > 0}
+        title={isGhostOps ? "Cancel ghost work?" : "Delete rows?"}
+        description={
+          isGhostOps
+            ? rowIdsToDelete.length === 1
+              ? "This cancels the ghost work-order and removes it from Ghost Ops."
+              : `This cancels ${rowIdsToDelete.length} ghost work-orders and removes them from Ghost Ops.`
+            : rowIdsToDelete.length === 1
+              ? "This permanently deletes the selected row and its subitems."
+              : `This permanently deletes ${rowIdsToDelete.length} rows and their subitems.`
+        }
+        confirmLabel={isGhostOps ? "Cancel ghosts" : "Delete"}
+        confirmTone="danger"
+        pending={deleteRowsMutation.isPending}
+        onCancel={() => {
+          if (deleteRowsMutation.isPending) return;
+          setDeleteConfirmOpen(false);
+        }}
+        onConfirm={() => {
+          if (!canDeleteSelection || rowIdsToDelete.length === 0) return;
+          deleteRowsMutation.mutate(rowIdsToDelete);
+        }}
+      />
+      {deleteRowsMutation.isError ? (
+        <p className="fixed bottom-[7.5rem] left-1/2 z-[190] -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow">
+          {deleteRowsMutation.error instanceof ApiError
+            ? deleteRowsMutation.error.message
+            : deleteRowsMutation.error instanceof Error
+              ? deleteRowsMutation.error.message
+              : "Could not delete selection."}
+        </p>
       ) : null}
     </div>
   );

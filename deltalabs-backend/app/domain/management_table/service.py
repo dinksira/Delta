@@ -693,6 +693,13 @@ class ManagementTableService:
             instance_id=instance_id,
             cells=existing_cells,
         )
+        await self._maybe_sync_ghost_assignees_from_row(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            row=refreshed,
+            cells=existing_cells,
+        )
         return map_row(refreshed)
 
     async def delete_row(
@@ -978,6 +985,120 @@ class ManagementTableService:
             school_id=school_id,
             org_id=org_id,
             role_keys=role_keys,
+        )
+
+    @staticmethod
+    def _person_user_ids_from_cell(raw: Any) -> list[str]:
+        """Parse single-person or Monday-style `{ people: [...] }` cell values."""
+        ids: list[str] = []
+        seen: set[str] = set()
+
+        def _add(obj: Mapping[str, Any]) -> None:
+            uid = str(obj.get("userId") or obj.get("user_id") or "").strip()
+            if not uid or uid in seen:
+                return
+            seen.add(uid)
+            ids.append(uid)
+
+        if raw is None or raw == "":
+            return []
+        if isinstance(raw, list):
+            for item in raw:
+                if isinstance(item, Mapping):
+                    _add(item)
+            return ids
+        if isinstance(raw, Mapping):
+            people = raw.get("people")
+            if isinstance(people, list):
+                for item in people:
+                    if isinstance(item, Mapping):
+                        _add(item)
+                return ids
+            _add(raw)
+        return ids
+
+    async def _maybe_sync_ghost_assignees_from_row(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row: Mapping[str, Any],
+        cells: dict[str, Any],
+    ) -> None:
+        """Write Ghost Ops Assignee cell (multi-person) back to node.assignee_user_ids."""
+        _ = row  # reserved for future open-key fallbacks from row metadata
+        inst = await self._mt.find_instance(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+        )
+        if inst is None or not _instance_matches_table_kind(inst, MANAGEMENT_TABLE_KIND_GHOSTS):
+            return
+        ws_id = inst.get("workspace_item_id")
+        if not isinstance(ws_id, str) or not ws_id.strip():
+            return
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=ws_id.strip(),
+        )
+        if item is None:
+            return
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        col_assignee = meta_dict.get("ghostOpsColAssigneeId")
+        col_open = meta_dict.get("ghostOpsColOpenId")
+        if not isinstance(col_assignee, str) or not col_assignee.strip():
+            return
+        if not isinstance(col_open, str) or not col_open.strip():
+            return
+        open_key = str(cells.get(col_open.strip()) or "").strip()
+        if not open_key.startswith("ghost:"):
+            return
+
+        # ghost:{id} → end/default node; ghost:{id}:variant:{vid} → that variant
+        rest = open_key[len("ghost:") :]
+        ghost_id = ""
+        variant_id = ""
+        if ":variant:" in rest:
+            ghost_id, variant_id = rest.split(":variant:", 1)
+            ghost_id = ghost_id.strip()
+            variant_id = variant_id.strip()
+        else:
+            ghost_id = rest.strip()
+
+        if not ghost_id:
+            return
+
+        from app.domain.ghost_resources.repository import GhostResourcesRepository
+
+        ghost_repo = GhostResourcesRepository(self._school._db)
+        doc = await ghost_repo.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        if doc is None:
+            return
+        if not variant_id:
+            variant_id = str(doc.get("default_variant_id") or "").strip()
+            if not variant_id:
+                nodes = await ghost_repo.list_variants(ghost_id=ghost_id)
+                end = next((n for n in nodes if bool(n.get("is_default"))), None)
+                if end is None and nodes:
+                    end = nodes[0]
+                if end is None:
+                    return
+                variant_id = str(end["_id"])
+        node = await ghost_repo.find_variant(ghost_id=ghost_id, variant_id=variant_id)
+        if node is None:
+            return
+
+        assignee_ids = self._person_user_ids_from_cell(cells.get(col_assignee.strip()))
+        existing_ids = [str(x).strip() for x in (node.get("assignee_user_ids") or []) if str(x).strip()]
+        if assignee_ids == existing_ids:
+            return
+        await ghost_repo.update_variant(
+            ghost_id=ghost_id,
+            variant_id=variant_id,
+            patch={"assignee_user_ids": assignee_ids},
         )
 
     async def bootstrap_workspace_item(
@@ -2014,9 +2135,12 @@ class ManagementTableService:
         col_open = _new_column_id()
         status_options = [
             {"id": "open", "label": "Open"},
-            {"id": "in_progress", "label": "In progress"},
-            {"id": "submitted", "label": "Submitted"},
+            {"id": "in_progress", "label": "Working on"},
+            {"id": "stuck", "label": "Stuck"},
+            {"id": "submitted", "label": "Request for approval"},
+            {"id": "changes_requested", "label": "Changes requested"},
             {"id": "approved", "label": "Approved"},
+            {"id": "rejected", "label": "Rejected"},
             {"id": "fulfilled", "label": "Fulfilled"},
             {"id": "cancelled", "label": "Cancelled"},
         ]
@@ -2027,6 +2151,7 @@ class ManagementTableService:
         kind_options = [
             {"id": "ghost", "label": "Ghost"},
             {"id": "variant", "label": "Variant"},
+            {"id": "resource", "label": "Resource"},
         ]
         starter_columns: list[dict[str, Any]] = [
             {"id": col_title, "title": "Item", "type": "text", "order": 0, "settings": {}},
@@ -2053,7 +2178,7 @@ class ManagementTableService:
                 "title": "Assignee",
                 "type": "text",
                 "order": 7,
-                "settings": {"cellEditor": "person"},
+                "settings": {"cellEditor": "person", "multiPerson": True},
             },
             {
                 "id": col_status,
@@ -2150,7 +2275,76 @@ class ManagementTableService:
         kind_options = [
             {"id": "ghost", "label": "Ghost"},
             {"id": "variant", "label": "Variant"},
+            {"id": "resource", "label": "Resource"},
         ]
+
+        # Ensure Kind column offers Resource (approved deliverables).
+        for col in columns:
+            if str(col.get("title") or "").strip().lower() != "kind":
+                continue
+            settings = dict(col.get("settings") or {})
+            opts = list(settings.get("options") or [])
+            ids = {
+                str(o.get("id"))
+                for o in opts
+                if isinstance(o, dict) and o.get("id") is not None
+            }
+            if "resource" not in ids:
+                opts.append({"id": "resource", "label": "Resource"})
+                settings["options"] = opts
+                col["settings"] = settings
+                changed = True
+            break
+
+        # Assignee: Monday-style multi-person cell.
+        for col in columns:
+            if str(col.get("title") or "").strip().lower() != "assignee":
+                continue
+            settings = dict(col.get("settings") or {})
+            if settings.get("cellEditor") != "person" or settings.get("multiPerson") is not True:
+                settings["cellEditor"] = "person"
+                settings["multiPerson"] = True
+                col["settings"] = settings
+                changed = True
+            break
+
+        # Status: workflow labels (Working on / Stuck / Request for approval / …).
+        ghost_status_options = [
+            {"id": "open", "label": "Open"},
+            {"id": "in_progress", "label": "Working on"},
+            {"id": "stuck", "label": "Stuck"},
+            {"id": "submitted", "label": "Request for approval"},
+            {"id": "changes_requested", "label": "Changes requested"},
+            {"id": "approved", "label": "Approved"},
+            {"id": "rejected", "label": "Rejected"},
+            {"id": "fulfilled", "label": "Fulfilled"},
+            {"id": "cancelled", "label": "Cancelled"},
+        ]
+        for col in columns:
+            if str(col.get("title") or "").strip().lower() != "status":
+                continue
+            settings = dict(col.get("settings") or {})
+            opts = list(settings.get("options") or [])
+            by_id = {
+                str(o.get("id")): o
+                for o in opts
+                if isinstance(o, dict) and o.get("id") is not None
+            }
+            merged: list[dict[str, Any]] = []
+            for desired in ghost_status_options:
+                existing_opt = by_id.get(desired["id"])
+                if existing_opt is not None:
+                    # Refresh label to latest wording.
+                    existing_opt = dict(existing_opt)
+                    existing_opt["label"] = desired["label"]
+                    merged.append(existing_opt)
+                else:
+                    merged.append(dict(desired))
+            if merged != opts:
+                settings["options"] = merged
+                col["settings"] = settings
+                changed = True
+            break
 
         def _ensure_col(
             *,
@@ -2427,7 +2621,8 @@ class ManagementTableService:
             str(col_open): ghost_open_key,
         }
         if isinstance(col_kind, str) and col_kind:
-            ghost_cells[str(col_kind)] = "ghost"
+            # Parent work-order stays "ghost" until fulfill publishes the real resource.
+            ghost_cells[str(col_kind)] = "resource" if status == "fulfilled" else "ghost"
         if isinstance(col_desc, str) and col_desc:
             ghost_cells[str(col_desc)] = description or ""
         if isinstance(col_req, str) and col_req:
@@ -2480,7 +2675,17 @@ class ManagementTableService:
                     str(col_open): open_key,
                 }
                 if isinstance(col_kind, str) and col_kind:
-                    variant_cells[str(col_kind)] = "variant"
+                    kind_raw = str(v.get("kind") or "variant").strip().lower()
+                    existing_row = rows_by_open.get(open_key)
+                    if existing_row is not None:
+                        existing_cells = existing_row.get("cells")
+                        if isinstance(existing_cells, dict):
+                            prior = str(existing_cells.get(str(col_kind)) or "").strip().lower()
+                            if prior == "resource":
+                                kind_raw = "resource"
+                    variant_cells[str(col_kind)] = (
+                        kind_raw if kind_raw in {"variant", "resource"} else "variant"
+                    )
                 if isinstance(col_desc, str) and col_desc:
                     variant_cells[str(col_desc)] = ""
                 if isinstance(col_req, str) and col_req:
@@ -2514,6 +2719,72 @@ class ManagementTableService:
             )
 
         return parent_row_id
+
+    async def remove_ghost_ops_tree(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        host_workspace_item_id: str,
+        ghost_id: str,
+    ) -> None:
+        """Delete all Ghost Ops mirror rows for a cancelled/removed ghost."""
+        item = await self._school.find_school_workspace_item(
+            org_id=org_id,
+            school_id=school_id,
+            item_id=host_workspace_item_id,
+        )
+        if item is None:
+            return
+        meta = item.get("metadata")
+        meta_dict = dict(meta) if isinstance(meta, dict) else {}
+        instance_id_raw = meta_dict.get("ghostOpsTableInstanceId")
+        if not isinstance(instance_id_raw, str) or not instance_id_raw.strip():
+            return
+        instance_id = instance_id_raw.strip()
+        group_id = MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        prefix = f"ghost:{ghost_id.strip()}"
+        rows, _total = await self._mt.list_rows(
+            org_id=org_id,
+            school_id=school_id,
+            instance_id=instance_id,
+            group_id=group_id,
+            skip=0,
+            limit=2000,
+        )
+
+        def _row_matches(row: Mapping[str, Any]) -> bool:
+            cells = row.get("cells")
+            if not isinstance(cells, dict):
+                return False
+            for raw in cells.values():
+                key = str(raw or "").strip()
+                if key == prefix or key.startswith(f"{prefix}:variant:"):
+                    return True
+            return False
+
+        matching = [row for row in rows if _row_matches(row)]
+        if not matching:
+            return
+
+        # Delete roots first (no parent among matching); delete_row cascades descendants.
+        matching_ids = {str(r["_id"]) for r in matching}
+        roots = [
+            str(r["_id"])
+            for r in matching
+            if str(r.get("parent_row_id") or "").strip() not in matching_ids
+        ]
+        targets = roots or [str(r["_id"]) for r in matching]
+        for row_id in targets:
+            try:
+                await self.delete_row(
+                    org_id=org_id,
+                    school_id=school_id,
+                    instance_id=instance_id,
+                    row_id=row_id,
+                )
+            except Exception:
+                continue
 
     async def sync_ghost_ops_row(
         self,

@@ -8,18 +8,22 @@ import { createPortal } from "react-dom";
 
 import { ApiError } from "@/lib/apiClient";
 import { Button } from "@/components/theme";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import {
   bootstrapGhostOpsTable,
   createSchoolGhost,
   createSchoolGhostEdge,
   createSchoolGhostVariant,
   deleteSchoolGhostEdge,
+  ensureSchoolGhostExerciseDraft,
   fetchSchoolGhost,
   fulfillSchoolGhost,
   reviewSchoolGhostVariant,
   submitSchoolGhostVariant,
   updateSchoolGhost,
+  type GhostDto,
   type GhostImplementationType,
+  type GhostNodeDto,
 } from "@/modules/School/api";
 import { GhostChainTab } from "@/modules/School/ghost/GhostChainTab";
 import { GhostHistoryTab } from "@/modules/School/ghost/GhostHistoryTab";
@@ -30,6 +34,18 @@ import {
 import { GhostVariantModal } from "@/modules/School/ghost/GhostVariantModal";
 import type { GhostDrawerProps, GhostDrawerTab } from "@/modules/School/ghost/types";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
+
+function ghostChromeTitle(kind: string | undefined): string {
+  if (kind === "exercise") return "Exercise ghost";
+  if (kind === "test") return "Test ghost";
+  return "Ghost";
+}
+
+function exerciseDraftIdFromNode(node: GhostNodeDto): string | null {
+  const head = node.workingHead ?? {};
+  const raw = head.exerciseDraftId ?? head.exercise_draft_id;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
 
 /**
  * Host-agnostic Ghost definition drawer (Figma: Property | Chain | History).
@@ -46,6 +62,8 @@ export function GhostDrawer({
 }: GhostDrawerProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { session } = useAuthSession();
+  const currentUserId = session?.user?.id ?? null;
   const [tab, setTab] = useState<GhostDrawerTab>("property");
   const [activeGhostId, setActiveGhostId] = useState<string | null>(ghostId);
   const [variantOpen, setVariantOpen] = useState(false);
@@ -96,6 +114,16 @@ export function GhostDrawer({
       await queryClient.invalidateQueries({
         queryKey: schoolQueryKeys.ghost(host.orgId, host.schoolId, ghost.id),
       });
+      if (ghost.resourceKind === "exercise" || ghost.resourceKind === "test") {
+        await queryClient.invalidateQueries({
+          queryKey: schoolQueryKeys.courseExercises(
+            host.orgId,
+            host.schoolId,
+            ghost.hostWorkspaceItemId,
+            ghost.resourceKind,
+          ),
+        });
+      }
     },
     onError: (err) => {
       setError(err instanceof ApiError ? err.message : "Could not create ghost.");
@@ -247,6 +275,44 @@ export function GhostDrawer({
     },
   });
 
+  const openWorkMutation = useMutation({
+    mutationFn: async (variantId: string) => {
+      const current = ghostQuery.data;
+      if (!current) throw new Error("Ghost not loaded.");
+      const node = current.nodes.find((n) => n.id === variantId);
+      if (!node) throw new Error("Chain node not found.");
+      let draftId = exerciseDraftIdFromNode(node);
+      let nextGhost: GhostDto = current;
+      if (!draftId) {
+        nextGhost = await ensureSchoolGhostExerciseDraft(
+          host.orgId,
+          host.schoolId,
+          current.id,
+          variantId,
+        );
+        const refreshed = nextGhost.nodes.find((n) => n.id === variantId);
+        draftId = refreshed ? exerciseDraftIdFromNode(refreshed) : null;
+      }
+      if (!draftId) {
+        throw new Error("Could not link an exercise draft to this node.");
+      }
+      return {
+        courseItemId: nextGhost.hostWorkspaceItemId || host.hostWorkspaceItemId,
+        exerciseId: draftId,
+      };
+    },
+    onSuccess: ({ courseItemId, exerciseId }) => {
+      setError(null);
+      onClose();
+      router.push(
+        `/features/school/${encodeURIComponent(host.schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(exerciseId)}/edit`,
+      );
+    },
+    onError: (err) => {
+      setError(err instanceof ApiError ? err.message : "Could not open exercise work.");
+    },
+  });
+
   const opsTableMutation = useMutation({
     mutationFn: () =>
       bootstrapGhostOpsTable(host.orgId, host.schoolId, host.hostWorkspaceItemId),
@@ -271,6 +337,8 @@ export function GhostDrawer({
   const ghost = ghostQuery.data;
   const creating = createMutation.isPending;
   const needsCreate = !activeGhostId && !creating;
+  const chromeKind = ghost?.resourceKind ?? host.resourceKind;
+  const chromeTitle = ghostChromeTitle(chromeKind);
 
   return createPortal(
     <>
@@ -289,8 +357,8 @@ export function GhostDrawer({
         <div className="flex items-center justify-between gap-2 border-b border-[#d5dee6] bg-[#eef3f6] px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <Ghost className="size-5 shrink-0 text-primary-800" strokeWidth={1.6} aria-hidden />
-            <h2 id="ghost-drawer-title" className="text-base font-bold text-[#0f2a3d]">
-              Ghost
+            <h2 id="ghost-drawer-title" className="truncate text-base font-bold text-[#0f2a3d]">
+              {chromeTitle}
             </h2>
             {canMutate && !needsCreate ? (
               <button
@@ -413,12 +481,14 @@ export function GhostDrawer({
               <GhostChainTab
                 ghost={ghost}
                 canMutate={canMutate}
+                currentUserId={currentUserId}
                 busy={
                   variantMutation.isPending ||
                   flowMutation.isPending ||
                   edgeMutation.isPending ||
                   edgeDeleteMutation.isPending ||
-                  edgeReverseMutation.isPending
+                  edgeReverseMutation.isPending ||
+                  openWorkMutation.isPending
                 }
                 onAddVariant={(fromId) => {
                   setConnectFromId(fromId ?? null);
@@ -431,6 +501,11 @@ export function GhostDrawer({
                 onReverseEdge={(edge) => edgeReverseMutation.mutate(edge)}
                 onSubmit={(variantId) => flowMutation.mutate({ kind: "submit", variantId })}
                 onApprove={(variantId) => flowMutation.mutate({ kind: "approve", variantId })}
+                onOpenWork={
+                  ghost.resourceKind === "exercise" || ghost.resourceKind === "test"
+                    ? (variantId) => openWorkMutation.mutate(variantId)
+                    : undefined
+                }
               />
             ) : (
               <GhostHistoryTab
@@ -441,6 +516,29 @@ export function GhostDrawer({
             )
           ) : null}
         </div>
+
+        {ghost &&
+        (ghost.resourceKind === "exercise" || ghost.resourceKind === "test") &&
+        ghost.status !== "fulfilled" ? (
+          <div className="border-t border-[#d5dee6] bg-[#eef3f6] px-4 py-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              disabled={openWorkMutation.isPending}
+              onClick={() => {
+                const end =
+                  ghost.nodes.find((n) => n.role === "end") ??
+                  ghost.nodes.find((n) => n.isDefault) ??
+                  ghost.nodes[0];
+                if (end) openWorkMutation.mutate(end.id);
+              }}
+            >
+              {openWorkMutation.isPending ? "Opening…" : "Open work"}
+            </Button>
+          </div>
+        ) : null}
 
         {ghost && canMutate && ghost.status !== "fulfilled" ? (
           <div className="space-y-1.5 border-t border-[#d5dee6] bg-[#eef3f6] px-4 py-3">

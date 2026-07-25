@@ -147,6 +147,7 @@ def _course_exercise_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Cou
     return CourseExerciseService(
         exercise_repo=CourseExerciseRepository(db),
         school_repo=Repository(db),
+        ghost_repo=GhostResourcesRepository(db),
     )
 
 
@@ -155,6 +156,7 @@ def _ghost_resources_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Gho
         ghost_repo=GhostResourcesRepository(db),
         school_repo=Repository(db),
         mt_service=_management_table_service(db),
+        exercise_repo=CourseExerciseRepository(db),
     )
 
 
@@ -2473,6 +2475,28 @@ async def create_org_course_exercise(
     )
 
 
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/exercises/{exercise_id}",
+    response_model=CourseExercisePublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_course_exercise(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    exercise_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseExercisePublic:
+    svc = _course_exercise_service(db)
+    await svc.bootstrap()
+    return await svc.get_exercise(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        exercise_id=exercise_id,
+    )
+
+
 @org_router.patch(
     "/{school_id}/courses/{course_workspace_item_id}/exercises/{exercise_id}",
     response_model=CourseExercisePublic,
@@ -2484,10 +2508,29 @@ async def update_org_course_exercise(
     course_workspace_item_id: str,
     exercise_id: str,
     payload: CourseExerciseUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> CourseExercisePublic:
     svc = _course_exercise_service(db)
     await svc.bootstrap()
+    existing = await svc.get_exercise(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        exercise_id=exercise_id,
+    )
+    ghost_id = (existing.ghost_id or "").strip() if existing.ghost_id else ""
+    if ghost_id:
+        ghost_svc = _ghost_resources_service(db)
+        await ghost_svc.bootstrap()
+        is_manager = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+        await ghost_svc.assert_can_edit_linked_exercise(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            user_id=user.user_id,
+            is_manager=is_manager,
+        )
     return await svc.update_exercise(
         org_id=org_id,
         school_id=school_id,
@@ -2600,6 +2643,32 @@ async def get_org_school_ghost(
     return await svc.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
 
 
+@org_router.post(
+    "/{school_id}/ghosts/{ghost_id}/ensure-exercise-draft",
+    response_model=GhostPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def ensure_org_school_ghost_exercise_draft(
+    org_id: str,
+    school_id: str,
+    ghost_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+    variant_id: str | None = None,
+) -> GhostPublic:
+    svc = _ghost_resources_service(db)
+    await svc.bootstrap()
+    is_manager = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
+    return await svc.ensure_exercise_draft(
+        org_id=org_id,
+        school_id=school_id,
+        ghost_id=ghost_id,
+        user_id=user.user_id,
+        variant_id=variant_id,
+        is_manager=is_manager,
+    )
+
+
 @org_router.patch(
     "/{school_id}/ghosts/{ghost_id}",
     response_model=GhostPublic,
@@ -2664,6 +2733,7 @@ async def update_org_school_ghost_variant(
 ) -> GhostPublic:
     svc = _ghost_resources_service(db)
     await svc.bootstrap()
+    is_manager = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
     return await svc.update_node(
         org_id=org_id,
         school_id=school_id,
@@ -2671,6 +2741,7 @@ async def update_org_school_ghost_variant(
         variant_id=variant_id,
         user_id=user.user_id,
         payload=payload,
+        is_manager=is_manager,
     )
 
 
@@ -2690,6 +2761,7 @@ async def submit_org_school_ghost_variant(
 ) -> GhostPublic:
     svc = _ghost_resources_service(db)
     await svc.bootstrap()
+    is_manager = await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id)
     return await svc.submit_node(
         org_id=org_id,
         school_id=school_id,
@@ -2697,6 +2769,7 @@ async def submit_org_school_ghost_variant(
         variant_id=variant_id,
         user_id=user.user_id,
         payload=payload,
+        is_manager=is_manager,
     )
 
 

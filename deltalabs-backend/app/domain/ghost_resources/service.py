@@ -8,6 +8,7 @@ from typing import Any, Mapping
 from pymongo.errors import DuplicateKeyError
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
+from app.domain.course_exercise.repository import CourseExerciseRepository, new_exercise_id
 from app.domain.ghost_resources.adapters import HostAdapterRegistry
 from app.domain.ghost_resources.graph import MAX_EDGES, MAX_NODES, would_create_cycle
 from app.domain.ghost_resources.repository import (
@@ -54,11 +55,13 @@ class GhostResourcesService:
         ghost_repo: GhostResourcesRepository,
         school_repo: SchoolRepository,
         mt_service: ManagementTableService | None = None,
+        exercise_repo: CourseExerciseRepository | None = None,
     ) -> None:
         self._g = ghost_repo
         self._school = school_repo
         self._mt = mt_service
-        self._adapters = HostAdapterRegistry(school_repo)
+        self._ex = exercise_repo
+        self._adapters = HostAdapterRegistry(school_repo, exercise_repo)
 
     async def bootstrap(self) -> None:
         await self._g.ensure_indexes()
@@ -131,6 +134,7 @@ class GhostResourcesService:
                 working.get("version") if isinstance(working, dict) else 1
             )
             or 1,
+            working_head=dict(working) if isinstance(working, dict) else {},
             sort_order=int(doc.get("sort_order") or 0),
             created_at=doc["created_at"],
             updated_at=doc["updated_at"],
@@ -305,18 +309,175 @@ class GhostResourcesService:
             }
         )
 
-    async def _assignee_person(self, user_ids: list[str]) -> dict[str, Any] | None:
-        if not user_ids:
+    async def _assignee_people(self, user_ids: list[str]) -> dict[str, Any] | None:
+        """Monday-style multi-person cell payload for Ghost Ops Assignee."""
+        people: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw in user_ids:
+            uid = str(raw or "").strip()
+            if not uid or uid in seen:
+                continue
+            seen.add(uid)
+            profile = await self._school.find_user_profile(user_id=uid)
+            if profile is not None:
+                people.append(
+                    {
+                        "userId": uid,
+                        "fullName": str(profile.get("full_name") or profile.get("username") or ""),
+                        "username": str(profile.get("username") or ""),
+                    }
+                )
+            else:
+                people.append({"userId": uid, "fullName": uid})
+        if not people:
             return None
-        uid = user_ids[0]
-        profile = await self._school.find_user_profile(user_id=uid)
-        if profile is not None:
-            return {
-                "userId": uid,
-                "fullName": str(profile.get("full_name") or profile.get("username") or ""),
-                "username": str(profile.get("username") or ""),
-            }
-        return {"userId": uid, "fullName": uid}
+        return {"people": people}
+
+    async def _assignee_person(self, user_ids: list[str]) -> dict[str, Any] | None:
+        # Backward-compatible alias — prefer multi-person payload.
+        return await self._assignee_people(user_ids)
+
+    def _user_can_work_node(
+        self,
+        *,
+        node: Mapping[str, Any],
+        user_id: str,
+        is_manager: bool,
+        ghost_created_by: str | None = None,
+    ) -> bool:
+        """Assignees edit/submit; managers always can. Creator may work while unassigned."""
+        assignees = [str(x).strip() for x in (node.get("assignee_user_ids") or []) if str(x).strip()]
+        if is_manager:
+            return True
+        if user_id and user_id in assignees:
+            return True
+        # Existing ghosts created before auto-assign: creator isn't locked out.
+        if not assignees and ghost_created_by and user_id and user_id == ghost_created_by:
+            return True
+        return False
+
+    async def assert_can_work_node(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_id: str,
+        variant_id: str,
+        user_id: str,
+        is_manager: bool,
+    ) -> None:
+        from app.core.exceptions import PermissionDeniedError
+
+        doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        node = await self._g.find_variant(ghost_id=ghost_id, variant_id=variant_id)
+        if node is None:
+            raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+        created_by = str((doc or {}).get("created_by_user_id") or "").strip() or None
+        if self._user_can_work_node(
+            node=node,
+            user_id=user_id,
+            is_manager=is_manager,
+            ghost_created_by=created_by,
+        ):
+            return
+        assignees = [str(x).strip() for x in (node.get("assignee_user_ids") or []) if str(x).strip()]
+        if not assignees:
+            raise PermissionDeniedError(
+                "Assign someone to this node before editing or submitting work.",
+                code="ghost_work_unassigned",
+            )
+        raise PermissionDeniedError(
+            "Only assignees of this ghost node can do that work.",
+            code="ghost_work_forbidden",
+        )
+
+    async def assert_can_edit_linked_exercise(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_id: str,
+        user_id: str,
+        is_manager: bool,
+    ) -> None:
+        doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        if doc is None:
+            raise NotFoundError("Ghost not found.", code="ghost_not_found")
+        end_id = str(doc.get("default_variant_id") or "").strip()
+        node = await self._g.find_variant(ghost_id=ghost_id, variant_id=end_id) if end_id else None
+        if node is None:
+            nodes = await self._g.list_variants(ghost_id=ghost_id)
+            node = next((n for n in nodes if bool(n.get("is_default"))), None)
+            if node is None and nodes:
+                node = nodes[0]
+        if node is None:
+            raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+        await self.assert_can_work_node(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            variant_id=str(node["_id"]),
+            user_id=user_id,
+            is_manager=is_manager,
+        )
+
+    async def _heal_fulfilled_exercise_publish(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_doc: Mapping[str, Any],
+        end_node: Mapping[str, Any] | None,
+    ) -> None:
+        """Idempotent: if ghost is fulfilled but the linked draft is still ghost-linked/draft, publish it.
+
+        Covers ghosts fulfilled before CourseExerciseHostAdapter existed (metadata-only fulfill).
+        """
+        if self._ex is None:
+            return
+        if str(ghost_doc.get("status") or "") != "fulfilled":
+            return
+        resource_kind = str(ghost_doc.get("resource_kind") or "").strip()
+        if resource_kind not in {"exercise", "test"}:
+            return
+        if str(ghost_doc.get("host_type") or "") != "course":
+            return
+        host_id = str(ghost_doc.get("host_workspace_item_id") or "").strip()
+        if not host_id or end_node is None:
+            return
+        working = end_node.get("working_head") if isinstance(end_node.get("working_head"), dict) else {}
+        exercise_id = str(
+            working.get("exerciseDraftId") or working.get("exercise_draft_id") or ""
+        ).strip()
+        if not exercise_id:
+            return
+        existing = await self._ex.find(
+            org_id=org_id,
+            school_id=school_id,
+            course_workspace_item_id=host_id,
+            exercise_id=exercise_id,
+        )
+        if existing is None:
+            return
+        still_linked = bool(str(existing.get("ghost_id") or "").strip())
+        still_draft = str(existing.get("status") or "") == "draft"
+        if not still_linked and not still_draft:
+            return
+        ghost_title = str(ghost_doc.get("title") or "").strip()
+        title = ghost_title or str(existing.get("title") or "").strip() or "Exercise"
+        await self._ex.update(
+            org_id=org_id,
+            school_id=school_id,
+            course_workspace_item_id=host_id,
+            exercise_id=exercise_id,
+            patch={
+                "status": "published",
+                "title": title,
+                "ghost_id": "",
+                "ghost_end_variant_id": "",
+                "published_at": _utcnow(),
+            },
+        )
 
     async def _sync_ops_mirror(
         self,
@@ -333,8 +494,26 @@ class GhostResourcesService:
         host_id = str(doc.get("host_workspace_item_id") or "")
         if not host_id:
             return
+        if str(doc.get("status") or "") == "cancelled":
+            await self._mt.remove_ghost_ops_tree(
+                org_id=org_id,
+                school_id=school_id,
+                host_workspace_item_id=host_id,
+                ghost_id=ghost_id,
+            )
+            return
         node_docs = await self._g.list_variants(ghost_id=ghost_id)
         edge_docs = await self._g.list_edges(ghost_id=ghost_id)
+        end_id = str(doc.get("default_variant_id") or "")
+        end_node = next((n for n in node_docs if str(n.get("_id")) == end_id), None)
+        if end_node is None:
+            end_node = next((n for n in node_docs if str(n.get("role") or "") == "end"), None)
+        await self._heal_fulfilled_exercise_publish(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_doc=doc,
+            end_node=end_node,
+        )
         blocked_map = self._blocked_by_map(node_docs=node_docs, edge_docs=edge_docs)
         by_id = {str(n["_id"]): n for n in node_docs}
 
@@ -375,11 +554,27 @@ class GhostResourcesService:
             end = node_docs[0]
         end_id = str(end["_id"]) if end else ""
 
+        # Heal older ghosts: end node had no assignees → creator can work / shows on MT.
+        created_by = str(doc.get("created_by_user_id") or "").strip()
+        if end is not None and created_by:
+            end_assignees = [
+                str(x).strip() for x in (end.get("assignee_user_ids") or []) if str(x).strip()
+            ]
+            if not end_assignees:
+                await self._g.update_variant(
+                    ghost_id=ghost_id,
+                    variant_id=str(end["_id"]),
+                    patch={"assignee_user_ids": [created_by]},
+                )
+                end = dict(end)
+                end["assignee_user_ids"] = [created_by]
+                by_id[str(end["_id"])] = end
+
         end_blocked_ids = blocked_map.get(end_id, []) if end_id else []
         end_blocked_names = [
             str(by_id[b].get("name") or b) for b in end_blocked_ids if b in by_id
         ]
-        end_assignee = await self._assignee_person(
+        end_assignee = await self._assignee_people(
             [str(x) for x in ((end or {}).get("assignee_user_ids") or [])]
         )
         end_impl = str(
@@ -396,28 +591,36 @@ class GhostResourcesService:
         )
 
         # Solo default/first variant = the main ghost row — no nested subitem table.
-        # Only create variant subitems when there is more than one chain node.
+        # Only create variant subitems for dependency nodes (never the end/default again).
         variants_payload: list[dict[str, Any]] = []
-        if len(node_docs) > 1:
+        if len(node_docs) > 1 and end_id:
             for n in sorted(node_docs, key=lambda x: int(x.get("sort_order") or 0)):
                 vid = str(n["_id"])
+                if vid == end_id:
+                    continue
                 blocked_ids = blocked_map.get(vid, [])
                 blocked_names = [
                     str(by_id[b].get("name") or b) for b in blocked_ids if b in by_id
                 ]
                 assignee_ids = [str(x) for x in (n.get("assignee_user_ids") or [])]
+                node_status = str(n.get("status") or "open")
+                if node_status == "merged":
+                    node_status = "approved"
+                # Approved/fulfilled deliverables are "resources" for the exercise builder.
+                kind_label = "resource" if node_status in {"approved", "fulfilled"} else "variant"
                 variants_payload.append(
                     {
                         "id": vid,
                         "name": str(n.get("name") or "Variant"),
                         "parent_variant_id": parent_of.get(vid),
+                        "kind": kind_label,
                         "implementation": str(
                             n.get("implementation_type")
                             or doc.get("implementation_type")
                             or "same_base"
                         ),
-                        "status": str(n.get("status") or "open"),
-                        "assignee": await self._assignee_person(assignee_ids),
+                        "status": node_status,
+                        "assignee": await self._assignee_people(assignee_ids),
                         "blocked_by": ", ".join(blocked_names),
                     }
                 )
@@ -436,7 +639,7 @@ class GhostResourcesService:
             variants=variants_payload,
             chain_node=end_name if len(node_docs) <= 1 else "",
             blocked_by=", ".join(end_blocked_names) if len(node_docs) <= 1 else "",
-            assignee=end_assignee if len(node_docs) <= 1 else None,
+            assignee=end_assignee,
         )
         if row_id:
             refs = dict(doc.get("management_table_refs") or {})
@@ -488,6 +691,19 @@ class GhostResourcesService:
         doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
         if doc is None:
             raise NotFoundError("Ghost not found.", code="ghost_not_found")
+        if str(doc.get("status") or "") == "fulfilled":
+            node_docs = await self._g.list_variants(ghost_id=ghost_id)
+            end_id = str(doc.get("default_variant_id") or "")
+            end_node = next((n for n in node_docs if str(n.get("_id")) == end_id), None)
+            if end_node is None:
+                end_node = next((n for n in node_docs if str(n.get("role") or "") == "end"), None)
+            await self._heal_fulfilled_exercise_publish(
+                org_id=org_id,
+                school_id=school_id,
+                ghost_doc=doc,
+                end_node=end_node,
+            )
+            await self._sync_ops_mirror(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
         return await self._map_ghost(doc, include_graph=True)
 
     async def create_ghost(
@@ -532,6 +748,47 @@ class GhostResourcesService:
         }
         await self._g.insert_instance(instance)
 
+        working_head: dict[str, Any] = {"version": 1, "mode": payload.implementation_type}
+        resource_kind = str(payload.resource_kind or "document").strip() or "document"
+        if (
+            self._ex is not None
+            and payload.host_type == "course"
+            and resource_kind in {"exercise", "test"}
+        ):
+            exercise_id = new_exercise_id()
+            now_ex = now
+            await self._ex.insert(
+                {
+                    "_id": exercise_id,
+                    "org_id": org_id,
+                    "school_id": school_id,
+                    "course_workspace_item_id": payload.host_workspace_item_id.strip(),
+                    "kind": resource_kind,
+                    "title": title or ("New Test" if resource_kind == "test" else "New Exercise"),
+                    "time_taken": "",
+                    "time_minutes": None,
+                    "total_questions": 1,
+                    "total_mark": None,
+                    "take_with_friend": False,
+                    "visibility": "public",
+                    "status": "draft",
+                    "cover_image_url": "",
+                    "org_label": "",
+                    "questions": [],
+                    "ghost_id": ghost_id,
+                    "ghost_end_variant_id": default_variant_id,
+                    "created_by_user_id": user_id,
+                    "created_at": now_ex,
+                    "updated_at": now_ex,
+                }
+            )
+            working_head.update(
+                {
+                    "contentType": "exercise_draft",
+                    "exerciseDraftId": exercise_id,
+                }
+            )
+
         node = {
             "_id": default_variant_id,
             "ghost_id": ghost_id,
@@ -540,8 +797,9 @@ class GhostResourcesService:
             "is_default": True,
             "required": True,
             "implementation_type": payload.implementation_type,
-            "assignee_user_ids": [],
-            "working_head": {"version": 1, "mode": payload.implementation_type},
+            # Creator starts as assignee so they can open work immediately.
+            "assignee_user_ids": [user_id] if user_id else [],
+            "working_head": working_head,
             "available_inputs": [],
             "status": "open",
             "sort_order": 0,
@@ -558,6 +816,111 @@ class GhostResourcesService:
             meta={"hostType": payload.host_type, "defaultVariantId": default_variant_id},
         )
         await self._sync_ops_mirror(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+    async def ensure_exercise_draft(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_id: str,
+        user_id: str,
+        variant_id: str | None = None,
+        is_manager: bool = False,
+    ) -> GhostPublic:
+        """Bind an end-node working_head to a CourseExercise draft (exercise/test ghosts)."""
+        if self._ex is None:
+            raise ValidationError(
+                "Exercise drafts are unavailable.",
+                code="ghost_exercise_unavailable",
+            )
+        doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        if doc is None:
+            raise NotFoundError("Ghost not found.", code="ghost_not_found")
+        resource_kind = str(doc.get("resource_kind") or "document").strip() or "document"
+        if resource_kind not in {"exercise", "test"}:
+            raise ValidationError(
+                "Only exercise or test ghosts have an exercise draft.",
+                code="ghost_not_exercise_kind",
+            )
+        if str(doc.get("host_type") or "") != "course":
+            raise ValidationError(
+                "Exercise drafts require a course host.",
+                code="ghost_host_not_course",
+            )
+
+        target_id = (variant_id or str(doc.get("default_variant_id") or "")).strip()
+        if not target_id:
+            raise NotFoundError("End node not found.", code="ghost_variant_not_found")
+        node = await self._g.find_variant(ghost_id=ghost_id, variant_id=target_id)
+        if node is None:
+            raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+
+        working = dict(node.get("working_head") or {})
+        existing = str(working.get("exerciseDraftId") or working.get("exercise_draft_id") or "").strip()
+        if existing:
+            return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+        # Creating a draft is work — assignee or manager required.
+        await self.assert_can_work_node(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            variant_id=target_id,
+            user_id=user_id,
+            is_manager=is_manager,
+        )
+
+        now = _utcnow()
+        exercise_id = new_exercise_id()
+        title = str(doc.get("title") or "").strip() or (
+            "New Test" if resource_kind == "test" else "New Exercise"
+        )
+        await self._ex.insert(
+            {
+                "_id": exercise_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "course_workspace_item_id": str(doc.get("host_workspace_item_id") or "").strip(),
+                "kind": resource_kind,
+                "title": title,
+                "time_taken": "",
+                "time_minutes": None,
+                "total_questions": 1,
+                "total_mark": None,
+                "take_with_friend": False,
+                "visibility": "public",
+                "status": "draft",
+                "cover_image_url": "",
+                "org_label": "",
+                "questions": [],
+                "ghost_id": ghost_id,
+                "ghost_end_variant_id": target_id,
+                "created_by_user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+        working.update(
+            {
+                "version": int(working.get("version") or 1),
+                "contentType": "exercise_draft",
+                "exerciseDraftId": exercise_id,
+            }
+        )
+        await self._g.update_variant(
+            ghost_id=ghost_id,
+            variant_id=target_id,
+            patch={"working_head": working, "updated_at": now},
+        )
+        await self._append_event(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            event_type="exercise_draft_linked",
+            actor_user_id=user_id,
+            meta={"variantId": target_id, "exerciseDraftId": exercise_id},
+        )
         return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
 
     async def update_ghost(
@@ -662,7 +1025,8 @@ class GhostResourcesService:
             "is_default": bool(payload.is_default),
             "required": bool(payload.required),
             "implementation_type": payload.implementation_type,
-            "assignee_user_ids": [],
+            # Creator starts as assignee on the new node (can reassign on Ghost Ops).
+            "assignee_user_ids": [user_id] if user_id else [],
             "working_head": working_head,
             "forked_from_variant_id": forked_from,
             "available_inputs": [],
@@ -708,23 +1072,102 @@ class GhostResourcesService:
         variant_id: str,
         user_id: str,
         payload: GhostNodeUpdateInput,
+        is_manager: bool = False,
     ) -> GhostPublic:
+        from app.core.exceptions import PermissionDeniedError
+
         doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
         if doc is None:
             raise NotFoundError("Ghost not found.", code="ghost_not_found")
         existing = await self._g.find_variant(ghost_id=ghost_id, variant_id=variant_id)
         if existing is None:
             raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+        created_by = str(doc.get("created_by_user_id") or "").strip() or None
+        can_work = self._user_can_work_node(
+            node=existing,
+            user_id=user_id,
+            is_manager=is_manager,
+            ghost_created_by=created_by,
+        )
+        is_creator = bool(created_by and user_id and user_id == created_by)
+        can_review = is_manager or is_creator
+
         patch: dict[str, Any] = {}
         if payload.name is not None:
+            if not can_review:
+                raise PermissionDeniedError(
+                    "Only managers can rename chain nodes.",
+                    code="ghost_variant_rename_forbidden",
+                )
             patch["name"] = payload.name.strip()
         if payload.implementation_type is not None:
+            if not can_review:
+                raise PermissionDeniedError(
+                    "Only managers can change implementation type.",
+                    code="ghost_variant_impl_forbidden",
+                )
             patch["implementation_type"] = payload.implementation_type
         if payload.required is not None:
+            if not can_review:
+                raise PermissionDeniedError(
+                    "Only managers can change required flag.",
+                    code="ghost_variant_required_forbidden",
+                )
             patch["required"] = payload.required
         if payload.status is not None:
-            patch["status"] = payload.status
+            next_status = str(payload.status)
+            assignee_statuses = {"open", "in_progress", "stuck"}
+            review_statuses = {"approved", "rejected", "changes_requested", "abandoned"}
+            if next_status in review_statuses and not can_review:
+                raise PermissionDeniedError(
+                    "Only the ghost creator or a school manager can approve or reject.",
+                    code="ghost_review_forbidden",
+                )
+            if next_status in assignee_statuses and not can_work:
+                raise PermissionDeniedError(
+                    "Only assignees can update work status.",
+                    code="ghost_work_forbidden",
+                )
+            if next_status == "submitted":
+                raise ValidationError(
+                    "Use submit to request approval.",
+                    code="ghost_use_submit",
+                )
+            patch["status"] = next_status
+        if payload.status_note is not None:
+            note = payload.status_note.strip()
+            if note:
+                patch["status_note"] = note
+        if (
+            payload.media_id is not None
+            or payload.file_name is not None
+            or payload.preview_url is not None
+        ):
+            if not can_work:
+                raise PermissionDeniedError(
+                    "Only assignees can upload deliverables for this node.",
+                    code="ghost_work_forbidden",
+                )
+            working = dict(existing.get("working_head") or {})
+            if payload.media_id is not None:
+                mid = payload.media_id.strip()
+                if mid:
+                    working["mediaId"] = mid
+                    working["contentType"] = "media_asset"
+            if payload.file_name is not None:
+                working["fileName"] = payload.file_name.strip()
+            if payload.preview_url is not None:
+                working["previewUrl"] = payload.preview_url.strip()
+            working["version"] = int(working.get("version") or 1) + 1
+            patch["working_head"] = working
+            if "status" not in patch and str(existing.get("status") or "open") == "open":
+                patch["status"] = "in_progress"
         if payload.assignee_user_ids is not None:
+            if not can_review:
+                raise PermissionDeniedError(
+                    "Only managers can assign people.",
+                    code="ghost_assign_forbidden",
+                )
             patch["assignee_user_ids"] = [str(x).strip() for x in payload.assignee_user_ids if str(x).strip()]
         if not patch:
             raise ValidationError("No changes provided.", code="ghost_variant_update_empty")
@@ -946,6 +1389,7 @@ class GhostResourcesService:
         variant_id: str,
         user_id: str,
         payload: GhostNodeSubmitInput,
+        is_manager: bool = False,
     ) -> GhostPublic:
         doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
         if doc is None:
@@ -953,6 +1397,15 @@ class GhostResourcesService:
         node = await self._g.find_variant(ghost_id=ghost_id, variant_id=variant_id)
         if node is None:
             raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+
+        await self.assert_can_work_node(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            variant_id=variant_id,
+            user_id=user_id,
+            is_manager=is_manager,
+        )
 
         node_docs = await self._g.list_variants(ghost_id=ghost_id)
         edge_docs = await self._g.list_edges(ghost_id=ghost_id)
@@ -968,6 +1421,11 @@ class GhostResourcesService:
             raise ValidationError("Approved node cannot be re-submitted.", code="ghost_variant_already_approved")
         if status == "submitted":
             raise ValidationError("Node is already submitted.", code="ghost_variant_already_submitted")
+        if status == "rejected":
+            raise ValidationError(
+                "Rejected node cannot be re-submitted until a manager reopens it.",
+                code="ghost_variant_rejected",
+            )
 
         now = _utcnow()
         working = dict(node.get("working_head") or {})
@@ -1103,7 +1561,7 @@ class GhostResourcesService:
                 ghost_id=ghost_id,
                 variant_id=variant_id,
                 patch={
-                    "status": "in_progress",
+                    "status": "changes_requested",
                     "review": {
                         "decision": "changes_requested",
                         "note": payload.note.strip(),

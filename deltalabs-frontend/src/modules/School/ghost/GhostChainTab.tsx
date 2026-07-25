@@ -114,6 +114,7 @@ function edgeAnchors(from: Point, to: Point): { x1: number; y1: number; x2: numb
 export function GhostChainTab({
   ghost,
   canMutate,
+  currentUserId,
   busy,
   onAddVariant,
   onConnectEdge,
@@ -121,9 +122,12 @@ export function GhostChainTab({
   onReverseEdge,
   onSubmit,
   onApprove,
+  onOpenWork,
 }: Readonly<{
   ghost: GhostDto;
   canMutate: boolean;
+  /** When set, assignees can Open work / Submit on their nodes without school:manage. */
+  currentUserId?: string | null;
   busy?: boolean;
   onAddVariant: (fromNodeId?: string | null) => void;
   onConnectEdge: (fromVariantId: string, toVariantId: string) => void;
@@ -131,6 +135,7 @@ export function GhostChainTab({
   onReverseEdge?: (edge: { edgeId: string; fromVariantId: string; toVariantId: string }) => void;
   onSubmit: (variantId: string) => void;
   onApprove: (variantId: string) => void;
+  onOpenWork?: (variantId: string) => void;
 }>) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [canvasSize, setCanvasSize] = useState<CanvasSize>("normal");
@@ -197,6 +202,14 @@ export function GhostChainTab({
   );
 
   const selected = ghost.nodes.find((n) => n.id === selectedId) ?? null;
+  const canWorkSelected = Boolean(
+    selected &&
+      (canMutate ||
+        (currentUserId && selected.assigneeUserIds.some((id) => id === currentUserId)) ||
+        (currentUserId &&
+          ghost.createdByUserId === currentUserId &&
+          selected.assigneeUserIds.length === 0)),
+  );
   const nodeById = useMemo(() => new Map(ghost.nodes.map((n) => [n.id, n])), [ghost.nodes]);
 
   const canvasBounds = useMemo(() => {
@@ -764,21 +777,39 @@ export function GhostChainTab({
               </ul>
             </div>
           ) : null}
+          {onOpenWork &&
+          (selected.role === "end" || selected.isDefault) &&
+          (ghost.resourceKind === "exercise" || ghost.resourceKind === "test") ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                disabled={busy}
+                onClick={() => onOpenWork(selected.id)}
+              >
+                Open work
+              </Button>
+            </div>
+          ) : null}
+          {canWorkSelected &&
+          !selected.blocked &&
+          selected.status !== "submitted" &&
+          selected.status !== "approved" ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={() => onSubmit(selected.id)}
+              >
+                Submit
+              </Button>
+            </div>
+          ) : null}
           {canMutate ? (
             <div className="flex flex-wrap gap-2">
-              {!selected.blocked &&
-              selected.status !== "submitted" &&
-              selected.status !== "approved" ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => onSubmit(selected.id)}
-                >
-                  Submit
-                </Button>
-              ) : null}
               {selected.status === "submitted" ||
               (!selected.blocked &&
                 selected.status !== "approved" &&

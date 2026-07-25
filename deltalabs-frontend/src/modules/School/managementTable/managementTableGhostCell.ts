@@ -8,6 +8,12 @@ export function parseGhostDeepLink(value: unknown): string | null {
   return m?.[1] ?? null;
 }
 
+/** Parent ghost row key `ghost:{id}` (not a nested `:variant:` key). */
+export function isGhostParentDeepLink(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return /^ghost:[A-Za-z0-9_-]+$/.test(value.trim());
+}
+
 export function isGhostDeepLink(value: unknown): boolean {
   return parseGhostDeepLink(value) !== null;
 }

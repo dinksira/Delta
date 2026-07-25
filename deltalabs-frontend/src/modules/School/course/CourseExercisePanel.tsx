@@ -1,11 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock, Ghost, HelpCircle, X } from "lucide-react";
+import { Clock, Ghost, HelpCircle } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 
-import { Button, DialogOverlay } from "@/components/theme";
+import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
 import {
   createCourseExercise,
@@ -13,15 +13,13 @@ import {
   type CourseExerciseDto,
   type SchoolWorkspaceItemDto,
 } from "@/modules/School/api";
-import { GhostDrawer } from "@/modules/School/ghost";
 import { CourseExerciseManagementTableView } from "@/modules/School/course/CourseExerciseManagementTableView";
+import { CreateExerciseModal } from "@/modules/School/course/exercise/CreateExerciseModal";
+import { GhostDrawer } from "@/modules/School/ghost";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 
 type ViewMode = "direct" | "table";
 type KindTab = "exercise" | "test";
-
-const DEFAULT_COVER =
-  "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?auto=format&fit=crop&w=800&q=80";
 
 export function CourseExercisePanel({
   orgId,
@@ -38,9 +36,11 @@ export function CourseExercisePanel({
   const [viewMode, setViewMode] = useState<ViewMode>("direct");
   const [kind, setKind] = useState<KindTab>("exercise");
   const [createOpen, setCreateOpen] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [ghostOpen, setGhostOpen] = useState(false);
   const [ghostId, setGhostId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [opsInstanceId, setOpsInstanceId] = useState<string | null>(null);
+  const [openGhostOpsBoard, setOpenGhostOpsBoard] = useState(false);
 
   const listQuery = useQuery({
     queryKey: schoolQueryKeys.courseExercises(orgId, schoolId, courseItem.id, kind),
@@ -55,18 +55,25 @@ export function CourseExercisePanel({
       title: string;
       timeTaken: string;
       totalQuestions: number;
-    }) =>
-      createCourseExercise(orgId, schoolId, courseItem.id, {
+      coverImageUrl: string;
+    }) => {
+      const minutes = /^\d+$/.test(payload.timeTaken.trim())
+        ? Number(payload.timeTaken.trim())
+        : undefined;
+      return createCourseExercise(orgId, schoolId, courseItem.id, {
         title: payload.title,
         timeTaken: payload.timeTaken,
+        ...(minutes !== undefined ? { timeMinutes: minutes } : {}),
         totalQuestions: payload.totalQuestions,
         kind,
-        coverImageUrl: DEFAULT_COVER,
+        status: "draft",
+        coverImageUrl: payload.coverImageUrl.trim(),
         orgLabel: "",
-      }),
+      });
+    },
     onSuccess: async () => {
       setCreateOpen(false);
-      setError(null);
+      setCreateError(null);
       await queryClient.invalidateQueries({
         queryKey: ["school", "course-exercises", orgId, schoolId, courseItem.id],
       });
@@ -75,14 +82,12 @@ export function CourseExercisePanel({
       });
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Could not create exercise.");
+      setCreateError(err instanceof ApiError ? err.message : "Could not create exercise.");
     },
   });
 
   const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const defineLabel = kind === "exercise" ? "Define Exercise" : "Define Test";
-  const [opsInstanceId, setOpsInstanceId] = useState<string | null>(null);
-  const [openGhostOpsBoard, setOpenGhostOpsBoard] = useState(false);
 
   const ghostDrawer = (
     <GhostDrawer
@@ -95,7 +100,7 @@ export function CourseExercisePanel({
         hostType: "course",
         hostWorkspaceItemId: courseItem.id,
         slotKey: kind === "exercise" ? "exercise.resource" : "test.resource",
-        resourceKind: "document",
+        resourceKind: kind === "exercise" ? "exercise" : "test",
         defaultNodeName: kind === "exercise" ? "Exercise resource" : "Test resource",
       }}
       onClose={() => setGhostOpen(false)}
@@ -118,7 +123,6 @@ export function CourseExercisePanel({
           viewMode={viewMode}
           setViewMode={(m) => {
             if (m === "direct") setOpenGhostOpsBoard(false);
-            if (m === "table") setOpenGhostOpsBoard(false);
             setViewMode(m);
           }}
         />
@@ -176,7 +180,7 @@ export function CourseExercisePanel({
           size="md"
           disabled={!canMutate}
           onClick={() => {
-            setError(null);
+            setCreateError(null);
             setCreateOpen(true);
           }}
         >
@@ -201,7 +205,6 @@ export function CourseExercisePanel({
             type="button"
             disabled={!canMutate}
             onClick={() => {
-              setError(null);
               setGhostId(null);
               setGhostOpen(true);
             }}
@@ -212,61 +215,118 @@ export function CourseExercisePanel({
           </button>
 
           {items.map((ex) => (
-            <ExerciseCard key={ex.id} exercise={ex} />
+            <ExerciseCard
+              key={ex.id}
+              exercise={ex}
+              href={`/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItem.id)}/exercises/${encodeURIComponent(ex.id)}/edit`}
+              onOpenGhost={
+                ex.ghostId
+                  ? () => {
+                      setGhostId(ex.ghostId!);
+                      setGhostOpen(true);
+                    }
+                  : undefined
+              }
+            />
           ))}
         </div>
       )}
 
-      {createOpen ? (
-        <CreateExerciseModal
-          kind={kind}
-          busy={createMutation.isPending}
-          error={error}
-          onClose={() => !createMutation.isPending && setCreateOpen(false)}
-          onSave={(payload) => createMutation.mutate(payload)}
-        />
-      ) : null}
+      <CreateExerciseModal
+        open={createOpen}
+        orgId={orgId}
+        kind={kind}
+        busy={createMutation.isPending}
+        error={createError}
+        onClose={() => !createMutation.isPending && setCreateOpen(false)}
+        onSave={(payload) => createMutation.mutate(payload)}
+      />
 
       {ghostDrawer}
     </div>
   );
 }
 
-function ExerciseCard({ exercise }: Readonly<{ exercise: CourseExerciseDto }>) {
+function ExerciseCard({
+  exercise,
+  href,
+  onOpenGhost,
+}: Readonly<{
+  exercise: CourseExerciseDto;
+  href: string;
+  onOpenGhost?: () => void;
+}>) {
   const creatorName =
     exercise.createdBy.fullName?.trim() || exercise.createdBy.username || "Someone";
   const initials = creatorName.slice(0, 2).toUpperCase();
+  const status = exercise.status ?? "published";
+  // Ghost-linked drafts; after fulfill the BE clears ghostId and publishes.
+  const isGhostWork =
+    Boolean(exercise.ghostId?.trim()) && (exercise.status ?? "published") !== "published";
+  const coverSrc =
+    exercise.coverImageUrl?.trim() &&
+    !exercise.coverImageUrl.includes("photo-1636466497217-26a8cbeaf0aa") &&
+    !exercise.coverImageUrl.startsWith("media://")
+      ? exercise.coverImageUrl.trim()
+      : "";
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border-default bg-white shadow-[0_1px_3px_rgba(15,40,60,0.06)]">
+    <article
+      className={[
+        "overflow-hidden rounded-2xl border bg-white shadow-[0_1px_3px_rgba(15,40,60,0.06)]",
+        isGhostWork ? "border-[#b7c9d6] ring-1 ring-[#d7e3eb]" : "border-border-default",
+      ].join(" ")}
+    >
       <div className="flex min-h-[13.5rem] flex-col sm:flex-row">
-        <div className="relative h-36 w-full shrink-0 bg-surface-muted sm:h-auto sm:w-[42%]">
-          {exercise.coverImageUrl ? (
+        <div
+          className={[
+            "relative h-36 w-full shrink-0 sm:h-auto sm:w-[42%]",
+            isGhostWork ? "bg-[#e8eef2]" : "bg-surface-muted",
+          ].join(" ")}
+        >
+          {coverSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={exercise.coverImageUrl}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={coverSrc} alt="" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full items-center justify-center text-text-tertiary">
-              <HelpCircle className="size-10" aria-hidden />
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-text-tertiary">
+              {isGhostWork ? (
+                <Ghost className="size-10 text-primary-800" strokeWidth={1.4} aria-hidden />
+              ) : (
+                <HelpCircle className="size-10" aria-hidden />
+              )}
+              {isGhostWork ? (
+                <span className="text-[11px] font-medium text-[#5a6b7a]">Ghost work</span>
+              ) : null}
             </div>
           )}
+          {isGhostWork && coverSrc ? (
+            <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-[#0f2a3d]/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+              <Ghost className="size-3" strokeWidth={2} aria-hidden />
+              Ghost
+            </span>
+          ) : null}
         </div>
         <div className="flex min-w-0 flex-1 flex-col justify-between p-4">
           <div>
-            <h3 className="text-base font-bold text-[#0f2a3d]">
-              {exercise.title}
-              {exercise.orgLabel ? (
-                <>
-                  <span className="mx-2 text-border-default" aria-hidden>
-                    |
-                  </span>
-                  <span className="font-medium text-[#5a6b7a]">{exercise.orgLabel}</span>
-                </>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-bold text-[#0f2a3d]">{exercise.title}</h3>
+              {isGhostWork ? (
+                <span className="inline-flex items-center gap-1 rounded-md bg-[#dfe7ed] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary-800">
+                  <Ghost className="size-3" strokeWidth={2} aria-hidden />
+                  Ghost
+                </span>
               ) : null}
-            </h3>
+              {status === "draft" && !isGhostWork ? (
+                <span className="rounded-md bg-[#e8eef2] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#5a6b7a]">
+                  Draft
+                </span>
+              ) : null}
+              {status === "draft" && isGhostWork ? (
+                <span className="rounded-md bg-[#e8eef2] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#5a6b7a]">
+                  In progress
+                </span>
+              ) : null}
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[#5a6b7a]">
               <span className="inline-flex items-center gap-1.5">
                 <HelpCircle className="size-3.5" aria-hidden />
@@ -277,9 +337,24 @@ function ExerciseCard({ exercise }: Readonly<{ exercise: CourseExerciseDto }>) {
                 {exercise.timeTaken || "—"} long
               </span>
             </div>
-            <Button type="button" variant="primary" size="sm" className="mt-4">
-              Go to Exercise
-            </Button>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Link
+                href={href}
+                className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700"
+              >
+                {isGhostWork || status === "draft" ? "Continue editing" : "Open exercise"}
+              </Link>
+              {isGhostWork && onOpenGhost ? (
+                <button
+                  type="button"
+                  onClick={onOpenGhost}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[#c5d0da] bg-white px-3 text-xs font-semibold text-[#0f2a3d] hover:bg-[#eef3f6]"
+                >
+                  <Ghost className="size-3.5" strokeWidth={1.8} aria-hidden />
+                  Open ghost
+                </button>
+              ) : null}
+            </div>
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
             <span className="text-[11px] text-[#8a9aab]">Created by</span>
@@ -289,11 +364,7 @@ function ExerciseCard({ exercise }: Readonly<{ exercise: CourseExerciseDto }>) {
             >
               {exercise.createdBy.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={exercise.createdBy.avatarUrl}
-                  alt=""
-                  className="size-full object-cover"
-                />
+                <img src={exercise.createdBy.avatarUrl} alt="" className="size-full object-cover" />
               ) : (
                 initials
               )}
@@ -302,115 +373,6 @@ function ExerciseCard({ exercise }: Readonly<{ exercise: CourseExerciseDto }>) {
         </div>
       </div>
     </article>
-  );
-}
-
-function CreateExerciseModal({
-  kind,
-  busy,
-  error,
-  onClose,
-  onSave,
-}: Readonly<{
-  kind: KindTab;
-  busy: boolean;
-  error: string | null;
-  onClose: () => void;
-  onSave: (payload: { title: string; timeTaken: string; totalQuestions: number }) => void;
-}>) {
-  const [title, setTitle] = useState("");
-  const [timeTaken, setTimeTaken] = useState("");
-  const [totalQuestions, setTotalQuestions] = useState("");
-
-  const fieldClass =
-    "w-full rounded-xl border border-border-default bg-surface-default px-4 py-3 text-sm outline-none placeholder:text-text-tertiary focus:border-primary-500";
-
-  return createPortal(
-    <>
-      <DialogOverlay onClose={() => (busy ? null : onClose())} />
-      <div className="fixed inset-0 z-[1320] flex items-center justify-center p-4">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={kind === "exercise" ? "Create exercise" : "Create test"}
-          className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between px-5 pt-5">
-            <h3 className="text-lg font-semibold lowercase text-text-primary">
-              create {kind}
-            </h3>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onClose}
-              className="rounded-md p-1 text-text-tertiary hover:bg-surface-muted"
-              aria-label="Close"
-            >
-              <X className="size-5" aria-hidden />
-            </button>
-          </div>
-
-          <div className="space-y-4 px-5 pb-5 pt-3">
-            <div className="overflow-hidden rounded-xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={DEFAULT_COVER}
-                alt=""
-                className="h-36 w-full object-cover"
-              />
-            </div>
-
-            <input
-              value={title}
-              disabled={busy}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={kind === "exercise" ? "Exercise" : "Test"}
-              className={fieldClass}
-            />
-            <input
-              value={timeTaken}
-              disabled={busy}
-              onChange={(e) => setTimeTaken(e.target.value)}
-              placeholder="Time taken"
-              className={fieldClass}
-            />
-            <input
-              value={totalQuestions}
-              disabled={busy}
-              onChange={(e) => setTotalQuestions(e.target.value.replace(/[^\d]/g, ""))}
-              placeholder="Total question"
-              inputMode="numeric"
-              className={fieldClass}
-            />
-
-            {error ? <p className="text-sm text-red-600">{error}</p> : null}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                disabled={busy || !title.trim()}
-                onClick={() =>
-                  onSave({
-                    title: title.trim(),
-                    timeTaken: timeTaken.trim() || "1 hr",
-                    totalQuestions: Number(totalQuestions) || 0,
-                  })
-                }
-              >
-                {busy ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>,
-    document.body,
   );
 }
 

@@ -5,8 +5,12 @@ import { useEffect, useState } from "react";
 import type { ManagementTableColumnDto, SchoolMemberSearchPicker } from "@/modules/School/api";
 import { columnUsesClassSessionPicker } from "@/modules/School/managementTable/managementTableClassSessionCell";
 import { ManagementTableClassSessionCellEditor } from "@/modules/School/managementTable/ManagementTableClassSessionCellEditor";
-import { parseGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
-import { columnUsesPersonPicker, resolvePersonPickerForColumn } from "@/modules/School/managementTable/managementTablePersonCell";
+import { isGhostDeepLink, parseGhostDeepLink } from "@/modules/School/managementTable/managementTableGhostCell";
+import {
+  columnUsesMultiPersonPicker,
+  columnUsesPersonPicker,
+  resolvePersonPickerForColumn,
+} from "@/modules/School/managementTable/managementTablePersonCell";
 import { ManagementTablePersonCellEditor } from "@/modules/School/managementTable/ManagementTablePersonCellEditor";
 
 function optionList(settings: Readonly<Record<string, unknown>>): { id: string; label: string }[] {
@@ -113,6 +117,7 @@ export function ManagementTableCellEditor({
   personPicker = "school_students",
   classWorkspaceItemId,
   onOpenGhost,
+  onOpenWork,
 }: Readonly<{
   column: ManagementTableColumnDto;
   value: unknown;
@@ -123,6 +128,7 @@ export function ManagementTableCellEditor({
   classWorkspaceItemId?: string;
   /** Opens Ghost drawer for `ghost:{id}` deep-link cells (any column type). */
   onOpenGhost?: (ghostId: string) => void;
+  onOpenWork?: (openKey: string) => void;
 }>) {
   if (columnUsesClassSessionPicker(column) && orgId && schoolId && classWorkspaceItemId) {
     return (
@@ -144,6 +150,7 @@ export function ManagementTableCellEditor({
         personPicker={resolvePersonPickerForColumn(column, personPicker)}
         classWorkspaceItemId={classWorkspaceItemId}
         value={value}
+        multi={columnUsesMultiPersonPicker(column)}
         onCommit={onCommit}
       />
     );
@@ -151,19 +158,36 @@ export function ManagementTableCellEditor({
 
   const ghostId = parseGhostDeepLink(value);
   if (ghostId) {
+    const showWork = Boolean(onOpenWork && isGhostDeepLink(value));
     return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
-        title="Open ghost"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onOpenGhost?.(ghostId);
-        }}
-      >
-        Open
-      </button>
+      <div className="flex flex-wrap items-center gap-1">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-semibold text-primary-800 underline-offset-2 hover:bg-primary-50 hover:underline"
+          title="Open ghost"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onOpenGhost?.(ghostId);
+          }}
+        >
+          Ghost
+        </button>
+        {showWork ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sm font-semibold text-[#2f5d73] underline-offset-2 hover:bg-[#eef4f8] hover:underline"
+            title="Open work"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (typeof value === "string") onOpenWork?.(value);
+            }}
+          >
+            Work
+          </button>
+        ) : null}
+      </div>
     );
   }
 

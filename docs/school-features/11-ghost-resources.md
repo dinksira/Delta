@@ -2,7 +2,7 @@
 
 **Status:** In progress (P0–P5 core shipped: drawer + flow + collab + fulfill + MT ops sync; inbox notify later)  
 **Parent:** [School](./01-school.md) · **host-agnostic** (Course is only the first surface)  
-**Related:** [Management Table](./03-management-table.md) · [Class roadmap](./10-class-roadmap.md) · [How school connects](../school-page/delta-labs-school-architecture-how-it-connects.md)
+**Related:** [Management Table](./03-management-table.md) · [Class roadmap](./10-class-roadmap.md) · [Ghost resource kinds](./12-ghost-resource-kinds.md) · [Exercise Ghosts](./13-exercise-ghosts.md) · [How school connects](../school-page/delta-labs-school-architecture-how-it-connects.md)
 
 This document is the **product model + system architecture + scalability + delivery plan**. Product understanding alone is not enough to build; use §§5–14 for engineering.
 
@@ -221,7 +221,7 @@ IDs: `ghi_…`, `ghv_…`, `ghe_…` (edge), `gev_…` (event).
 | `requirement_attachments[]` | `{ mediaId, fileName, … }` |
 | `implementation_type` | Default `same_base` \| `branch_base` |
 | `due_at` | Ghost-level due |
-| `resource_kind` | `image` \| `video` \| `document` \| … |
+| `resource_kind` | Typed outcome on the spectrum — `image` \| `video` \| `document` \| `exercise` \| `test` \| `roadmap_resource` \| `fast_summary` \| … (see [§12](./12-ghost-resource-kinds.md)); drives work surface + fulfill adapter |
 | `slot_key` | Host-local bind target (intro video, class library, etc.) — opaque to core graph |
 | `status` | `open` → `in_progress` → `fulfilled` \| `cancelled` |
 | `default_variant_id` | End / default node |
@@ -493,14 +493,23 @@ Keep Chain editing **only** in the drawer. Host panels stay thin openers.
 
 | Actor | Allowed |
 |-------|---------|
-| Manager (`school:manage`) | Full Property/Chain, review, fulfill, MT |
-| Node assignee | Read ghost; edit own Same Base head or Branch; submit |
-| Creator | Edit early Property if policy allows |
+| Manager / ghost creator | Full Property/Chain, **Approve / Reject / Changes requested** (with reason), fulfill, assign on MT |
+| Node assignee(s) | **Work** (builder / upload); Status: **Working on**, **Stuck** (reason), **Request for approval**; submit |
 | Student / public | No ghost APIs; L3 via host Direct View only |
 
-Validate media attachment ownership on Property requirements and submissions.
+**Where work happens vs Status**
 
----
+| Surface | Purpose |
+|---------|---------|
+| **Work** (parent row) / Chain **Open work** | Do the actual deliverable (exercise builder, image upload, …) |
+| **Status** column | Workflow only — not the place you upload/build |
+| **Assignee** | Who may work that node |
+
+Status options: Open → Working on → Stuck / Request for approval → Approved or Rejected / Changes requested.
+
+**Assignee rules:** someone must be assigned (creator is auto-assigned); multi-person Assignee cells; managers may override.
+
+Validate media attachment ownership on Property requirements and submissions.
 
 ## 14. Implementation roadmap
 

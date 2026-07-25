@@ -70,6 +70,8 @@ export const schoolQueryKeys = {
   /** GET …/courses/:courseId/exercises?kind= */
   courseExercises: (orgId: string, schoolId: string, courseId: string, kind: string) =>
     ["school", "course-exercises", orgId, schoolId, courseId, kind] as const,
+  courseExercise: (orgId: string, schoolId: string, courseId: string, exerciseId: string) =>
+    ["school", "course-exercises", "detail", orgId, schoolId, courseId, exerciseId] as const,
   /** GET …/ghosts?hostType=&hostId= */
   ghosts: (orgId: string, schoolId: string, hostType: string, hostId: string) =>
     ["school", "ghosts", orgId, schoolId, hostType, hostId] as const,

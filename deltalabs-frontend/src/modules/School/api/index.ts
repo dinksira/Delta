@@ -1655,6 +1655,51 @@ export type CourseExerciseAuthorDto = Readonly<{
   avatarUrl: string | null;
 }>;
 
+export type ExerciseQuestionTypeDto =
+  | "mcq"
+  | "true_false"
+  | "fill_blank"
+  | "matching"
+  | "writing"
+  | "ordering";
+
+export type ExerciseOptionDto = Readonly<{
+  id: string;
+  label: string;
+  text: string;
+  isCorrect?: boolean;
+  ghosted?: boolean;
+  /** Optional image from a dropped Resources item. */
+  imageUrl?: string;
+}>;
+
+export type ExerciseMatchingItemDto = Readonly<{
+  id: string;
+  text: string;
+}>;
+
+export type ExerciseQuestionVariantDto = Readonly<{
+  id: string;
+  name: string;
+  type: ExerciseQuestionTypeDto | null;
+  stemHtml: string;
+  stemGhosted?: boolean;
+  options: readonly ExerciseOptionDto[];
+  matchingDescription: string;
+  columnA: readonly ExerciseMatchingItemDto[];
+  columnB: readonly ExerciseMatchingItemDto[];
+  blanks: readonly string[];
+  orderingItems: readonly ExerciseMatchingItemDto[];
+  writingPrompt: string;
+}>;
+
+export type ExerciseQuestionDto = Readonly<{
+  id: string;
+  order: number;
+  activeVariantId: string;
+  variants: readonly ExerciseQuestionVariantDto[];
+}>;
+
 export type CourseExerciseDto = Readonly<{
   id: string;
   orgId: string;
@@ -1663,9 +1708,17 @@ export type CourseExerciseDto = Readonly<{
   kind: "exercise" | "test";
   title: string;
   timeTaken: string;
+  timeMinutes?: number | null;
   totalQuestions: number;
+  totalMark?: number | null;
+  takeWithFriend?: boolean;
+  visibility?: "public" | "private" | "unlisted";
+  status?: "draft" | "published" | "deleted";
   coverImageUrl: string;
   orgLabel: string;
+  /** Set when this exercise was spawned from an Exercise/Test ghost work-order. */
+  ghostId?: string | null;
+  questions?: readonly ExerciseQuestionDto[];
   createdBy: CourseExerciseAuthorDto;
   createdAt: string;
   updatedAt: string;
@@ -1674,6 +1727,21 @@ export type CourseExerciseDto = Readonly<{
 export type CourseExerciseListResponseDto = Readonly<{
   items: readonly CourseExerciseDto[];
   total: number;
+}>;
+
+export type CourseExerciseWritePayload = Readonly<{
+  title?: string;
+  timeTaken?: string;
+  timeMinutes?: number | null;
+  totalQuestions?: number;
+  totalMark?: number | null;
+  takeWithFriend?: boolean;
+  visibility?: "public" | "private" | "unlisted";
+  status?: "draft" | "published";
+  kind?: "exercise" | "test";
+  coverImageUrl?: string;
+  orgLabel?: string;
+  questions?: readonly ExerciseQuestionDto[];
 }>;
 
 function courseExerciseBase(orgId: string, schoolId: string, courseId: string): string {
@@ -1691,18 +1759,22 @@ export async function fetchCourseExercises(
   });
 }
 
+export async function fetchCourseExercise(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  exerciseId: string,
+): Promise<CourseExerciseDto> {
+  return apiClient.get<CourseExerciseDto>(
+    `${courseExerciseBase(orgId, schoolId, courseId)}/${encodeURIComponent(exerciseId)}`,
+  );
+}
+
 export async function createCourseExercise(
   orgId: string,
   schoolId: string,
   courseId: string,
-  payload: Readonly<{
-    title: string;
-    timeTaken?: string;
-    totalQuestions?: number;
-    kind?: "exercise" | "test";
-    coverImageUrl?: string;
-    orgLabel?: string;
-  }>,
+  payload: CourseExerciseWritePayload,
 ): Promise<CourseExerciseDto> {
   return apiClient.post<CourseExerciseDto>(courseExerciseBase(orgId, schoolId, courseId), {
     json: payload,
@@ -1714,13 +1786,7 @@ export async function updateCourseExercise(
   schoolId: string,
   courseId: string,
   exerciseId: string,
-  payload: Readonly<{
-    title?: string;
-    timeTaken?: string;
-    totalQuestions?: number;
-    coverImageUrl?: string;
-    orgLabel?: string;
-  }>,
+  payload: CourseExerciseWritePayload,
 ): Promise<CourseExerciseDto> {
   return apiClient.patch<CourseExerciseDto>(
     `${courseExerciseBase(orgId, schoolId, courseId)}/${encodeURIComponent(exerciseId)}`,
@@ -1748,7 +1814,9 @@ export type GhostNodeRole = "end" | "dependency" | "variant";
 export type GhostNodeStatus =
   | "open"
   | "in_progress"
+  | "stuck"
   | "submitted"
+  | "changes_requested"
   | "approved"
   | "rejected"
   | "merged"
@@ -1775,6 +1843,7 @@ export type GhostNodeDto = Readonly<{
   submissionNote: string | null;
   forkedFromVariantId: string | null;
   workingHeadVersion: number;
+  workingHead?: Readonly<Record<string, unknown>>;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -1875,6 +1944,21 @@ export async function createSchoolGhost(
   return apiClient.post<GhostDto>(ghostBase(orgId, schoolId), { json: payload });
 }
 
+export async function ensureSchoolGhostExerciseDraft(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  variantId?: string | null,
+): Promise<GhostDto> {
+  const qs =
+    variantId && variantId.trim()
+      ? `?variant_id=${encodeURIComponent(variantId.trim())}`
+      : "";
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/ensure-exercise-draft${qs}`,
+  );
+}
+
 export async function updateSchoolGhost(
   orgId: string,
   schoolId: string,
@@ -1908,6 +1992,29 @@ export async function createSchoolGhostVariant(
 ): Promise<GhostDto> {
   return apiClient.post<GhostDto>(
     `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/variants`,
+    { json: payload },
+  );
+}
+
+export async function updateSchoolGhostVariant(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  variantId: string,
+  payload: Readonly<{
+    name?: string;
+    implementationType?: GhostImplementationType;
+    required?: boolean;
+    status?: GhostNodeStatus;
+    statusNote?: string;
+    assigneeUserIds?: readonly string[];
+    mediaId?: string;
+    fileName?: string;
+    previewUrl?: string;
+  }>,
+): Promise<GhostDto> {
+  return apiClient.patch<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/variants/${encodeURIComponent(variantId)}`,
     { json: payload },
   );
 }

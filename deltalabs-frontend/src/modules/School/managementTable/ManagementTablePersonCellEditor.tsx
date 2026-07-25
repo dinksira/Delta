@@ -8,7 +8,9 @@ import type { SchoolMemberSearchPicker, SchoolMemberSearchUserDto } from "@/modu
 import { searchSchoolMembers } from "@/modules/School/api";
 import {
   formatPersonCellLabel,
+  parsePersonCellPeople,
   parsePersonCellValue,
+  peopleCellValueToJson,
   personCellValueToJson,
   type ManagementTablePersonCellValue,
 } from "@/modules/School/managementTable/managementTablePersonCell";
@@ -91,6 +93,7 @@ export function ManagementTablePersonCellEditor({
   personPicker = "school_students",
   classWorkspaceItemId,
   value,
+  multi = false,
   onCommit,
 }: Readonly<{
   orgId: string;
@@ -98,6 +101,8 @@ export function ManagementTablePersonCellEditor({
   personPicker?: SchoolMemberSearchPicker;
   classWorkspaceItemId?: string;
   value: unknown;
+  /** Monday-style: add multiple people in one cell. */
+  multi?: boolean;
   onCommit: (next: unknown, immediate?: boolean) => void;
 }>) {
   const panelId = useId();
@@ -107,20 +112,63 @@ export function ManagementTablePersonCellEditor({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<readonly SchoolMemberSearchUserDto[]>([]);
-  const [pos, setPos] = useState<{ top: number; left: number; caretLeft: number } | null>(null);
+  const [pos, setPos] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    caretLeft: number;
+    maxHeight: number;
+    placement: "above" | "below";
+  } | null>(null);
 
+  const people = useMemo(() => parsePersonCellPeople(value), [value]);
   const person = useMemo(() => parsePersonCellValue(value), [value]);
   const label = formatPersonCellLabel(value);
-  const hasSelection = Boolean(person.userId || label);
+  const hasSelection = multi ? people.length > 0 : Boolean(person.userId || label);
+  const selectedIds = useMemo(
+    () => new Set(people.map((p) => p.userId?.trim()).filter(Boolean) as string[]),
+    [people],
+  );
 
   const syncPos = useCallback(() => {
     const el = triggerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const width = 320;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+    const gap = 10;
+    const edge = 8;
+    // Course bottom nav (~64–80px) sits fixed; keep picker clear of it.
+    const bottomChrome = 88;
+    const left = Math.max(edge, Math.min(rect.left, window.innerWidth - width - edge));
     const caretLeft = Math.min(Math.max(16, rect.left + rect.width / 2 - left - 6), width - 24);
-    setPos({ top: rect.bottom + 10, left, caretLeft });
+
+    const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - bottomChrome - edge);
+    const spaceAbove = Math.max(0, rect.top - edge);
+    const measured = panelRef.current?.offsetHeight ?? 0;
+    const preferredHeight = measured > 0 ? measured : 360;
+    const openBelow =
+      spaceBelow >= Math.min(preferredHeight, 260) || spaceBelow >= spaceAbove;
+
+    if (openBelow) {
+      const maxHeight = Math.max(160, spaceBelow - gap);
+      setPos({
+        top: rect.bottom + gap,
+        left,
+        caretLeft,
+        maxHeight,
+        placement: "below",
+      });
+      return;
+    }
+
+    const maxHeight = Math.max(160, spaceAbove - gap);
+    setPos({
+      bottom: window.innerHeight - rect.top + gap,
+      left,
+      caretLeft,
+      maxHeight,
+      placement: "above",
+    });
   }, []);
 
   useEffect(() => {
@@ -132,6 +180,13 @@ export function ManagementTablePersonCellEditor({
     }
     syncPos();
   }, [open, syncPos]);
+
+  // Re-measure after content/results change so flip + max-height stay accurate.
+  useEffect(() => {
+    if (!open) return;
+    const id = window.requestAnimationFrame(() => syncPos());
+    return () => window.cancelAnimationFrame(id);
+  }, [open, syncPos, results.length, people.length, query, loading]);
 
   useEffect(() => {
     if (!open) return;
@@ -198,13 +253,30 @@ export function ManagementTablePersonCellEditor({
       username: user.username,
       email: user.email,
     };
-    onCommit(personCellValueToJson(next), true);
-    setOpen(false);
+    if (!multi) {
+      onCommit(personCellValueToJson(next), true);
+      setOpen(false);
+      return;
+    }
+    if (selectedIds.has(user.userId)) {
+      const filtered = people.filter((p) => p.userId !== user.userId);
+      onCommit(peopleCellValueToJson(filtered), true);
+      return;
+    }
+    onCommit(peopleCellValueToJson([...people, next]), true);
+    setQuery("");
   };
 
   const clearSelection = () => {
-    onCommit({}, true);
+    onCommit(multi ? peopleCellValueToJson([]) : {}, true);
     setOpen(false);
+  };
+
+  const removePerson = (userId: string) => {
+    onCommit(
+      peopleCellValueToJson(people.filter((p) => p.userId !== userId)),
+      true,
+    );
   };
 
   const emptyMessage =
@@ -221,7 +293,9 @@ export function ManagementTablePersonCellEditor({
       ? "parent"
       : personPicker === "class_students" || personPicker === "school_students"
         ? "student"
-        : "person";
+        : multi
+          ? "people"
+          : "person";
 
   const listContent = (() => {
     const trimmed = query.trim();
@@ -246,11 +320,37 @@ export function ManagementTablePersonCellEditor({
     }
     return (
       <ul className="space-y-2">
-        {results.map((user) => (
-          <li key={user.userId}>
-            <PersonPickerRow user={user} onPick={pick} />
-          </li>
-        ))}
+        {results.map((user) => {
+          const selected = multi && selectedIds.has(user.userId);
+          return (
+            <li key={user.userId}>
+              {multi ? (
+                <button
+                  type="button"
+                  className={[
+                    "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all",
+                    selected
+                      ? "border-primary-400 bg-primary-50"
+                      : "border-border-default/80 bg-surface-muted/20 hover:border-primary-300 hover:bg-surface-muted/60",
+                  ].join(" ")}
+                  onClick={() => pick(user)}
+                >
+                  <PersonAvatar name={displayNameForUser(user)} seed={user.userId} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-text-primary">
+                      {displayNameForUser(user)}
+                    </span>
+                    <span className="block truncate text-xs text-text-tertiary">
+                      {selected ? "Click to remove" : user.email?.trim() || user.username?.trim() || ""}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                <PersonPickerRow user={user} onPick={pick} />
+              )}
+            </li>
+          );
+        })}
       </ul>
     );
   })();
@@ -264,7 +364,7 @@ export function ManagementTablePersonCellEditor({
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
         className={[
-          "inline-flex min-h-8 min-w-8 max-w-full items-center gap-2 rounded-full text-left transition-colors",
+          "inline-flex min-h-8 min-w-8 max-w-full items-center gap-1 rounded-full text-left transition-colors",
           hasSelection
             ? "px-1 py-0.5 hover:bg-surface-muted/60"
             : "size-8 justify-center border-2 border-dashed border-border-default bg-surface-muted/20 hover:border-primary-400 hover:bg-surface-muted/50",
@@ -274,10 +374,32 @@ export function ManagementTablePersonCellEditor({
         title={label || `Assign ${personLabel}`}
       >
         {hasSelection ? (
-          <>
-            <PersonAvatar name={label || "Student"} seed={person.userId || label} size="sm" />
-            <span className="max-w-[9rem] truncate text-sm font-medium text-text-primary">{label}</span>
-          </>
+          multi ? (
+            <span className="inline-flex items-center">
+              {people.slice(0, 3).map((p, idx) => {
+                const name = p.fullName?.trim() || p.username?.trim() || p.email?.trim() || "?";
+                return (
+                  <span
+                    key={p.userId || `${name}-${idx}`}
+                    className={idx > 0 ? "-ml-1.5" : ""}
+                    style={{ zIndex: 3 - idx }}
+                  >
+                    <PersonAvatar name={name} seed={p.userId || name} size="sm" />
+                  </span>
+                );
+              })}
+              {people.length > 3 ? (
+                <span className="ml-1 text-[11px] font-semibold text-text-secondary">
+                  +{people.length - 3}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <>
+              <PersonAvatar name={label || "Student"} seed={person.userId || label} size="sm" />
+              <span className="max-w-[9rem] truncate text-sm font-medium text-text-primary">{label}</span>
+            </>
+          )
         ) : (
           <UserRound className="size-4 text-text-tertiary" aria-hidden />
         )}
@@ -291,16 +413,46 @@ export function ManagementTablePersonCellEditor({
               role="dialog"
               aria-modal="true"
               aria-label={`Select ${personLabel}`}
-              className="fixed z-[4600] w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border-default bg-surface-default shadow-[0_12px_40px_rgba(2,24,43,0.18)]"
-              style={{ top: pos.top, left: pos.left }}
+              className="fixed z-[4600] flex w-[min(20rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-xl border border-border-default bg-surface-default shadow-[0_12px_40px_rgba(2,24,43,0.18)]"
+              style={{
+                top: pos.top,
+                bottom: pos.bottom,
+                left: pos.left,
+                maxHeight: pos.maxHeight,
+              }}
             >
               <div
-                className="absolute -top-1.5 h-3 w-3 rotate-45 border-l border-t border-border-default bg-surface-default"
+                className={[
+                  "absolute h-3 w-3 rotate-45 border-border-default bg-surface-default",
+                  pos.placement === "below"
+                    ? "-top-1.5 border-l border-t"
+                    : "-bottom-1.5 border-b border-r",
+                ].join(" ")}
                 style={{ left: pos.caretLeft }}
                 aria-hidden
               />
 
-              <div className="relative border-b border-border-default p-3">
+              {multi && people.length > 0 ? (
+                <div className="flex shrink-0 flex-wrap gap-1.5 border-b border-border-default px-3 py-2.5">
+                  {people.map((p) => {
+                    const name = p.fullName?.trim() || p.username?.trim() || p.email?.trim() || "Person";
+                    return (
+                      <button
+                        key={p.userId || name}
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full bg-[#e8eef2] py-0.5 pl-0.5 pr-2 text-[11px] font-medium text-[#0f2a3d] hover:bg-[#d5dee6]"
+                        title={`Remove ${name}`}
+                        onClick={() => p.userId && removePerson(p.userId)}
+                      >
+                        <PersonAvatar name={name} seed={p.userId || name} size="sm" />
+                        <span className="max-w-[6rem] truncate">{name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div className="relative shrink-0 border-b border-border-default p-3">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-tertiary" />
                   <input
@@ -308,13 +460,15 @@ export function ManagementTablePersonCellEditor({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder={
-                      personPicker === "platform"
-                        ? "Search name, username, or email"
-                        : personPicker === "school_parents"
-                          ? "Search registered school parents"
-                          : personPicker === "class_students"
-                            ? "Search students on this class"
-                            : "Search registered school students"
+                      multi
+                        ? "Add people by name or email"
+                        : personPicker === "platform"
+                          ? "Search name, username, or email"
+                          : personPicker === "school_parents"
+                            ? "Search registered school parents"
+                            : personPicker === "class_students"
+                              ? "Search students on this class"
+                              : "Search registered school students"
                     }
                     className="h-10 w-full rounded-lg border border-primary-500 bg-surface-default pl-9 pr-9 text-sm text-text-primary outline-none ring-2 ring-primary-500/25 placeholder:text-text-tertiary"
                     autoFocus
@@ -325,13 +479,15 @@ export function ManagementTablePersonCellEditor({
                     title="Search tips"
                     onClick={() =>
                       window.alert(
-                        personPicker === "platform"
-                          ? "Search any Delta Labs account by name, username, or email. Picking someone registers them at this school."
-                          : personPicker === "school_parents"
-                            ? "Search parents already registered at this school. Add new parents from the school parent workspace first."
-                            : personPicker === "class_students"
-                              ? "Only students already on this class Student tab appear here. Add students there first."
-                              : "Search students already registered at this school. Add new students from the school student workspace first.",
+                        multi
+                          ? "Assign one or more people who can edit and submit this ghost work."
+                          : personPicker === "platform"
+                            ? "Search any Delta Labs account by name, username, or email. Picking someone registers them at this school."
+                            : personPicker === "school_parents"
+                              ? "Search parents already registered at this school. Add new parents from the school parent workspace first."
+                              : personPicker === "class_students"
+                                ? "Only students already on this class Student tab appear here. Add students there first."
+                                : "Search students already registered at this school. Add new students from the school student workspace first.",
                       )
                     }
                   >
@@ -340,18 +496,20 @@ export function ManagementTablePersonCellEditor({
                 </label>
               </div>
 
-              <div className="relative max-h-72 overflow-y-auto px-2 py-2">
+              <div className="relative min-h-0 flex-1 overflow-y-auto px-2 py-2">
                 <div className="flex items-center justify-between px-2 pb-1.5 pt-1">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">
                     {query.trim().length >= 2
                       ? "Results"
-                      : personPicker === "school_parents"
-                        ? "Suggested parents"
-                        : personPicker === "class_students"
-                          ? "Class students"
-                          : personPicker === "platform"
-                            ? "Suggested accounts"
-                            : "Suggested students"}
+                      : multi
+                        ? "Assignees"
+                        : personPicker === "school_parents"
+                          ? "Suggested parents"
+                          : personPicker === "class_students"
+                            ? "Class students"
+                            : personPicker === "platform"
+                              ? "Suggested accounts"
+                              : "Suggested students"}
                   </span>
                   {hasSelection ? (
                     <button
@@ -359,7 +517,7 @@ export function ManagementTablePersonCellEditor({
                       className="text-[11px] font-medium text-red-600 hover:underline"
                       onClick={clearSelection}
                     >
-                      Clear
+                      {multi ? "Clear all" : "Clear"}
                     </button>
                   ) : null}
                 </div>
