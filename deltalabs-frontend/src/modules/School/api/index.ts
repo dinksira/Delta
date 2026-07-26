@@ -1805,6 +1805,108 @@ export async function deleteCourseExercise(
   );
 }
 
+/* —— Course Fast Summary —— */
+
+export type CourseSummaryAuthorDto = Readonly<{
+  userId: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}>;
+
+export type CourseSummaryDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  courseWorkspaceItemId: string;
+  title: string;
+  summaryType: string;
+  section: string;
+  layout: "stack" | "split";
+  bodyHtml: string;
+  status?: "draft" | "published" | "deleted";
+  orgLabel: string;
+  readMinutes?: number | null;
+  ghostId?: string | null;
+  createdBy: CourseSummaryAuthorDto;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CourseSummaryListResponseDto = Readonly<{
+  items: readonly CourseSummaryDto[];
+  total: number;
+}>;
+
+export type CourseSummaryWritePayload = Readonly<{
+  title?: string;
+  summaryType?: string;
+  section?: string;
+  layout?: "stack" | "split";
+  bodyHtml?: string;
+  status?: "draft" | "published";
+  orgLabel?: string;
+  readMinutes?: number | null;
+}>;
+
+function courseSummaryBase(orgId: string, schoolId: string, courseId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/courses/${encodeURIComponent(courseId)}/summaries`;
+}
+
+export async function fetchCourseSummaries(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+): Promise<CourseSummaryListResponseDto> {
+  return apiClient.get<CourseSummaryListResponseDto>(courseSummaryBase(orgId, schoolId, courseId));
+}
+
+export async function fetchCourseSummary(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  summaryId: string,
+): Promise<CourseSummaryDto> {
+  return apiClient.get<CourseSummaryDto>(
+    `${courseSummaryBase(orgId, schoolId, courseId)}/${encodeURIComponent(summaryId)}`,
+  );
+}
+
+export async function createCourseSummary(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  payload: CourseSummaryWritePayload,
+): Promise<CourseSummaryDto> {
+  return apiClient.post<CourseSummaryDto>(courseSummaryBase(orgId, schoolId, courseId), {
+    json: payload,
+  });
+}
+
+export async function updateCourseSummary(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  summaryId: string,
+  payload: CourseSummaryWritePayload,
+): Promise<CourseSummaryDto> {
+  return apiClient.patch<CourseSummaryDto>(
+    `${courseSummaryBase(orgId, schoolId, courseId)}/${encodeURIComponent(summaryId)}`,
+    { json: payload },
+  );
+}
+
+export async function deleteCourseSummary(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  summaryId: string,
+): Promise<void> {
+  await apiClient.delete(
+    `${courseSummaryBase(orgId, schoolId, courseId)}/${encodeURIComponent(summaryId)}`,
+  );
+}
+
 /* —— Ghost Resources (host-agnostic) —— */
 
 export type GhostHostType = "course" | "class" | "department" | "school";
@@ -1956,6 +2058,21 @@ export async function ensureSchoolGhostExerciseDraft(
       : "";
   return apiClient.post<GhostDto>(
     `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/ensure-exercise-draft${qs}`,
+  );
+}
+
+export async function ensureSchoolGhostSummaryDraft(
+  orgId: string,
+  schoolId: string,
+  ghostId: string,
+  variantId?: string | null,
+): Promise<GhostDto> {
+  const qs =
+    variantId && variantId.trim()
+      ? `?variant_id=${encodeURIComponent(variantId.trim())}`
+      : "";
+  return apiClient.post<GhostDto>(
+    `${ghostBase(orgId, schoolId)}/${encodeURIComponent(ghostId)}/ensure-summary-draft${qs}`,
   );
 }
 

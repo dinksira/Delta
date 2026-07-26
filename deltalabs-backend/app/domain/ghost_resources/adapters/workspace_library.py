@@ -22,7 +22,7 @@ class WorkspaceLibraryHostAdapter:
         self._school = school_repo
 
     def can_handle(self, *, host_type: str, slot_key: str, resource_kind: str) -> bool:
-        if resource_kind in {"exercise", "test"}:
+        if resource_kind in {"exercise", "test", "fast_summary"}:
             return False
         if host_type == "course" and (
             slot_key.startswith("courseIntro.") or slot_key.startswith("course_intro.")

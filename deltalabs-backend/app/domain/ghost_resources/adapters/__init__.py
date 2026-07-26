@@ -6,7 +6,9 @@ from typing import Any
 
 from app.core.exceptions import ValidationError
 from app.domain.course_exercise.repository import CourseExerciseRepository
+from app.domain.course_summary.repository import CourseSummaryRepository
 from app.domain.ghost_resources.adapters.course_exercise import CourseExerciseHostAdapter
+from app.domain.ghost_resources.adapters.course_fast_summary import CourseFastSummaryHostAdapter
 from app.domain.ghost_resources.adapters.course_intro import CourseIntroHostAdapter
 from app.domain.ghost_resources.adapters.workspace_library import WorkspaceLibraryHostAdapter
 from app.domain.school.repository import Repository as SchoolRepository
@@ -17,13 +19,15 @@ class HostAdapterRegistry:
         self,
         school_repo: SchoolRepository,
         exercise_repo: CourseExerciseRepository | None = None,
+        summary_repo: CourseSummaryRepository | None = None,
     ) -> None:
         adapters: list[Any] = [
             CourseIntroHostAdapter(school_repo),
         ]
         if exercise_repo is not None:
-            # Before WorkspaceLibrary so exercise/test do not fall through to metadata-only fulfill.
             adapters.append(CourseExerciseHostAdapter(school_repo, exercise_repo))
+        if summary_repo is not None:
+            adapters.append(CourseFastSummaryHostAdapter(school_repo, summary_repo))
         adapters.append(WorkspaceLibraryHostAdapter(school_repo))
         self._adapters = adapters
 

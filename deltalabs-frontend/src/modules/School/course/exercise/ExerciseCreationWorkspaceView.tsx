@@ -73,13 +73,17 @@ export function ExerciseCreationWorkspaceView({
     schoolMembership?.roleKeys,
   );
 
-  const backHref = `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}?nav=exercise`;
-
   const detailQuery = useQuery({
     queryKey: schoolQueryKeys.courseExercise(orgId, schoolId, courseItemId, exerciseId ?? ""),
     queryFn: () => fetchCourseExercise(orgId, schoolId, courseItemId, exerciseId!),
     enabled: enabled && Boolean(exerciseId),
   });
+
+  const productKind: "exercise" | "test" =
+    detailQuery.data?.kind === "test" || kind === "test" ? "test" : "exercise";
+  const backHref = `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}?nav=exercise${
+    productKind === "test" ? "&tab=test" : ""
+  }`;
 
   const ghostId = detailQuery.data?.ghostId?.trim() || "";
   const ghostQuery = useQuery({
@@ -232,7 +236,7 @@ export function ExerciseCreationWorkspaceView({
     if (!detailQuery.data || hydrated) return;
     const ex = detailQuery.data;
     setSidebar({
-      title: ex.title || (kind === "test" ? "New Test" : "New Exercise"),
+      title: ex.title || (productKind === "test" ? "New Test" : "New Exercise"),
       totalMark: ex.totalMark != null ? String(ex.totalMark) : "",
       timeMinutes: ex.timeMinutes != null ? String(ex.timeMinutes) : "",
       takeWithFriend: Boolean(ex.takeWithFriend),
@@ -246,7 +250,7 @@ export function ExerciseCreationWorkspaceView({
     );
     setCurrentId(ex.id);
     setHydrated(true);
-  }, [detailQuery.data, hydrated, kind]);
+  }, [detailQuery.data, hydrated, productKind]);
 
   const payloadQuestions = useMemo(
     () => questions.map((q, order) => ({ ...q, order })),
@@ -257,8 +261,8 @@ export function ExerciseCreationWorkspaceView({
     const minutes = sidebar.timeMinutes.trim() ? Number(sidebar.timeMinutes) : null;
     const mark = sidebar.totalMark.trim() ? Number(sidebar.totalMark) : null;
     return {
-      title: sidebar.title.trim() || (kind === "test" ? "New Test" : "New Exercise"),
-      kind,
+      title: sidebar.title.trim() || (productKind === "test" ? "New Test" : "New Exercise"),
+      kind: productKind,
       status,
       visibility: sidebar.visibility,
       takeWithFriend: sidebar.takeWithFriend,
@@ -373,6 +377,7 @@ export function ExerciseCreationWorkspaceView({
           readOnly={editLocked}
           orgId={orgId}
           resources={resources}
+          productKind={productKind}
           onSidebarTabChange={setSidebarTab}
           onChange={(patch) => setSidebar((s) => ({ ...s, ...patch }))}
           onSaveDraft={() => saveMutation.mutate("draft")}

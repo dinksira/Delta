@@ -149,7 +149,7 @@ External-made work still uses `upload_sheet` even if the **end** kind is big (e.
 | Course → Intro | `courseIntro.videos.intro` | `video` / `course_intro` |
 | Course → Exercise & Test → Exercise | `exercise.resource` | `exercise` |
 | Course → Exercise & Test → Test | `test.resource` | `test` |
-| Course → (future) Fast summary | `course.summary.*` | `fast_summary` |
+| Course → Fast summary | `course.summary.*` | `fast_summary` |
 | Class → Roadmap Ghost Res. | `roadmap.resource` | `roadmap_resource` |
 | Class → Library | `class.library.*` | `document` / `image` / … |
 | Department | `department.handbook` | `handbook` |
@@ -186,7 +186,7 @@ Do **not** implement every kind at once. Grow the spectrum:
 | **A** | `image` / `document` / `video` via upload + preview + review | External/simple path + MT Open work |
 | **B** | `exercise` (+ `test`) in-app builder + deps | In-product path + hybrid variants — see [13](./13-exercise-ghosts.md) |
 | **C** | `roadmap_resource` | Class host + different adapter |
-| **D** | `fast_summary` / `course_intro` polish | More composers, same ghost core |
+| **D** | `fast_summary` Phase 0–1 + `course_intro` polish | See [§15](./15-fast-summary.md); richer composers later |
 | **E** | department / school kinds | Host-agnostic claim held |
 
 Exercise-first for **in-product** is fine; Wave A in parallel (or just before) keeps “simple file ghosts” honest so not everything looks like an exercise.

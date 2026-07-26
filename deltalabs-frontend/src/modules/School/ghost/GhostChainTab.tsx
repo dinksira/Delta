@@ -779,7 +779,9 @@ export function GhostChainTab({
           ) : null}
           {onOpenWork &&
           (selected.role === "end" || selected.isDefault) &&
-          (ghost.resourceKind === "exercise" || ghost.resourceKind === "test") ? (
+          (ghost.resourceKind === "exercise" ||
+            ghost.resourceKind === "test" ||
+            ghost.resourceKind === "fast_summary") ? (
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"

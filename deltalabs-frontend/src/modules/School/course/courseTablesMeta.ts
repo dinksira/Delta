@@ -1,6 +1,9 @@
-/** Course Intro Management Table catalog — stored on course workspace item metadata. */
+/** Course Management Table catalog — stored on course workspace item metadata. */
 
 export type CourseTableVisibility = "self_owned" | "sharable";
+
+/** Which course nav owns this catalog entry. Legacy rows without surface = exercise. */
+export type CourseTableSurface = "exercise" | "summary";
 
 export type CourseTableEntry = Readonly<{
   id: string;
@@ -11,14 +14,20 @@ export type CourseTableEntry = Readonly<{
   templateLabel: string;
   createdByName: string;
   createdAt: string;
+  surface: CourseTableSurface;
 }>;
+
+function normalizeSurface(raw: unknown): CourseTableSurface {
+  return String(raw ?? "").trim() === "summary" ? "summary" : "exercise";
+}
 
 export function parseCourseTablesFromMetadata(
   metadata: Record<string, unknown> | null | undefined,
+  surface?: CourseTableSurface,
 ): CourseTableEntry[] {
   const raw = metadata?.courseTables ?? metadata?.course_tables;
   if (!Array.isArray(raw)) return [];
-  return raw
+  const all = raw
     .filter((e): e is Record<string, unknown> => !!e && typeof e === "object" && !Array.isArray(e))
     .map((e): CourseTableEntry => ({
       id: String(e.id ?? e.instanceId ?? e.instance_id ?? ""),
@@ -32,8 +41,22 @@ export function parseCourseTablesFromMetadata(
       templateLabel: String(e.templateLabel ?? e.template_label ?? "Template Based"),
       createdByName: String(e.createdByName ?? e.created_by_name ?? "You"),
       createdAt: String(e.createdAt ?? e.created_at ?? new Date().toISOString()),
+      surface: normalizeSurface(e.surface),
     }))
     .filter((e) => e.instanceId);
+  if (!surface) return all;
+  return all.filter((e) => e.surface === surface);
+}
+
+/** Merge one surface's tables into full metadata without wiping the other surface. */
+export function mergeCourseTablesForSurface(
+  metadata: Record<string, unknown> | null | undefined,
+  surface: CourseTableSurface,
+  surfaceTables: readonly CourseTableEntry[],
+): CourseTableEntry[] {
+  const others = parseCourseTablesFromMetadata(metadata).filter((t) => t.surface !== surface);
+  const tagged = surfaceTables.map((t) => ({ ...t, surface }));
+  return [...tagged, ...others];
 }
 
 export function courseTablesToMetadataPatch(
@@ -66,4 +89,15 @@ export function relativeTimeLabel(iso: string): string {
   }
   const d = Math.round(diffSec / 86400);
   return `${d} day${d === 1 ? "" : "s"} ago`;
+}
+
+/** Ghost resource kinds that belong on Exercise & Test Ghost Ops. */
+export function isExerciseGhostResourceKind(kind: string): boolean {
+  const k = kind.trim().toLowerCase();
+  if (!k || k === "fast_summary") return false;
+  return true;
+}
+
+export function isSummaryGhostResourceKind(kind: string): boolean {
+  return kind.trim().toLowerCase() === "fast_summary";
 }

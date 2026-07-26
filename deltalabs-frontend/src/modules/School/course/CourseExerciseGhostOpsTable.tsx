@@ -12,9 +12,15 @@ import {
   appendManagementTableColumn,
   bootstrapGhostOpsTable,
   ensureSchoolGhostExerciseDraft,
+  ensureSchoolGhostSummaryDraft,
   fetchManagementTableInstanceBundle,
   fetchSchoolGhost,
+  fetchSchoolGhosts,
 } from "@/modules/School/api";
+import {
+  isExerciseGhostResourceKind,
+  isSummaryGhostResourceKind,
+} from "@/modules/School/course/courseTablesMeta";
 import { GhostDrawer } from "@/modules/School/ghost";
 import { GhostUploadWorkSheet } from "@/modules/School/ghost/GhostUploadWorkSheet";
 import { parseGhostOpsOpenKey } from "@/modules/School/managementTable/managementTableGhostOpsStatus";
@@ -41,7 +47,7 @@ export function readGhostOpsTableInstanceId(
   return id || null;
 }
 
-/** Ghost ops board embedded in Course → Exercise & Test → Management Table. */
+/** Ghost ops board embedded in Course → Exercise/Test or Fast Summary → Management Table. */
 export function CourseExerciseGhostOpsTable({
   orgId,
   schoolId,
@@ -51,6 +57,7 @@ export function CourseExerciseGhostOpsTable({
   preferredInstanceId,
   onBootstrapped,
   showPageHeader = true,
+  surface = "exercise",
 }: Readonly<{
   orgId: string;
   schoolId: string;
@@ -62,6 +69,7 @@ export function CourseExerciseGhostOpsTable({
   onBootstrapped?: (instanceId: string) => void;
   /** When false, hide the page-level title (parent already provides back + context). */
   showPageHeader?: boolean;
+  surface?: "exercise" | "summary";
 }>) {
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -110,6 +118,27 @@ export function CourseExerciseGhostOpsTable({
     enabled: Boolean(orgId && schoolId && instanceId),
     staleTime: 15_000,
   });
+
+  const ghostsQuery = useQuery({
+    queryKey: schoolQueryKeys.ghosts(orgId, schoolId, "course", workspaceItemId),
+    queryFn: () =>
+      fetchSchoolGhosts(orgId, schoolId, { hostType: "course", hostId: workspaceItemId }),
+    enabled: Boolean(orgId && schoolId && workspaceItemId),
+    staleTime: 15_000,
+  });
+
+  const allowedGhostIds = useMemo(() => {
+    const items = ghostsQuery.data?.items ?? [];
+    const ids = new Set<string>();
+    for (const g of items) {
+      const ok =
+        surface === "summary"
+          ? isSummaryGhostResourceKind(g.resourceKind)
+          : isExerciseGhostResourceKind(g.resourceKind);
+      if (ok) ids.add(g.id);
+    }
+    return ids;
+  }, [ghostsQuery.data?.items, surface]);
 
   const repairTableBootstrap = useCallback(() => {
     setInstanceId(null);
@@ -176,8 +205,9 @@ export function CourseExerciseGhostOpsTable({
   const openWorkMutation = useMutation({
     mutationFn: async (id: string) => {
       let ghost = await fetchSchoolGhost(orgId, schoolId, id);
-      if (ghost.resourceKind !== "exercise" && ghost.resourceKind !== "test") {
-        throw new Error("Open work is only available for Exercise or Test ghosts.");
+      const kind = ghost.resourceKind;
+      if (kind !== "exercise" && kind !== "test" && kind !== "fast_summary") {
+        throw new Error("Open work is only available for Exercise, Test, or Fast Summary ghosts.");
       }
       const end =
         ghost.nodes.find((n) => n.role === "end") ??
@@ -185,6 +215,36 @@ export function CourseExerciseGhostOpsTable({
         ghost.nodes[0];
       if (!end) throw new Error("Ghost has no end node.");
       const head = end.workingHead ?? {};
+
+      if (kind === "fast_summary") {
+        let draftId =
+          typeof head.summaryDraftId === "string"
+            ? head.summaryDraftId.trim()
+            : typeof head.summary_draft_id === "string"
+              ? head.summary_draft_id.trim()
+              : "";
+        if (!draftId) {
+          ghost = await ensureSchoolGhostSummaryDraft(orgId, schoolId, id, end.id);
+          const refreshed =
+            ghost.nodes.find((n) => n.id === end.id) ??
+            ghost.nodes.find((n) => n.role === "end") ??
+            ghost.nodes[0];
+          const rh = refreshed?.workingHead ?? {};
+          draftId =
+            typeof rh.summaryDraftId === "string"
+              ? rh.summaryDraftId.trim()
+              : typeof rh.summary_draft_id === "string"
+                ? rh.summary_draft_id.trim()
+                : "";
+        }
+        if (!draftId) throw new Error("Could not link a summary draft.");
+        return {
+          kind: "summary" as const,
+          courseItemId: ghost.hostWorkspaceItemId || workspaceItemId,
+          draftId,
+        };
+      }
+
       let draftId =
         typeof head.exerciseDraftId === "string"
           ? head.exerciseDraftId.trim()
@@ -207,14 +267,21 @@ export function CourseExerciseGhostOpsTable({
       }
       if (!draftId) throw new Error("Could not link an exercise draft.");
       return {
+        kind: "exercise" as const,
         courseItemId: ghost.hostWorkspaceItemId || workspaceItemId,
-        exerciseId: draftId,
+        draftId,
       };
     },
-    onSuccess: ({ courseItemId, exerciseId }) => {
+    onSuccess: ({ kind, courseItemId, draftId }) => {
       setWorkError(null);
+      if (kind === "summary") {
+        router.push(
+          `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}/summaries/${encodeURIComponent(draftId)}/edit`,
+        );
+        return;
+      }
       router.push(
-        `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(exerciseId)}/edit`,
+        `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(draftId)}/edit`,
       );
     },
     onError: (err) => {
@@ -297,9 +364,20 @@ export function CourseExerciseGhostOpsTable({
               </span>
             </div>
             <p className="mt-1 text-xs leading-relaxed text-text-tertiary">
-              <span className="font-medium text-text-secondary">Work</span> opens the right surface:
-              exercise builder on the parent, or upload/preview for image (and other file) variants.
-              Then request approval. Creators/managers approve or reject after reviewing the file.
+              {surface === "summary" ? (
+                <>
+                  <span className="font-medium text-text-secondary">Work</span> opens the Fast
+                  Summary composer for draft work. Request approval when ready; creators/managers
+                  approve or reject after review.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-text-secondary">Work</span> opens the right
+                  surface: exercise builder on the parent, or upload/preview for image (and other
+                  file) variants. Then request approval. Creators/managers approve or reject after
+                  reviewing the file.
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -326,7 +404,12 @@ export function CourseExerciseGhostOpsTable({
         boardTabLabel="Ghost Ops"
         allowAddRow={false}
         onlyEditableColumnTitles={canMutate ? ["Assignee", "Status"] : ["Status"]}
-        emptyRowsMessage="No ghosts yet. Create one from Direct View."
+        emptyRowsMessage={
+          surface === "summary"
+            ? "No summary ghosts yet. Create one from Direct View (ghost button)."
+            : "No ghosts yet. Create one from Direct View."
+        }
+        allowedGhostIds={allowedGhostIds}
         onOpenAddColumn={addColumn.openFromButton}
         onOpenGhost={openGhost}
         onOpenWork={(openKey) => {

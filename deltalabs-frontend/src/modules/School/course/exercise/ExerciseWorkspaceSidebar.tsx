@@ -133,6 +133,7 @@ export function ExerciseWorkspaceSidebar({
   readOnly = false,
   orgId = "",
   resources = [],
+  productKind = "exercise",
   onSidebarTabChange,
   onChange,
   onSaveDraft,
@@ -145,6 +146,7 @@ export function ExerciseWorkspaceSidebar({
   readOnly?: boolean;
   orgId?: string;
   resources?: readonly ExerciseSidebarResource[];
+  productKind?: "exercise" | "test";
   onSidebarTabChange: (tab: "features" | "resources") => void;
   onChange: (patch: Partial<ExerciseSidebarState>) => void;
   onSaveDraft: () => void;
@@ -183,7 +185,7 @@ export function ExerciseWorkspaceSidebar({
       <div className="flex gap-4 border-b border-[#e3ebf1] px-4 pt-3">
         {(
           [
-            ["features", "Exercise Features"],
+            ["features", productKind === "test" ? "Test Features" : "Exercise Features"],
             ["resources", "Resources"],
           ] as const
         ).map(([id, label]) => (

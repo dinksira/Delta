@@ -130,6 +130,7 @@ export function CourseIntroManagementTableView({
         templateLabel,
         createdByName: displayNameFromSession(session),
         createdAt: new Date().toISOString(),
+        surface: "exercise",
       };
       const next = [entry, ...tables];
       await persistTables(next);
@@ -164,6 +165,7 @@ export function CourseIntroManagementTableView({
         templateLabel: "Template Based",
         createdByName: displayNameFromSession(session),
         createdAt: new Date().toISOString(),
+        surface: "exercise",
       };
       const next = [entry, ...tables];
       await persistTables(next);

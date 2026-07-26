@@ -39,6 +39,7 @@ import {
   applyGhostOpsStatusChange,
   ghostOpsStatusNeedsNote,
   ghostOpsStatusNoteCopy,
+  parseGhostOpsOpenKey,
   type GhostOpsStatusNoteKind,
 } from "@/modules/School/managementTable/managementTableGhostOpsStatus";
 import { GhostStatusNoteModal } from "@/modules/School/ghost/GhostStatusNoteModal";
@@ -92,6 +93,11 @@ export type ManagementTableGroupSectionProps = Readonly<{
   boardTabLabel?: string;
   /** Hide date-range / tag / tools chrome (ghost ops uses a leaner header). */
   hideUtilityChrome?: boolean;
+  /**
+   * Ghost Ops: only show rows whose Open ghost id is in this set.
+   * Used to scope Exercise vs Fast Summary boards that share one mirror table.
+   */
+  allowedGhostIds?: ReadonlySet<string> | null;
 }>;
 
 export function ManagementTableGroupSection({
@@ -116,6 +122,7 @@ export function ManagementTableGroupSection({
   appearance = "default",
   boardTabLabel,
   hideUtilityChrome = false,
+  allowedGhostIds = null,
 }: ManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const regionId = useId();
@@ -231,7 +238,44 @@ export function ManagementTableGroupSection({
   });
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
-  const rows = rowsQuery.data?.items ?? [];
+  const allRows = rowsQuery.data?.items ?? [];
+  const rows = useMemo(() => {
+    if (!allowedGhostIds) return allRows;
+    const openCol =
+      sortedColumns.find((c) => c.title.trim().toLowerCase() === "open ghost") ??
+      sortedColumns.find((c) => c.type === "link");
+    const keep = new Set<string>();
+    for (const row of allRows) {
+      let ghostId: string | null = null;
+      if (openCol) {
+        const parsed = parseGhostOpsOpenKey(row.cells[openCol.id]);
+        if (parsed) ghostId = parsed.ghostId;
+      }
+      if (!ghostId) {
+        for (const value of Object.values(row.cells)) {
+          const gid = parseGhostDeepLink(value);
+          if (gid) {
+            ghostId = gid;
+            break;
+          }
+        }
+      }
+      if (ghostId && allowedGhostIds.has(ghostId)) keep.add(row.id);
+    }
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const row of allRows) {
+        if (keep.has(row.id)) continue;
+        const parent = row.parentRowId?.trim();
+        if (parent && keep.has(parent)) {
+          keep.add(row.id);
+          grew = true;
+        }
+      }
+    }
+    return allRows.filter((r) => keep.has(r.id));
+  }, [allRows, allowedGhostIds, sortedColumns]);
   const flatRows = useMemo(
     () => flattenManagementTableRows(rows, expandedRowIds),
     [rows, expandedRowIds],

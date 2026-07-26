@@ -9,6 +9,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.domain.course_exercise.repository import CourseExerciseRepository, new_exercise_id
+from app.domain.course_summary.repository import CourseSummaryRepository, new_summary_id
 from app.domain.ghost_resources.adapters import HostAdapterRegistry
 from app.domain.ghost_resources.graph import MAX_EDGES, MAX_NODES, would_create_cycle
 from app.domain.ghost_resources.repository import (
@@ -56,12 +57,14 @@ class GhostResourcesService:
         school_repo: SchoolRepository,
         mt_service: ManagementTableService | None = None,
         exercise_repo: CourseExerciseRepository | None = None,
+        summary_repo: CourseSummaryRepository | None = None,
     ) -> None:
         self._g = ghost_repo
         self._school = school_repo
         self._mt = mt_service
         self._ex = exercise_repo
-        self._adapters = HostAdapterRegistry(school_repo, exercise_repo)
+        self._sm = summary_repo
+        self._adapters = HostAdapterRegistry(school_repo, exercise_repo, summary_repo)
 
     async def bootstrap(self) -> None:
         await self._g.ensure_indexes()
@@ -479,6 +482,59 @@ class GhostResourcesService:
             },
         )
 
+    async def _heal_fulfilled_summary_publish(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_doc: Mapping[str, Any],
+        end_node: Mapping[str, Any] | None,
+    ) -> None:
+        if self._sm is None:
+            return
+        if str(ghost_doc.get("status") or "") != "fulfilled":
+            return
+        if str(ghost_doc.get("resource_kind") or "").strip() != "fast_summary":
+            return
+        if str(ghost_doc.get("host_type") or "") != "course":
+            return
+        host_id = str(ghost_doc.get("host_workspace_item_id") or "").strip()
+        if not host_id or end_node is None:
+            return
+        working = end_node.get("working_head") if isinstance(end_node.get("working_head"), dict) else {}
+        summary_id = str(
+            working.get("summaryDraftId") or working.get("summary_draft_id") or ""
+        ).strip()
+        if not summary_id:
+            return
+        existing = await self._sm.find(
+            org_id=org_id,
+            school_id=school_id,
+            course_workspace_item_id=host_id,
+            summary_id=summary_id,
+        )
+        if existing is None:
+            return
+        still_linked = bool(str(existing.get("ghost_id") or "").strip())
+        still_draft = str(existing.get("status") or "") == "draft"
+        if not still_linked and not still_draft:
+            return
+        ghost_title = str(ghost_doc.get("title") or "").strip()
+        title = ghost_title or str(existing.get("title") or "").strip() or "Summary"
+        await self._sm.update(
+            org_id=org_id,
+            school_id=school_id,
+            course_workspace_item_id=host_id,
+            summary_id=summary_id,
+            patch={
+                "status": "published",
+                "title": title,
+                "ghost_id": "",
+                "ghost_end_variant_id": "",
+                "published_at": _utcnow(),
+            },
+        )
+
     async def _sync_ops_mirror(
         self,
         *,
@@ -509,6 +565,12 @@ class GhostResourcesService:
         if end_node is None:
             end_node = next((n for n in node_docs if str(n.get("role") or "") == "end"), None)
         await self._heal_fulfilled_exercise_publish(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_doc=doc,
+            end_node=end_node,
+        )
+        await self._heal_fulfilled_summary_publish(
             org_id=org_id,
             school_id=school_id,
             ghost_doc=doc,
@@ -703,6 +765,12 @@ class GhostResourcesService:
                 ghost_doc=doc,
                 end_node=end_node,
             )
+            await self._heal_fulfilled_summary_publish(
+                org_id=org_id,
+                school_id=school_id,
+                ghost_doc=doc,
+                end_node=end_node,
+            )
             await self._sync_ops_mirror(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
         return await self._map_ghost(doc, include_graph=True)
 
@@ -786,6 +854,39 @@ class GhostResourcesService:
                 {
                     "contentType": "exercise_draft",
                     "exerciseDraftId": exercise_id,
+                }
+            )
+        elif (
+            self._sm is not None
+            and payload.host_type == "course"
+            and resource_kind == "fast_summary"
+        ):
+            summary_id = new_summary_id()
+            await self._sm.insert(
+                {
+                    "_id": summary_id,
+                    "org_id": org_id,
+                    "school_id": school_id,
+                    "course_workspace_item_id": payload.host_workspace_item_id.strip(),
+                    "title": title or "New Summary",
+                    "summary_type": "academic",
+                    "section": "",
+                    "layout": "split",
+                    "body_html": "",
+                    "status": "draft",
+                    "org_label": "",
+                    "read_minutes": None,
+                    "ghost_id": ghost_id,
+                    "ghost_end_variant_id": default_variant_id,
+                    "created_by_user_id": user_id,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+            working_head.update(
+                {
+                    "contentType": "summary_draft",
+                    "summaryDraftId": summary_id,
                 }
             )
 
@@ -920,6 +1021,104 @@ class GhostResourcesService:
             event_type="exercise_draft_linked",
             actor_user_id=user_id,
             meta={"variantId": target_id, "exerciseDraftId": exercise_id},
+        )
+        return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+    async def ensure_summary_draft(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        ghost_id: str,
+        user_id: str,
+        variant_id: str | None = None,
+        is_manager: bool = False,
+    ) -> GhostPublic:
+        """Bind an end-node working_head to a CourseSummary draft (fast_summary ghosts)."""
+        if self._sm is None:
+            raise ValidationError(
+                "Summary drafts are unavailable.",
+                code="ghost_summary_unavailable",
+            )
+        doc = await self._g.find_instance(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+        if doc is None:
+            raise NotFoundError("Ghost not found.", code="ghost_not_found")
+        resource_kind = str(doc.get("resource_kind") or "document").strip() or "document"
+        if resource_kind != "fast_summary":
+            raise ValidationError(
+                "Only fast summary ghosts have a summary draft.",
+                code="ghost_not_summary_kind",
+            )
+        if str(doc.get("host_type") or "") != "course":
+            raise ValidationError(
+                "Summary drafts require a course host.",
+                code="ghost_host_not_course",
+            )
+
+        target_id = (variant_id or str(doc.get("default_variant_id") or "")).strip()
+        if not target_id:
+            raise NotFoundError("End node not found.", code="ghost_variant_not_found")
+        node = await self._g.find_variant(ghost_id=ghost_id, variant_id=target_id)
+        if node is None:
+            raise NotFoundError("Chain node not found.", code="ghost_variant_not_found")
+
+        working = dict(node.get("working_head") or {})
+        existing = str(working.get("summaryDraftId") or working.get("summary_draft_id") or "").strip()
+        if existing:
+            return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
+
+        await self.assert_can_work_node(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            variant_id=target_id,
+            user_id=user_id,
+            is_manager=is_manager,
+        )
+
+        now = _utcnow()
+        summary_id = new_summary_id()
+        title = str(doc.get("title") or "").strip() or "New Summary"
+        await self._sm.insert(
+            {
+                "_id": summary_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "course_workspace_item_id": str(doc.get("host_workspace_item_id") or "").strip(),
+                "title": title,
+                "summary_type": "academic",
+                "section": "",
+                "layout": "split",
+                "body_html": "",
+                "status": "draft",
+                "org_label": "",
+                "read_minutes": None,
+                "ghost_id": ghost_id,
+                "ghost_end_variant_id": target_id,
+                "created_by_user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+        working.update(
+            {
+                "version": int(working.get("version") or 1),
+                "contentType": "summary_draft",
+                "summaryDraftId": summary_id,
+            }
+        )
+        await self._g.update_variant(
+            ghost_id=ghost_id,
+            variant_id=target_id,
+            patch={"working_head": working, "updated_at": now},
+        )
+        await self._append_event(
+            org_id=org_id,
+            school_id=school_id,
+            ghost_id=ghost_id,
+            event_type="summary_draft_linked",
+            actor_user_id=user_id,
+            meta={"variantId": target_id, "summaryDraftId": summary_id},
         )
         return await self.get_ghost(org_id=org_id, school_id=school_id, ghost_id=ghost_id)
 

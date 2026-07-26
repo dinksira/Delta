@@ -16,6 +16,7 @@ import {
   createSchoolGhostVariant,
   deleteSchoolGhostEdge,
   ensureSchoolGhostExerciseDraft,
+  ensureSchoolGhostSummaryDraft,
   fetchSchoolGhost,
   fulfillSchoolGhost,
   reviewSchoolGhostVariant,
@@ -38,12 +39,19 @@ import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 function ghostChromeTitle(kind: string | undefined): string {
   if (kind === "exercise") return "Exercise ghost";
   if (kind === "test") return "Test ghost";
+  if (kind === "fast_summary") return "Fast Summary ghost";
   return "Ghost";
 }
 
 function exerciseDraftIdFromNode(node: GhostNodeDto): string | null {
   const head = node.workingHead ?? {};
   const raw = head.exerciseDraftId ?? head.exercise_draft_id;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+function summaryDraftIdFromNode(node: GhostNodeDto): string | null {
+  const head = node.workingHead ?? {};
+  const raw = head.summaryDraftId ?? head.summary_draft_id;
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
@@ -121,6 +129,15 @@ export function GhostDrawer({
             host.schoolId,
             ghost.hostWorkspaceItemId,
             ghost.resourceKind,
+          ),
+        });
+      }
+      if (ghost.resourceKind === "fast_summary") {
+        await queryClient.invalidateQueries({
+          queryKey: schoolQueryKeys.courseSummaries(
+            host.orgId,
+            host.schoolId,
+            ghost.hostWorkspaceItemId,
           ),
         });
       }
@@ -281,6 +298,35 @@ export function GhostDrawer({
       if (!current) throw new Error("Ghost not loaded.");
       const node = current.nodes.find((n) => n.id === variantId);
       if (!node) throw new Error("Chain node not found.");
+      const kind = current.resourceKind;
+
+      if (kind === "fast_summary") {
+        let draftId = summaryDraftIdFromNode(node);
+        let nextGhost: GhostDto = current;
+        if (!draftId) {
+          nextGhost = await ensureSchoolGhostSummaryDraft(
+            host.orgId,
+            host.schoolId,
+            current.id,
+            variantId,
+          );
+          const refreshed = nextGhost.nodes.find((n) => n.id === variantId);
+          draftId = refreshed ? summaryDraftIdFromNode(refreshed) : null;
+        }
+        if (!draftId) {
+          throw new Error("Could not link a summary draft to this node.");
+        }
+        return {
+          kind: "summary" as const,
+          courseItemId: nextGhost.hostWorkspaceItemId || host.hostWorkspaceItemId,
+          draftId,
+        };
+      }
+
+      if (kind !== "exercise" && kind !== "test") {
+        throw new Error("Open work is only available for Exercise, Test, or Fast Summary ghosts.");
+      }
+
       let draftId = exerciseDraftIdFromNode(node);
       let nextGhost: GhostDto = current;
       if (!draftId) {
@@ -297,19 +343,26 @@ export function GhostDrawer({
         throw new Error("Could not link an exercise draft to this node.");
       }
       return {
+        kind: "exercise" as const,
         courseItemId: nextGhost.hostWorkspaceItemId || host.hostWorkspaceItemId,
-        exerciseId: draftId,
+        draftId,
       };
     },
-    onSuccess: ({ courseItemId, exerciseId }) => {
+    onSuccess: ({ kind, courseItemId, draftId }) => {
       setError(null);
       onClose();
+      if (kind === "summary") {
+        router.push(
+          `/features/school/${encodeURIComponent(host.schoolId)}/course/${encodeURIComponent(courseItemId)}/summaries/${encodeURIComponent(draftId)}/edit`,
+        );
+        return;
+      }
       router.push(
-        `/features/school/${encodeURIComponent(host.schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(exerciseId)}/edit`,
+        `/features/school/${encodeURIComponent(host.schoolId)}/course/${encodeURIComponent(courseItemId)}/exercises/${encodeURIComponent(draftId)}/edit`,
       );
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Could not open exercise work.");
+      setError(err instanceof ApiError ? err.message : "Could not open work.");
     },
   });
 
@@ -502,7 +555,9 @@ export function GhostDrawer({
                 onSubmit={(variantId) => flowMutation.mutate({ kind: "submit", variantId })}
                 onApprove={(variantId) => flowMutation.mutate({ kind: "approve", variantId })}
                 onOpenWork={
-                  ghost.resourceKind === "exercise" || ghost.resourceKind === "test"
+                  ghost.resourceKind === "exercise" ||
+                  ghost.resourceKind === "test" ||
+                  ghost.resourceKind === "fast_summary"
                     ? (variantId) => openWorkMutation.mutate(variantId)
                     : undefined
                 }
@@ -518,7 +573,9 @@ export function GhostDrawer({
         </div>
 
         {ghost &&
-        (ghost.resourceKind === "exercise" || ghost.resourceKind === "test") &&
+        (ghost.resourceKind === "exercise" ||
+          ghost.resourceKind === "test" ||
+          ghost.resourceKind === "fast_summary") &&
         ghost.status !== "fulfilled" ? (
           <div className="border-t border-[#d5dee6] bg-[#eef3f6] px-4 py-2">
             <Button

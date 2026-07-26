@@ -26,6 +26,7 @@ import {
 import { CourseExerciseGhostOpsTable } from "@/modules/School/course/CourseExerciseGhostOpsTable";
 import {
   courseTablesToMetadataPatch,
+  mergeCourseTablesForSurface,
   parseCourseTablesFromMetadata,
   relativeTimeLabel,
   type CourseTableEntry,
@@ -59,7 +60,7 @@ function displayNameFromSession(session: AuthSessionPayload | null): string {
 
 type BoardTarget = "catalog" | "ghost" | { instanceId: string };
 
-/** Exercise & Test → Management Table: unified card catalog (Ghost Ops + extra tables). */
+/** Exercise & Test / Fast Summary → Management Table: unified card catalog (Ghost Ops + extra tables). */
 export function CourseExerciseManagementTableView({
   orgId,
   schoolId,
@@ -69,6 +70,7 @@ export function CourseExerciseManagementTableView({
   onGhostOpsBootstrapped,
   openGhostOpsBoard = false,
   onDismissOpenGhostOps,
+  surface = "exercise",
 }: Readonly<{
   orgId: string;
   schoolId: string;
@@ -79,11 +81,13 @@ export function CourseExerciseManagementTableView({
   /** When true (e.g. Ghost drawer → Table), open Ghost Ops board immediately. */
   openGhostOpsBoard?: boolean;
   onDismissOpenGhostOps?: () => void;
+  /** Which course nav owns this catalog (copy + empty hints). */
+  surface?: "exercise" | "summary";
 }>) {
   const queryClient = useQueryClient();
   const { session } = useAuthSession();
   const [tables, setTables] = useState<CourseTableEntry[]>(() =>
-    parseCourseTablesFromMetadata(courseItem.metadata ?? undefined),
+    parseCourseTablesFromMetadata(courseItem.metadata ?? undefined, surface),
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [inheritOpen, setInheritOpen] = useState(false);
@@ -91,8 +95,8 @@ export function CourseExerciseManagementTableView({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setTables(parseCourseTablesFromMetadata(courseItem.metadata ?? undefined));
-  }, [courseItem.metadata, courseItem.id]);
+    setTables(parseCourseTablesFromMetadata(courseItem.metadata ?? undefined, surface));
+  }, [courseItem.metadata, courseItem.id, surface]);
 
   useEffect(() => {
     if (openGhostOpsBoard) setBoard("ghost");
@@ -102,12 +106,17 @@ export function CourseExerciseManagementTableView({
     preferredGhostOpsInstanceId?.trim() || readGhostOpsTableInstanceId(courseItem.metadata ?? undefined),
   );
 
-  const persistTables = async (next: CourseTableEntry[]) => {
-    setTables(next);
+  const persistTables = async (nextSurfaceTables: CourseTableEntry[]) => {
+    const merged = mergeCourseTablesForSurface(
+      courseItem.metadata ?? undefined,
+      surface,
+      nextSurfaceTables,
+    );
+    setTables(nextSurfaceTables);
     await updateSchoolWorkspaceItem(orgId, schoolId, courseItem.id, {
       metadata: {
         ...(courseItem.metadata ?? {}),
-        ...courseTablesToMetadataPatch(next),
+        ...courseTablesToMetadataPatch(merged),
       },
     });
     await queryClient.invalidateQueries({
@@ -141,6 +150,7 @@ export function CourseExerciseManagementTableView({
         templateLabel,
         createdByName: displayNameFromSession(session),
         createdAt: new Date().toISOString(),
+        surface,
       };
       await persistTables([entry, ...tables]);
       return entry;
@@ -174,6 +184,7 @@ export function CourseExerciseManagementTableView({
         templateLabel: "Template Based",
         createdByName: displayNameFromSession(session),
         createdAt: new Date().toISOString(),
+        surface,
       };
       await persistTables([entry, ...tables]);
       return entry;
@@ -242,6 +253,7 @@ export function CourseExerciseManagementTableView({
             preferredInstanceId={preferredGhostOpsInstanceId}
             onBootstrapped={onGhostOpsBootstrapped}
             showPageHeader={false}
+            surface={surface}
           />
         </div>
         {modals}
@@ -322,7 +334,7 @@ export function CourseExerciseManagementTableView({
             </li>
             <li className="flex items-center gap-2">
               <Users className="size-3.5 text-text-tertiary" aria-hidden />
-              Course exercise &amp; test
+              {surface === "summary" ? "Course Fast Summary" : "Course exercise & test"}
             </li>
             <li className="text-text-tertiary">{ghostOpsReady ? "Ready" : "Opens on first use"}</li>
           </ul>

@@ -3,7 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, Ghost, HelpCircle } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
@@ -32,15 +33,24 @@ export function CourseExercisePanel({
   courseItem: SchoolWorkspaceItemDto;
   canMutate: boolean;
 }>) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>("direct");
-  const [kind, setKind] = useState<KindTab>("exercise");
+  const [kind, setKind] = useState<KindTab>(() =>
+    searchParams.get("tab") === "test" ? "test" : "exercise",
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [ghostOpen, setGhostOpen] = useState(false);
   const [ghostId, setGhostId] = useState<string | null>(null);
   const [opsInstanceId, setOpsInstanceId] = useState<string | null>(null);
   const [openGhostOpsBoard, setOpenGhostOpsBoard] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "test" || tab === "exercise") setKind(tab);
+  }, [searchParams]);
 
   const listQuery = useQuery({
     queryKey: schoolQueryKeys.courseExercises(orgId, schoolId, courseItem.id, kind),
@@ -71,23 +81,43 @@ export function CourseExercisePanel({
         orgLabel: "",
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (ex) => {
       setCreateOpen(false);
       setCreateError(null);
       await queryClient.invalidateQueries({
         queryKey: ["school", "course-exercises", orgId, schoolId, courseItem.id],
       });
-      await queryClient.refetchQueries({
-        queryKey: schoolQueryKeys.courseExercises(orgId, schoolId, courseItem.id, kind),
-      });
+      router.push(
+        `/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItem.id)}/exercises/${encodeURIComponent(ex.id)}/edit`,
+      );
     },
     onError: (err) => {
-      setCreateError(err instanceof ApiError ? err.message : "Could not create exercise.");
+      setCreateError(
+        err instanceof ApiError
+          ? err.message
+          : `Could not create ${kind === "test" ? "test" : "exercise"}.`,
+      );
     },
   });
 
   const items = useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const defineLabel = kind === "exercise" ? "Define Exercise" : "Define Test";
+  const ghostTileLabel =
+    kind === "exercise" ? "Open ghost workspace" : "You can create ghost resource here";
+
+  const openCreateModal = () => {
+    setCreateError(null);
+    setCreateOpen(true);
+  };
+
+  const setKindTab = (next: KindTab) => {
+    setKind(next);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("nav", "exercise");
+    if (next === "test") params.set("tab", "test");
+    else params.delete("tab");
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   const ghostDrawer = (
     <GhostDrawer
@@ -158,7 +188,7 @@ export function CourseExercisePanel({
               <button
                 key={id}
                 type="button"
-                onClick={() => setKind(id)}
+                onClick={() => setKindTab(id)}
                 className={[
                   "relative pb-2.5 text-sm transition-colors",
                   active
@@ -179,10 +209,7 @@ export function CourseExercisePanel({
           variant="primary"
           size="md"
           disabled={!canMutate}
-          onClick={() => {
-            setCreateError(null);
-            setCreateOpen(true);
-          }}
+          onClick={openCreateModal}
         >
           {defineLabel}
         </Button>
@@ -197,7 +224,7 @@ export function CourseExercisePanel({
         <p className="text-sm text-red-600">
           {listQuery.error instanceof ApiError
             ? listQuery.error.message
-            : "Could not load exercises."}
+            : `Could not load ${kind === "test" ? "tests" : "exercises"}.`}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -210,7 +237,7 @@ export function CourseExercisePanel({
             }}
             className="flex min-h-[13.5rem] flex-col items-center justify-center rounded-2xl bg-[#e8eef2] px-6 py-10 text-center transition-colors hover:bg-[#dfe7ed] disabled:opacity-60"
           >
-            <p className="text-sm font-medium text-[#5a6b7a]">Open ghost workspace</p>
+            <p className="text-sm font-medium text-[#5a6b7a]">{ghostTileLabel}</p>
             <Ghost className="mt-4 size-10 text-primary-800" strokeWidth={1.4} aria-hidden />
           </button>
 
@@ -218,6 +245,7 @@ export function CourseExercisePanel({
             <ExerciseCard
               key={ex.id}
               exercise={ex}
+              productKind={kind}
               href={`/features/school/${encodeURIComponent(schoolId)}/course/${encodeURIComponent(courseItem.id)}/exercises/${encodeURIComponent(ex.id)}/edit`}
               onOpenGhost={
                 ex.ghostId
@@ -249,10 +277,12 @@ export function CourseExercisePanel({
 
 function ExerciseCard({
   exercise,
+  productKind,
   href,
   onOpenGhost,
 }: Readonly<{
   exercise: CourseExerciseDto;
+  productKind: KindTab;
   href: string;
   onOpenGhost?: () => void;
 }>) {
@@ -260,7 +290,6 @@ function ExerciseCard({
     exercise.createdBy.fullName?.trim() || exercise.createdBy.username || "Someone";
   const initials = creatorName.slice(0, 2).toUpperCase();
   const status = exercise.status ?? "published";
-  // Ghost-linked drafts; after fulfill the BE clears ghostId and publishes.
   const isGhostWork =
     Boolean(exercise.ghostId?.trim()) && (exercise.status ?? "published") !== "published";
   const coverSrc =
@@ -269,6 +298,10 @@ function ExerciseCard({
     !exercise.coverImageUrl.startsWith("media://")
       ? exercise.coverImageUrl.trim()
       : "";
+  const openLabel = (() => {
+    if (isGhostWork || status === "draft") return "Continue editing";
+    return productKind === "test" ? "Go to Test" : "Open exercise";
+  })();
 
   return (
     <article
@@ -342,7 +375,7 @@ function ExerciseCard({
                 href={href}
                 className="inline-flex h-8 items-center rounded-md bg-primary-600 px-3 text-xs font-semibold text-white hover:bg-primary-700"
               >
-                {isGhostWork || status === "draft" ? "Continue editing" : "Open exercise"}
+                {openLabel}
               </Link>
               {isGhostWork && onOpenGhost ? (
                 <button
