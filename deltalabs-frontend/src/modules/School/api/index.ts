@@ -1907,6 +1907,190 @@ export async function deleteCourseSummary(
   );
 }
 
+/* —— Course Score —— */
+
+export type CourseScoreAssessmentDto = Readonly<{
+  id: string;
+  title: string;
+  maxPoints: number;
+}>;
+
+export type CourseScoreLineDto = Readonly<{
+  assessmentId: string;
+  points: number | null;
+  rank: number | null;
+}>;
+
+export type CourseScoreEntryDto = Readonly<{
+  id: string;
+  studentUserId?: string | null;
+  displayName: string;
+  subtitle: string;
+  avatarUrl?: string | null;
+  lines: readonly CourseScoreLineDto[];
+  totalPoints: number;
+  maxTotal: number;
+  statusPercent: number;
+  rank: number;
+  updatedAt: string;
+}>;
+
+export type CourseScoreBoardDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  courseWorkspaceItemId: string;
+  assessments: readonly CourseScoreAssessmentDto[];
+  entries: readonly CourseScoreEntryDto[];
+  updatedAt: string;
+}>;
+
+export type CourseScoreBoardWritePayload = Readonly<{
+  assessments: readonly Readonly<{
+    id?: string;
+    title: string;
+    maxPoints: number;
+  }>[];
+  entries: readonly Readonly<{
+    id?: string;
+    studentUserId?: string | null;
+    displayName: string;
+    subtitle?: string;
+    avatarUrl?: string | null;
+    lines: readonly Readonly<{
+      assessmentId: string;
+      points: number | null;
+    }>[];
+    updatedAt?: string;
+  }>[];
+}>;
+
+function courseScoreboardPath(orgId: string, schoolId: string, courseId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/courses/${encodeURIComponent(courseId)}/scoreboard`;
+}
+
+export async function fetchCourseScoreboard(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+): Promise<CourseScoreBoardDto> {
+  return apiClient.get<CourseScoreBoardDto>(courseScoreboardPath(orgId, schoolId, courseId));
+}
+
+export async function replaceCourseScoreboard(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  payload: CourseScoreBoardWritePayload,
+): Promise<CourseScoreBoardDto> {
+  return apiClient.put<CourseScoreBoardDto>(courseScoreboardPath(orgId, schoolId, courseId), {
+    json: payload,
+  });
+}
+
+export async function seedCourseScoreboardDemo(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+): Promise<CourseScoreBoardDto> {
+  return apiClient.post<CourseScoreBoardDto>(
+    `${courseScoreboardPath(orgId, schoolId, courseId)}/seed-demo`,
+  );
+}
+
+/* —— Course Supplements —— */
+
+export type CourseSupplementKind = "pdf" | "slides" | "video" | "audio" | "other";
+export type CourseSupplementSource = "upload" | "link";
+
+export type CourseSupplementAuthorDto = Readonly<{
+  userId: string;
+  username: string;
+  fullName?: string | null;
+  avatarUrl?: string | null;
+}>;
+
+export type CourseSupplementDto = Readonly<{
+  id: string;
+  orgId: string;
+  schoolId: string;
+  courseWorkspaceItemId: string;
+  title: string;
+  description: string;
+  kind: CourseSupplementKind;
+  source: CourseSupplementSource;
+  tags: readonly string[];
+  mediaId?: string | null;
+  playbackUrl: string;
+  linkUrl: string;
+  contentType: string;
+  fileName: string;
+  status?: "draft" | "published" | "deleted";
+  ghostId?: string | null;
+  createdBy: CourseSupplementAuthorDto;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CourseSupplementListResponseDto = Readonly<{
+  items: readonly CourseSupplementDto[];
+  total: number;
+}>;
+
+export type CourseSupplementWritePayload = Readonly<{
+  title: string;
+  description?: string;
+  kind?: CourseSupplementKind;
+  source?: CourseSupplementSource;
+  tags?: readonly string[];
+  mediaId?: string | null;
+  playbackUrl?: string;
+  linkUrl?: string;
+  contentType?: string;
+  fileName?: string;
+  status?: "draft" | "published";
+}>;
+
+function courseSupplementBase(orgId: string, schoolId: string, courseId: string): string {
+  return `/v1/orgs/${encodeURIComponent(orgId)}/schools/${encodeURIComponent(schoolId)}/courses/${encodeURIComponent(courseId)}/supplements`;
+}
+
+export async function fetchCourseSupplements(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  opts?: Readonly<{ kind?: CourseSupplementKind; ghostsOnly?: boolean }>,
+): Promise<CourseSupplementListResponseDto> {
+  const searchParams: Record<string, string> = {};
+  if (opts?.kind) searchParams.kind = opts.kind;
+  if (opts?.ghostsOnly) searchParams.ghostsOnly = "true";
+  return apiClient.get<CourseSupplementListResponseDto>(courseSupplementBase(orgId, schoolId, courseId), {
+    searchParams: Object.keys(searchParams).length ? searchParams : undefined,
+  });
+}
+
+export async function createCourseSupplement(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  payload: CourseSupplementWritePayload,
+): Promise<CourseSupplementDto> {
+  return apiClient.post<CourseSupplementDto>(courseSupplementBase(orgId, schoolId, courseId), {
+    json: payload,
+  });
+}
+
+export async function deleteCourseSupplement(
+  orgId: string,
+  schoolId: string,
+  courseId: string,
+  supplementId: string,
+): Promise<void> {
+  await apiClient.delete(
+    `${courseSupplementBase(orgId, schoolId, courseId)}/${encodeURIComponent(supplementId)}`,
+  );
+}
+
 /* —— Ghost Resources (host-agnostic) —— */
 
 export type GhostHostType = "course" | "class" | "department" | "school";

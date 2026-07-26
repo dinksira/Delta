@@ -3,7 +3,7 @@
 export type CourseTableVisibility = "self_owned" | "sharable";
 
 /** Which course nav owns this catalog entry. Legacy rows without surface = exercise. */
-export type CourseTableSurface = "exercise" | "summary";
+export type CourseTableSurface = "exercise" | "summary" | "score" | "supplement";
 
 export type CourseTableEntry = Readonly<{
   id: string;
@@ -18,7 +18,11 @@ export type CourseTableEntry = Readonly<{
 }>;
 
 function normalizeSurface(raw: unknown): CourseTableSurface {
-  return String(raw ?? "").trim() === "summary" ? "summary" : "exercise";
+  const s = String(raw ?? "").trim();
+  if (s === "summary") return "summary";
+  if (s === "score") return "score";
+  if (s === "supplement") return "supplement";
+  return "exercise";
 }
 
 export function parseCourseTablesFromMetadata(

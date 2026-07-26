@@ -82,7 +82,7 @@ export function CourseExerciseManagementTableView({
   openGhostOpsBoard?: boolean;
   onDismissOpenGhostOps?: () => void;
   /** Which course nav owns this catalog (copy + empty hints). */
-  surface?: "exercise" | "summary";
+  surface?: "exercise" | "summary" | "score" | "supplement";
 }>) {
   const queryClient = useQueryClient();
   const { session } = useAuthSession();
@@ -91,7 +91,9 @@ export function CourseExerciseManagementTableView({
   );
   const [createOpen, setCreateOpen] = useState(false);
   const [inheritOpen, setInheritOpen] = useState(false);
-  const [board, setBoard] = useState<BoardTarget>(() => (openGhostOpsBoard ? "ghost" : "catalog"));
+  const [board, setBoard] = useState<BoardTarget>(() =>
+    openGhostOpsBoard && surface !== "score" && surface !== "supplement" ? "ghost" : "catalog",
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,8 +101,8 @@ export function CourseExerciseManagementTableView({
   }, [courseItem.metadata, courseItem.id, surface]);
 
   useEffect(() => {
-    if (openGhostOpsBoard) setBoard("ghost");
-  }, [openGhostOpsBoard]);
+    if (openGhostOpsBoard && surface !== "score" && surface !== "supplement") setBoard("ghost");
+  }, [openGhostOpsBoard, surface]);
 
   const ghostOpsReady = Boolean(
     preferredGhostOpsInstanceId?.trim() || readGhostOpsTableInstanceId(courseItem.metadata ?? undefined),
@@ -253,7 +255,7 @@ export function CourseExerciseManagementTableView({
             preferredInstanceId={preferredGhostOpsInstanceId}
             onBootstrapped={onGhostOpsBootstrapped}
             showPageHeader={false}
-            surface={surface}
+            surface={surface === "summary" ? "summary" : "exercise"}
           />
         </div>
         {modals}
@@ -310,42 +312,44 @@ export function CourseExerciseManagementTableView({
       ) : null}
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <li className="flex flex-col rounded-2xl border border-border-default bg-surface-default p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-base font-semibold text-text-primary">Ghost Ops</p>
-              <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-[#2f5d73]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2f5d73]">
-                <Ghost className="size-3" aria-hidden />
-                Ghost
-              </span>
+        {surface !== "score" && surface !== "supplement" ? (
+          <li className="flex flex-col rounded-2xl border border-border-default bg-surface-default p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-text-primary">Ghost Ops</p>
+                <span className="mt-1 inline-flex items-center gap-1 rounded-md bg-[#2f5d73]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#2f5d73]">
+                  <Ghost className="size-3" aria-hidden />
+                  Ghost
+                </span>
+              </div>
+              <button
+                type="button"
+                className="rounded-md p-1 text-text-tertiary hover:bg-surface-muted"
+                aria-label="Table menu"
+              >
+                <MoreVertical className="size-4" aria-hidden />
+              </button>
             </div>
+            <ul className="mt-3 space-y-1.5 text-xs text-text-secondary">
+              <li className="flex items-center gap-2">
+                <Table2 className="size-3.5 text-text-tertiary" aria-hidden />
+                Ghost resources board
+              </li>
+              <li className="flex items-center gap-2">
+                <Users className="size-3.5 text-text-tertiary" aria-hidden />
+                {surface === "summary" ? "Course Fast Summary" : "Course exercise & test"}
+              </li>
+              <li className="text-text-tertiary">{ghostOpsReady ? "Ready" : "Opens on first use"}</li>
+            </ul>
             <button
               type="button"
-              className="rounded-md p-1 text-text-tertiary hover:bg-surface-muted"
-              aria-label="Table menu"
+              onClick={() => setBoard("ghost")}
+              className="mt-5 w-full rounded-xl bg-surface-muted py-2.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-100"
             >
-              <MoreVertical className="size-4" aria-hidden />
+              Open
             </button>
-          </div>
-          <ul className="mt-3 space-y-1.5 text-xs text-text-secondary">
-            <li className="flex items-center gap-2">
-              <Table2 className="size-3.5 text-text-tertiary" aria-hidden />
-              Ghost resources board
-            </li>
-            <li className="flex items-center gap-2">
-              <Users className="size-3.5 text-text-tertiary" aria-hidden />
-              {surface === "summary" ? "Course Fast Summary" : "Course exercise & test"}
-            </li>
-            <li className="text-text-tertiary">{ghostOpsReady ? "Ready" : "Opens on first use"}</li>
-          </ul>
-          <button
-            type="button"
-            onClick={() => setBoard("ghost")}
-            className="mt-5 w-full rounded-xl bg-surface-muted py-2.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-100"
-          >
-            Open
-          </button>
-        </li>
+          </li>
+        ) : null}
 
         {tables.map((t) => (
           <li
@@ -383,6 +387,46 @@ export function CourseExerciseManagementTableView({
           </li>
         ))}
       </ul>
+
+      {tables.length === 0 && (surface === "score" || surface === "supplement") ? (
+        <div
+          className="flex min-h-[16rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-12 text-center"
+          role="status"
+        >
+          <Table2 className="size-12 text-text-tertiary" strokeWidth={1.3} aria-hidden />
+          <p className="mt-4 text-base font-semibold text-text-primary">
+            {surface === "supplement" ? "No Supplement tables yet" : "No Score tables yet"}
+          </p>
+          <p className="mt-1 max-w-sm text-sm text-text-secondary">
+            {surface === "supplement"
+              ? "Create or inherit a management table for supplement ops, or use Direct View to upload materials."
+              : "Create a new management table or inherit a template to track scores beyond Direct View."}
+          </p>
+          {canMutate ? (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setInheritOpen(true)}
+                className="rounded-xl border border-primary-700/80 bg-surface-default px-4 py-2 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 disabled:opacity-50"
+              >
+                Inherit Table
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setCreateOpen(true);
+                }}
+                className="rounded-xl bg-primary-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-900 disabled:opacity-50"
+              >
+                Create New
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {modals}
     </div>

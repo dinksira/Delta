@@ -4,6 +4,8 @@ export { CourseFastSummaryPanel } from "@/modules/School/course/CourseFastSummar
 export { CourseIntroPanel } from "@/modules/School/course/CourseIntroPanel";
 export { CoursePageHeader } from "@/modules/School/course/CoursePageHeader";
 export { CourseQaPanel } from "@/modules/School/course/CourseQaPanel";
+export { CourseScorePanel } from "@/modules/School/course/CourseScorePanel";
+export { CourseSupplementPanel } from "@/modules/School/course/CourseSupplementPanel";
 export { CourseStartMenu } from "@/modules/School/course/CourseStartMenu";
 export { CourseWorkspaceRouteLayout } from "@/modules/School/course/CourseWorkspaceRouteLayout";
 export {

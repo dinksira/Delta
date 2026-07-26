@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.deps import CurrentUser, get_current_user, get_db
 from app.api.deps_authz import require_org_membership, require_org_permission
-from app.core.exceptions import ValidationError
+from app.core.exceptions import PermissionDeniedError, ValidationError
 from app.domain.authorization.repository import Repository as AuthorizationRepository
 from app.domain.authorization.schemas import PermissionCheckRequest
 from app.domain.authorization.service import Service as AuthorizationService
@@ -59,6 +59,20 @@ from app.domain.course_summary.schemas import (
     CourseSummaryUpdateInput,
 )
 from app.domain.course_summary.service import CourseSummaryService
+from app.domain.course_score.repository import CourseScoreRepository
+from app.domain.course_score.schemas import (
+    CourseScoreBoardPublic,
+    CourseScoreBoardReplaceInput,
+)
+from app.domain.course_score.service import CourseScoreService
+from app.domain.course_supplement.repository import CourseSupplementRepository
+from app.domain.course_supplement.schemas import (
+    CourseSupplementCreateInput,
+    CourseSupplementListResponse,
+    CourseSupplementPublic,
+    CourseSupplementUpdateInput,
+)
+from app.domain.course_supplement.service import CourseSupplementService
 from app.domain.ghost_resources.repository import GhostResourcesRepository
 from app.domain.ghost_resources.schemas import (
     GhostCreateInput,
@@ -164,6 +178,20 @@ def _course_summary_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> Cour
         summary_repo=CourseSummaryRepository(db),
         school_repo=Repository(db),
         ghost_repo=GhostResourcesRepository(db),
+    )
+
+
+def _course_score_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> CourseScoreService:
+    return CourseScoreService(
+        score_repo=CourseScoreRepository(db),
+        school_repo=Repository(db),
+    )
+
+
+def _course_supplement_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> CourseSupplementService:
+    return CourseSupplementService(
+        supplement_repo=CourseSupplementRepository(db),
+        school_repo=Repository(db),
     )
 
 
@@ -2711,6 +2739,214 @@ async def delete_org_course_summary(
         summary_id=summary_id,
     )
     return {"status": "deleted", "summaryId": summary_id}
+
+
+# —— Course Score ——
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/scoreboard",
+    response_model=CourseScoreBoardPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_course_scoreboard(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseScoreBoardPublic:
+    svc = _course_score_service(db)
+    await svc.bootstrap()
+    return await svc.get_or_create_board(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+    )
+
+
+@org_router.put(
+    "/{school_id}/courses/{course_workspace_item_id}/scoreboard",
+    response_model=CourseScoreBoardPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def replace_org_course_scoreboard(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    payload: CourseScoreBoardReplaceInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseScoreBoardPublic:
+    if not await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id):
+        raise PermissionDeniedError(
+            "Only managers can edit the scoreboard.",
+            code="scoreboard_forbidden",
+        )
+    svc = _course_score_service(db)
+    await svc.bootstrap()
+    return await svc.replace_board(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        payload=payload,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/scoreboard/seed-demo",
+    response_model=CourseScoreBoardPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def seed_org_course_scoreboard_demo(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseScoreBoardPublic:
+    if not await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id):
+        raise PermissionDeniedError(
+            "Only managers can seed the scoreboard.",
+            code="scoreboard_forbidden",
+        )
+    svc = _course_score_service(db)
+    await svc.bootstrap()
+    return await svc.seed_demo_board(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+    )
+
+
+# —— Course Supplements ——
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/supplements",
+    response_model=CourseSupplementListResponse,
+    dependencies=[Depends(require_org_membership)],
+)
+async def list_org_course_supplements(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    kind: str | None = Query(default=None),
+    ghosts_only: bool = Query(default=False, alias="ghostsOnly"),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseSupplementListResponse:
+    svc = _course_supplement_service(db)
+    await svc.bootstrap()
+    return await svc.list_supplements(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        kind=kind,
+        ghosts_only=ghosts_only,
+    )
+
+
+@org_router.post(
+    "/{school_id}/courses/{course_workspace_item_id}/supplements",
+    response_model=CourseSupplementPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def create_org_course_supplement(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    payload: CourseSupplementCreateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseSupplementPublic:
+    svc = _course_supplement_service(db)
+    await svc.bootstrap()
+    return await svc.create_supplement(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        user_id=user.user_id,
+        payload=payload,
+    )
+
+
+@org_router.get(
+    "/{school_id}/courses/{course_workspace_item_id}/supplements/{supplement_id}",
+    response_model=CourseSupplementPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def get_org_course_supplement(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    supplement_id: str,
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseSupplementPublic:
+    svc = _course_supplement_service(db)
+    await svc.bootstrap()
+    return await svc.get_supplement(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        supplement_id=supplement_id,
+    )
+
+
+@org_router.patch(
+    "/{school_id}/courses/{course_workspace_item_id}/supplements/{supplement_id}",
+    response_model=CourseSupplementPublic,
+    dependencies=[Depends(require_org_membership)],
+)
+async def update_org_course_supplement(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    supplement_id: str,
+    payload: CourseSupplementUpdateInput,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> CourseSupplementPublic:
+    if not await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id):
+        raise PermissionDeniedError(
+            "Only managers can update supplements.",
+            code="supplement_forbidden",
+        )
+    svc = _course_supplement_service(db)
+    await svc.bootstrap()
+    return await svc.update_supplement(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        supplement_id=supplement_id,
+        payload=payload,
+    )
+
+
+@org_router.delete(
+    "/{school_id}/courses/{course_workspace_item_id}/supplements/{supplement_id}",
+    dependencies=[Depends(require_org_membership)],
+)
+async def delete_org_course_supplement(
+    org_id: str,
+    school_id: str,
+    course_workspace_item_id: str,
+    supplement_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
+) -> dict[str, str]:
+    if not await _user_can_manage_school(db=db, org_id=org_id, user_id=user.user_id):
+        raise PermissionDeniedError(
+            "Only managers can delete supplements.",
+            code="supplement_forbidden",
+        )
+    svc = _course_supplement_service(db)
+    await svc.bootstrap()
+    await svc.delete_supplement(
+        org_id=org_id,
+        school_id=school_id,
+        course_workspace_item_id=course_workspace_item_id,
+        supplement_id=supplement_id,
+    )
+    return {"status": "deleted", "supplementId": supplement_id}
 
 
 # —— Ghost Resources (host-agnostic: course | class | department | school) ——

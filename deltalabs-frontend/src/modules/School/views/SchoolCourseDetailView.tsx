@@ -12,6 +12,8 @@ import { CourseFastSummaryPanel } from "@/modules/School/course/CourseFastSummar
 import { CourseIntroPanel } from "@/modules/School/course/CourseIntroPanel";
 import { CoursePageHeader } from "@/modules/School/course/CoursePageHeader";
 import { CourseQaPanel } from "@/modules/School/course/CourseQaPanel";
+import { CourseScorePanel } from "@/modules/School/course/CourseScorePanel";
+import { CourseSupplementPanel } from "@/modules/School/course/CourseSupplementPanel";
 import {
   isBuiltCourseNavSection,
   parseCourseNavId,
@@ -104,6 +106,20 @@ export function SchoolCourseDetailView({ schoolId, courseItemId }: SchoolCourseD
         />
       ) : activeOrgId && courseItemQuery.data && activeNav === "summary" ? (
         <CourseFastSummaryPanel
+          orgId={activeOrgId}
+          schoolId={cleanSchoolId}
+          courseItem={courseItemQuery.data}
+          canMutate={canMutate && !accessPending}
+        />
+      ) : activeOrgId && courseItemQuery.data && activeNav === "score" ? (
+        <CourseScorePanel
+          orgId={activeOrgId}
+          schoolId={cleanSchoolId}
+          courseItem={courseItemQuery.data}
+          canMutate={canMutate && !accessPending}
+        />
+      ) : activeOrgId && courseItemQuery.data && activeNav === "supplement" ? (
+        <CourseSupplementPanel
           orgId={activeOrgId}
           schoolId={cleanSchoolId}
           courseItem={courseItemQuery.data}

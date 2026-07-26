@@ -77,6 +77,17 @@ export const schoolQueryKeys = {
     ["school", "course-summaries", orgId, schoolId, courseId] as const,
   courseSummary: (orgId: string, schoolId: string, courseId: string, summaryId: string) =>
     ["school", "course-summaries", "detail", orgId, schoolId, courseId, summaryId] as const,
+  /** GET …/courses/:courseId/scoreboard */
+  courseScoreboard: (orgId: string, schoolId: string, courseId: string) =>
+    ["school", "course-scoreboard", orgId, schoolId, courseId] as const,
+  /** GET …/courses/:courseId/supplements */
+  courseSupplements: (
+    orgId: string,
+    schoolId: string,
+    courseId: string,
+    kind: string,
+    ghostsOnly: boolean,
+  ) => ["school", "course-supplements", orgId, schoolId, courseId, kind, ghostsOnly] as const,
   /** GET …/ghosts?hostType=&hostId= */
   ghosts: (orgId: string, schoolId: string, hostType: string, hostId: string) =>
     ["school", "ghosts", orgId, schoolId, hostType, hostId] as const,
