@@ -2,7 +2,6 @@
 /** Imports used by this file. */
 import React from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
-import { cx } from "@/components/theme/utils";
 
 /** ################################ /IMPORT ############################# */
 

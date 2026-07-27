@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { Archive, Handshake, Home, Tag } from "lucide-react";
 
 import { cx } from "@/components/theme/utils";
-import { useWorkspaceTabHref } from "@/modules/Features/hooks/useWorkspaceTabHref";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ CONSTANTS ############################# */
@@ -51,18 +50,6 @@ const items = [
  */
 export function SchoolIconRail() {
   const pathname = usePathname() ?? "";
-  const homeHref = useWorkspaceTabHref("/features/school");
-  const offersHref = useWorkspaceTabHref(
-    "/features/school/offers?status=requested&view=received",
-  );
-  const marketplaceHref = useWorkspaceTabHref("/features/school/marketplace?view=community");
-  const archiveHref = useWorkspaceTabHref("/features/school/archive");
-  const hrefByPath: Record<string, string> = {
-    "/features/school": homeHref,
-    "/features/school/offers": offersHref,
-    "/features/school/marketplace": marketplaceHref,
-    "/features/school/archive": archiveHref,
-  };
 
   return (
     <nav
@@ -74,7 +61,7 @@ export function SchoolIconRail() {
         return (
           <div key={href} className="group relative flex justify-center">
             <Link
-              href={hrefByPath[href] ?? href}
+              href={href}
               prefetch
               className={cx(
                 "inline-flex size-12 shrink-0 items-center justify-center rounded-md border-[1.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",

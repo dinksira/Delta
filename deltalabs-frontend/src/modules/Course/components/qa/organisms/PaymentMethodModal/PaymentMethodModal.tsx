@@ -1,6 +1,6 @@
 /** ################################ IMPORT ############################# */
 import React, { useState } from "react";
-import { Check, CreditCard, Landmark, Smartphone } from "lucide-react";
+import { CreditCard, Landmark, Smartphone } from "lucide-react";
 import { Modal } from "@/components/atoms/Modal/Modal";
 import { Typography, Button } from "@/components/theme";
 import { cx } from "@/components/theme/utils";

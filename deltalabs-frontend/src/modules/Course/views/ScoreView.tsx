@@ -6,7 +6,7 @@ import { ScoreDashboard } from "../components/score/organisms/ScoreDashboard";
 
 export const ScoreView: React.FC = () => {
   return (
-    <div className="min-h-full bg-[#F8FAFC] px-8 pt-6">
+    <div className="min-h-full bg-surface-canvas text-text-primary px-8 pt-6">
       <div className="max-w-[1400px] mx-auto">
         <ScoreDashboard />
       </div>

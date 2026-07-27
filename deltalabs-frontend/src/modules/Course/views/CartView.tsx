@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Search, SlidersHorizontal } from 'lucide-react';
 import { Typography } from '@/components/theme';
@@ -5,7 +7,6 @@ import { ResourceSidebar, ResourceSidebarTabId } from '@/components/organisms/Re
 import { CartItem, CartItemProps } from '@/components/molecules/CartItem';
 import { CartSummary } from '@/components/organisms/CartSummary';
 import { ResourceManagementLayout } from '@/components/templates/ResourceManagementLayout';
-import { cx } from '@/components/theme/utils';
 
 export interface CartViewProps {
   activeSidebarTab: ResourceSidebarTabId;
@@ -94,7 +95,7 @@ export const CartView: React.FC<CartViewProps> = ({
       }
       header={
         <div className="flex items-center justify-between">
-          <Typography variant="h1" className="text-[32px] font-bold text-[#174A5F]">
+          <Typography variant="h1" className="text-[32px] font-bold text-text-primary">
             Cart
           </Typography>
         </div>
@@ -112,25 +113,25 @@ export const CartView: React.FC<CartViewProps> = ({
       <div className="space-y-8">
         {/* Search */}
         <div className="flex justify-center pt-2">
-          <div className="w-full max-w-[520px] h-12 bg-[#F8FAFC] border border-[#174A5F]/10 rounded-xl flex items-center overflow-hidden focus-within:border-[#174A5F]/30 transition-all">
+          <div className="w-full max-w-[520px] h-12 bg-surface-primary border border-border-subtle rounded-xl flex items-center overflow-hidden focus-within:border-primary-900 transition-all">
             <div className="px-4">
-              <Search className="h-5 w-5 text-[#174A5F]/40" />
+              <Search className="h-5 w-5 text-text-secondary" />
             </div>
             <input 
               type="text" 
               placeholder="Search" 
-              className="flex-1 h-full bg-transparent outline-none text-[15px] text-[#174A5F] placeholder:text-[#174A5F]/30"
+              className="flex-1 h-full bg-transparent outline-none text-[15px] text-text-primary placeholder:text-text-secondary"
             />
-            <div className="h-full w-px bg-[#174A5F]/10" />
-            <button className="px-4 h-full hover:bg-[#174A5F]/5 transition-colors">
-              <SlidersHorizontal className="h-5 w-5 text-[#174A5F]" />
+            <div className="h-full w-px bg-border-subtle" />
+            <button className="px-4 h-full hover:bg-surface-secondary transition-colors">
+              <SlidersHorizontal className="h-5 w-5 text-primary-900" />
             </button>
           </div>
         </div>
 
         {/* List Section */}
         <div className="space-y-6">
-          <Typography className="text-sm font-bold text-[#174A5F]">
+          <Typography className="text-sm font-bold text-primary-900">
             My Cart
           </Typography>
 

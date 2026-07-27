@@ -28,6 +28,7 @@ import {
 } from "@/modules/Features/featureWorkspaceTabs";
 import {
   getFeatureWorkspaceDestination,
+  getFeatureWorkspaceHref,
   tabParamToFeatureKey,
 } from "@/modules/Features/featureWorkspaceRoutes";
 
@@ -68,6 +69,8 @@ type FeatureTabsContextValue = Readonly<{
   pruneHiddenFeatureTabs: (hiddenKeys: readonly string[]) => void;
   /** Ensures a tab exists when landing on a deep link (adds `ws` if missing). */
   ensureTabForRoute: (href: string, featureKey: string, labelHint?: string) => string | null;
+  /** Ensures a tab exists for a param (e.g. `"school"`, `"course"`). Creates from workspace route if missing. */
+  ensureTabForParam: (param: string, labelHint?: string) => string | null;
   /** Persists the last route visited inside a workspace tab. */
   updateWorkspaceTabHref: (tabId: string, href: string) => void;
 }>;
@@ -156,11 +159,16 @@ function sanitizeOpenTabs(tabs: FeatureWorkspaceTab[]): FeatureWorkspaceTab[] {
   }
 
   const collapsed: FeatureWorkspaceTab[] = [];
+  const seenParam = new Set<string>();
   for (const group of groups.values()) {
     if (group.length > 3) {
       collapsed.push(group[group.length - 1]!);
     } else {
-      collapsed.push(...group);
+      for (const tab of group) {
+        if (tab.param && seenParam.has(tab.param)) continue;
+        if (tab.param) seenParam.add(tab.param);
+        collapsed.push(tab);
+      }
     }
   }
 
@@ -407,6 +415,42 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
     [clearDismissedTab, router],
   );
 
+  const ensureTabForParam = useCallback(
+    (param: string, labelHint?: string): string | null => {
+      const cleanParam = param.trim().toLowerCase();
+      if (!cleanParam) return null;
+
+      const { href: baseHref } = getFeatureWorkspaceDestination(cleanParam);
+      if (!baseHref) {
+        const existing = openTabsRef.current.find((t) => t.param === cleanParam);
+        if (existing) return existing.id;
+        return null;
+      }
+
+      const existing = openTabsRef.current.find((t) => t.param === cleanParam);
+      if (existing) return existing.id;
+
+      const tabId = createWorkspaceTabId();
+      clearDismissedTab(tabId);
+      const destination = withWorkspaceTabId(baseHref, tabId);
+      const label =
+        labelHint ??
+        cleanParam.charAt(0).toUpperCase() + cleanParam.slice(1).replace(/_/g, " ");
+
+      setOpenTabs((prev) =>
+        appendTab(prev, {
+          id: tabId,
+          label,
+          featureKey: cleanParam,
+          param: cleanParam,
+          href: destination,
+        }),
+      );
+      return tabId;
+    },
+    [clearDismissedTab],
+  );
+
   const updateWorkspaceTabHref = useCallback((tabId: string, href: string) => {
     if (!tabId || !href) return;
     setOpenTabs((prev) => {
@@ -427,6 +471,7 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
       removeTabsForFeatureKey,
       pruneHiddenFeatureTabs,
       ensureTabForRoute,
+      ensureTabForParam,
       updateWorkspaceTabHref,
     }),
     [
@@ -439,6 +484,7 @@ export function FeatureTabsProvider({ children }: Readonly<{ children: ReactNode
       removeTabsForFeatureKey,
       pruneHiddenFeatureTabs,
       ensureTabForRoute,
+      ensureTabForParam,
       updateWorkspaceTabHref,
     ],
   );

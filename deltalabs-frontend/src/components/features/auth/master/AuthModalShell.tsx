@@ -5,6 +5,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { NavLanguageControl } from "@/components/navigation/NavLanguageControl";
+
 /** ################################ /IMPORT ############################# */
 /** ################################ SUBCOMPONENTS ############################# */
 /** Local subcomponents used by the main export. */
@@ -103,7 +105,8 @@ export function AuthModalShell({
               )}
             </div>
             <div className="min-w-0 flex-1" />
-            <div className="flex w-9 shrink-0 justify-end">
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <NavLanguageControl />
               <Link href={closeHref} aria-label="Close" className={headerControlClass}>
                 <IconClose />
               </Link>

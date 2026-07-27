@@ -2,7 +2,7 @@
 /** Main exported component logic for this file. */
 /** FastNoteWorkspace Organism: A prompt-based interface for generating study notes. */
 import React, { useState } from "react";
-import { Typography, Button } from "@/components/theme";
+import { Button } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 
 export const FastNoteWorkspace: React.FC = () => {

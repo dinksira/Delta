@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { RoadmapSidebar, RoadmapSidebarTabId } from '@/components/organisms/RoadmapSidebar';
 import { ResourceManagementLayout } from '@/components/templates/ResourceManagementLayout';
@@ -32,6 +34,7 @@ export const RoadmapView: React.FC = () => {
           onTabChange={setActiveSidebarTab} 
         />
       }
+      header={<div />}
     >
       {renderContent()}
     </ResourceManagementLayout>

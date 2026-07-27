@@ -22,6 +22,9 @@ function ClientRedirector() {
     if (tab === "school") {
       router.replace("/features/school");
     }
+    if (tab === "course") {
+      router.replace("/features/course");
+    }
   }, [isFeatureHidden, isLayoutReady, router, tab]);
 
   return null;

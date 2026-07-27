@@ -1,3 +1,5 @@
+"use client";
+
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
 /** ResourceLobby Organism: Orchestrates the resource hub and category management. */

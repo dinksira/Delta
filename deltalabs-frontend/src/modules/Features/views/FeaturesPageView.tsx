@@ -448,6 +448,7 @@ export function FeaturesPageView() {
     }
     for (const c of filteredCards) {
       if (hiddenSet.has(c.id)) continue;
+      if (c.id === "feed") continue;
       if (ordered.some((o) => o.id === c.id)) continue;
       ordered.push(c);
     }
@@ -457,7 +458,8 @@ export function FeaturesPageView() {
   const hiddenCards = useMemo(() => {
     return effectiveLayout.hiddenKeys
       .map((id) => cardById.get(id))
-      .filter((c): c is FeatureCard => Boolean(c));
+      .filter((c): c is FeatureCard => Boolean(c))
+      .filter((c) => c.id !== "feed");
   }, [cardById, effectiveLayout.hiddenKeys]);
 
   const hiddenNoticeFeatureKey = readHiddenFeatureNotice(searchParams);

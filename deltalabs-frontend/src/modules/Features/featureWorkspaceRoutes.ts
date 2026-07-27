@@ -2,6 +2,7 @@
 
 const FEATURE_WORKSPACE_HREF: Readonly<Record<string, string>> = {
   school: "/features/school",
+  course: "/features/course",
 };
 
 /** Tab `param` stored in FeatureTabs — always the catalog feature key. */
@@ -13,6 +14,7 @@ export function featureKeyToTabParam(featureKey: string): string {
 export function tabParamToFeatureKey(param: string): string {
   const clean = param.trim().toLowerCase();
   if (clean === "school" || clean.startsWith("school-")) return "school";
+  if (clean === "course" || clean.startsWith("course-")) return "course";
   return clean;
 }
 
@@ -31,6 +33,7 @@ export function getFeatureWorkspaceDestination(featureKey: string): Readonly<{
 
 export function resolveFeatureKeyFromPath(pathname: string, tabQuery: string | null): string | null {
   if (pathname.startsWith("/features/school")) return "school";
+  if (pathname.startsWith("/features/course")) return "course";
   if (pathname === "/features" && tabQuery) return featureKeyToTabParam(tabQuery);
   return null;
 }

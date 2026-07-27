@@ -47,6 +47,7 @@ export const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(functi
     endSlot,
     className,
     inputClassName,
+    fullWidth,
     ...inputProps
   },
   ref,
