@@ -1,5 +1,2 @@
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-/** Data and UI hooks. */
-export {};
-/** ################################ /COMPONENT ############################# */
+export { useCompetitions } from "./useCompetitions";
+export { useFilteredCompetitions } from "./useFilteredCompetitions";

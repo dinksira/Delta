@@ -1,8 +1,5 @@
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-/**
- * Competition module — competitions and challenges.
- * Standard folders: views, context, features, api, hooks, routing, types, utils.
- */
-export {};
-/** ################################ /COMPONENT ############################# */
+export { ActiveCompetitionPage } from "@/modules/Competition/views";
+export { CompetitionFilterProvider, useCompetitionFilter } from "@/modules/Competition/context";
+export { useCompetitions, useFilteredCompetitions } from "@/modules/Competition/hooks";
+export type { Competition, CompetitionCategory, CompetitionFilterState, CompetitionContextValue } from "@/modules/Competition/types";
+export type { CompetitionDetail } from "@/modules/Competition/types/detail";

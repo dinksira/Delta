@@ -1,10 +1,21 @@
-/** ################################ IMPORT ############################# */
 import { apiClient } from "@/lib/apiClient";
-/** ################################ /IMPORT ############################# */
 
-/** ################################ COMPONENT ############################# */
-/** Competition API wrappers. */
 export async function fetchCompetitionModuleStatus() {
   return apiClient.get("/v1/competitions");
 }
-/** ################################ /COMPONENT ############################# */
+
+export async function fetchCompetitions() {
+  return apiClient.get("/v1/competitions/list");
+}
+
+export async function fetchCompetitionDetail(id: string) {
+  return apiClient.get(`/v1/competitions/${id}`);
+}
+
+export async function saveCompetitionDraft(payload: Record<string, unknown>) {
+  return apiClient.post("/v1/competitions/draft", { json: payload });
+}
+
+export async function publishCompetition(payload: Record<string, unknown>) {
+  return apiClient.post("/v1/competitions", { json: payload });
+}
