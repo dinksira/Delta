@@ -6,31 +6,33 @@ The Competition module handles browsing, viewing, hosting, and launching competi
 
 | Route | Component | Description |
 |---|---|---|
-| `/features/competitions` | `PublicCompetitionPage` | Hub: "Public Competitions" tab (status cards, achievements, game modes, upcoming) + "My Competitions" tab (editable custom table) |
+| `/features/competitions` | `PublicCompetitionPage` | Hub: "Public Competitions" tab (status cards, achievements, game modes, upcoming) + "My Competitions" tab (editable custom table). Backed by `GET /v1/competitions/hub` |
+| `/features/competitions/topic-battles` | `ActiveCompetitionPage` | Topic Battles lobby: search + subject pills + live "Open Battles" grid. Backed by `GET /v1/competitions/topic-battles` |
 | `/features/competitions/host` | `HostCompetitionPage` | 5-step wizard to create/publish a competition |
 | `/features/competitions/:id` | `CompetitionDetailPage` | Detail view with banner, prizes, timeline, challenge enrollment |
-| `/features/competitions/list` | `ActiveCompetitionPage` | Filterable grid of active/recent/community competitions |
 
 ## Directory Structure
 
 ```
 Competition/
-├── api/index.ts               # 5 API stubs (GET/POST via apiClient)
+├── api/index.ts               # API functions via apiClient (hub, modes, topic-battles, topic-battle detail, join)
 ├── context/
 │   └── CompetitionFilterContext.tsx  # activeCategory + searchQuery via context
 ├── data/
-│   ├── mockCompetitions.ts     # 10 mock competitions
-│   ├── mockCompetitionDetails.ts # 2 detailed entries
-│   ├── mockPublicData.ts       # User status, achievements, game modes, upcoming
 │   └── termsConfig.ts          # Static T&C text for enrollment
 ├── hooks/
-│   ├── useCompetitions.ts      # Fetch list with mock delay
+│   ├── useCompetitionHub.ts    # Combines topic battles + hub data (modes, userStatus, achievements, myBattles)
+│   ├── useCompetitionHubData.ts # Queries GET /v1/competitions/hub
+│   ├── competitionHubQueryKeys.ts # React Query key factory
+│   ├── useTopicBattles.ts      # Live topic battles list + filters (search/subject/difficulty)
+│   ├── useJoinTopicBattle.ts   # Join mutation with optimistic invalidation
 │   ├── useCompetitionDetail.ts # Fetch detail by ID
 │   ├── useCustomTable.ts       # Editable table state (columns/rows/add/remove/select)
 │   ├── useFilteredCompetitions.ts # Category filter + debounced search
 │   ├── useHostCompetitionWizard.ts # Full 5-step wizard state (30+ methods)
 │   └── usePublicData.tsx       # Public hub data with icon mapping
 ├── types/
+│   ├── hub.ts                  # CompetitionHubResponse, UserStatus, Achievement, GameMode, MyBattle
 │   ├── public.ts               # CompetitionTab, UserStatus, Achievement, GameMode, UpcomingCompetition, CustomTableState
 │   ├── host.ts                 # HostCompetitionDraft, PrizeEntry, PhaseEntry, CompetitionModuleType, CodeEditorQuestion, CodeEditorModuleState
 │   └── detail.ts               # CompetitionDetail, CompetitionPrize, CompetitionTimelineStep
@@ -99,10 +101,10 @@ Key shared components from `src/components/`:
 
 | Function | Method | Path |
 |---|---|---|
-| `fetchCompetitionModuleStatus()` | GET | `/v1/competitions` |
-| `fetchCompetitions()` | GET | `/v1/competitions/list` |
-| `fetchCompetitionDetail(id)` | GET | `/v1/competitions/{id}` |
-| `saveCompetitionDraft(payload)` | POST | `/v1/competitions/draft` |
-| `publishCompetition(payload)` | POST | `/v1/competitions` |
+| `fetchCompetitionHub()` | GET | `/v1/competitions/hub` |
+| `fetchCompetitionModes()` | GET | `/v1/competitions/modes` |
+| `fetchTopicBattles()` | GET | `/v1/competitions/topic-battles` |
+| `fetchTopicBattle(id)` | GET | `/v1/competitions/topic-battles/{id}` |
+| `joinTopicBattle(id)` | POST | `/v1/competitions/topic-battles/{id}/join` |
 
 

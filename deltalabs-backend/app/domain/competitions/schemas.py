@@ -79,6 +79,9 @@ class TopicBattleResponse(BaseModel):
     status: str
     countdown_ends_at: str | None = Field(default=None, **_alias("countdownEndsAt"))
     creator: dict[str, Any] = Field(**_alias("creator"))
+    owner_user_id: str | None = Field(default=None, **_alias("ownerUserId"))
+    is_owner: bool = Field(default=False, **_alias("isOwner"))
+    has_joined: bool = Field(default=False, **_alias("hasJoined"))
     prize_pool: str = Field(**_alias("prizePool"))
     entry_fee: str = Field(**_alias("entryFee"))
     players_joined: int = Field(**_alias("playersJoined"))
@@ -90,6 +93,54 @@ class TopicBattleResponse(BaseModel):
 class TopicBattleListResponse(BaseModel):
     battles: list[TopicBattleResponse]
     total: int
+
+
+class CompetitionModeResponse(BaseModel):
+    """A competition game mode card shown on the hub."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    description: str
+    action_label: str = Field(**_alias("actionLabel"))
+
+
+class UserStatusResponse(BaseModel):
+    """The current user's competition profile summary."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    level: int
+    rank: str
+    progress_label: str = Field(**_alias("progressLabel"))
+    progress_value: float = Field(**_alias("progressValue"))
+    progress_text: str = Field(**_alias("progressText"))
+    earnings: str
+    won: int
+
+
+class AchievementResponse(BaseModel):
+    """A single user achievement with its unlock state."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    description: str
+    unlocked: bool = False
+    unlocked_at: str | None = Field(default=None, **_alias("unlockedAt"))
+
+
+class CompetitionHubResponse(BaseModel):
+    """Aggregate payload for the competition hub page."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    modes: list[CompetitionModeResponse]
+    user_status: UserStatusResponse = Field(**_alias("userStatus"))
+    achievements: list[AchievementResponse]
+    my_battles: list[TopicBattleResponse] = Field(**_alias("myBattles"))
 
 
 class QuestionCreateRequest(BaseModel):

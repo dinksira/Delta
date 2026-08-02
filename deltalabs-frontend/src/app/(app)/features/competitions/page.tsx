@@ -1,8 +1,8 @@
 import React from "react";
-import { ActiveCompetitionPage } from "@/modules/Competition/views";
+import { PublicCompetitionPage } from "@/modules/Competition/views";
 
 export const CompetitionHomePage: React.FC = () => {
-  return <ActiveCompetitionPage />;
+  return <PublicCompetitionPage />;
 };
 
 export default CompetitionHomePage;

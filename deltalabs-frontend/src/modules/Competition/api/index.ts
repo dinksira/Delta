@@ -1,21 +1,24 @@
 import { apiClient } from "@/lib/apiClient";
+import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub";
+import type { GameMode } from "@/modules/Competition/types/hub";
+import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
 
-export async function fetchCompetitionModuleStatus() {
-  return apiClient.get("/v1/competitions");
+export async function fetchCompetitionModes() {
+  return apiClient.get<GameMode[]>("/v1/competitions/modes");
 }
 
-export async function fetchCompetitions() {
-  return apiClient.get("/v1/competitions/list");
+export async function fetchCompetitionHub() {
+  return apiClient.get<CompetitionHubApiResponse>("/v1/competitions/hub");
 }
 
-export async function fetchCompetitionDetail(id: string) {
-  return apiClient.get(`/v1/competitions/${id}`);
+export async function fetchTopicBattles() {
+  return apiClient.get<TopicBattleList>("/v1/competitions/topic-battles");
 }
 
-export async function saveCompetitionDraft(payload: Record<string, unknown>) {
-  return apiClient.post("/v1/competitions/draft", { json: payload });
+export async function fetchTopicBattle(id: string) {
+  return apiClient.get<TopicBattle>(`/v1/competitions/topic-battles/${id}`);
 }
 
-export async function publishCompetition(payload: Record<string, unknown>) {
-  return apiClient.post("/v1/competitions", { json: payload });
+export async function joinTopicBattle(id: string) {
+  return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/join`);
 }

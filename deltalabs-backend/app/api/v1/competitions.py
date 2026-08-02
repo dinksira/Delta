@@ -1,11 +1,13 @@
-"""Topic battle API — create, list, and question management endpoints."""
+"""Topic battle API — create, list, hub aggregates, and question management."""
 
 from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.api.deps import get_db
+from app.api.deps import CurrentUser, get_current_user_optional, get_db
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.schemas import (
+    CompetitionHubResponse,
+    CompetitionModeResponse,
     QuestionCreateRequest,
     QuestionResponse,
     QuestionUpdateRequest,
@@ -25,6 +27,26 @@ def _competitions_service(
 
 
 # ============================================================================
+# Hub aggregates (game modes, user status, achievements)
+# ============================================================================
+
+
+@router.get("/modes", response_model=list[CompetitionModeResponse])
+async def list_competition_modes(
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> list[CompetitionModeResponse]:
+    return await service.list_modes()
+
+
+@router.get("/hub", response_model=CompetitionHubResponse)
+async def get_competition_hub(
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> CompetitionHubResponse:
+    return await service.get_hub(user_id=user.user_id if user is not None else None)
+
+
+# ============================================================================
 # Topic Battle CRUD
 # ============================================================================
 
@@ -32,32 +54,47 @@ def _competitions_service(
 @router.post("/topic-battles", response_model=TopicBattleResponse)
 async def create_topic_battle(
     payload: TopicBattleCreateRequest,
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
-    return await service.create_topic_battle(payload=payload)
+    return await service.create_topic_battle(
+        payload=payload,
+        user_id=user.user_id if user is not None else None,
+    )
 
 
 @router.get("/topic-battles", response_model=TopicBattleListResponse)
 async def list_topic_battles(
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleListResponse:
-    return await service.list_topic_battles()
+    return await service.list_topic_battles(
+        user_id=user.user_id if user is not None else None,
+    )
 
 
 @router.get("/topic-battles/{battle_id}", response_model=TopicBattleResponse)
 async def get_topic_battle(
     battle_id: str,
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
-    return await service.get_topic_battle(battle_id=battle_id)
+    return await service.get_topic_battle(
+        battle_id=battle_id,
+        user_id=user.user_id if user is not None else None,
+    )
 
 
 @router.post("/topic-battles/{battle_id}/join", response_model=TopicBattleResponse)
 async def join_topic_battle(
     battle_id: str,
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
-    return await service.join_topic_battle(battle_id=battle_id)
+    return await service.join_topic_battle(
+        battle_id=battle_id,
+        user_id=user.user_id if user is not None else None,
+    )
 
 
 # ============================================================================

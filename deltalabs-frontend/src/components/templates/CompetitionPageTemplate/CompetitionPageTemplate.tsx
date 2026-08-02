@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { ArrowLeft, Share2, Search, Trophy, Users, Filter } from "lucide-react";
+import { ArrowLeft, Share2, Search, Trophy, Filter } from "lucide-react";
 
 import { Button } from "@/components/theme/Button";
 import { Typography } from "@/components/theme/Typography";

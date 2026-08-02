@@ -26,6 +26,8 @@ from app.core.exceptions import (
 from app.core.logging import configure_logging
 from app.core.rate_limit import enforce_auth_post_rate_limit
 from app.core.readiness import run_readiness_checks
+from app.domain.competitions.repository import Repository as CompetitionsRepository
+from app.domain.competitions.service import Service as CompetitionsService
 from app.domain.identity.repository import Repository
 from app.infra.database import connect_mongodb, disconnect_mongodb, get_database
 from app.infra.email_client import configure_resend
@@ -53,6 +55,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         logger.info("startup.indexes_bootstrapped")
     except Exception as exc:
         logger.error("startup.index_bootstrap_failed", extra={"error": str(exc)})
+
+    # Seed demo topic battles (owned + other-owned) once at startup
+    try:
+        await CompetitionsService(CompetitionsRepository(db)).seed_demo_battles()
+        logger.info("startup.competitions_demo_seeded")
+    except Exception as exc:
+        logger.error("startup.competitions_demo_seed_failed", extra={"error": str(exc)})
 
     try:
         yield

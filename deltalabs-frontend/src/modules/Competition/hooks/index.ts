@@ -1,2 +1,7 @@
-export { useCompetitions } from "./useCompetitions";
 export { useFilteredCompetitions } from "./useFilteredCompetitions";
+export { useTopicBattles } from "./useTopicBattles";
+export { useCompetitionHub } from "./useCompetitionHub";
+export { useCompetitionHubData } from "./useCompetitionHubData";
+export { competitionHubQueryKeys } from "./competitionHubQueryKeys";
+export { useJoinTopicBattle } from "./useJoinTopicBattle";
+export { topicBattleQueryKeys } from "./topicBattleQueryKeys";

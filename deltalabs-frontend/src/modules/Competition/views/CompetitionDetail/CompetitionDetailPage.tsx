@@ -2,33 +2,106 @@
 
 import { useCallback, useState } from "react";
 
-import { useParams } from "next/navigation";
-import { ArrowLeft, Trophy, Users, Calendar } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  BookOpen,
+  CalendarClock,
+  Gift,
+  ListChecks,
+  Settings,
+  Ticket,
+  Trophy,
+  Users,
+} from "lucide-react";
 
-import { Typography } from "@/components/theme/Typography";
 import { Button } from "@/components/theme/Button";
-import { cn } from "@/lib/utils";
-import { MOCK_COMPETITIONS } from "@/modules/Competition/data/mockCompetitions";
+import { Typography } from "@/components/theme/Typography";
+import { fetchTopicBattle } from "@/modules/Competition/api";
+import { topicBattleQueryKeys } from "@/modules/Competition/hooks/topicBattleQueryKeys";
+import { useJoinTopicBattle } from "@/modules/Competition/hooks/useJoinTopicBattle";
+import {
+  formatEndsDate,
+  getStatusLabel,
+} from "@/modules/Competition/utils";
+
+interface InfoCardProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string | number;
+}
+
+function InfoCard({ icon: Icon, label, value }: Readonly<InfoCardProps>) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default p-4">
+      <Icon className="size-5 shrink-0 text-primary-500" aria-hidden />
+      <div className="min-w-0">
+        <Typography variant="small" className="text-text-secondary">
+          {label}
+        </Typography>
+        <Typography className="truncate font-medium">{value}</Typography>
+      </div>
+    </div>
+  );
+}
 
 export function CompetitionDetailPage() {
   const params = useParams();
-  const competitionId = params?.id as string;
-  const competition = MOCK_COMPETITIONS.find((c) => c.id === competitionId);
+  const router = useRouter();
+  const battleId = params?.id as string;
+
+  const { data: battle, isPending, error } = useQuery({
+    queryKey: topicBattleQueryKeys.detail(battleId),
+    queryFn: () => fetchTopicBattle(battleId),
+  });
+
+  const joinMutation = useJoinTopicBattle();
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const handleBack = useCallback(() => {
-    window.history.back();
-  }, []);
+    router.back();
+  }, [router]);
 
-  if (!competition) {
+  const handleJoin = useCallback(() => {
+    if (!battle) {
+      return;
+    }
+    setJoinError(null);
+    joinMutation.mutate(battle.id, {
+      onError: (joinErr) => {
+        setJoinError(
+          joinErr instanceof Error ? joinErr.message : "Failed to join this competition",
+        );
+      },
+    });
+  }, [battle, joinMutation]);
+
+  if (isPending) {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <Typography className="text-text-secondary">Competition not found</Typography>
+      <div className="flex h-full items-center justify-center p-6 text-text-secondary">
+        Loading competition...
+      </div>
+    );
+  }
+
+  if (error || !battle) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-6">
+        <Typography className="text-text-secondary">
+          {error instanceof Error && error.message.includes("404")
+            ? "Competition not found"
+            : "Failed to load this competition"}
+        </Typography>
+        <Button variant="secondary" size="sm" onClick={() => router.push("/features/competitions/list")}>
+          Browse competitions
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex h-full max-w-4xl flex-col gap-6 p-4 md:p-6">
+    <div className="mx-auto flex h-full max-w-4xl flex-col gap-6 overflow-y-auto p-4 md:p-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
@@ -38,71 +111,101 @@ export function CompetitionDetailPage() {
         >
           <ArrowLeft className="size-5" />
         </button>
-        <Typography as="h1" className="text-2xl font-semibold text-primary-600">
-          {competition.title}
+        <Typography as="h1" className="truncate text-2xl font-semibold text-primary-600">
+          {battle.title}
         </Typography>
       </div>
 
       {/* Hero banner */}
-      <div
-        className={cn(
-          "relative flex h-48 items-end overflow-hidden rounded-2xl",
-          !competition.backgroundImageUrl && "bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900",
-        )}
-        style={
-          competition.backgroundImageUrl
-            ? { backgroundImage: `url(${competition.backgroundImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
-            : undefined
-        }
-      >
+      <div className="relative flex min-h-48 items-end overflow-hidden rounded-2xl bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900">
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        <div className="relative z-10 p-6">
-          <Typography as="h2" className="text-3xl font-bold text-white">
-            {competition.title}
-          </Typography>
+        <div className="relative z-10 flex w-full items-start justify-between gap-4 p-6">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Trophy className="size-5 shrink-0 text-yellow-400" aria-hidden />
+              <Typography as="h2" className="text-3xl font-bold text-white">
+                {battle.title}
+              </Typography>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white">
+                {battle.subject}
+              </span>
+              <span className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white">
+                {battle.difficulty}
+              </span>
+              <span className="inline-flex rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-900/40 dark:text-success-300">
+                {getStatusLabel(battle.status)}
+              </span>
+            </div>
+          </div>
+          <span className="hidden shrink-0 rounded-full bg-white/20 px-3 py-1 text-sm font-medium text-white sm:inline-flex">
+            Hosted by {battle.creator.name}
+          </span>
         </div>
       </div>
 
       {/* Info cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default p-4">
-          <Calendar className="size-5 text-primary-500" />
-          <div>
-            <Typography variant="small" className="text-text-secondary">Ends At</Typography>
-            <Typography className="font-medium">{competition.endsAt}</Typography>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default p-4">
-          <Users className="size-5 text-primary-500" />
-          <div>
-            <Typography variant="small" className="text-text-secondary">Participants</Typography>
-            <Typography className="font-medium">{competition.participants}</Typography>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface-default p-4">
-          <Trophy className="size-5 text-primary-500" />
-          <div>
-            <Typography variant="small" className="text-text-secondary">Tags</Typography>
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {competition.tags.map((tag) => (
-                <span key={tag} className="inline-flex rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <InfoCard icon={Gift} label="Prize pool" value={battle.prizePool} />
+        <InfoCard icon={Ticket} label="Entry fee" value={battle.entryFee} />
+        <InfoCard
+          icon={Users}
+          label="Players"
+          value={`${battle.playersJoined}/${battle.playersMax}`}
+        />
+        <InfoCard
+          icon={CalendarClock}
+          label="Ends"
+          value={formatEndsDate(battle.countdownEndsAt)}
+        />
+        <InfoCard
+          icon={BookOpen}
+          label="Subject"
+          value={battle.subject}
+        />
+        <InfoCard
+          icon={ListChecks}
+          label="Questions"
+          value={battle.questions.length}
+        />
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
-        <Button variant="primary" size="lg">
-          Join Competition
-        </Button>
-        <Button variant="secondary" size="lg">
-          View Details
+      <div className="flex flex-wrap items-center gap-3">
+        {battle.isOwner ? (
+          <span className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-surface-muted px-4 py-2.5 text-sm font-medium text-text-secondary">
+            <Settings className="size-4" aria-hidden />
+            You host this battle — manage & track it from here
+          </span>
+        ) : (
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={handleJoin}
+            disabled={joinMutation.isPending || battle.hasJoined}
+          >
+            {joinMutation.isPending
+              ? "Joining..."
+              : battle.hasJoined
+                ? "Joined"
+                : "Join Competition"}
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={() => router.push("/features/competitions/list")}
+        >
+          Browse Competitions
         </Button>
       </div>
+
+      {joinError ? (
+        <div className="rounded-xl border border-error-500 bg-error-50 px-4 py-3 text-sm text-error-700">
+          {joinError}
+        </div>
+      ) : null}
     </div>
   );
 }

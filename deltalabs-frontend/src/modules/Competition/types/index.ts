@@ -19,3 +19,20 @@ export interface CompetitionContextValue extends CompetitionFilterState {
   setActiveCategory: (category: CompetitionCategory) => void;
   setSearchQuery: (query: string) => void;
 }
+
+export type {
+  TopicBattle,
+  TopicBattleList,
+  TopicBattleCreator,
+  TopicBattleQuestion,
+  TopicBattleTestCase,
+} from "./topicBattle";
+
+export type {
+  CompetitionTab,
+  HubStats,
+  GameMode,
+  Achievement,
+  UserStatus,
+  CompetitionHubData,
+} from "./hub";
