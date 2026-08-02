@@ -5,23 +5,25 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { TopicBattleListTemplate } from "@/components/templates/TopicBattleListTemplate/TopicBattleListTemplate";
+import { JoinTopicBattleModal } from "@/components/organisms/JoinTopicBattleModal";
 import type { SearchPillOption } from "@/components/molecules/SearchPill/SearchPill";
 import type { SubjectPill } from "@/components/molecules/SubjectPills/SubjectPills";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { useTopicBattles } from "@/modules/Competition/hooks/useTopicBattles";
-import { useJoinTopicBattle } from "@/modules/Competition/hooks/useJoinTopicBattle";
+import { useJoinBattleModal } from "@/modules/Competition/hooks/useJoinBattleModal";
 
 const ALL_SUBJECTS = "all";
 const ALL_DIFFICULTIES = "all";
 
 export function ActiveCompetitionPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuthSession();
   const [searchValue, setSearchValue] = useState("");
   const [activeSubject, setActiveSubject] = useState(ALL_SUBJECTS);
   const [activeFilter, setActiveFilter] = useState(ALL_DIFFICULTIES);
-  const [joinError, setJoinError] = useState<string | null>(null);
 
   const query = useTopicBattles();
-  const joinMutation = useJoinTopicBattle();
+  const joinModal = useJoinBattleModal();
 
   const battles = useMemo(() => query.data?.battles ?? [], [query.data]);
 
@@ -76,19 +78,17 @@ export function ActiveCompetitionPage() {
 
   const handleJoinBattle = useCallback(
     (id: string) => {
-      setJoinError(null);
-      joinMutation.mutate(id, {
-        onError: (error) => {
-          setJoinError(error instanceof Error ? error.message : "Failed to join battle");
-        },
-      });
+      const target = battles.find((battle) => battle.id === id);
+      if (target) {
+        joinModal.openFor(target);
+      }
     },
-    [joinMutation],
+    [battles, joinModal],
   );
 
   const handleOpenBattle = useCallback(
     (id: string) => {
-      router.push(`/features/competitions/${id}`);
+      router.push(`/features/competitions/battles/${id}`);
     },
     [router],
   );
@@ -103,35 +103,40 @@ export function ActiveCompetitionPage() {
     </div>
   ) : null;
 
-  const noticeSlot = joinError ? (
-    <div className="mb-1 flex items-start gap-2 rounded-xl border border-error-500 bg-error-50 px-4 py-3 text-sm text-error-700">
-      <span aria-hidden>!</span>
-      <span>{joinError}</span>
-    </div>
-  ) : null;
-
   return (
-    <TopicBattleListTemplate
-      onBack={handleBack}
-      onIntegrate={handleUtilityAction}
-      onAutomate={handleUtilityAction}
-      onInvite={handleUtilityAction}
-      onCopyLink={handleUtilityAction}
-      searchValue={searchValue}
-      onSearchChange={setSearchValue}
-      activeFilter={activeFilter}
-      filterOptions={filterOptions}
-      onFilterChange={setActiveFilter}
-      subjects={subjects}
-      activeSubject={activeSubject}
-      onSubjectChange={setActiveSubject}
-      onCreateNew={handleUtilityAction}
-      battles={filteredBattles}
-      onJoinBattle={handleJoinBattle}
-      onOpenBattle={handleOpenBattle}
-      statusSlot={statusSlot}
-      noticeSlot={noticeSlot}
-    />
+    <>
+      <TopicBattleListTemplate
+        onBack={handleBack}
+        onIntegrate={handleUtilityAction}
+        onAutomate={handleUtilityAction}
+        onInvite={handleUtilityAction}
+        onCopyLink={handleUtilityAction}
+        searchValue={searchValue}
+        onSearchChange={setSearchValue}
+        activeFilter={activeFilter}
+        filterOptions={filterOptions}
+        onFilterChange={setActiveFilter}
+        subjects={subjects}
+        activeSubject={activeSubject}
+        onSubjectChange={setActiveSubject}
+        onCreateNew={handleUtilityAction}
+        battles={filteredBattles}
+        onJoinBattle={handleJoinBattle}
+        onOpenBattle={handleOpenBattle}
+        statusSlot={statusSlot}
+      />
+      <JoinTopicBattleModal
+        open={Boolean(joinModal.battle)}
+        battle={joinModal.battle}
+        onClose={joinModal.close}
+        onConfirm={joinModal.confirm}
+        onViewBattle={handleOpenBattle}
+        isSubmitting={joinModal.isSubmitting}
+        error={joinModal.error}
+        success={joinModal.isSuccess}
+        isGuest={!isAuthenticated}
+      />
+    </>
   );
 }
 

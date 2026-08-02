@@ -4,7 +4,11 @@ import { Clock } from "lucide-react";
 
 import { Button } from "@/components/theme/Button";
 import { ProgressBar } from "@/components/atoms/ProgressBar/ProgressBar";
-import { getStatusLabel } from "@/modules/Competition/utils";
+import {
+  getInitials,
+  getStatusBadgeClass,
+  getStatusLabel,
+} from "@/modules/Competition/utils";
 import type { TopicBattle } from "@/modules/Competition/types/topicBattle";
 import { cn } from "@/lib/utils";
 
@@ -13,17 +17,6 @@ export interface TopicBattleCardProps {
   onJoin?: (id: string) => void;
   onOpen?: (id: string) => void;
   className?: string;
-}
-
-const statusBadgeClasses: Record<string, string> = {
-  filling: "bg-warning-100 text-warning-700 dark:bg-warning-900/40 dark:text-warning-300",
-  scheduled: "bg-success-600 text-white",
-  live: "bg-info-100 text-info-700 dark:bg-info-900/40 dark:text-info-300",
-  finished: "bg-surface-muted text-text-secondary",
-};
-
-function getStatusBadgeClass(status: string): string {
-  return statusBadgeClasses[status.toLowerCase()] ?? "bg-surface-muted text-text-secondary";
 }
 
 function formatCountdown(target: string | null): string | null {
@@ -56,18 +49,6 @@ function useCountdown(target: string | null): string | null {
   }, [target]);
 
   return label;
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) {
-    return "?";
-  }
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
 }
 
 function StatusTimer({ battle }: Readonly<{ battle: TopicBattle }>) {
@@ -205,28 +186,15 @@ export function TopicBattleCard({
         <Button variant="primary" disabled className="w-full">
           Battle Full
         </Button>
-      ) : onJoin || onOpen ? (
-        <div className="flex items-center gap-2">
-          {onJoin && (
-            <Button
-              variant="primary"
-              className="flex-1"
-              onClick={() => onJoin(battle.id)}
-              disabled={battle.hasJoined}
-            >
-              {battle.hasJoined ? "Joined" : "Join Battle"}
-            </Button>
-          )}
-          {onOpen && (
-            <Button
-              variant="secondary"
-              className={onJoin ? "" : "flex-1"}
-              onClick={() => onOpen(battle.id)}
-            >
-              View
-            </Button>
-          )}
-        </div>
+      ) : onJoin ? (
+        <Button
+          variant="primary"
+          className="w-full"
+          onClick={() => onJoin(battle.id)}
+          disabled={battle.hasJoined}
+        >
+          {battle.hasJoined ? "Joined" : "Join Battle"}
+        </Button>
       ) : null}
     </article>
   );

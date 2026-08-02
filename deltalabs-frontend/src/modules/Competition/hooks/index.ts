@@ -4,4 +4,6 @@ export { useCompetitionHub } from "./useCompetitionHub";
 export { useCompetitionHubData } from "./useCompetitionHubData";
 export { competitionHubQueryKeys } from "./competitionHubQueryKeys";
 export { useJoinTopicBattle } from "./useJoinTopicBattle";
+export { useJoinBattleModal } from "./useJoinBattleModal";
+export { useDuelQuiz } from "./useDuelQuiz";
 export { topicBattleQueryKeys } from "./topicBattleQueryKeys";

@@ -3,6 +3,7 @@ export {
   CompetitionDetailPage,
   PublicCompetitionPage,
   HostCompetitionPage,
+  TopicBattleDuelPage,
 } from "@/modules/Competition/views";
 export { CompetitionFilterProvider, useCompetitionFilter } from "@/modules/Competition/context";
 export {
@@ -10,6 +11,7 @@ export {
   useTopicBattles,
   useCompetitionHub,
   useJoinTopicBattle,
+  useDuelQuiz,
   topicBattleQueryKeys,
 } from "@/modules/Competition/hooks";
 export type {
@@ -30,5 +32,11 @@ export type {
   HubStats,
   GameMode,
   CompetitionHubData,
+} from "@/modules/Competition/types";
+export type {
+  DuelQuestion,
+  DuelLeaderboardEntry,
+  DuelQuiz,
+  DuelState,
 } from "@/modules/Competition/types";
 export type { CompetitionDetail } from "@/modules/Competition/types/detail";

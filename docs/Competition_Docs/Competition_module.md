@@ -10,6 +10,7 @@ The Competition module handles browsing, viewing, hosting, and launching competi
 | `/features/competitions/topic-battles` | `ActiveCompetitionPage` | Topic Battles lobby: search + subject pills + live "Open Battles" grid. Backed by `GET /v1/competitions/topic-battles` |
 | `/features/competitions/host` | `HostCompetitionPage` | 5-step wizard to create/publish a competition |
 | `/features/competitions/:id` | `CompetitionDetailPage` | Detail view with banner, prizes, timeline, challenge enrollment |
+| `/features/competitions/battles/:id` | `TopicBattleDuelPage` | Duel quiz screen for a joined battle: header, question card, metrics, leaderboard sidebar |
 
 ## Directory Structure
 
@@ -19,13 +20,16 @@ Competition/
 ├── context/
 │   └── CompetitionFilterContext.tsx  # activeCategory + searchQuery via context
 ├── data/
-│   └── termsConfig.ts          # Static T&C text for enrollment
+│   ├── termsConfig.ts          # Static T&C text for enrollment
+│   └── duelQuiz.ts             # Curated subject MCQ decks + buildDuelQuiz(battle) fallback generator
 ├── hooks/
 │   ├── useCompetitionHub.ts    # Combines topic battles + hub data (modes, userStatus, achievements, myBattles)
 │   ├── useCompetitionHubData.ts # Queries GET /v1/competitions/hub
 │   ├── competitionHubQueryKeys.ts # React Query key factory
 │   ├── useTopicBattles.ts      # Live topic battles list + filters (search/subject/difficulty)
 │   ├── useJoinTopicBattle.ts   # Join mutation with optimistic invalidation
+│   ├── useJoinBattleModal.ts   # Join Topic Battle modal controller (open/close/confirm/success)
+│   ├── useDuelQuiz.ts          # Duel quiz state machine (question index, answer, score/rank, timer)
 │   ├── useCompetitionDetail.ts # Fetch detail by ID
 │   ├── useCustomTable.ts       # Editable table state (columns/rows/add/remove/select)
 │   ├── useFilteredCompetitions.ts # Category filter + debounced search
@@ -35,6 +39,7 @@ Competition/
 │   ├── hub.ts                  # CompetitionHubResponse, UserStatus, Achievement, GameMode, MyBattle
 │   ├── public.ts               # CompetitionTab, UserStatus, Achievement, GameMode, UpcomingCompetition, CustomTableState
 │   ├── host.ts                 # HostCompetitionDraft, PrizeEntry, PhaseEntry, CompetitionModuleType, CodeEditorQuestion, CodeEditorModuleState
+│   ├── duelQuiz.ts             # DuelQuestion, DuelLeaderboardEntry, DuelQuiz, DuelState
 │   └── detail.ts               # CompetitionDetail, CompetitionPrize, CompetitionTimelineStep
 ├── utils/
 │   ├── launchSummary.ts        # deriveLaunchSummary() — extracts 6 fields from draft for ConfirmLaunchModal
@@ -44,6 +49,7 @@ Competition/
     ├── CompetitionDetail/CompetitionDetailPage.tsx
     ├── HostCompetitionPage.tsx
     ├── PublicCompetitionPage.tsx
+    ├── TopicBattleDuelPage.tsx
     └── index.ts
 ```
 
@@ -84,6 +90,15 @@ Key shared components from `src/components/`:
 - **Switch** — Toggle for Hint on/off
 - **Button, Input, Textarea, Select, Field** — Theme primitives
 
+## Components Used (duel quiz)
+
+- **QuizBattleTemplate** — page layout: header + question/metrics column + leaderboard sidebar; results panel when finished
+- **QuizBattleHeader** — title, PTS badge, players badge, countdown pill, question `ProgressBar`
+- **QuizQuestionCard** — question text + `QuizOption` list with reveal states
+- **QuizMetricsRow / MetricTile** — SCORE / #RANK / CORRECT stat strip
+- **LeaderboardPanel / LeaderboardRow** — ranked participants sidebar, current-user highlight
+- **QuizResultsPanel** — post-duel summary with Play Again / Back to Battles
+
 ## Module State Shape (HostCompetitionDraft)
 
 ```typescript
@@ -106,5 +121,28 @@ Key shared components from `src/components/`:
 | `fetchTopicBattles()` | GET | `/v1/competitions/topic-battles` |
 | `fetchTopicBattle(id)` | GET | `/v1/competitions/topic-battles/{id}` |
 | `joinTopicBattle(id)` | POST | `/v1/competitions/topic-battles/{id}/join` |
+
+## Join Topic Battle Flow (micro-interaction)
+
+Tapping **Join Battle** on a `TopicBattleCard` opens the `JoinTopicBattleModal` (organism) instead of joining immediately — a confirmation gate that prevents mis-taps on paid entries.
+
+- **Trigger** — card's `onJoinBattle` → `ActiveCompetitionPage` looks up the battle and calls `useJoinBattleModal().openFor(battle)`.
+- **Confirm view** — `Dialog` (theme, `sm`) titled "Join Topic Battle" with: intro copy (free vs. fee wording), `BattleSummaryPanel` recap (status/difficulty, title, subject/creator, players/prize/entry, progress bar), ShieldCheck terms line, optional guest warning (`isGuest`), optional error `StatusBanner`, and a footer of ghost "Not now" + primary "Confirm & Join" / "Join for {entryFee}".
+- **Submit** — confirm fires `useJoinTopicBattle` → `POST /v1/competitions/topic-battles/{id}/join`. Buttons disable, spinner shows, and dismissal (Escape/backdrop/✕) is blocked while `isSubmitting`.
+- **Success** — the hook sets `isSuccess` (per battle id); the modal swaps to a centered "You're in!" view with a `CheckCircle2` mark and "View Battle" (→ duel route `/features/competitions/battles/{id}`) / "Done" actions. The list query is invalidated so the card flips to "Joined".
+- **Error** — backend failures (e.g. `cannot_join_own_battle` 403, battle full 409) render as an inline error banner; the confirm view stays open so the user can retry or cancel.
+
+Owner battles are excluded entirely: the card renders "Manage & Track" instead of a join CTA, so the modal is only reachable for joinable battles.
+
+## Topic Battle Duel Quiz (post-join view)
+
+After joining, **View Battle** (card `onOpenBattle` and the modal's success action) routes to `/features/competitions/battles/{id}` — the `TopicBattleDuelPage` duel quiz screen. The backend serves code-editor questions only, so the MCQ deck is generated client-side.
+
+- **Deck resolution** — `buildDuelQuiz(battle)` in `data/duelQuiz.ts` matches the battle's subject against curated subject decks (math, physics, chemistry, biology, english, history, AI, programming); unknown subjects fall back to a general-knowledge deck. A mock leaderboard is derived from `playersJoined`, the creator, and "You".
+- **State** — `useDuelQuiz(quiz)` owns `DuelState` (question index, selected answer, `isAnswered`, score, rank, correct count) plus a 30-second per-question countdown. `selectAnswer` locks the answer, scores +100 pts on a correct pick, and derives rank by counting leaderboard entries above the current score. `advance` moves to the next question (or the finished state on the last one).
+- **Layout** — `QuizBattleTemplate`: `QuizBattleHeader` (title, PTS/players badges, timer pill, progress) → `QuizQuestionCard` (A–D options with correct/incorrect reveal) → "Next Question" / "See Results" button → `QuizMetricsRow` (SCORE / #RANK / CORRECT), with the `LeaderboardPanel` sidebar at `lg+`.
+- **Finished** — the template swaps to `QuizResultsPanel` (points / correct / rank, Play Again resets via `useDuelQuiz.reset`, Back to Battles navigates to the lobby).
+
+## Components Used (duel quiz)
 
 

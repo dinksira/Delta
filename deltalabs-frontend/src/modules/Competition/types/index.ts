@@ -29,6 +29,13 @@ export type {
 } from "./topicBattle";
 
 export type {
+  DuelQuestion,
+  DuelLeaderboardEntry,
+  DuelQuiz,
+  DuelState,
+} from "./duelQuiz";
+
+export type {
   CompetitionTab,
   HubStats,
   GameMode,
