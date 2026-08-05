@@ -14,6 +14,10 @@ export interface SubjectPillsProps {
   activeValue: string;
   /** Callback fired when a pill is selected. */
   onChange: (value: string) => void;
+  /** Toggle the per-pill `(count)` badge (defaults to `true`). */
+  showCount?: boolean;
+  /** Pill density: `"default"` (h-10) or `"compact"` (slimmer, spec trending pills). */
+  density?: "default" | "compact";
   /** Accessible label for the scrollable group. */
   ariaLabel?: string;
   className?: string;
@@ -28,13 +32,16 @@ export const SubjectPills: React.FC<SubjectPillsProps> = ({
   subjects,
   activeValue,
   onChange,
+  showCount = true,
+  density = "default",
   ariaLabel = "Filter by subject",
   className,
 }) => {
   return (
     <div
       className={cn(
-        "h-10 w-full shrink-0 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "w-full shrink-0 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        density === "default" ? "h-10" : "h-9",
         className,
       )}
     >
@@ -49,21 +56,34 @@ export const SubjectPills: React.FC<SubjectPillsProps> = ({
               aria-selected={active}
               onClick={() => onChange(subject.value)}
               className={cn(
-                "inline-flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 py-2 text-sm transition-colors",
+                "inline-flex h-full shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border transition-colors",
+                density === "default" ? "px-4 py-2 text-sm" : "px-5 text-[13px]",
                 active
-                  ? "border-primary-600 bg-primary-600 font-semibold text-white"
-                  : "border-border-default bg-surface-default font-medium text-text-secondary hover:border-primary-300 hover:text-text-primary",
+                  ? cn(
+                      "font-semibold text-white",
+                      density === "default"
+                        ? "border-primary-600 bg-primary-600"
+                        : "border-primary-700 bg-primary-700",
+                    )
+                  : cn(
+                      "bg-surface-default font-medium hover:text-text-primary",
+                      density === "default"
+                        ? "border-border-default text-text-secondary hover:border-primary-300"
+                        : "border-text-tertiary text-text-secondary hover:border-primary-300",
+                    ),
               )}
             >
               {subject.label}
-              <span
-                className={cn(
-                  "text-xs tabular-nums",
-                  active ? "text-white/80" : "text-text-tertiary",
-                )}
-              >
-                ({subject.count})
-              </span>
+              {showCount && (
+                <span
+                  className={cn(
+                    "text-xs tabular-nums",
+                    active ? "text-white/80" : "text-text-tertiary",
+                  )}
+                >
+                  ({subject.count})
+                </span>
+              )}
             </button>
           );
         })}

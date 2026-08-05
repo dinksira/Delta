@@ -108,6 +108,12 @@ export function AuthSessionProvider({ children }: Readonly<{ children: ReactNode
     clearBrowserQueryCache();
   }, []);
 
+  useLayoutEffect(() => {
+    const onAuthExpired = () => clearSession();
+    window.addEventListener("dl:auth-expired", onAuthExpired);
+    return () => window.removeEventListener("dl:auth-expired", onAuthExpired);
+  }, [clearSession]);
+
   const value = useMemo<AuthSessionContextValue>(
     () => ({
       session,

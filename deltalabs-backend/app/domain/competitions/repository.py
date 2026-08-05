@@ -71,6 +71,22 @@ class Repository:
             )
         return await self.find_topic_battle_by_id(battle_id)
 
+    async def mark_topic_battle_completed(
+        self,
+        battle_id: str,
+        user_id: str,
+    ) -> dict[str, Any] | None:
+        """Record that ``user_id`` finished the battle (idempotent per user)."""
+        now = datetime.now(UTC)
+        await self._db["topic_battles"].update_one(
+            {"_id": battle_id, "completed_user_ids": {"$ne": user_id}},
+            {
+                "$addToSet": {"completed_user_ids": user_id},
+                "$set": {"updated_at": now},
+            },
+        )
+        return await self.find_topic_battle_by_id(battle_id)
+
     async def find_all_topic_battles_by_owner(self, owner_user_id: str) -> list[dict[str, Any]]:
         cursor = (
             self._db["topic_battles"]
@@ -126,20 +142,25 @@ class Repository:
         increments: dict[str, int],
     ) -> dict[str, Any] | None:
         now = datetime.now(UTC)
+        set_on_insert: dict[str, Any] = {
+            "_id": user_id,
+            "points": 0,
+            "joined": 0,
+            "hosted": 0,
+            "won": 0,
+            "earnings_etb": 0,
+            "created_at": now,
+        }
+        # A path cannot appear in both `$inc` and `$setOnInsert` (MongoDB
+        # rejects the update with a conflict error when the doc is inserted).
+        for key in increments:
+            set_on_insert.pop(key, None)
         await self._db["competition_user_stats"].update_one(
             {"_id": user_id},
             {
                 "$inc": increments,
                 "$set": {"updated_at": now},
-                "$setOnInsert": {
-                    "_id": user_id,
-                    "points": 0,
-                    "joined": 0,
-                    "hosted": 0,
-                    "won": 0,
-                    "earnings_etb": 0,
-                    "created_at": now,
-                },
+                "$setOnInsert": set_on_insert,
             },
             upsert=True,
         )
@@ -220,6 +241,7 @@ class Repository:
         owner_user_id = doc.get("owner_user_id")
         owner_str = str(owner_user_id) if owner_user_id else None
         participants = list(doc.get("participants", []))
+        completed_user_ids = list(doc.get("completed_user_ids", []))
 
         return TopicBattleResponse(
             id=str(doc["_id"]),
@@ -239,6 +261,9 @@ class Repository:
             ),
             has_joined=bool(
                 viewer_user_id is not None and viewer_user_id in participants
+            ),
+            has_completed=bool(
+                viewer_user_id is not None and viewer_user_id in completed_user_ids
             ),
             prize_pool=str(doc.get("prize_pool", "0 ETB")),
             entry_fee=str(doc.get("entry_fee", "Free")),

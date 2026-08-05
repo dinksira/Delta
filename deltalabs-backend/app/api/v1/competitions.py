@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.api.deps import CurrentUser, get_current_user_optional, get_db
+from app.api.deps import CurrentUser, get_current_user, get_current_user_optional, get_db
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.schemas import (
     CompetitionHubResponse,
@@ -94,6 +94,18 @@ async def join_topic_battle(
     return await service.join_topic_battle(
         battle_id=battle_id,
         user_id=user.user_id if user is not None else None,
+    )
+
+
+@router.post("/topic-battles/{battle_id}/complete", response_model=TopicBattleResponse)
+async def complete_topic_battle(
+    battle_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> TopicBattleResponse:
+    return await service.complete_topic_battle(
+        battle_id=battle_id,
+        user_id=user.user_id,
     )
 
 

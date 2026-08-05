@@ -1,7 +1,7 @@
 import React from "react";
 import { PublicCompetitionPage } from "@/modules/Competition/views";
 
-export const CompetitionHomePage: React.FC = () => {
+const CompetitionHomePage: React.FC = () => {
   return <PublicCompetitionPage />;
 };
 

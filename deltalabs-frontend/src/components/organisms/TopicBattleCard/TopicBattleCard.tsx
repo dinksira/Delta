@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 export interface TopicBattleCardProps {
   battle: TopicBattle;
   onJoin?: (id: string) => void;
+  onResume?: (id: string) => void;
   onOpen?: (id: string) => void;
   className?: string;
 }
@@ -93,6 +94,7 @@ function StatusTimer({ battle }: Readonly<{ battle: TopicBattle }>) {
 export function TopicBattleCard({
   battle,
   onJoin,
+  onResume,
   onOpen,
   className,
 }: Readonly<TopicBattleCardProps>) {
@@ -103,6 +105,8 @@ export function TopicBattleCard({
     battle.playersMax > 0
       ? Math.min(100, Math.round((battle.playersJoined / battle.playersMax) * 100))
       : 0;
+
+  const handleResume = () => onResume?.(battle.id) ?? onOpen?.(battle.id);
 
   return (
     <article
@@ -174,6 +178,10 @@ export function TopicBattleCard({
         <Button variant="primary" disabled className="w-full">
           Battle Over
         </Button>
+      ) : battle.hasCompleted ? (
+        <Button variant="primary" disabled className="w-full">
+          Completed
+        </Button>
       ) : battle.isOwner ? (
         <Button
           variant="secondary"
@@ -186,14 +194,17 @@ export function TopicBattleCard({
         <Button variant="primary" disabled className="w-full">
           Battle Full
         </Button>
+      ) : battle.hasJoined ? (
+        <Button variant="primary" className="w-full" onClick={handleResume}>
+          Resume
+        </Button>
       ) : onJoin ? (
         <Button
           variant="primary"
           className="w-full"
           onClick={() => onJoin(battle.id)}
-          disabled={battle.hasJoined}
         >
-          {battle.hasJoined ? "Joined" : "Join Battle"}
+          Join Battle
         </Button>
       ) : null}
     </article>

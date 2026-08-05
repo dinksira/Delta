@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export interface TopicBattleGridProps {
   battles: TopicBattle[];
   onJoin?: (id: string) => void;
+  onResume?: (id: string) => void;
   onOpen?: (id: string) => void;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -16,6 +17,7 @@ export interface TopicBattleGridProps {
 export function TopicBattleGrid({
   battles,
   onJoin,
+  onResume,
   onOpen,
   emptyTitle = "No competitions found",
   emptyDescription = "Competitions will appear here once they are hosted.",
@@ -45,6 +47,7 @@ export function TopicBattleGrid({
           key={battle.id}
           battle={battle}
           onJoin={onJoin}
+          onResume={onResume}
           onOpen={onOpen}
         />
       ))}

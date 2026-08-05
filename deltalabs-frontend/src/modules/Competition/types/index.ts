@@ -43,3 +43,13 @@ export type {
   UserStatus,
   CompetitionHubData,
 } from "./hub";
+
+export type {
+  CreateBattleWizardStep,
+  CreateBattleWizardState,
+  CreateBattleWizardContextValue,
+  TopicBattleDraft,
+  CodingQuestion,
+  TestCase,
+  QuestionPoolMode,
+} from "./createBattle";

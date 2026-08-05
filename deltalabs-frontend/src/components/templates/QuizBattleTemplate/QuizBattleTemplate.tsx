@@ -32,6 +32,10 @@ export interface QuizBattleTemplateProps {
   state: DuelState;
   /** Countdown label such as "03:24". */
   timeLeft: string;
+  /** Seconds remaining in the battle. */
+  timeLeftSeconds: number;
+  /** Total seconds allocated to the battle. */
+  timeTotalSeconds: number;
   onSelect?: (index: number) => void;
   /** Advances to the next question once an answer is revealed. */
   onAdvance?: () => void;
@@ -44,6 +48,8 @@ export function QuizBattleTemplate({
   quiz,
   state,
   timeLeft,
+  timeLeftSeconds,
+  timeTotalSeconds,
   onSelect,
   onAdvance,
   onPlayAgain,
@@ -54,6 +60,10 @@ export function QuizBattleTemplate({
   const question = quiz.questions[state.currentQuestionIndex];
   const totalPoints = quiz.questions.reduce((sum) => sum + 100, 0);
   const isLastQuestion = state.currentQuestionIndex === state.totalQuestions - 1;
+  const timeProgress =
+    timeTotalSeconds > 0
+      ? Math.min(100, Math.max(0, Math.round((timeLeftSeconds / timeTotalSeconds) * 100)))
+      : 0;
 
   if (finished) {
     return (
@@ -62,9 +72,8 @@ export function QuizBattleTemplate({
           title={quiz.battleTitle}
           totalPoints={totalPoints}
           players={quiz.leaderboard.length}
-          currentQuestion={state.totalQuestions}
-          totalQuestions={state.totalQuestions}
-          timeLeft="0m 00s"
+          timeProgress={timeProgress}
+          timeLeft={timeLeft}
         />
         <QuizResultsPanel
           title={quiz.battleTitle}
@@ -85,8 +94,7 @@ export function QuizBattleTemplate({
         title={quiz.battleTitle}
         totalPoints={totalPoints}
         players={quiz.leaderboard.length}
-        currentQuestion={state.currentQuestionIndex + 1}
-        totalQuestions={state.totalQuestions}
+        timeProgress={timeProgress}
         timeLeft={timeLeft}
       />
 

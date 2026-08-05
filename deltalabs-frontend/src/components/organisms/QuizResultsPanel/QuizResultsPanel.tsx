@@ -95,9 +95,11 @@ export function QuizResultsPanel({
         <Button variant="ghost" onClick={onExit}>
           Back to Battles
         </Button>
-        <Button variant="primary" onClick={onPlayAgain}>
-          Play Again
-        </Button>
+        {onPlayAgain && (
+          <Button variant="primary" onClick={onPlayAgain}>
+            Play Again
+          </Button>
+        )}
       </div>
     </div>
   );

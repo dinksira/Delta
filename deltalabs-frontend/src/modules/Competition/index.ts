@@ -2,10 +2,15 @@ export {
   ActiveCompetitionPage,
   CompetitionDetailPage,
   PublicCompetitionPage,
-  HostCompetitionPage,
+  CreateBattleTopicPage,
   TopicBattleDuelPage,
 } from "@/modules/Competition/views";
-export { CompetitionFilterProvider, useCompetitionFilter } from "@/modules/Competition/context";
+export {
+  CompetitionFilterProvider,
+  useCompetitionFilter,
+  CreateBattleWizardProvider,
+  useCreateBattleWizard,
+} from "@/modules/Competition/context";
 export {
   useFilteredCompetitions,
   useTopicBattles,
@@ -40,3 +45,8 @@ export type {
   DuelState,
 } from "@/modules/Competition/types";
 export type { CompetitionDetail } from "@/modules/Competition/types/detail";
+export type {
+  CreateBattleWizardStep,
+  CreateBattleWizardState,
+  CreateBattleWizardContextValue,
+} from "@/modules/Competition/types";

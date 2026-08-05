@@ -82,6 +82,7 @@ class TopicBattleResponse(BaseModel):
     owner_user_id: str | None = Field(default=None, **_alias("ownerUserId"))
     is_owner: bool = Field(default=False, **_alias("isOwner"))
     has_joined: bool = Field(default=False, **_alias("hasJoined"))
+    has_completed: bool = Field(default=False, **_alias("hasCompleted"))
     prize_pool: str = Field(**_alias("prizePool"))
     entry_fee: str = Field(**_alias("entryFee"))
     players_joined: int = Field(**_alias("playersJoined"))

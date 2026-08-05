@@ -34,6 +34,7 @@ export interface TopicBattleListTemplateProps {
 
   battles: TopicBattle[];
   onJoinBattle?: (id: string) => void;
+  onResumeBattle?: (id: string) => void;
   onOpenBattle?: (id: string) => void;
 
   statusSlot?: ReactNode;
@@ -62,6 +63,7 @@ export function TopicBattleListTemplate({
 
   battles,
   onJoinBattle,
+  onResumeBattle,
   onOpenBattle,
 
   statusSlot,
@@ -152,6 +154,7 @@ export function TopicBattleListTemplate({
           <TopicBattleGrid
             battles={battles}
             onJoin={onJoinBattle}
+            onResume={onResumeBattle}
             onOpen={onOpenBattle}
             emptyTitle="No battles found"
             emptyDescription="Try adjusting your search or filters, or create a new battle."

@@ -23,9 +23,9 @@ export interface MetricTileProps {
 }
 
 const toneIconClasses: Record<MetricTileTone, string> = {
-  primary: "bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300",
-  success: "bg-success-100 text-success-700 dark:bg-success-900/40 dark:text-success-300",
-  info: "bg-info-100 text-info-700 dark:bg-info-900/40 dark:text-info-300",
+  primary: "bg-primary-600 text-white",
+  success: "bg-success-600 text-white",
+  info: "bg-info-600 text-white",
 };
 
 export function MetricTile({

@@ -48,6 +48,8 @@ export interface TopicBattle {
   isOwner: boolean;
   /** True when the signed-in user has already joined this battle. */
   hasJoined: boolean;
+  /** True when the signed-in user has finished this battle (cannot re-take). */
+  hasCompleted: boolean;
   prizePool: string;
   entryFee: string;
   playersJoined: number;

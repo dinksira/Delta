@@ -2,6 +2,26 @@ import { apiClient } from "@/lib/apiClient";
 import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub";
 import type { GameMode } from "@/modules/Competition/types/hub";
 import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
+import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+
+/** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
+export interface CreateTopicBattlePayload {
+  title: string;
+  subject: string;
+  difficulty: string;
+  entryFee: string;
+  prizePool: string;
+  playersMax: number;
+  creatorName: string;
+  scheduleDate?: string;
+  scheduleTime?: string;
+  scheduleTimezone?: string;
+  questions: CodingQuestion[];
+}
+
+export async function createTopicBattle(payload: CreateTopicBattlePayload): Promise<TopicBattle> {
+  return apiClient.post<TopicBattle>("/v1/competitions/topic-battles", { json: payload });
+}
 
 export async function fetchCompetitionModes() {
   return apiClient.get<GameMode[]>("/v1/competitions/modes");
@@ -21,4 +41,8 @@ export async function fetchTopicBattle(id: string) {
 
 export async function joinTopicBattle(id: string) {
   return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/join`);
+}
+
+export async function completeTopicBattle(id: string) {
+  return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/complete`);
 }

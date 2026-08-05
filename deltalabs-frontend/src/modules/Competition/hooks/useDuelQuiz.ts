@@ -1,8 +1,9 @@
 /**
  * useDuelQuiz — client state machine for a duel quiz run.
  * Owns the current question index, selected answer, per-question reveal, score,
- * correct count, derived rank, and a countdown timer. Advancing after an answer
- * is locked in scores the question and moves to the next one.
+ * correct count, derived rank, and a battle-wide countdown timer. The battle is
+ * time-boxed: the timer runs continuously and the duel ends automatically the
+ * moment it reaches zero, no matter how many questions remain unanswered.
  *
  * @example
  * ```ts
@@ -17,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DuelQuiz, DuelState } from "@/modules/Competition/types/duelQuiz";
 
 const POINTS_PER_QUESTION = 100;
-const QUESTION_TIME_SECONDS = 30;
+const SECONDS_PER_QUESTION = 30;
 
 function formatTimeLeft(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -25,10 +26,8 @@ function formatTimeLeft(totalSeconds: number): string {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-export function useDuelQuiz(quiz: DuelQuiz | null) {
-  const totalQuestions = quiz?.questions.length ?? 0;
-
-  const [state, setState] = useState<DuelState>({
+function emptyState(totalQuestions: number): DuelState {
+  return {
     currentQuestionIndex: 0,
     selectedAnswer: null,
     isAnswered: false,
@@ -36,26 +35,29 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
     rank: 1,
     correctCount: 0,
     totalQuestions,
-  });
+  };
+}
 
-  const [timeLeftSeconds, setTimeLeftSeconds] = useState(QUESTION_TIME_SECONDS);
+export function useDuelQuiz(quiz: DuelQuiz | null) {
+  const totalQuestions = quiz?.questions.length ?? 0;
+  const totalTimeSeconds = useMemo(
+    () => Math.max(SECONDS_PER_QUESTION, totalQuestions * SECONDS_PER_QUESTION),
+    [totalQuestions],
+  );
+
+  const [state, setState] = useState<DuelState>(() => emptyState(totalQuestions));
+  const [timeLeftSeconds, setTimeLeftSeconds] = useState(totalTimeSeconds);
+
+  const finished = state.currentQuestionIndex >= state.totalQuestions;
 
   useEffect(() => {
-    setState({
-      currentQuestionIndex: 0,
-      selectedAnswer: null,
-      isAnswered: false,
-      score: 0,
-      rank: 1,
-      correctCount: 0,
-      totalQuestions,
-    });
-    setTimeLeftSeconds(QUESTION_TIME_SECONDS);
-  }, [totalQuestions]);
+    setState(emptyState(totalQuestions));
+    setTimeLeftSeconds(totalTimeSeconds);
+  }, [totalQuestions, totalTimeSeconds]);
 
-  // Countdown: resets per question, stops once the duel is finished.
+  // Battle countdown: runs continuously until the duel is finished.
   useEffect(() => {
-    if (!quiz || state.isAnswered || state.currentQuestionIndex >= totalQuestions) {
+    if (!quiz || finished) {
       return;
     }
     const timer = setInterval(() => {
@@ -68,21 +70,17 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [quiz, state.isAnswered, state.currentQuestionIndex, totalQuestions]);
+  }, [quiz, finished]);
 
-  // Auto-advance when the timer runs out on an unanswered question.
+  // End the battle when the timer runs out, even mid-question.
   useEffect(() => {
-    if (!quiz || state.isAnswered || state.currentQuestionIndex >= totalQuestions) {
+    if (!quiz || finished) {
       return;
     }
     if (timeLeftSeconds <= 0) {
-      setState((prev) => ({
-        ...prev,
-        isAnswered: true,
-        selectedAnswer: prev.selectedAnswer ?? null,
-      }));
+      setState((prev) => ({ ...prev, currentQuestionIndex: prev.totalQuestions }));
     }
-  }, [timeLeftSeconds, quiz, state.isAnswered, state.currentQuestionIndex, totalQuestions]);
+  }, [timeLeftSeconds, quiz, finished, totalQuestions]);
 
   const selectAnswer = useCallback(
     (index: number) => {
@@ -130,27 +128,20 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
         isAnswered: false,
       };
     });
-    setTimeLeftSeconds(QUESTION_TIME_SECONDS);
   }, []);
 
   const reset = useCallback(() => {
-    setState({
-      currentQuestionIndex: 0,
-      selectedAnswer: null,
-      isAnswered: false,
-      score: 0,
-      rank: 1,
-      correctCount: 0,
-      totalQuestions,
-    });
-    setTimeLeftSeconds(QUESTION_TIME_SECONDS);
-  }, [totalQuestions]);
+    setState(emptyState(totalQuestions));
+    setTimeLeftSeconds(totalTimeSeconds);
+  }, [totalQuestions, totalTimeSeconds]);
 
   const timeLeft = useMemo(() => formatTimeLeft(timeLeftSeconds), [timeLeftSeconds]);
 
   return {
     state,
     timeLeft,
+    timeLeftSeconds,
+    totalTimeSeconds,
     selectAnswer,
     advance,
     reset,

@@ -122,6 +122,7 @@ export function ActiveCompetitionPage() {
         onCreateNew={handleUtilityAction}
         battles={filteredBattles}
         onJoinBattle={handleJoinBattle}
+        onResumeBattle={handleOpenBattle}
         onOpenBattle={handleOpenBattle}
         statusSlot={statusSlot}
       />

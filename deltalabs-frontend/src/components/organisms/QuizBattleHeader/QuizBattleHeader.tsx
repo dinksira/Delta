@@ -1,7 +1,7 @@
 /**
  * QuizBattleHeader — header card for a duel quiz run.
- * Shows the battle title, a PTS badge, a players badge, question progress, and
- * a live countdown timer pill.
+ * Shows the battle title, a PTS badge, a players badge, a live countdown timer
+ * pill, and a horizontal time-left indicator for the battle.
  *
  * @example
  * ```tsx
@@ -9,9 +9,8 @@
  *   title="Calculus Showdown"
  *   totalPoints={500}
  *   players={8}
- *   currentQuestion={1}
- *   totalQuestions={5}
- *   timeLeft="03:24"
+ *   timeProgress={68}
+ *   timeLeft="0m 42s"
  * />
  * ```
  */
@@ -25,8 +24,8 @@ export interface QuizBattleHeaderProps {
   title: string;
   totalPoints: number;
   players: number;
-  currentQuestion: number;
-  totalQuestions: number;
+  /** Remaining battle time as a percentage (0-100) driving the horizontal bar. */
+  timeProgress: number;
   /** Countdown label such as "03:24" or "0m 45s". */
   timeLeft: string;
   className?: string;
@@ -36,13 +35,10 @@ export function QuizBattleHeader({
   title,
   totalPoints,
   players,
-  currentQuestion,
-  totalQuestions,
+  timeProgress,
   timeLeft,
   className,
 }: Readonly<QuizBattleHeaderProps>) {
-  const progress =
-    totalQuestions > 0 ? Math.min(100, Math.round((currentQuestion / totalQuestions) * 100)) : 0;
 
   return (
     <header
@@ -53,7 +49,7 @@ export function QuizBattleHeader({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-100 text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white">
             <Swords className="size-5" aria-hidden />
           </span>
           <div className="min-w-0">
@@ -80,9 +76,9 @@ export function QuizBattleHeader({
 
       <ProgressBar
         className="mt-4"
-        progress={progress}
-        label="Progress"
-        valueText={`${currentQuestion}/${totalQuestions}`}
+        progress={timeProgress}
+        label="Time Left"
+        valueText={timeLeft}
       />
     </header>
   );
