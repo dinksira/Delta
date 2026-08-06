@@ -15,6 +15,31 @@ export interface TopicBattleTestCase {
   isHidden: boolean;
 }
 
+export interface TopicBattleTestCase {
+  input: string;
+  expectedOutput: string;
+  explanation: string;
+  isSample: boolean;
+  isHidden: boolean;
+}
+
+export interface TopicBattleOption {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface TopicBattleMatchingPair {
+  id: string;
+  prompt: string;
+  answer: string;
+}
+
+export interface TopicBattleOrderingItem {
+  id: string;
+  text: string;
+}
+
 export interface TopicBattleQuestion {
   id: string;
   title: string;
@@ -27,6 +52,14 @@ export interface TopicBattleQuestion {
   hintEnabled: boolean;
   hintText: string;
   testCases: TopicBattleTestCase[];
+  /** Authoring surface discriminator (coding / quiz kinds). */
+  kind: string;
+  mcqOptions: TopicBattleOption[];
+  mcqCorrectId: string;
+  tfAnswer: boolean;
+  fillExpected: string;
+  matchingPairs: TopicBattleMatchingPair[];
+  orderingItems: TopicBattleOrderingItem[];
 }
 
 export interface TopicBattleCreator {
@@ -54,6 +87,18 @@ export interface TopicBattle {
   entryFee: string;
   playersJoined: number;
   playersMax: number;
+  format: string;
+  durationMinutes: number;
+  visibility: string;
+  timing: string;
+  prizeRule: string;
+  questionPoolMode: string;
+  scheduleDate: string;
+  scheduleTime: string;
+  scheduleTimezone: string;
+  easyPct: number;
+  mediumPct: number;
+  hardPct: number;
   createdAt: string;
   questions: TopicBattleQuestion[];
 }

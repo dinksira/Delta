@@ -16,6 +16,15 @@ export interface CreateTopicBattlePayload {
   scheduleDate?: string;
   scheduleTime?: string;
   scheduleTimezone?: string;
+  format: string;
+  durationMinutes: number;
+  visibility: string;
+  timing: string;
+  prizeRule: string;
+  questionPoolMode: string;
+  easyPct: number;
+  mediumPct: number;
+  hardPct: number;
   questions: CodingQuestion[];
 }
 

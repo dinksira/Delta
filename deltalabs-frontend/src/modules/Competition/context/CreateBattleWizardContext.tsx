@@ -25,7 +25,7 @@ type CreateBattleWizardAction =
   | { type: "PREVIOUS_STEP" }
   | { type: "RESET" }
   | { type: "UPDATE_DRAFT"; payload: Partial<TopicBattleDraft> }
-  | { type: "SELECT_TOPIC"; payload: { id: string; name: string; category: string } }
+  | { type: "SELECT_TOPIC"; payload: { id: string; name: string; category: string; difficulty: string } }
   | { type: "SELECT_FORMAT"; payload: string }
   | { type: "SELECT_VISIBILITY"; payload: { id: string; timing: "instant" | "schedule" } }
   | { type: "UPDATE_ENTRY_SETUP"; payload: { slots: number; fee: number | "Free" | "Custom"; customFee?: number } }
@@ -70,7 +70,12 @@ function createBattleWizardReducer(
         ...state,
         draft: {
           ...state.draft,
-          topic: { id: action.payload.id, name: action.payload.name, category: action.payload.category },
+          topic: {
+            id: action.payload.id,
+            name: action.payload.name,
+            category: action.payload.category,
+            difficulty: action.payload.difficulty,
+          },
         },
       };
     case "SELECT_FORMAT":
@@ -232,9 +237,12 @@ export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWi
     dispatch({ type: "PREVIOUS_STEP" });
   }, []);
 
-  const selectTopic = useCallback((id: string, name: string, category: string) => {
-    dispatch({ type: "SELECT_TOPIC", payload: { id, name, category } });
-  }, []);
+  const selectTopic = useCallback(
+    (id: string, name: string, category: string, difficulty: string = "") => {
+      dispatch({ type: "SELECT_TOPIC", payload: { id, name, category, difficulty } });
+    },
+    [],
+  );
 
   const selectFormat = useCallback((formatId: string) => {
     dispatch({ type: "SELECT_FORMAT", payload: formatId });
@@ -328,14 +336,31 @@ export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWi
             hintEnabled: q.hintEnabled,
             hintText: q.hintText,
             testCases: q.testCases,
+            kind: q.kind,
+            mcqOptions: q.mcqOptions,
+            mcqCorrectId: q.mcqCorrectId,
+            tfAnswer: q.tfAnswer,
+            fillExpected: q.fillExpected,
+            matchingPairs: q.matchingPairs,
+            orderingItems: q.orderingItems,
           }))
         : [];
+
+    const formatMinutes: Record<string, number> = {
+      "1v1": 5,
+      mini: 10,
+      t8: 15,
+      t16: 30,
+      t32: 60,
+    };
+    const battleDifficulty =
+      draft.topic.difficulty || (draft.questionPool.mode === "auto" ? "Mixed" : "Custom");
 
     try {
       await createTopicBattle({
         title: draft.topic.name,
         subject: draft.topic.category,
-        difficulty: "Intermediate",
+        difficulty: battleDifficulty,
         entryFee,
         prizePool,
         playersMax: draft.entrySetup.slots,
@@ -343,6 +368,15 @@ export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWi
         scheduleDate: draft.schedule.date || undefined,
         scheduleTime: draft.schedule.time || undefined,
         scheduleTimezone: draft.schedule.timezone || undefined,
+        format: draft.format.id,
+        durationMinutes: formatMinutes[draft.format.id] ?? 10,
+        visibility: draft.visibility.id,
+        timing: draft.visibility.timing,
+        prizeRule: draft.prizeDistribution.id,
+        questionPoolMode: draft.questionPool.mode,
+        easyPct: draft.questionPool.easyPct,
+        mediumPct: draft.questionPool.mediumPct,
+        hardPct: draft.questionPool.hardPct,
         questions,
       });
       return { ok: true };

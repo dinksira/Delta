@@ -1,21 +1,27 @@
 /**
  * useDuelQuiz — client state machine for a duel quiz run.
- * Owns the current question index, selected answer, per-question reveal, score,
- * correct count, derived rank, and a battle-wide countdown timer. The battle is
- * time-boxed: the timer runs continuously and the duel ends automatically the
- * moment it reaches zero, no matter how many questions remain unanswered.
+ * Owns the current question index, the submitted answer for the current
+ * question, auto-grading of objective kinds, score / correct count / derived
+ * rank, and a battle-wide countdown timer. The battle is time-boxed and ends
+ * automatically the moment the timer reaches zero, regardless of unanswered
+ * questions.
  *
  * @example
  * ```ts
  * const duel = useDuelQuiz(quiz);
- * duel.selectAnswer(1);
- * // question answered -> "Next" auto-advances
+ * duel.submitAnswer({ kind: "multiple_choice", optionId: "opt_a" });
+ * // graded & revealed -> "Next" auto-advances
  * ```
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { DuelQuiz, DuelState } from "@/modules/Competition/types/duelQuiz";
+import {
+  gradeQuestion,
+  type DuelQuiz,
+  type DuelState,
+  type ParticipantAnswer,
+} from "@/modules/Competition/types/duelQuiz";
 
 const POINTS_PER_QUESTION = 100;
 const SECONDS_PER_QUESTION = 30;
@@ -29,8 +35,9 @@ function formatTimeLeft(totalSeconds: number): string {
 function emptyState(totalQuestions: number): DuelState {
   return {
     currentQuestionIndex: 0,
-    selectedAnswer: null,
+    answer: null,
     isAnswered: false,
+    lastResult: null,
     score: 0,
     rank: 1,
     correctCount: 0,
@@ -38,12 +45,14 @@ function emptyState(totalQuestions: number): DuelState {
   };
 }
 
-export function useDuelQuiz(quiz: DuelQuiz | null) {
+export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
   const totalQuestions = quiz?.questions.length ?? 0;
-  const totalTimeSeconds = useMemo(
-    () => Math.max(SECONDS_PER_QUESTION, totalQuestions * SECONDS_PER_QUESTION),
-    [totalQuestions],
-  );
+  const totalTimeSeconds = useMemo(() => {
+    if (durationSeconds && durationSeconds > 0) {
+      return durationSeconds;
+    }
+    return Math.max(SECONDS_PER_QUESTION, totalQuestions * SECONDS_PER_QUESTION);
+  }, [totalQuestions, durationSeconds]);
 
   const [state, setState] = useState<DuelState>(() => emptyState(totalQuestions));
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(totalTimeSeconds);
@@ -82,8 +91,8 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
     }
   }, [timeLeftSeconds, quiz, finished, totalQuestions]);
 
-  const selectAnswer = useCallback(
-    (index: number) => {
+  const submitAnswer = useCallback(
+    (answer: ParticipantAnswer) => {
       if (!quiz) {
         return;
       }
@@ -92,17 +101,19 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
           return prev;
         }
         const question = quiz.questions[prev.currentQuestionIndex];
-        const isCorrect = index === question.correctIndex;
-        const nextScore = isCorrect ? prev.score + POINTS_PER_QUESTION : prev.score;
-        const nextCorrectCount = isCorrect ? prev.correctCount + 1 : prev.correctCount;
+        const result = gradeQuestion(question, answer);
+        const gained = result === true ? POINTS_PER_QUESTION : 0;
+        const nextScore = prev.score + gained;
+        const nextCorrectCount = result === true ? prev.correctCount + 1 : prev.correctCount;
 
         // Position the player on the leaderboard (best-first) based on points.
         const rankedAbove = quiz.leaderboard.filter((entry) => entry.points > nextScore).length;
 
         return {
           ...prev,
-          selectedAnswer: index,
+          answer,
           isAnswered: true,
+          lastResult: result,
           score: nextScore,
           correctCount: nextCorrectCount,
           rank: rankedAbove + 1,
@@ -124,8 +135,9 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
       return {
         ...prev,
         currentQuestionIndex: nextIndex,
-        selectedAnswer: null,
+        answer: null,
         isAnswered: false,
+        lastResult: null,
       };
     });
   }, []);
@@ -142,7 +154,7 @@ export function useDuelQuiz(quiz: DuelQuiz | null) {
     timeLeft,
     timeLeftSeconds,
     totalTimeSeconds,
-    selectAnswer,
+    submitAnswer,
     advance,
     reset,
   };

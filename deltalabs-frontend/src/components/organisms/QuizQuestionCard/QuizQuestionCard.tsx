@@ -1,8 +1,8 @@
 /**
  * QuizQuestionCard — the main question card for a duel quiz.
- * Renders the current question, its options as `QuizOption` rows, and a
- * progress caption. Controlled by the host via `question`, `selected`,
- * `revealed`, and `onSelect`.
+ * Renders the current question (with a kind + difficulty badge), the
+ * participant answering surface (`QuizAnswerForm`), and a reveal banner when an
+ * answer has been submitted.
  *
  * @example
  * ```tsx
@@ -10,29 +10,43 @@
  *   question={question}
  *   index={0}
  *   total={5}
- *   selected={selected}
- *   revealed={isAnswered}
- *   onSelect={selectAnswer}
+ *   revealed={state.isAnswered}
+ *   result={state.lastResult}
+ *   answer={state.answer}
+ *   onSubmit={duel.submitAnswer}
  * />
  * ```
  */
 
-import { HelpCircle } from "lucide-react";
+import { CheckCircle2, HelpCircle, MinusCircle, XCircle } from "lucide-react";
 
-import { QuizOption } from "@/components/molecules/QuizOption";
-import type { DuelQuestion } from "@/modules/Competition/types/duelQuiz";
+import { QuizAnswerForm } from "@/components/organisms/QuizAnswerForm/QuizAnswerForm";
 import { cn } from "@/lib/utils";
+import type {
+  DuelQuestion,
+  ParticipantAnswer,
+} from "@/modules/Competition/types/duelQuiz";
+
+const KIND_LABELS: Record<string, string> = {
+  multiple_choice: "Multiple Choice",
+  true_false: "True / False",
+  fill_blank: "Fill-in-the-Blanks",
+  matching: "Matching",
+  ordering: "Ordering",
+  writing: "Writing / Essay",
+  coding: "Coding",
+};
 
 export interface QuizQuestionCardProps {
   question: DuelQuestion;
   /** Zero-based question index; used for the "Question N of M" caption. */
   index: number;
   total: number;
-  /** Zero-based index of the player's chosen option, if any. */
-  selected: number | null;
-  /** True after an answer is locked in; reveals correct/incorrect states. */
   revealed: boolean;
-  onSelect?: (index: number) => void;
+  /** Auto-grade result of the submitted answer, null when not auto-graded. */
+  result: boolean | null;
+  answer: ParticipantAnswer | null;
+  onSubmit: (answer: ParticipantAnswer) => void;
   className?: string;
 }
 
@@ -40,9 +54,10 @@ export function QuizQuestionCard({
   question,
   index,
   total,
-  selected,
   revealed,
-  onSelect,
+  result,
+  answer,
+  onSubmit,
   className,
 }: Readonly<QuizQuestionCardProps>) {
   return (
@@ -57,34 +72,50 @@ export function QuizQuestionCard({
           <HelpCircle className="size-4 text-primary-600" aria-hidden />
           Question {index + 1} of {total}
         </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 py-1 text-[11px] font-semibold text-text-secondary">
+          {KIND_LABELS[question.kind] ?? question.kind}
+          {question.difficulty ? ` · ${question.difficulty}` : ""}
+        </span>
       </div>
 
       <h2 className="text-lg font-semibold leading-snug text-text-primary">{question.text}</h2>
 
-      <div className="mt-5 flex flex-col gap-2.5">
-        {question.options.map((option, optionIndex) => {
-          let state: "idle" | "selected" | "correct" | "incorrect" = "idle";
-          if (revealed) {
-            if (optionIndex === question.correctIndex) {
-              state = "correct";
-            } else if (optionIndex === selected) {
-              state = "incorrect";
-            }
-          } else if (optionIndex === selected) {
-            state = "selected";
-          }
-          return (
-            <QuizOption
-              key={option}
-              index={optionIndex}
-              text={option}
-              state={state}
-              disabled={revealed}
-              onSelect={onSelect}
-            />
-          );
-        })}
+      <div className="mt-5">
+        <QuizAnswerForm
+          key={question.id}
+          question={question}
+          revealed={revealed}
+          answer={answer}
+          onSubmit={onSubmit}
+        />
       </div>
+
+      {revealed && (
+        <div
+          className={cn(
+            "mt-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold",
+            result === true
+              ? "border-success-500 bg-success-50 text-success-700"
+              : result === false
+                ? "border-error-500 bg-error-50 text-error-700"
+                : "border-border-default bg-surface-muted text-text-secondary",
+          )}
+          role="status"
+        >
+          {result === true ? (
+            <CheckCircle2 className="size-4 shrink-0" aria-hidden />
+          ) : result === false ? (
+            <XCircle className="size-4 shrink-0" aria-hidden />
+          ) : (
+            <MinusCircle className="size-4 shrink-0" aria-hidden />
+          )}
+          {result === true
+            ? "Correct"
+            : result === false
+              ? "Incorrect"
+              : "Submitted for review"}
+        </div>
+      )}
     </div>
   );
 }

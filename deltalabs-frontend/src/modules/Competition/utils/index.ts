@@ -89,6 +89,58 @@ export function getStatusLabel(status: string): string {
   }
 }
 
+export function getFormatLabel(formatId: string): string {
+  switch (formatId) {
+    case "1v1":
+      return "1 VS 1 Duel";
+    case "mini":
+      return "Mini Tournament";
+    case "t8":
+      return "Tournament (8)";
+    case "t16":
+      return "Tournament (16)";
+    case "t32":
+      return "Tournament (32)";
+    default:
+      return formatId;
+  }
+}
+
+export function getPrizeRuleLabel(prizeRule: string): string {
+  switch (prizeRule) {
+    case "winner-takes-all":
+      return "Winner Takes All";
+    case "top-3-split":
+      return "Top 3 Split";
+    case "split-pot":
+      return "Split Pot";
+    default:
+      return prizeRule;
+  }
+}
+
+export function getVisibilityLabel(visibility: string): string {
+  switch (visibility) {
+    case "public":
+      return "Public Match";
+    case "private":
+      return "Private Match";
+    default:
+      return visibility;
+  }
+}
+
+export function getTimingLabel(timing: string): string {
+  switch (timing) {
+    case "instant":
+      return "Starts instantly";
+    case "schedule":
+      return "Scheduled";
+    default:
+      return timing;
+  }
+}
+
 /** Status badge tones, shared by TopicBattleCard and BattleSummaryPanel. */
 export const statusBadgeClasses: Record<string, string> = {
   filling: "bg-warning-100 text-warning-700 dark:bg-warning-900/40 dark:text-warning-300",

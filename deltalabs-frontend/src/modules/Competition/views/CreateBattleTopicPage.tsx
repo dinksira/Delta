@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import {
   BookOpen,
   Brain,
+  Braces,
   Briefcase,
   CalendarClock,
   Clapperboard,
@@ -28,11 +29,12 @@ import {
   Code2,
   Cog,
   Cpu,
-  Database,
   Dna,
+  FileText,
   FlaskConical,
   Folder,
   Globe2,
+  HelpCircle,
   Landmark,
   Languages,
   Layers,
@@ -40,6 +42,7 @@ import {
   Medal,
   Palette,
   Pencil,
+  Play,
   Plus,
   Rocket,
   Scale,
@@ -66,12 +69,20 @@ import { PrizePoolCounter } from "@/components/molecules/PrizePoolCounter/PrizeP
 import { SlotsStepper } from "@/components/molecules/SlotsStepper/SlotsStepper";
 import { FeeSelector } from "@/components/molecules/FeeSelector/FeeSelector";
 import { SchedulePicker } from "@/components/organisms/SchedulePicker/SchedulePicker";
-import { DifficultyComposer } from "@/components/organisms/DifficultyComposer/DifficultyComposer";
+import { QuestionSourceGrid } from "@/components/organisms/QuestionSourceGrid/QuestionSourceGrid";
+import { QuestionPreviewPanel } from "@/components/organisms/QuestionPreviewPanel/QuestionPreviewPanel";
+import { QuestionAuthoringEditor } from "@/components/organisms/QuestionAuthoringEditor/QuestionAuthoringEditor";
 import { QuestionBuilderEditor } from "@/components/organisms/QuestionBuilderEditor/QuestionBuilderEditor";
+import { ModuleRail } from "@/components/organisms/ModuleRail/ModuleRail";
+import { ModuleSettingsPanel } from "@/components/organisms/ModuleSettingsPanel/ModuleSettingsPanel";
+import { QuestionTabBar } from "@/components/organisms/QuestionTabBar/QuestionTabBar";
+import { QuestionTypeMenu } from "@/components/organisms/QuestionTypeMenu/QuestionTypeMenu";
+import { QuestionModuleSettings } from "@/components/molecules/QuestionModuleSettings/QuestionModuleSettings";
+import type { QuestionKind } from "@/modules/Competition/types/createBattle";
+import { CompetitionWorkspaceTemplate } from "@/components/templates/CompetitionWorkspaceTemplate/CompetitionWorkspaceTemplate";
 import { BattleCreatedModal } from "@/components/organisms/BattleCreatedModal/BattleCreatedModal";
 import { Button } from "@/components/theme/Button";
 import { Typography } from "@/components/theme/Typography";
-import { cn } from "@/lib/utils";
 import {
   CreateBattleWizardProvider,
   useCreateBattleWizard,
@@ -85,7 +96,9 @@ import {
   CREATE_BATTLE_TOTAL_STEPS,
   ENTRY_FEE_OPTIONS,
   PRIZE_RULES,
+  QUESTION_SOURCES,
   TOPIC_CATALOG,
+  getSampleCategories,
 } from "@/modules/Competition/data";
 
 const ALL_FILTER = "All";
@@ -95,6 +108,14 @@ const TOPICS_PER_PAGE = 8;
 
 /** Cap on custom questions a host can build (mirrors desktop totalQuestions=50). */
 const MAX_QUESTIONS = 50;
+
+/** Modules surfaced in the Competition Workspace rail. Only "question" is wired today. */
+const WORKSPACE_MODULES = [
+  { id: "code", label: "Code Editor", icon: Code2 },
+  { id: "question", label: "Question Builder", icon: Braces },
+  { id: "markdown", label: "Markdown Pad", icon: ScrollText },
+  { id: "design", label: "Design Canvas", icon: Palette },
+] as const;
 
 /** Trending Topics filter pills from the Step 1 spec. */
 const TRENDING_SUBJECTS: { value: string; label: string }[] = [
@@ -250,7 +271,7 @@ function CreateBattleTopicWizard() {
   const handleToggleMultiSelectMode = useCallback(() => {
     if (isMultiSelectMode) {
       setSelectedTopicIdsMap(new Map());
-      selectTopic("", "", "");
+      selectTopic("", "", "", "");
     }
     setIsMultiSelectMode((prev) => !prev);
   }, [isMultiSelectMode, selectTopic]);
@@ -275,9 +296,10 @@ function CreateBattleTopicWizard() {
               : `${selectedArr[0].name} +${selectedArr.length - 1} Mixed`;
           const mergedCategory =
             selectedArr.length === 1 ? selectedArr[0].category : "Mixed Topics";
-          selectTopic(mergedId, mergedName, mergedCategory);
+          const mergedDifficulty = selectedArr.length === 1 ? selectedArr[0].difficulty : "Mixed";
+          selectTopic(mergedId, mergedName, mergedCategory, mergedDifficulty);
         } else {
-          selectTopic("", "", "");
+          selectTopic("", "", "", "");
         }
         return next;
       });
@@ -287,7 +309,7 @@ function CreateBattleTopicWizard() {
 
   const handleClearMultiSelect = useCallback(() => {
     setSelectedTopicIdsMap(new Map());
-    selectTopic("", "", "");
+    selectTopic("", "", "", "");
   }, [selectTopic]);
 
   const selectedTopicIds = useMemo(
@@ -323,6 +345,12 @@ function CreateBattleTopicWizard() {
     };
   }, [draft]);
 
+  const builderOpen = showQuestionBuilder && currentStep === 7;
+
+  if (builderOpen) {
+    return <QuestionBuilderStep onBack={() => setShowQuestionBuilder(false)} />;
+  }
+
   return (
     <>
       <CreateBattleWizardTemplate
@@ -338,24 +366,19 @@ function CreateBattleTopicWizard() {
         nextLabel={
           isLastStep ? (isSubmitting ? "Launching…" : "Launch Battle") : "Next"
         }
-        hideNav={showQuestionBuilder}
         submitError={submitError}
       >
-        {showQuestionBuilder && currentStep === 7 ? (
-          <QuestionBuilderStep onBack={() => setShowQuestionBuilder(false)} />
-        ) : (
-          <StepContent
-            currentStep={currentStep}
-            onOpenQuestionBuilder={() => setShowQuestionBuilder(true)}
-            isMultiSelectMode={isMultiSelectMode}
-            selectedTopicIds={selectedTopicIds}
-            seeMore={seeMore}
-            onSeeMoreChange={setSeeMore}
-            onToggleMultiSelectMode={handleToggleMultiSelectMode}
-            onClearMultiSelect={handleClearMultiSelect}
-            onToggleMultiSelectTopic={handleToggleMultiSelectTopic}
-          />
-        )}
+        <StepContent
+          currentStep={currentStep}
+          onOpenQuestionBuilder={() => setShowQuestionBuilder(true)}
+          isMultiSelectMode={isMultiSelectMode}
+          selectedTopicIds={selectedTopicIds}
+          seeMore={seeMore}
+          onSeeMoreChange={setSeeMore}
+          onToggleMultiSelectMode={handleToggleMultiSelectMode}
+          onClearMultiSelect={handleClearMultiSelect}
+          onToggleMultiSelectTopic={handleToggleMultiSelectTopic}
+        />
       </CreateBattleWizardTemplate>
 
       <BattleCreatedModal
@@ -451,40 +474,6 @@ function StepSectionHeader({
         <Typography className="text-sm text-text-secondary">{subtitle}</Typography>
       </div>
       {trailing}
-    </div>
-  );
-}
-
-function SegmentedToggle({
-  value,
-  onChange,
-  options,
-}: Readonly<{
-  value: string;
-  onChange: (value: string) => void;
-  options: { value: string; label: string }[];
-}>) {
-  return (
-    <div className="flex items-center gap-1 rounded-full border border-border-default bg-surface-muted p-1">
-      {options.map((option) => {
-        const selected = value === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            aria-pressed={selected}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors duration-200",
-              selected
-                ? "bg-primary-600 text-white shadow-sm"
-                : "text-text-secondary hover:text-text-primary",
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -618,7 +607,7 @@ function TopicSelectionStep({
             onToggleMultiSelectTopic(id);
           } else {
             const topic = TOPIC_CATALOG.find((t) => t.id === id);
-            if (topic) selectTopic(topic.id, topic.name, topic.category);
+            if (topic) selectTopic(topic.id, topic.name, topic.category, topic.difficulty);
           }
         }}
       />
@@ -798,30 +787,30 @@ function ScheduleStep() {
     <>
       <StepSectionHeader
         icon={<CalendarClock />}
-        title="Schedule"
-        subtitle="Pick when your battle goes live"
+        title="Schedule Your Battle"
+        subtitle="Choose when your epic battle begins"
       />
 
       <div className="flex flex-col gap-6">
-        {isInstant ? (
+        {isInstant && (
           <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-muted px-4 py-3 text-sm text-text-secondary">
             <Rocket className="size-4 shrink-0 text-primary-600" aria-hidden />
             Battle starts instantly. Switch to “Schedule Later” in Match
-            Type to pick a date and time.
+            Type to use this date and time.
           </div>
-        ) : (
-          <SchedulePicker
-            date={draft.schedule.date}
-            time={draft.schedule.time}
-            timezone={draft.schedule.timezone}
-            onDateChange={(date) => updateSchedule(date, draft.schedule.time, draft.schedule.timezone)}
-            onTimeChange={(time) => updateSchedule(draft.schedule.date, time, draft.schedule.timezone)}
-            onTimezoneChange={(timezone) =>
-              updateSchedule(draft.schedule.date, draft.schedule.time, timezone)
-            }
-            timezones={BATTLE_TIMEZONES}
-          />
         )}
+
+        <SchedulePicker
+          date={draft.schedule.date}
+          time={draft.schedule.time}
+          timezone={draft.schedule.timezone}
+          onDateChange={(date) => updateSchedule(date, draft.schedule.time, draft.schedule.timezone)}
+          onTimeChange={(time) => updateSchedule(draft.schedule.date, time, draft.schedule.timezone)}
+          onTimezoneChange={(timezone) =>
+            updateSchedule(draft.schedule.date, draft.schedule.time, timezone)
+          }
+          timezones={BATTLE_TIMEZONES}
+        />
       </div>
     </>
   );
@@ -836,80 +825,67 @@ function QuestionPoolStep({
 }: Readonly<{ onOpenQuestionBuilder: () => void }>) {
   const {
     draft,
-    updateQuestionPool,
     updateQuestionPoolMode,
     addQuestion,
     setActiveQuestionId,
   } = useCreateBattleWizard();
   const { questionPool, customQuestions } = draft;
+  const mode = questionPool.mode;
+
+  const openCustomQuestions = () => {
+    if (customQuestions.length === 0) addQuestion();
+    const last = customQuestions[customQuestions.length - 1];
+    if (last) setActiveQuestionId(last.id);
+    onOpenQuestionBuilder();
+  };
 
   return (
     <>
       <StepSectionHeader
-        icon={<Database />}
-        title="Question Pool"
-        subtitle={`Build the question bank for ${draft.topic.name || "your topic"}`}
+        icon={<HelpCircle />}
+        title="Question Pool Setup"
+        subtitle="Choose how questions will be selected for your battle"
       />
 
       <div className="flex flex-col gap-6">
-        <DifficultyComposer
-          easyPct={questionPool.easyPct}
-          mediumPct={questionPool.mediumPct}
-          hardPct={questionPool.hardPct}
-          onChange={(easy, medium, hard) =>
-            updateQuestionPool([], easy, medium, hard)
-          }
+        <QuestionSourceGrid
+          options={QUESTION_SOURCES}
+          selectedId={mode}
+          onSelect={(id) => updateQuestionPoolMode(id as "auto" | "custom")}
         />
 
-        <div className="flex flex-col gap-3">
-          <Typography as="h3" className="text-sm font-bold text-primary-700">
-            Question Source
-          </Typography>
-          <SegmentedToggle
-            value={questionPool.mode}
-            onChange={(mode) => updateQuestionPoolMode(mode as "auto" | "custom")}
-            options={[
-              { value: "auto", label: "Auto-generate from topic bank" },
-              { value: "custom", label: "Build custom questions" },
-            ]}
+        {mode === "auto" ? (
+          <QuestionPreviewPanel
+            topicCategory={draft.topic.category || draft.topic.name || "your topic"}
+            easyPct={questionPool.easyPct}
+            mediumPct={questionPool.mediumPct}
+            hardPct={questionPool.hardPct}
+            sampleCategories={getSampleCategories(draft.topic.category)}
           />
-        </div>
-
-        {questionPool.mode === "auto" ? (
-          <p className="rounded-xl border border-dashed border-border-default bg-surface-muted px-4 py-3 text-sm text-text-secondary">
-            Questions will be pulled automatically from the {draft.topic.name || "selected topic"}{" "}
-            {draft.topic.category ? `(${draft.topic.category}) ` : ""}
-            question bank using the difficulty mix above.
-          </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <Typography className="text-sm text-text-secondary">
-                {customQuestions.length} custom question{customQuestions.length === 1 ? "" : "s"}
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 text-primary-600" aria-hidden />
+              <Typography as="h3" className="text-sm font-bold text-primary-700">
+                Your Custom Questions
               </Typography>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  if (customQuestions.length === 0) addQuestion();
-                  const last = customQuestions[customQuestions.length - 1];
-                  if (last) setActiveQuestionId(last.id);
-                  onOpenQuestionBuilder();
-                }}
-              >
-                <Plus className="size-4" aria-hidden />
-                Add question
-              </Button>
             </div>
 
             {customQuestions.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-default bg-surface-muted px-6 py-10 text-center">
-                <Typography className="text-sm font-semibold text-text-primary">
+              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border-default bg-surface-muted px-6 py-12 text-center">
+                <span className="flex size-14 items-center justify-center rounded-full bg-primary-700 text-white">
+                  <HelpCircle className="size-6" aria-hidden />
+                </span>
+                <Typography className="text-base font-semibold text-text-primary">
                   No custom questions yet
                 </Typography>
-                <Typography className="max-w-sm text-xs text-text-secondary">
-                  Build your own questions to take full control of the battle.
+                <Typography className="max-w-sm text-sm text-text-secondary">
+                  Add your first question to get started
                 </Typography>
+                <Button className="mt-2 gap-1.5" onClick={openCustomQuestions}>
+                  <Plus className="size-4" aria-hidden />
+                  Create First Question
+                </Button>
               </div>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -923,7 +899,8 @@ function QuestionPoolStep({
                         {question.title.trim() || "Untitled question"}
                       </p>
                       <p className="text-xs text-text-secondary">
-                        {question.difficulty} · {question.points} pts · {question.language}
+                        {question.difficulty} · {question.points} pts ·{" "}
+                        {QUESTION_KIND_LABELS[question.kind] ?? question.language}
                       </p>
                     </div>
                     <Button
@@ -939,6 +916,17 @@ function QuestionPoolStep({
                     </Button>
                   </li>
                 ))}
+                <li>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full justify-center gap-1.5"
+                    onClick={openCustomQuestions}
+                  >
+                    <Plus className="size-4" aria-hidden />
+                    Add question
+                  </Button>
+                </li>
               </ul>
             )}
           </div>
@@ -948,6 +936,25 @@ function QuestionPoolStep({
   );
 }
 
+const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
+  "Multiple Choice": "multiple_choice",
+  "True / False": "true_false",
+  "Fill-in-the-Blanks": "fill_blank",
+  "Matching": "matching",
+  "Writing / Essay": "writing",
+  "Ordering / Sequencing": "ordering",
+};
+
+const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
+  coding: undefined,
+  multiple_choice: "Multiple Choice",
+  true_false: "True / False",
+  fill_blank: "Fill-in-the-Blanks",
+  matching: "Matching",
+  writing: "Writing / Essay",
+  ordering: "Ordering / Sequencing",
+};
+
 function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
   const {
     draft,
@@ -956,83 +963,155 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
     updateQuestion,
     removeQuestion,
     setActiveQuestionId,
+    goNext,
+    canGoNext,
   } = useCreateBattleWizard();
   const { customQuestions } = draft;
+  const [activeModule, setActiveModule] = useState("question");
 
   const activeQuestion =
     customQuestions.find((q) => q.id === activeQuestionId) ??
     customQuestions[customQuestions.length - 1];
 
+  const advanceToReview = () => {
+    onBack();
+    goNext();
+  };
+
   if (!activeQuestion) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
-        <Typography as="h3" className="text-lg font-semibold text-text-primary">
-          Build your first question
-        </Typography>
-        <Typography className="max-w-sm text-sm text-text-secondary">
-          Add a coding question to include in this battle.
-        </Typography>
-        <Button onClick={addQuestion}>
-          <Plus className="size-4" aria-hidden />
-          Add question
-        </Button>
-      </div>
+      <CompetitionWorkspaceTemplate
+        title="Question Builder"
+        subtitle="Competition Workspace"
+        headerIcon={Braces}
+        onBack={onBack}
+        onPrevious={onBack}
+        onNext={onBack}
+        leftRail={
+          <ModuleRail
+            modules={WORKSPACE_MODULES}
+            activeId={activeModule}
+            onSelect={setActiveModule}
+          />
+        }
+        rightPanel={
+          <ModuleSettingsPanel>
+            <Typography className="text-sm text-text-secondary">
+              Add a question to edit its module settings.
+            </Typography>
+          </ModuleSettingsPanel>
+        }
+      >
+        <div className="flex h-full min-h-[24rem] flex-col items-center justify-center gap-4 text-center">
+          <Braces className="size-10 text-primary-600" aria-hidden />
+          <Typography as="h3" className="text-lg font-semibold text-text-primary">
+            Build your first question
+          </Typography>
+          <Typography className="max-w-sm text-sm text-text-secondary">
+            Add a coding question to include in this battle.
+          </Typography>
+          <Button onClick={addQuestion}>
+            <Plus className="size-4" aria-hidden />
+            Add question
+          </Button>
+        </div>
+      </CompetitionWorkspaceTemplate>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            Back to pool
+    <CompetitionWorkspaceTemplate
+      title="Question Builder"
+      subtitle="Competition Workspace"
+      headerIcon={Braces}
+      onBack={onBack}
+      onPrevious={onBack}
+      onNext={advanceToReview}
+      nextDisabled={!canGoNext}
+      secondaryActions={
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={onBack}>
+            <Pencil className="size-4" aria-hidden />
+            Draft
           </Button>
-          <Typography className="text-sm text-text-secondary">
-            Editing {customQuestions.findIndex((q) => q.id === activeQuestion.id) + 1} of{" "}
-            {customQuestions.length} · {MAX_QUESTIONS} max questions
+          <Button variant="secondary" size="sm" onClick={advanceToReview}>
+            <Play className="size-4" aria-hidden />
+            Preview
+          </Button>
+        </div>
+      }
+      leftRail={
+        <ModuleRail
+          modules={WORKSPACE_MODULES}
+          activeId={activeModule}
+          onSelect={setActiveModule}
+        />
+      }
+      rightPanel={
+        <ModuleSettingsPanel>
+          <QuestionModuleSettings
+            question={activeQuestion}
+            onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+          />
+        </ModuleSettingsPanel>
+      }
+    >
+      {activeModule === "question" ? (
+        <div className="flex h-full flex-col gap-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <QuestionTabBar
+              questions={customQuestions}
+              activeId={activeQuestion.id}
+              maxQuestions={MAX_QUESTIONS}
+              onSelect={(id) => setActiveQuestionId(id)}
+              onAdd={addQuestion}
+            />
+            <QuestionTypeMenu
+              value={QUESTION_KIND_LABELS[activeQuestion.kind]}
+              onSelect={(label) =>
+                updateQuestion(activeQuestion.id, {
+                  kind: QUESTION_TYPE_KINDS[label] ?? "coding",
+                })
+              }
+            />
+          </div>
+
+          {activeQuestion.kind === "coding" ? (
+            <QuestionBuilderEditor
+              question={activeQuestion}
+              onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+              onRemove={() => {
+                removeQuestion(activeQuestion.id);
+                if (customQuestions.length === 1) onBack();
+              }}
+              languages={QUESTION_LANGUAGES}
+            />
+          ) : (
+            <QuestionAuthoringEditor
+              question={activeQuestion}
+              onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+              onRemove={() => {
+                removeQuestion(activeQuestion.id);
+                if (customQuestions.length === 1) onBack();
+              }}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+          <div className="flex size-12 items-center justify-center rounded-full bg-surface-muted">
+            <Layers className="size-6 text-primary-600" aria-hidden />
+          </div>
+          <Typography as="h3" className="text-lg font-semibold text-text-primary">
+            Module coming soon
+          </Typography>
+          <Typography className="max-w-sm text-sm text-text-secondary">
+            Select the Question Builder module to compose this battle&apos;s
+            questions.
           </Typography>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={addQuestion}>
-            <Plus className="size-4" aria-hidden />
-            New
-          </Button>
-          <Button size="sm" onClick={onBack}>
-            Done
-          </Button>
-        </div>
-      </div>
-
-      {customQuestions.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {customQuestions.map((question) => (
-            <button
-              key={question.id}
-              type="button"
-              onClick={() => setActiveQuestionId(question.id)}
-              className={cn(
-                "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
-                question.id === activeQuestion.id
-                  ? "border-primary-600 bg-primary-600 text-white"
-                  : "border-border-default bg-surface-default text-text-secondary hover:border-primary-400",
-              )}
-            >
-              {question.title.trim() || `Question ${customQuestions.findIndex((q) => q.id === question.id) + 1}`}
-            </button>
-          ))}
-        </div>
       )}
-
-      <QuestionBuilderEditor
-        question={activeQuestion}
-        onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
-        onRemove={() => {
-          removeQuestion(activeQuestion.id);
-          if (customQuestions.length === 1) onBack();
-        }}
-        languages={QUESTION_LANGUAGES}
-      />
-    </div>
+    </CompetitionWorkspaceTemplate>
   );
 }
 
@@ -1065,7 +1144,13 @@ function ReviewLaunchStep() {
       : `Custom · ${draft.customQuestions.length} question${draft.customQuestions.length === 1 ? "" : "s"}`;
 
   const rows: { label: string; value: string; step: number }[] = [
-    { label: "Topic", value: draft.topic.name || "Not selected", step: 1 },
+    {
+      label: "Topic",
+      value: draft.topic.name
+        ? `${draft.topic.name}${draft.topic.difficulty ? ` · ${draft.topic.difficulty}` : ""}`
+        : "Not selected",
+      step: 1,
+    },
     { label: "Format", value: format?.title ?? draft.format.id, step: 2 },
     {
       label: "Visibility",

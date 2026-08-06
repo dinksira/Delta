@@ -11,7 +11,9 @@ import {
   Gift,
   ListChecks,
   Settings,
+  Swords,
   Ticket,
+  Timer,
   Trophy,
   Users,
 } from "lucide-react";
@@ -23,7 +25,11 @@ import { topicBattleQueryKeys } from "@/modules/Competition/hooks/topicBattleQue
 import { useJoinTopicBattle } from "@/modules/Competition/hooks/useJoinTopicBattle";
 import {
   formatEndsDate,
+  getFormatLabel,
+  getPrizeRuleLabel,
   getStatusLabel,
+  getTimingLabel,
+  getVisibilityLabel,
 } from "@/modules/Competition/utils";
 
 interface InfoCardProps {
@@ -168,6 +174,26 @@ export function CompetitionDetailPage() {
           icon={ListChecks}
           label="Questions"
           value={battle.questions.length}
+        />
+        <InfoCard
+          icon={Swords}
+          label="Format"
+          value={getFormatLabel(battle.format)}
+        />
+        <InfoCard
+          icon={Timer}
+          label="Duration"
+          value={`${battle.durationMinutes} min round`}
+        />
+        <InfoCard
+          icon={Trophy}
+          label="Prize rule"
+          value={getPrizeRuleLabel(battle.prizeRule)}
+        />
+        <InfoCard
+          icon={Users}
+          label="Visibility"
+          value={`${getVisibilityLabel(battle.visibility)} · ${getTimingLabel(battle.timing)}`}
         />
       </div>
 

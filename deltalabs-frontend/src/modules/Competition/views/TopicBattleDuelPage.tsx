@@ -40,7 +40,8 @@ export function TopicBattleDuelPage() {
   });
 
   const quiz = useMemo(() => (battle ? buildDuelQuiz(battle) : null), [battle]);
-  const duel = useDuelQuiz(quiz);
+  const durationSeconds = battle?.durationMinutes ? battle.durationMinutes * 60 : undefined;
+  const duel = useDuelQuiz(quiz, durationSeconds);
 
   const completeMutation = useMutation({
     mutationFn: completeTopicBattle,
@@ -124,7 +125,7 @@ export function TopicBattleDuelPage() {
       timeLeft={duel.timeLeft}
       timeLeftSeconds={duel.timeLeftSeconds}
       timeTotalSeconds={duel.totalTimeSeconds}
-      onSelect={duel.selectAnswer}
+      onSubmit={duel.submitAnswer}
       onAdvance={duel.advance}
       onExit={handleExit}
     />

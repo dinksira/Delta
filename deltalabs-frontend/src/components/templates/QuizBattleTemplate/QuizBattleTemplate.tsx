@@ -24,7 +24,11 @@ import { QuizBattleHeader } from "@/components/organisms/QuizBattleHeader";
 import { QuizMetricsRow } from "@/components/organisms/QuizMetricsRow";
 import { QuizQuestionCard } from "@/components/organisms/QuizQuestionCard";
 import { QuizResultsPanel } from "@/components/organisms/QuizResultsPanel";
-import type { DuelQuiz, DuelState } from "@/modules/Competition/types/duelQuiz";
+import type {
+  DuelQuiz,
+  DuelState,
+  ParticipantAnswer,
+} from "@/modules/Competition/types/duelQuiz";
 import { cn } from "@/lib/utils";
 
 export interface QuizBattleTemplateProps {
@@ -36,7 +40,8 @@ export interface QuizBattleTemplateProps {
   timeLeftSeconds: number;
   /** Total seconds allocated to the battle. */
   timeTotalSeconds: number;
-  onSelect?: (index: number) => void;
+  /** Locks in the participant answer for the current question. */
+  onSubmit?: (answer: ParticipantAnswer) => void;
   /** Advances to the next question once an answer is revealed. */
   onAdvance?: () => void;
   onPlayAgain?: () => void;
@@ -50,7 +55,7 @@ export function QuizBattleTemplate({
   timeLeft,
   timeLeftSeconds,
   timeTotalSeconds,
-  onSelect,
+  onSubmit,
   onAdvance,
   onPlayAgain,
   onExit,
@@ -58,6 +63,7 @@ export function QuizBattleTemplate({
 }: Readonly<QuizBattleTemplateProps>) {
   const finished = state.currentQuestionIndex >= state.totalQuestions;
   const question = quiz.questions[state.currentQuestionIndex];
+  const submit = onSubmit ?? (() => undefined);
   const totalPoints = quiz.questions.reduce((sum) => sum + 100, 0);
   const isLastQuestion = state.currentQuestionIndex === state.totalQuestions - 1;
   const timeProgress =
@@ -104,9 +110,10 @@ export function QuizBattleTemplate({
             question={question}
             index={state.currentQuestionIndex}
             total={state.totalQuestions}
-            selected={state.selectedAnswer}
             revealed={state.isAnswered}
-            onSelect={onSelect}
+            result={state.lastResult}
+            answer={state.answer}
+            onSubmit={submit}
           />
           {state.isAnswered ? (
             <div className="flex justify-end">

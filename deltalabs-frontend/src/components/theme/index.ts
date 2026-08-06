@@ -18,6 +18,8 @@ export { Input } from "@/components/theme/Input";
 export type { InputProps } from "@/components/theme/Input";
 export { SearchInput } from "@/components/theme/SearchInput";
 export type { SearchInputProps } from "@/components/theme/SearchInput";
+export { Switch } from "@/components/theme/Switch";
+export type { SwitchProps } from "@/components/theme/Switch";
 export { Textarea } from "@/components/theme/Textarea";
 export type { TextareaProps } from "@/components/theme/Textarea";
 export { Field } from "@/components/theme/Field";

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -1076,6 +1077,13 @@ def _question_schema_to_dict(q: CodingQuestionSchema) -> dict:
         "hint_enabled": q.hint_enabled,
         "hint_text": q.hint_text,
         "test_cases": [t.model_dump() for t in q.test_cases],
+        "kind": q.kind,
+        "mcq_options": [o.model_dump() for o in q.mcq_options],
+        "mcq_correct_id": q.mcq_correct_id,
+        "tf_answer": q.tf_answer,
+        "fill_expected": q.fill_expected,
+        "matching_pairs": [p.model_dump() for p in q.matching_pairs],
+        "ordering_items": [o.model_dump() for o in q.ordering_items],
     }
 
 
@@ -1092,6 +1100,13 @@ def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
         "hint_enabled": q.hint_enabled,
         "hint_text": q.hint_text,
         "test_cases": [t.model_dump() for t in q.test_cases],
+        "kind": q.kind,
+        "mcq_options": [o.model_dump() for o in q.mcq_options],
+        "mcq_correct_id": q.mcq_correct_id,
+        "tf_answer": q.tf_answer,
+        "fill_expected": q.fill_expected,
+        "matching_pairs": [p.model_dump() for p in q.matching_pairs],
+        "ordering_items": [o.model_dump() for o in q.ordering_items],
     }
 
 
@@ -1257,18 +1272,26 @@ class Service:
         user_id: str | None = None,
     ) -> TopicBattleResponse:
         await self.bootstrap()
+
         battle_id = f"tb_{uuid4().hex}"
         now = datetime.now(UTC)
 
         questions = [_question_schema_to_dict(q) for q in payload.questions]
+
+        status, countdown_ends_at = self._build_launch_state(
+            payload.timing,
+            payload.schedule_date,
+            payload.schedule_time,
+            payload.schedule_timezone,
+        )
 
         doc = {
             "_id": battle_id,
             "title": payload.title,
             "subject": payload.subject,
             "difficulty": payload.difficulty,
-            "status": "filling",
-            "countdown_ends_at": None,
+            "status": status,
+            "countdown_ends_at": countdown_ends_at,
             "creator": {
                 "name": payload.creator_name,
             },
@@ -1276,6 +1299,18 @@ class Service:
             "entry_fee": payload.entry_fee,
             "players_joined": 0,
             "players_max": payload.players_max,
+            "format": payload.format,
+            "duration_minutes": payload.duration_minutes,
+            "visibility": payload.visibility,
+            "timing": payload.timing,
+            "prize_rule": payload.prize_rule,
+            "schedule_date": payload.schedule_date,
+            "schedule_time": payload.schedule_time,
+            "schedule_timezone": payload.schedule_timezone,
+            "question_pool_mode": payload.question_pool_mode,
+            "easy_pct": payload.easy_pct,
+            "medium_pct": payload.medium_pct,
+            "hard_pct": payload.hard_pct,
             "owner_user_id": user_id,
             "participants": [],
             "questions": questions,
@@ -1290,6 +1325,30 @@ class Service:
                 {"hosted": 1, "points": _HOST_POINTS},
             )
         return self._repository.doc_to_response(doc)
+
+    def _build_launch_state(
+        self,
+        timing: str,
+        schedule_date: str,
+        schedule_time: str,
+        schedule_timezone: str,
+    ) -> tuple[str, datetime | None]:
+        """Derive launch status and countdown from the wizard's timing + schedule."""
+        if timing != "schedule" or not schedule_date or not schedule_time:
+            return "filling", None
+
+        offset_hours = 3
+        match = re.search(r"UTC([+-])(\d+)(?::(\d+))?", schedule_timezone or "")
+        if match:
+            sign = -1 if match.group(1) == "-" else 1
+            offset_hours = sign * int(match.group(2))
+
+        try:
+            local_dt = datetime.fromisoformat(f"{schedule_date}T{schedule_time}")
+            utc_dt = local_dt - timedelta(hours=offset_hours)
+            return "scheduled", utc_dt.replace(tzinfo=UTC)
+        except ValueError:
+            return "scheduled", None
 
     async def list_topic_battles(
         self,

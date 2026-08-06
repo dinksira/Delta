@@ -1,19 +1,68 @@
 /**
  * duelQuiz types
- * TypeScript definitions for the post-join topic battle duel (MCQ quiz format).
+ * TypeScript definitions for the post-join topic battle duel.
  *
- * @example
- * ```ts
- * const quiz: DuelQuiz = { battleId, battleTitle, questions, leaderboard };
- * ```
+ * A duel is built from the battle's authored questions (`battle.questions`) or,
+ * when a battle has none, from curated subject decks. Each question is tagged
+ * with a `kind` that selects the answering UI and the auto-grading rule:
+ *
+ * - `multiple_choice` / `true_false` / `fill_blank` / `matching` / `ordering`
+ *   are auto-graded (objective kinds).
+ * - `writing` / `coding` accept a free-form / code answer that is recorded but
+ *   not auto-scored (no code executor / rubric).
  */
 
-export interface DuelQuestion {
+import type { QuestionKind } from "@/modules/Competition/types/createBattle";
+
+export interface DuelMcqOption {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface DuelMatchingPair {
+  id: string;
+  prompt: string;
+  answer: string;
+}
+
+export interface DuelOrderingItem {
   id: string;
   text: string;
-  options: string[];
-  correctIndex: number;
 }
+
+interface DuelQuestionBase {
+  id: string;
+  kind: QuestionKind;
+  /** Stem / question text shown to the player. */
+  text: string;
+  difficulty: string;
+  points: number;
+  hint?: string;
+}
+
+export type DuelQuestion =
+  | (DuelQuestionBase & {
+      kind: "multiple_choice";
+      options: DuelMcqOption[];
+      correctId: string;
+    })
+  | (DuelQuestionBase & { kind: "true_false"; correct: boolean })
+  | (DuelQuestionBase & { kind: "fill_blank"; expected: string })
+  | (DuelQuestionBase & { kind: "matching"; pairs: DuelMatchingPair[] })
+  | (DuelQuestionBase & { kind: "ordering"; items: DuelOrderingItem[] })
+  | (DuelQuestionBase & { kind: "writing" })
+  | (DuelQuestionBase & { kind: "coding"; codeTemplate: string; language: string });
+
+/** The player's answer for a single question, keyed by kind. */
+export type ParticipantAnswer =
+  | { kind: "multiple_choice"; optionId: string }
+  | { kind: "true_false"; value: boolean }
+  | { kind: "fill_blank"; text: string }
+  | { kind: "matching"; map: Record<string, string> }
+  | { kind: "ordering"; itemIds: string[] }
+  | { kind: "writing"; text: string }
+  | { kind: "coding"; code: string };
 
 export interface DuelLeaderboardEntry {
   rank: number;
@@ -32,10 +81,66 @@ export interface DuelQuiz {
 
 export interface DuelState {
   currentQuestionIndex: number;
-  selectedAnswer: number | null;
+  /** The submitted answer for the current question, once locked in. */
+  answer: ParticipantAnswer | null;
   isAnswered: boolean;
+  /** Result of the last submitted answer: true/false, or null when not auto-graded. */
+  lastResult: boolean | null;
   score: number;
   rank: number;
   correctCount: number;
   totalQuestions: number;
+}
+
+/** Normalize a string for forgiving text comparison. */
+export function normalizeText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Auto-grade an objective-kind answer. Returns `null` for kinds without an
+ * auto-judge (writing / coding).
+ */
+export function gradeQuestion(
+  question: DuelQuestion,
+  answer: ParticipantAnswer | null,
+): boolean | null {
+  if (!answer) {
+    return null;
+  }
+  switch (question.kind) {
+    case "multiple_choice": {
+      if (answer.kind !== "multiple_choice") return null;
+      return answer.optionId === question.correctId && question.correctId !== "";
+    }
+    case "true_false": {
+      if (answer.kind !== "true_false") return null;
+      return answer.value === question.correct;
+    }
+    case "fill_blank": {
+      if (answer.kind !== "fill_blank") return null;
+      const expected = normalizeText(question.expected);
+      if (!expected) return true;
+      return normalizeText(answer.text) === expected;
+    }
+    case "matching": {
+      if (answer.kind !== "matching") return null;
+      return question.pairs.every(
+        (pair) => normalizeText(answer.map[pair.id] ?? "") === normalizeText(pair.answer),
+      );
+    }
+    case "ordering": {
+      if (answer.kind !== "ordering") return null;
+      const authored = question.items.map((item) => item.id);
+      return (
+        authored.length === answer.itemIds.length &&
+        authored.every((id, index) => id === answer.itemIds[index])
+      );
+    }
+    case "writing":
+    case "coding":
+      return null;
+    default:
+      return null;
+  }
 }

@@ -26,6 +26,37 @@ export interface TestCase {
   isHidden?: boolean;
 }
 
+/**
+ * Discriminator for the authoring surface of a custom question.
+ * "coding" keeps the code-template / test-case canvas; the remaining kinds are
+ * quiz types composed in the QuestionAuthoringEditor organism.
+ */
+export type QuestionKind =
+  | "coding"
+  | "multiple_choice"
+  | "true_false"
+  | "fill_blank"
+  | "matching"
+  | "writing"
+  | "ordering";
+
+export interface QuestionOption {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface QuestionMatchingPair {
+  id: string;
+  prompt: string;
+  answer: string;
+}
+
+export interface QuestionOrderItem {
+  id: string;
+  text: string;
+}
+
 export interface CodingQuestion {
   id: string;
   title: string;
@@ -38,6 +69,34 @@ export interface CodingQuestion {
   hintEnabled: boolean;
   hintText: string;
   testCases: TestCase[];
+  // Quiz-type discriminator + type-specific payload (used when kind !== "coding").
+  kind: QuestionKind;
+  mcqOptions: QuestionOption[];
+  mcqCorrectId: string;
+  tfAnswer: boolean;
+  /** Author-provided answer key for fill-in-the-blank (blank matching). */
+  fillExpected: string;
+  matchingPairs: QuestionMatchingPair[];
+  orderingItems: QuestionOrderItem[];
+}
+
+let optionCounter = 0;
+let pairCounter = 0;
+let orderCounter = 0;
+
+export function createEmptyOption(label: string): QuestionOption {
+  optionCounter += 1;
+  return { id: `opt_${Date.now()}_${optionCounter}`, label, text: "" };
+}
+
+export function createEmptyPair(): QuestionMatchingPair {
+  pairCounter += 1;
+  return { id: `pair_${Date.now()}_${pairCounter}`, prompt: "", answer: "" };
+}
+
+export function createEmptyOrderItem(): QuestionOrderItem {
+  orderCounter += 1;
+  return { id: `order_${Date.now()}_${orderCounter}`, text: "" };
 }
 
 export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): CodingQuestion {
@@ -68,6 +127,13 @@ export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): Coding
         isHidden: true,
       },
     ],
+    kind: "coding",
+    mcqOptions: ["A", "B", "C"].map((label) => createEmptyOption(label)),
+    mcqCorrectId: "",
+    tfAnswer: true,
+    fillExpected: "",
+    matchingPairs: [createEmptyPair()],
+    orderingItems: [createEmptyOrderItem()],
     ...overrides,
   };
 }
@@ -79,6 +145,7 @@ export interface TopicBattleDraft {
     id: string;
     name: string;
     category: string;
+    difficulty: string;
   };
   format: {
     id: string;
@@ -116,6 +183,7 @@ export const INITIAL_TOPIC_BATTLE_DRAFT: TopicBattleDraft = {
     id: "",
     name: "",
     category: "",
+    difficulty: "",
   },
   format: {
     id: "mini",
@@ -135,7 +203,7 @@ export const INITIAL_TOPIC_BATTLE_DRAFT: TopicBattleDraft = {
   schedule: {
     date: "",
     time: "",
-    timezone: "(GMT+03:00) East Africa Time",
+    timezone: "UTC+3 (EAT)",
   },
   questionPool: {
     selectedCategories: [],
@@ -169,7 +237,7 @@ export interface CreateBattleWizardContextValue extends CreateBattleWizardState 
   isFirstStep: boolean;
   isLastStep: boolean;
 
-  selectTopic: (topicId: string, name: string, category: string) => void;
+  selectTopic: (topicId: string, name: string, category: string, difficulty: string) => void;
   selectFormat: (formatId: string) => void;
   selectVisibility: (visibilityId: string, timing?: "instant" | "schedule") => void;
   updateEntrySetup: (slots: number, fee: number | "Free" | "Custom", customFee?: number) => void;

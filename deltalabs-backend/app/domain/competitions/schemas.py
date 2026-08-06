@@ -33,6 +33,29 @@ class TestCaseSchema(BaseModel):
     is_hidden: bool = Field(default=False, **_alias("isHidden"))
 
 
+class McqOptionSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    label: str = Field(default="")
+    text: str = Field(default="")
+
+
+class MatchPairSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    prompt: str = Field(default="")
+    answer: str = Field(default="")
+
+
+class OrderItemSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    text: str = Field(default="")
+
+
 class CodingQuestionSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -51,6 +74,19 @@ class CodingQuestionSchema(BaseModel):
     test_cases: list[TestCaseSchema] = Field(
         default_factory=list, **_alias("testCases"),
     )
+    kind: str = Field(default="coding", max_length=30)
+    mcq_options: list[McqOptionSchema] = Field(
+        default_factory=list, **_alias("mcqOptions"),
+    )
+    mcq_correct_id: str = Field(default="", **_alias("mcqCorrectId"))
+    tf_answer: bool = Field(default=True, **_alias("tfAnswer"))
+    fill_expected: str = Field(default="", **_alias("fillExpected"))
+    matching_pairs: list[MatchPairSchema] = Field(
+        default_factory=list, **_alias("matchingPairs"),
+    )
+    ordering_items: list[OrderItemSchema] = Field(
+        default_factory=list, **_alias("orderingItems"),
+    )
 
 
 class TopicBattleCreateRequest(BaseModel):
@@ -58,14 +94,23 @@ class TopicBattleCreateRequest(BaseModel):
 
     title: str = Field(min_length=1, max_length=200)
     subject: str = Field(min_length=1, max_length=100)
-    difficulty: str = Field(default="Intermediate", max_length=50)
+    difficulty: str = Field(default="Mixed", max_length=50)
     entry_fee: str = Field(default="Free", max_length=50, **_alias("entryFee"))
     prize_pool: str = Field(default="0 ETB", max_length=50, **_alias("prizePool"))
     players_max: int = Field(default=2, ge=2, le=1000, **_alias("playersMax"))
     creator_name: str = Field(default="You", max_length=100, **_alias("creatorName"))
-    schedule_date: str = Field(default="", max_length=20)
-    schedule_time: str = Field(default="", max_length=10)
-    schedule_timezone: str = Field(default="UTC", max_length=50)
+    schedule_date: str = Field(default="", max_length=20, **_alias("scheduleDate"))
+    schedule_time: str = Field(default="", max_length=10, **_alias("scheduleTime"))
+    schedule_timezone: str = Field(default="UTC", max_length=50, **_alias("scheduleTimezone"))
+    format: str = Field(default="mini", max_length=30)
+    duration_minutes: int = Field(default=10, ge=1, le=1440, **_alias("durationMinutes"))
+    visibility: str = Field(default="public", max_length=20)
+    timing: str = Field(default="instant", max_length=20)
+    prize_rule: str = Field(default="winner-takes-all", max_length=40, **_alias("prizeRule"))
+    question_pool_mode: str = Field(default="auto", max_length=20, **_alias("questionPoolMode"))
+    easy_pct: int = Field(default=0, ge=0, le=100, **_alias("easyPct"))
+    medium_pct: int = Field(default=100, ge=0, le=100, **_alias("mediumPct"))
+    hard_pct: int = Field(default=0, ge=0, le=100, **_alias("hardPct"))
     questions: list[CodingQuestionSchema] = Field(default_factory=list)
 
 
@@ -87,6 +132,18 @@ class TopicBattleResponse(BaseModel):
     entry_fee: str = Field(**_alias("entryFee"))
     players_joined: int = Field(**_alias("playersJoined"))
     players_max: int = Field(**_alias("playersMax"))
+    format: str = Field(default="mini", **_alias("format"))
+    duration_minutes: int = Field(default=10, **_alias("durationMinutes"))
+    visibility: str = Field(default="public", **_alias("visibility"))
+    timing: str = Field(default="instant", **_alias("timing"))
+    prize_rule: str = Field(default="winner-takes-all", **_alias("prizeRule"))
+    question_pool_mode: str = Field(default="auto", **_alias("questionPoolMode"))
+    schedule_date: str = Field(default="", **_alias("scheduleDate"))
+    schedule_time: str = Field(default="", **_alias("scheduleTime"))
+    schedule_timezone: str = Field(default="UTC", **_alias("scheduleTimezone"))
+    easy_pct: int = Field(default=0, **_alias("easyPct"))
+    medium_pct: int = Field(default=100, **_alias("mediumPct"))
+    hard_pct: int = Field(default=0, **_alias("hardPct"))
     created_at: datetime = Field(**_alias("createdAt"))
     questions: list[QuestionResponse] = Field(default_factory=list)
 
@@ -161,6 +218,19 @@ class QuestionCreateRequest(BaseModel):
     test_cases: list[TestCaseSchema] = Field(
         default_factory=list, **_alias("testCases"),
     )
+    kind: str = Field(default="coding", max_length=30)
+    mcq_options: list[McqOptionSchema] = Field(
+        default_factory=list, **_alias("mcqOptions"),
+    )
+    mcq_correct_id: str = Field(default="", **_alias("mcqCorrectId"))
+    tf_answer: bool = Field(default=True, **_alias("tfAnswer"))
+    fill_expected: str = Field(default="", **_alias("fillExpected"))
+    matching_pairs: list[MatchPairSchema] = Field(
+        default_factory=list, **_alias("matchingPairs"),
+    )
+    ordering_items: list[OrderItemSchema] = Field(
+        default_factory=list, **_alias("orderingItems"),
+    )
 
 
 class QuestionUpdateRequest(BaseModel):
@@ -178,6 +248,19 @@ class QuestionUpdateRequest(BaseModel):
     hint_enabled: bool | None = Field(default=None, **_alias("hintEnabled"))
     hint_text: str | None = Field(default=None, **_alias("hintText"))
     test_cases: list[TestCaseSchema] | None = Field(default=None, **_alias("testCases"))
+    kind: str | None = Field(default=None, max_length=30)
+    mcq_options: list[McqOptionSchema] | None = Field(
+        default=None, **_alias("mcqOptions"),
+    )
+    mcq_correct_id: str | None = Field(default=None, **_alias("mcqCorrectId"))
+    tf_answer: bool | None = Field(default=None, **_alias("tfAnswer"))
+    fill_expected: str | None = Field(default=None, **_alias("fillExpected"))
+    matching_pairs: list[MatchPairSchema] | None = Field(
+        default=None, **_alias("matchingPairs"),
+    )
+    ordering_items: list[OrderItemSchema] | None = Field(
+        default=None, **_alias("orderingItems"),
+    )
 
 
 class QuestionResponse(BaseModel):
@@ -194,3 +277,10 @@ class QuestionResponse(BaseModel):
     hint_enabled: bool = Field(**_alias("hintEnabled"))
     hint_text: str = Field(**_alias("hintText"))
     test_cases: list[TestCaseSchema] = Field(**_alias("testCases"))
+    kind: str = Field(**_alias("kind"))
+    mcq_options: list[McqOptionSchema] = Field(**_alias("mcqOptions"))
+    mcq_correct_id: str = Field(**_alias("mcqCorrectId"))
+    tf_answer: bool = Field(**_alias("tfAnswer"))
+    fill_expected: str = Field(**_alias("fillExpected"))
+    matching_pairs: list[MatchPairSchema] = Field(**_alias("matchingPairs"))
+    ordering_items: list[OrderItemSchema] = Field(**_alias("orderingItems"))

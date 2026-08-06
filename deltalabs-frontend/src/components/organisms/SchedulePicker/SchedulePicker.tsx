@@ -3,16 +3,14 @@
  * Atomic Level: Organism
  *
  * Date / time / timezone picker for the Create Topic Battle wizard (schedule
- * step). Date uses a native date input, time uses preset slot pills, and
- * timezone uses a select. Mirrors the desktop reference schedule step.
+ * step). Follows the Step 6 redesign spec: two equal-height light-grey cards
+ * in a 2-column grid, each with a muted-teal (slate) input showing white text
+ * and a trailing white icon — Select Date (calendar, today-or-future only),
+ * and Select Time + Time Zone (clock + chevron dropdown).
  */
 
-import { CalendarClock } from "lucide-react";
+import { Calendar, ChevronDown, Clock } from "lucide-react";
 
-import { Field } from "@/components/theme/Field";
-import { Input } from "@/components/theme/Input";
-import { Select } from "@/components/theme/Select";
-import { Typography } from "@/components/theme/Typography";
 import { cn } from "@/lib/utils";
 
 export interface SchedulePickerProps {
@@ -24,16 +22,17 @@ export interface SchedulePickerProps {
   onTimezoneChange: (timezone: string) => void;
   /** Timezone options for the select. */
   timezones: string[];
-  /** Preset time slot pills. */
-  timeSlots?: string[];
   className?: string;
 }
 
-const DEFAULT_TIME_SLOTS = [
-  "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-  "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM",
-  "05:00 PM", "06:00 PM",
-];
+const fieldIconClasses =
+  "pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white";
+
+const fieldInputClasses =
+  "h-12 w-full rounded-xl bg-primary-500 px-4 text-sm font-semibold text-white outline-none transition-all duration-150 placeholder:text-white/60 focus-visible:ring-2 focus-visible:ring-primary-700";
+
+const nativePickerOverlay =
+  "[&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0";
 
 export function SchedulePicker({
   date,
@@ -43,61 +42,70 @@ export function SchedulePicker({
   onTimeChange,
   onTimezoneChange,
   timezones,
-  timeSlots = DEFAULT_TIME_SLOTS,
   className,
 }: Readonly<SchedulePickerProps>) {
-  return (
-    <div className={cn("flex flex-col gap-6", className)}>
-      <Field id="battle-date" label="Battle date">
-        <Input
-          id="battle-date"
-          type="date"
-          value={date}
-          onChange={(event) => onDateChange(event.target.value)}
-        />
-      </Field>
+  const now = new Date();
+  const localToday = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-      <div className="flex flex-col gap-2">
-        <Typography as="h3" className="flex items-center gap-2 text-sm font-semibold text-text-primary">
-          <CalendarClock className="size-4 text-primary-600" aria-hidden />
-          Start time
-        </Typography>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {timeSlots.map((slot) => {
-            const selected = time === slot;
-            return (
-              <button
-                key={slot}
-                type="button"
-                onClick={() => onTimeChange(slot)}
-                aria-pressed={selected}
-                className={cn(
-                  "rounded-lg border-2 px-3 py-2 text-center text-sm font-semibold transition-all duration-200",
-                  selected
-                    ? "border-primary-600 bg-primary-600 text-white shadow-md"
-                    : "border-border-default bg-surface-default text-text-primary hover:border-primary-400",
-                )}
-              >
-                {slot}
-              </button>
-            );
-          })}
+  return (
+    <div className={cn("grid grid-cols-1 gap-5 lg:grid-cols-2", className)}>
+      {/* Select Date */}
+      <div className="flex flex-col gap-2 rounded-xl bg-surface-muted p-5">
+        <label htmlFor="battle-date" className="text-sm font-bold text-primary-700">
+          Select Date
+        </label>
+        <div className="relative">
+          <input
+            id="battle-date"
+            type="date"
+            value={date}
+            min={localToday}
+            onChange={(event) => onDateChange(event.target.value)}
+            className={cn(fieldInputClasses, "pr-11", nativePickerOverlay)}
+          />
+          <Calendar className={fieldIconClasses} aria-hidden />
         </div>
+        <p className="text-[11px] italic text-text-secondary">Today or future dates only</p>
       </div>
 
-      <Field id="battle-timezone" label="Timezone">
-        <Select
-          id="battle-timezone"
-          value={timezone}
-          onChange={(event) => onTimezoneChange(event.target.value)}
-        >
-          {timezones.map((tz) => (
-            <option key={tz} value={tz}>
-              {tz}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      {/* Select Time + Time Zone */}
+      <div className="flex flex-col gap-2 rounded-xl bg-surface-muted p-5">
+        <label htmlFor="battle-time" className="text-sm font-bold text-primary-700">
+          Select Time
+        </label>
+        <div className="relative">
+          <input
+            id="battle-time"
+            type="time"
+            value={time}
+            onChange={(event) => onTimeChange(event.target.value)}
+            className={cn(fieldInputClasses, "pr-11", nativePickerOverlay)}
+          />
+          <Clock className={fieldIconClasses} aria-hidden />
+        </div>
+
+        <label htmlFor="battle-timezone" className="mt-3 text-sm font-bold text-primary-700">
+          Time Zone
+        </label>
+        <div className="relative">
+          <select
+            id="battle-timezone"
+            value={timezone}
+            onChange={(event) => onTimezoneChange(event.target.value)}
+            className={cn(
+              fieldInputClasses,
+              "cursor-pointer appearance-none pr-11 [&>option]:bg-surface-default [&>option]:text-text-primary",
+            )}
+          >
+            {timezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className={fieldIconClasses} aria-hidden />
+        </div>
+      </div>
     </div>
   );
 }

@@ -228,6 +228,13 @@ class Repository:
             hint_enabled=bool(q.get("hint_enabled", True)),
             hint_text=str(q.get("hint_text", "")),
             test_cases=list(q.get("test_cases", [])),
+            kind=str(q.get("kind", "coding")),
+            mcq_options=list(q.get("mcq_options", [])),
+            mcq_correct_id=str(q.get("mcq_correct_id", "")),
+            tf_answer=bool(q.get("tf_answer", True)),
+            fill_expected=str(q.get("fill_expected", "")),
+            matching_pairs=list(q.get("matching_pairs", [])),
+            ordering_items=list(q.get("ordering_items", [])),
         )
 
     @staticmethod
@@ -269,6 +276,18 @@ class Repository:
             entry_fee=str(doc.get("entry_fee", "Free")),
             players_joined=int(doc.get("players_joined", 0)),
             players_max=int(doc.get("players_max", 2)),
+            format=str(doc.get("format", "mini")),
+            duration_minutes=int(doc.get("duration_minutes", 10)),
+            visibility=str(doc.get("visibility", "public")),
+            timing=str(doc.get("timing", "instant")),
+            prize_rule=str(doc.get("prize_rule", "winner-takes-all")),
+            question_pool_mode=str(doc.get("question_pool_mode", "auto")),
+            schedule_date=str(doc.get("schedule_date", "")),
+            schedule_time=str(doc.get("schedule_time", "")),
+            schedule_timezone=str(doc.get("schedule_timezone", "UTC")),
+            easy_pct=int(doc.get("easy_pct", 0)),
+            medium_pct=int(doc.get("medium_pct", 100)),
+            hard_pct=int(doc.get("hard_pct", 0)),
             created_at=doc.get("created_at", datetime.now(UTC)),
             questions=questions,
         )
