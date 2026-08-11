@@ -3,22 +3,31 @@
  * Atomic Level: Molecule
  *
  * One editable row of a Matching question: a "Column A" prompt input and a
- * "Column B" matching answer input, with a remove button. Composes the shared
- * `Field` + `Input` atoms.
- * @example <MatchingPairRow index={0} prompt="2+2" answer="4" onPromptChange={...} />
+ * "Column B" dropdown that picks which answer-pool item this prompt matches.
+ * The dropdown is populated from the author's `matchingAnswers` pool, so the
+ * participant always sees exactly the authored options and grading compares
+ * answer ids rather than free text.
+ *
+ * @example
+ * <MatchingPairRow index={0} prompt="2+2" answerId="ans_1" answers={pool} onPromptChange={...} onAnswerIdChange={...} />
  */
 
 import { Trash2 } from "lucide-react";
 
 import { Field } from "@/components/theme/Field";
 import { Input } from "@/components/theme/Input";
+import { Select } from "@/components/theme/Select";
+import type { QuestionMatchingAnswer } from "@/modules/Competition/types/createBattle";
 
 export interface MatchingPairRowProps {
   index: number;
   prompt: string;
-  answer: string;
+  /** Selected Column B pool item id ("" when unassigned). */
+  answerId: string;
+  /** Column B pool options to choose from. */
+  answers: QuestionMatchingAnswer[];
   onPromptChange: (value: string) => void;
-  onAnswerChange: (value: string) => void;
+  onAnswerIdChange: (value: string) => void;
   onRemove: () => void;
   /** Disables the remove button (e.g. only one pair left). */
   canRemove?: boolean;
@@ -27,9 +36,10 @@ export interface MatchingPairRowProps {
 export function MatchingPairRow({
   index,
   prompt,
-  answer,
+  answerId,
+  answers,
   onPromptChange,
-  onAnswerChange,
+  onAnswerIdChange,
   onRemove,
   canRemove = true,
 }: Readonly<MatchingPairRowProps>) {
@@ -39,21 +49,29 @@ export function MatchingPairRow({
   return (
     <div className="flex items-end gap-2 rounded-xl border border-border-default bg-surface-default p-2.5">
       <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
-        <Field id={idA} label={`Column A · Pair ${index + 1}`} className="min-w-0 gap-1">
+        <Field id={idA} label={`Item · Pair ${index + 1}`} className="min-w-0 gap-1">
           <Input
             id={idA}
             value={prompt}
             onChange={(event) => onPromptChange(event.target.value)}
-            placeholder="Prompt"
+            placeholder="e.g. Ethiopia"
           />
         </Field>
-        <Field id={idB} label="Column B" className="min-w-0 gap-1">
-          <Input
+        <Field id={idB} label="Matches" className="min-w-0 gap-1">
+          <Select
             id={idB}
-            value={answer}
-            onChange={(event) => onAnswerChange(event.target.value)}
-            placeholder="Matching item"
-          />
+            value={answerId}
+            onChange={(event) => onAnswerIdChange(event.target.value)}
+          >
+            <option value="" disabled>
+              Choose Column B…
+            </option>
+            {answers.map((answer) => (
+              <option key={answer.id} value={answer.id}>
+                {answer.text || "…"}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
       <button

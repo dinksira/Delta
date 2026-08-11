@@ -41,12 +41,19 @@ class McqOptionSchema(BaseModel):
     text: str = Field(default="")
 
 
+class MatchingAnswerSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    text: str = Field(default="")
+
+
 class MatchPairSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     id: str = Field(default="")
     prompt: str = Field(default="")
-    answer: str = Field(default="")
+    answer_id: str = Field(default="", **_alias("answerId"))
 
 
 class OrderItemSchema(BaseModel):
@@ -81,6 +88,12 @@ class CodingQuestionSchema(BaseModel):
     mcq_correct_id: str = Field(default="", **_alias("mcqCorrectId"))
     tf_answer: bool = Field(default=True, **_alias("tfAnswer"))
     fill_expected: str = Field(default="", **_alias("fillExpected"))
+    fill_answers: list[str] = Field(
+        default_factory=list, **_alias("fillAnswers"),
+    )
+    matching_answers: list[MatchingAnswerSchema] = Field(
+        default_factory=list, **_alias("matchingAnswers"),
+    )
     matching_pairs: list[MatchPairSchema] = Field(
         default_factory=list, **_alias("matchingPairs"),
     )
@@ -225,6 +238,12 @@ class QuestionCreateRequest(BaseModel):
     mcq_correct_id: str = Field(default="", **_alias("mcqCorrectId"))
     tf_answer: bool = Field(default=True, **_alias("tfAnswer"))
     fill_expected: str = Field(default="", **_alias("fillExpected"))
+    fill_answers: list[str] = Field(
+        default_factory=list, **_alias("fillAnswers"),
+    )
+    matching_answers: list[MatchingAnswerSchema] = Field(
+        default_factory=list, **_alias("matchingAnswers"),
+    )
     matching_pairs: list[MatchPairSchema] = Field(
         default_factory=list, **_alias("matchingPairs"),
     )
@@ -255,6 +274,10 @@ class QuestionUpdateRequest(BaseModel):
     mcq_correct_id: str | None = Field(default=None, **_alias("mcqCorrectId"))
     tf_answer: bool | None = Field(default=None, **_alias("tfAnswer"))
     fill_expected: str | None = Field(default=None, **_alias("fillExpected"))
+    fill_answers: list[str] | None = Field(default=None, **_alias("fillAnswers"))
+    matching_answers: list[MatchingAnswerSchema] | None = Field(
+        default=None, **_alias("matchingAnswers"),
+    )
     matching_pairs: list[MatchPairSchema] | None = Field(
         default=None, **_alias("matchingPairs"),
     )
@@ -282,5 +305,7 @@ class QuestionResponse(BaseModel):
     mcq_correct_id: str = Field(**_alias("mcqCorrectId"))
     tf_answer: bool = Field(**_alias("tfAnswer"))
     fill_expected: str = Field(**_alias("fillExpected"))
+    fill_answers: list[str] = Field(**_alias("fillAnswers"))
+    matching_answers: list[MatchingAnswerSchema] = Field(**_alias("matchingAnswers"))
     matching_pairs: list[MatchPairSchema] = Field(**_alias("matchingPairs"))
     ordering_items: list[OrderItemSchema] = Field(**_alias("orderingItems"))

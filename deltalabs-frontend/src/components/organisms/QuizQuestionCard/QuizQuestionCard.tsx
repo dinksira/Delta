@@ -20,6 +20,7 @@
 
 import { CheckCircle2, HelpCircle, MinusCircle, XCircle } from "lucide-react";
 
+import { RichText } from "@/components/atoms/RichText/RichText";
 import { QuizAnswerForm } from "@/components/organisms/QuizAnswerForm/QuizAnswerForm";
 import { cn } from "@/lib/utils";
 import type {
@@ -78,7 +79,10 @@ export function QuizQuestionCard({
         </span>
       </div>
 
-      <h2 className="text-lg font-semibold leading-snug text-text-primary">{question.text}</h2>
+      <RichText
+        html={question.text}
+        className="text-lg font-semibold leading-snug text-text-primary"
+      />
 
       <div className="mt-5">
         <QuizAnswerForm

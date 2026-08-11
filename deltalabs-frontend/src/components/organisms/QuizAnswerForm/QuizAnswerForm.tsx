@@ -17,15 +17,13 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Check, Send, X } from "lucide-react";
 
+import { BlankAnswerList } from "@/components/molecules/BlankAnswerList/BlankAnswerList";
 import { Button } from "@/components/theme/Button";
 import { Field } from "@/components/theme/Field";
 import { Select } from "@/components/theme/Select";
 import { Textarea } from "@/components/theme/Textarea";
 import { cn } from "@/lib/utils";
-import type {
-  DuelQuestion,
-  ParticipantAnswer,
-} from "@/modules/Competition/types/duelQuiz";
+import type { DuelQuestion, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 
 export interface QuizAnswerFormProps {
   question: DuelQuestion;
@@ -178,18 +176,6 @@ function TrueFalseAnswer({
   );
 }
 
-function matchingOptions(question: Extract<DuelQuestion, { kind: "matching" }>): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const pair of question.pairs) {
-    if (pair.answer && !seen.has(pair.answer)) {
-      seen.add(pair.answer);
-      result.push(pair.answer);
-    }
-  }
-  return result;
-}
-
 function MatchingAnswer({
   question,
   revealed,
@@ -223,9 +209,9 @@ function MatchingAnswer({
               <option value="" disabled>
                 Choose Column B…
               </option>
-              {matchingOptions(question).map((option) => (
-                <option key={option} value={option}>
-                  {option}
+              {question.answers.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.text}
                 </option>
               ))}
             </Select>
@@ -305,19 +291,55 @@ function OrderingAnswer({
           </div>
         );
       })}
-      {!revealed && <SubmitRow onSubmit={() => onSubmit({ kind: "ordering", itemIds: orderIds })} />}
+      {!revealed && (
+        <SubmitRow onSubmit={() => onSubmit({ kind: "ordering", itemIds: orderIds })} />
+      )}
     </div>
   );
 }
 
 function FillBlankAnswer({
+  question,
   revealed,
   onSubmit,
 }: Readonly<{
+  question: Extract<DuelQuestion, { kind: "fill_blank" }>;
   revealed: boolean;
   onSubmit: (answer: ParticipantAnswer) => void;
 }>) {
+  // Multi-blank mode: the stem carries `[data-blank]` markers, so participants
+  // fill one input per blank. Legacy mode falls back to a single text box.
+  const multiBlank = question.answers.length > 0;
   const [text, setText] = useState("");
+  const [answers, setAnswers] = useState<string[]>(question.answers.map(() => ""));
+
+  if (multiBlank) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Field id="fill-answers" label="Fill in each blank" className="gap-1">
+          <BlankAnswerList
+            answers={answers}
+            disabled={revealed}
+            label="Blank"
+            onChange={(index, value) =>
+              setAnswers((prev) => {
+                const next = [...prev];
+                next[index] = value;
+                return next;
+              })
+            }
+          />
+        </Field>
+        {!revealed && (
+          <SubmitRow
+            disabled={!answers.every((value) => value.trim())}
+            onSubmit={() => onSubmit({ kind: "fill_blank", answers: [...answers] })}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <Field id="fill-answer" label="Your answer" className="gap-1">
@@ -422,7 +444,7 @@ export function QuizAnswerForm({
       );
     }
     case "fill_blank":
-      return <FillBlankAnswer revealed={revealed} onSubmit={onSubmit} />;
+      return <FillBlankAnswer question={question} revealed={revealed} onSubmit={onSubmit} />;
     case "matching": {
       const map = answer?.kind === "matching" ? answer.map : {};
       return (

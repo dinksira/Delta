@@ -10,6 +10,7 @@
 
 import { Plus } from "lucide-react";
 
+import { RichTextEditor } from "@/components/molecules/RichTextEditor/RichTextEditor";
 import { TestCaseCard } from "@/components/molecules/TestCaseCard/TestCaseCard";
 import { Button } from "@/components/theme/Button";
 import { Field } from "@/components/theme/Field";
@@ -81,12 +82,11 @@ export function QuestionBuilderEditor({
         />
       </Field>
 
-      <Field id="qb-description" label="Description">
-        <Textarea
+      <Field id="qb-description" label="Description" className="gap-1">
+        <RichTextEditor
           id="qb-description"
-          rows={4}
           value={question.description}
-          onChange={(event) => onChange({ description: event.target.value })}
+          onChange={(html) => onChange({ description: html })}
           placeholder="Explain the task and any constraints…"
         />
       </Field>

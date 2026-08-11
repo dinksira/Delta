@@ -1082,6 +1082,8 @@ def _question_schema_to_dict(q: CodingQuestionSchema) -> dict:
         "mcq_correct_id": q.mcq_correct_id,
         "tf_answer": q.tf_answer,
         "fill_expected": q.fill_expected,
+        "fill_answers": q.fill_answers,
+        "matching_answers": [a.model_dump() for a in q.matching_answers],
         "matching_pairs": [p.model_dump() for p in q.matching_pairs],
         "ordering_items": [o.model_dump() for o in q.ordering_items],
     }
@@ -1105,6 +1107,8 @@ def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
         "mcq_correct_id": q.mcq_correct_id,
         "tf_answer": q.tf_answer,
         "fill_expected": q.fill_expected,
+        "fill_answers": q.fill_answers,
+        "matching_answers": [a.model_dump() for a in q.matching_answers],
         "matching_pairs": [p.model_dump() for p in q.matching_pairs],
         "ordering_items": [o.model_dump() for o in q.ordering_items],
     }

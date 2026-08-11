@@ -7,7 +7,9 @@
  * with a `kind` that selects the answering UI and the auto-grading rule:
  *
  * - `multiple_choice` / `true_false` / `fill_blank` / `matching` / `ordering`
- *   are auto-graded (objective kinds).
+ *   are auto-graded (objective kinds). Matching grades by answer-id so the
+ *   Column B pool is the source of truth. A `fill_blank` without an authored
+ *   expected answer is not auto-graded.
  * - `writing` / `coding` accept a free-form / code answer that is recorded but
  *   not auto-scored (no code executor / rubric).
  */
@@ -20,10 +22,16 @@ export interface DuelMcqOption {
   text: string;
 }
 
+export interface DuelMatchingAnswer {
+  id: string;
+  text: string;
+}
+
 export interface DuelMatchingPair {
   id: string;
   prompt: string;
-  answer: string;
+  /** References a `DuelMatchingAnswer` in `answers` (Column B pool). */
+  answerId: string;
 }
 
 export interface DuelOrderingItem {
@@ -48,8 +56,19 @@ export type DuelQuestion =
       correctId: string;
     })
   | (DuelQuestionBase & { kind: "true_false"; correct: boolean })
-  | (DuelQuestionBase & { kind: "fill_blank"; expected: string })
-  | (DuelQuestionBase & { kind: "matching"; pairs: DuelMatchingPair[] })
+  | (DuelQuestionBase & {
+      kind: "fill_blank";
+      /** Legacy whole-sentence answer key (no stem blanks authored). */
+      expected: string;
+      /** One answer per blank marker in the stem, in stem order. */
+      answers: string[];
+    })
+  | (DuelQuestionBase & {
+      kind: "matching";
+      /** Column B answer pool the player picks from. */
+      answers: DuelMatchingAnswer[];
+      pairs: DuelMatchingPair[];
+    })
   | (DuelQuestionBase & { kind: "ordering"; items: DuelOrderingItem[] })
   | (DuelQuestionBase & { kind: "writing" })
   | (DuelQuestionBase & { kind: "coding"; codeTemplate: string; language: string });
@@ -59,6 +78,7 @@ export type ParticipantAnswer =
   | { kind: "multiple_choice"; optionId: string }
   | { kind: "true_false"; value: boolean }
   | { kind: "fill_blank"; text: string }
+  | { kind: "fill_blank"; answers: string[] }
   | { kind: "matching"; map: Record<string, string> }
   | { kind: "ordering"; itemIds: string[] }
   | { kind: "writing"; text: string }
@@ -119,15 +139,25 @@ export function gradeQuestion(
     }
     case "fill_blank": {
       if (answer.kind !== "fill_blank") return null;
+      // Multi-blank mode: the stem carries `[data-blank]` markers and the
+      // author keyed one answer per blank. Every blank must match.
+      if (question.answers.length > 0) {
+        if (!("answers" in answer)) return null;
+        if (question.answers.length !== answer.answers.length) return null;
+        return question.answers.every(
+          (expected, index) => normalizeText(answer.answers[index]) === normalizeText(expected),
+        );
+      }
+      // Legacy whole-sentence mode (no stem blanks authored).
       const expected = normalizeText(question.expected);
-      if (!expected) return true;
+      // No authored answer key -> not auto-graded (mirrors writing / coding).
+      if (!expected) return null;
+      if (!("text" in answer)) return null;
       return normalizeText(answer.text) === expected;
     }
     case "matching": {
       if (answer.kind !== "matching") return null;
-      return question.pairs.every(
-        (pair) => normalizeText(answer.map[pair.id] ?? "") === normalizeText(pair.answer),
-      );
+      return question.pairs.every((pair) => answer.map[pair.id] === pair.answerId);
     }
     case "ordering": {
       if (answer.kind !== "ordering") return null;

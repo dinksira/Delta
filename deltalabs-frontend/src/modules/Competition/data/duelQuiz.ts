@@ -14,6 +14,7 @@ import type {
 } from "@/modules/Competition/types/duelQuiz";
 import type {
   TopicBattle,
+  TopicBattleMatchingPair,
   TopicBattleQuestion,
 } from "@/modules/Competition/types/topicBattle";
 
@@ -52,9 +53,22 @@ const SUBJECT_DECKS: SubjectDeck[] = [
   {
     keywords: ["physics"],
     questions: [
-      mcq("Which phenomenon describes electrons emitted from a material when light shines on it?", ["Compton scattering", "Photoelectric effect", "Blackbody radiation", "Wave-particle duality"], 1),
+      mcq(
+        "Which phenomenon describes electrons emitted from a material when light shines on it?",
+        [
+          "Compton scattering",
+          "Photoelectric effect",
+          "Blackbody radiation",
+          "Wave-particle duality",
+        ],
+        1,
+      ),
       mcq("What is the SI unit of electric current?", ["Volt", "Ampere", "Ohm", "Watt"], 1),
-      mcq("What is the acceleration due to gravity on Earth?", ["8.9 m/s²", "9.8 m/s²", "10.8 m/s²", "7.8 m/s²"], 1),
+      mcq(
+        "What is the acceleration due to gravity on Earth?",
+        ["8.9 m/s²", "9.8 m/s²", "10.8 m/s²", "7.8 m/s²"],
+        1,
+      ),
       mcq("What is the formula for force?", ["F = m/a", "F = ma", "F = mv", "F = m + a"], 1),
       mcq("What is the SI unit of power?", ["Joule", "Newton", "Watt", "Volt"], 2),
     ],
@@ -65,57 +79,157 @@ const SUBJECT_DECKS: SubjectDeck[] = [
       mcq("What is the chemical symbol for potassium?", ["Po", "Pt", "K", "Ka"], 2),
       mcq("What is the pH of a neutral solution at 25°C?", ["0", "7", "14", "1"], 1),
       mcq("How many hydrogen atoms are in one molecule of water?", ["1", "2", "3", "4"], 1),
-      mcq("What type of bond involves the sharing of electron pairs?", ["Ionic bond", "Metallic bond", "Covalent bond", "Hydrogen bond"], 2),
-      mcq("Which gas is produced when hydrochloric acid reacts with zinc?", ["Oxygen", "Hydrogen", "Chlorine", "Carbon dioxide"], 1),
+      mcq(
+        "What type of bond involves the sharing of electron pairs?",
+        ["Ionic bond", "Metallic bond", "Covalent bond", "Hydrogen bond"],
+        2,
+      ),
+      mcq(
+        "Which gas is produced when hydrochloric acid reacts with zinc?",
+        ["Oxygen", "Hydrogen", "Chlorine", "Carbon dioxide"],
+        1,
+      ),
     ],
   },
   {
     keywords: ["biology", "bio", "life science"],
     questions: [
       mcq("What is the basic unit of life?", ["Atom", "Molecule", "Cell", "Tissue"], 2),
-      mcq("What is the powerhouse of the cell?", ["Nucleus", "Ribosome", "Mitochondria", "Golgi apparatus"], 2),
+      mcq(
+        "What is the powerhouse of the cell?",
+        ["Nucleus", "Ribosome", "Mitochondria", "Golgi apparatus"],
+        2,
+      ),
       mcq("How many chromosomes do humans have?", ["23", "44", "46", "48"], 2),
       mcq("Which organ is responsible for pumping blood?", ["Lungs", "Brain", "Heart", "Liver"], 2),
-      mcq("What process do plants use to convert sunlight into energy?", ["Respiration", "Photosynthesis", "Fermentation", "Digestion"], 1),
+      mcq(
+        "What process do plants use to convert sunlight into energy?",
+        ["Respiration", "Photosynthesis", "Fermentation", "Digestion"],
+        1,
+      ),
     ],
   },
   {
     keywords: ["english", "language", "literature", "grammar"],
     questions: [
-      mcq("Who wrote 'Romeo and Juliet'?", ["Charles Dickens", "Ernest Hemingway", "William Shakespeare", "Jane Austen"], 2),
+      mcq(
+        "Who wrote 'Romeo and Juliet'?",
+        ["Charles Dickens", "Ernest Hemingway", "William Shakespeare", "Jane Austen"],
+        2,
+      ),
       mcq("What is the antonym of 'benevolent'?", ["Kind", "Generous", "Hostile", "Charitable"], 2),
-      mcq("Identify the verb in: 'The quick fox jumps over the dog.'", ["quick", "fox", "jumps", "dog"], 2),
-      mcq("Which sentence uses the correct punctuation?", ["Lets eat, Grandma!", "Let's eat, Grandma!", "Lets eat Grandma!", "Let's eat Grandma!"], 1),
+      mcq(
+        "Identify the verb in: 'The quick fox jumps over the dog.'",
+        ["quick", "fox", "jumps", "dog"],
+        2,
+      ),
+      mcq(
+        "Which sentence uses the correct punctuation?",
+        ["Lets eat, Grandma!", "Let's eat, Grandma!", "Lets eat Grandma!", "Let's eat Grandma!"],
+        1,
+      ),
       mcq("What is a synonym for 'arduous'?", ["Easy", "Difficult", "Swift", "Fragile"], 1),
     ],
   },
   {
     keywords: ["history", "ancient", "civilization"],
     questions: [
-      mcq("Which civilization built the Great Pyramid of Giza?", ["Roman", "Greek", "Egyptian", "Mesopotamian"], 2),
+      mcq(
+        "Which civilization built the Great Pyramid of Giza?",
+        ["Roman", "Greek", "Egyptian", "Mesopotamian"],
+        2,
+      ),
       mcq("What year did World War II begin?", ["1937", "1938", "1939", "1940"], 2),
-      mcq("What was the name of the Allied invasion of Normandy?", ["Operation Barbarossa", "Operation Overlord", "Operation Torch", "Market Garden"], 1),
-      mcq("Who was the first Emperor of unified China?", ["Confucius", "Qin Shi Huang", "Sun Tzu", "Genghis Khan"], 1),
-      mcq("Which two cities were atomic bombs dropped on?", ["Tokyo and Osaka", "Hiroshima and Nagasaki", "Kyoto and Kobe", "Yokohama and Sapporo"], 1),
+      mcq(
+        "What was the name of the Allied invasion of Normandy?",
+        ["Operation Barbarossa", "Operation Overlord", "Operation Torch", "Market Garden"],
+        1,
+      ),
+      mcq(
+        "Who was the first Emperor of unified China?",
+        ["Confucius", "Qin Shi Huang", "Sun Tzu", "Genghis Khan"],
+        1,
+      ),
+      mcq(
+        "Which two cities were atomic bombs dropped on?",
+        ["Tokyo and Osaka", "Hiroshima and Nagasaki", "Kyoto and Kobe", "Yokohama and Sapporo"],
+        1,
+      ),
     ],
   },
   {
     keywords: ["ai", "artificial intelligence", "machine learning"],
     questions: [
-      mcq("What does 'AI' stand for?", ["Automated Integration", "Artificial Intelligence", "Advanced Interface", "Analytic Inference"], 1),
-      mcq("Which algorithm is commonly used for supervised classification?", ["K-means clustering", "Linear regression", "Decision tree", "Apriori"], 2),
-      mcq("What is the output layer of a neural network responsible for?", ["Feeding inputs", "Adjusting weights", "Producing predictions", "Normalizing data"], 2),
-      mcq("Which term describes teaching a model using labeled data?", ["Unsupervised learning", "Supervised learning", "Reinforcement learning", "Transfer learning"], 1),
-      mcq("What is overfitting in machine learning?", ["Model fails to train", "Model learns noise too well", "Model is too small", "Data is unbalanced"], 1),
+      mcq(
+        "What does 'AI' stand for?",
+        [
+          "Automated Integration",
+          "Artificial Intelligence",
+          "Advanced Interface",
+          "Analytic Inference",
+        ],
+        1,
+      ),
+      mcq(
+        "Which algorithm is commonly used for supervised classification?",
+        ["K-means clustering", "Linear regression", "Decision tree", "Apriori"],
+        2,
+      ),
+      mcq(
+        "What is the output layer of a neural network responsible for?",
+        ["Feeding inputs", "Adjusting weights", "Producing predictions", "Normalizing data"],
+        2,
+      ),
+      mcq(
+        "Which term describes teaching a model using labeled data?",
+        [
+          "Unsupervised learning",
+          "Supervised learning",
+          "Reinforcement learning",
+          "Transfer learning",
+        ],
+        1,
+      ),
+      mcq(
+        "What is overfitting in machine learning?",
+        [
+          "Model fails to train",
+          "Model learns noise too well",
+          "Model is too small",
+          "Data is unbalanced",
+        ],
+        1,
+      ),
     ],
   },
   {
     keywords: ["javascript", "typescript", "programming", "computer", "web", "coding"],
     questions: [
-      mcq("Which keyword declares a constant variable in JavaScript?", ["var", "let", "const", "static"], 2),
-      mcq("What does 'DOM' stand for?", ["Document Object Model", "Data Object Method", "Digital Output Manager", "Dynamic Order Module"], 0),
-      mcq("Which method adds an element to the end of an array?", ["push()", "pop()", "shift()", "unshift()"], 0),
-      mcq("What type is the result of `typeof null` in JavaScript?", ["null", "undefined", "object", "number"], 2),
+      mcq(
+        "Which keyword declares a constant variable in JavaScript?",
+        ["var", "let", "const", "static"],
+        2,
+      ),
+      mcq(
+        "What does 'DOM' stand for?",
+        [
+          "Document Object Model",
+          "Data Object Method",
+          "Digital Output Manager",
+          "Dynamic Order Module",
+        ],
+        0,
+      ),
+      mcq(
+        "Which method adds an element to the end of an array?",
+        ["push()", "pop()", "shift()", "unshift()"],
+        0,
+      ),
+      mcq(
+        "What type is the result of `typeof null` in JavaScript?",
+        ["null", "undefined", "object", "number"],
+        2,
+      ),
       mcq("Which operator checks both value and type?", ["==", "=", "===", "=>"], 2),
     ],
   },
@@ -176,14 +290,46 @@ function toDuelQuestion(q: TopicBattleQuestion): DuelQuestion | null {
         kind: "fill_blank",
         text: text || q.title || "Fill in the blank",
         expected: q.fillExpected ?? "",
+        answers: q.fillAnswers ?? [],
       };
-    case "matching":
+    case "matching": {
+      const pool = (q.matchingAnswers ?? []).filter((a) => a.text.trim());
+      const rawPairs = (q.matchingPairs ?? []).filter((p) => p.prompt.trim());
+
+      // Legacy battles store `{ prompt, answer }` without an answer pool —
+      // synthesize one (deduped by text) and map pairs onto it so grading
+      // still works by answer id.
+      if (pool.length === 0 && rawPairs.length > 0) {
+        const seen = new Map<string, string>();
+        const pairs: TopicBattleMatchingPair[] = [];
+        for (const pair of rawPairs as Array<TopicBattleMatchingPair & { answer?: string }>) {
+          const text = (pair.answer ?? "").trim();
+          if (!text) {
+            continue;
+          }
+          const key = text.toLowerCase();
+          let answerId = seen.get(key);
+          if (!answerId) {
+            answerId = `legacy_ans_${pool.length + 1}`;
+            seen.set(key, answerId);
+            pool.push({ id: answerId, text });
+          }
+          pairs.push({ id: pair.id, prompt: pair.prompt, answerId });
+        }
+        rawPairs.splice(0, rawPairs.length, ...pairs);
+      }
+
+      if (pool.length === 0 || rawPairs.length === 0) {
+        return null;
+      }
       return {
         ...base,
         kind: "matching",
         text: text || q.title || "Match the pairs",
-        pairs: q.matchingPairs ?? [],
+        answers: pool,
+        pairs: rawPairs,
       };
+    }
     case "ordering":
       return {
         ...base,
@@ -220,7 +366,11 @@ function buildLeaderboard(battle: TopicBattle): DuelLeaderboardEntry[] {
     if (i === 0) {
       entries.push({ rank: i + 1, name: "You", points, isCurrentUser: true });
     } else if (i === 1) {
-      entries.push({ rank: i + 1, name: battle.isOwner ? "Opponent" : battle.creator.name, points });
+      entries.push({
+        rank: i + 1,
+        name: battle.isOwner ? "Opponent" : battle.creator.name,
+        points,
+      });
     } else {
       entries.push({ rank: i + 1, name: `Player ${i + 1}`, points });
     }
@@ -231,9 +381,7 @@ function buildLeaderboard(battle: TopicBattle): DuelLeaderboardEntry[] {
 /** Resolve the full participant quiz for the given battle. */
 export function buildDuelQuiz(battle: TopicBattle): DuelQuiz {
   const subject =
-    battle.subject.trim() ||
-    battle.title.split(" ").slice(0, 2).join(" ") ||
-    "Topic Battle";
+    battle.subject.trim() || battle.title.split(" ").slice(0, 2).join(" ") || "Topic Battle";
 
   const authored = (battle.questions ?? [])
     .map(toDuelQuestion)

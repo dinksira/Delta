@@ -46,10 +46,16 @@ export interface QuestionOption {
   text: string;
 }
 
+export interface QuestionMatchingAnswer {
+  id: string;
+  text: string;
+}
+
 export interface QuestionMatchingPair {
   id: string;
   prompt: string;
-  answer: string;
+  /** References a `QuestionMatchingAnswer` in `matchingAnswers` (Column B pool). */
+  answerId: string;
 }
 
 export interface QuestionOrderItem {
@@ -76,6 +82,10 @@ export interface CodingQuestion {
   tfAnswer: boolean;
   /** Author-provided answer key for fill-in-the-blank (blank matching). */
   fillExpected: string;
+  /** One answer per `[data-blank]` marker in the stem, in stem order. */
+  fillAnswers: string[];
+  /** Column B answer pool — pairs reference these by `answerId`. */
+  matchingAnswers: QuestionMatchingAnswer[];
   matchingPairs: QuestionMatchingPair[];
   orderingItems: QuestionOrderItem[];
 }
@@ -91,7 +101,12 @@ export function createEmptyOption(label: string): QuestionOption {
 
 export function createEmptyPair(): QuestionMatchingPair {
   pairCounter += 1;
-  return { id: `pair_${Date.now()}_${pairCounter}`, prompt: "", answer: "" };
+  return { id: `pair_${Date.now()}_${pairCounter}`, prompt: "", answerId: "" };
+}
+
+export function createEmptyMatchingAnswer(): QuestionMatchingAnswer {
+  pairCounter += 1;
+  return { id: `ans_${Date.now()}_${pairCounter}`, text: "" };
 }
 
 export function createEmptyOrderItem(): QuestionOrderItem {
@@ -132,6 +147,8 @@ export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): Coding
     mcqCorrectId: "",
     tfAnswer: true,
     fillExpected: "",
+    fillAnswers: [],
+    matchingAnswers: [],
     matchingPairs: [createEmptyPair()],
     orderingItems: [createEmptyOrderItem()],
     ...overrides,

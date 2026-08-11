@@ -29,10 +29,16 @@ export interface TopicBattleOption {
   text: string;
 }
 
+export interface TopicBattleMatchingAnswer {
+  id: string;
+  text: string;
+}
+
 export interface TopicBattleMatchingPair {
   id: string;
   prompt: string;
-  answer: string;
+  /** References a `TopicBattleMatchingAnswer` in `matchingAnswers` (Column B pool). */
+  answerId: string;
 }
 
 export interface TopicBattleOrderingItem {
@@ -58,6 +64,9 @@ export interface TopicBattleQuestion {
   mcqCorrectId: string;
   tfAnswer: boolean;
   fillExpected: string;
+  /** One answer per `[data-blank]` marker in the stem (multi-blank questions). */
+  fillAnswers?: string[];
+  matchingAnswers?: TopicBattleMatchingAnswer[];
   matchingPairs: TopicBattleMatchingPair[];
   orderingItems: TopicBattleOrderingItem[];
 }

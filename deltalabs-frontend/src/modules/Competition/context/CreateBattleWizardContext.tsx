@@ -25,16 +25,28 @@ type CreateBattleWizardAction =
   | { type: "PREVIOUS_STEP" }
   | { type: "RESET" }
   | { type: "UPDATE_DRAFT"; payload: Partial<TopicBattleDraft> }
-  | { type: "SELECT_TOPIC"; payload: { id: string; name: string; category: string; difficulty: string } }
+  | {
+      type: "SELECT_TOPIC";
+      payload: { id: string; name: string; category: string; difficulty: string };
+    }
   | { type: "SELECT_FORMAT"; payload: string }
   | { type: "SELECT_VISIBILITY"; payload: { id: string; timing: "instant" | "schedule" } }
-  | { type: "UPDATE_ENTRY_SETUP"; payload: { slots: number; fee: number | "Free" | "Custom"; customFee?: number } }
+  | {
+      type: "UPDATE_ENTRY_SETUP";
+      payload: { slots: number; fee: number | "Free" | "Custom"; customFee?: number };
+    }
   | { type: "UPDATE_PRIZE_DISTRIBUTION"; payload: { id: string; totalPool?: number } }
   | { type: "UPDATE_SCHEDULE"; payload: { date: string; time: string; timezone: string } }
-  | { type: "UPDATE_QUESTION_POOL"; payload: { categories: string[]; easy: number; medium: number; hard: number } }
+  | {
+      type: "UPDATE_QUESTION_POOL";
+      payload: { categories: string[]; easy: number; medium: number; hard: number };
+    }
   | { type: "UPDATE_QUESTION_POOL_MODE"; payload: "auto" | "custom" }
   | { type: "ADD_QUESTION" }
-  | { type: "UPDATE_QUESTION"; payload: { id: string; updates: Partial<ReturnType<typeof createEmptyQuestion>> } }
+  | {
+      type: "UPDATE_QUESTION";
+      payload: { id: string; updates: Partial<ReturnType<typeof createEmptyQuestion>> };
+    }
   | { type: "REMOVE_QUESTION"; payload: string }
   | { type: "SET_ACTIVE_QUESTION_ID"; payload: string }
   | { type: "SET_SEARCH_QUERY"; payload: string }
@@ -116,7 +128,11 @@ function createBattleWizardReducer(
         ...state,
         draft: {
           ...state.draft,
-          schedule: { date: action.payload.date, time: action.payload.time, timezone: action.payload.timezone },
+          schedule: {
+            date: action.payload.date,
+            time: action.payload.time,
+            timezone: action.payload.timezone,
+          },
         },
       };
     case "UPDATE_QUESTION_POOL":
@@ -136,7 +152,10 @@ function createBattleWizardReducer(
     case "UPDATE_QUESTION_POOL_MODE":
       return {
         ...state,
-        draft: { ...state.draft, questionPool: { ...state.draft.questionPool, mode: action.payload } },
+        draft: {
+          ...state.draft,
+          questionPool: { ...state.draft.questionPool, mode: action.payload },
+        },
       };
     case "ADD_QUESTION": {
       const question = createEmptyQuestion();
@@ -158,8 +177,7 @@ function createBattleWizardReducer(
       };
     case "REMOVE_QUESTION": {
       const filtered = state.draft.customQuestions.filter((q) => q.id !== action.payload);
-      const nextActive =
-        filtered.length > 0 ? filtered[filtered.length - 1].id : "";
+      const nextActive = filtered.length > 0 ? filtered[filtered.length - 1].id : "";
       return {
         ...state,
         draft: { ...state.draft, customQuestions: filtered },
@@ -187,7 +205,9 @@ export interface CreateBattleWizardProviderProps {
   children: ReactNode;
 }
 
-export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWizardProviderProps>) {
+export function CreateBattleWizardProvider({
+  children,
+}: Readonly<CreateBattleWizardProviderProps>) {
   const [state, dispatch] = useReducer(createBattleWizardReducer, INITIAL_STATE);
 
   const canGoNext = useMemo(() => {
@@ -341,6 +361,8 @@ export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWi
             mcqCorrectId: q.mcqCorrectId,
             tfAnswer: q.tfAnswer,
             fillExpected: q.fillExpected,
+            fillAnswers: q.fillAnswers,
+            matchingAnswers: q.matchingAnswers,
             matchingPairs: q.matchingPairs,
             orderingItems: q.orderingItems,
           }))
@@ -414,7 +436,9 @@ export function CreateBattleWizardProvider({ children }: Readonly<CreateBattleWi
   };
 
   return (
-    <CreateBattleWizardContext.Provider value={value}>{children}</CreateBattleWizardContext.Provider>
+    <CreateBattleWizardContext.Provider value={value}>
+      {children}
+    </CreateBattleWizardContext.Provider>
   );
 }
 

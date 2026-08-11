@@ -215,7 +215,59 @@ class Repository:
     # ========================================================================
 
     @staticmethod
+    def _normalize_matching(
+        raw_pairs: list[dict[str, Any]],
+        raw_answers: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Normalize stored matching data into the answer-pool shape.
+
+        New battles store `matching_answers` + pairs with `answer_id`. Legacy
+        battles store `{ prompt, answer }` pairs without a pool — synthesize one
+        (deduped case-insensitively) and map pairs onto it so grading stays
+        id-based.
+        """
+        if raw_answers:
+            answers = [
+                {"id": str(a.get("id", "")), "text": str(a.get("text", ""))}
+                for a in raw_answers
+            ]
+            pairs = [
+                {
+                    "id": str(p.get("id", "")),
+                    "prompt": str(p.get("prompt", "")),
+                    "answer_id": str(p.get("answer_id", "")),
+                }
+                for p in raw_pairs
+            ]
+            return pairs, answers
+
+        seen: dict[str, str] = {}
+        answers: list[dict[str, Any]] = []
+        pairs: list[dict[str, Any]] = []
+        for pair in raw_pairs:
+            text = str(pair.get("answer", ""))
+            if not text:
+                continue
+            key = text.strip().lower()
+            answer_id = seen.get(key)
+            if answer_id is None:
+                answer_id = f"ans_{len(answers) + 1}"
+                seen[key] = answer_id
+                answers.append({"id": answer_id, "text": text})
+            pairs.append(
+                {
+                    "id": str(pair.get("id", "")),
+                    "prompt": str(pair.get("prompt", "")),
+                    "answer_id": answer_id,
+                }
+            )
+        return pairs, answers
+
+    @staticmethod
     def question_doc_to_response(q: dict[str, Any]) -> QuestionResponse:
+        raw_pairs = list(q.get("matching_pairs", []))
+        raw_answers = list(q.get("matching_answers", []))
+        matching_pairs, matching_answers = Repository._normalize_matching(raw_pairs, raw_answers)
         return QuestionResponse(
             id=str(q.get("id", "")),
             title=str(q.get("title", "")),
@@ -233,7 +285,9 @@ class Repository:
             mcq_correct_id=str(q.get("mcq_correct_id", "")),
             tf_answer=bool(q.get("tf_answer", True)),
             fill_expected=str(q.get("fill_expected", "")),
-            matching_pairs=list(q.get("matching_pairs", [])),
+            fill_answers=list(q.get("fill_answers", [])),
+            matching_answers=matching_answers,
+            matching_pairs=matching_pairs,
             ordering_items=list(q.get("ordering_items", [])),
         )
 
