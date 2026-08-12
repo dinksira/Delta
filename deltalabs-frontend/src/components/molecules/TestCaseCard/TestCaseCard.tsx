@@ -3,9 +3,13 @@
  * Atomic Level: Molecule
  *
  * One test-case editor row for the custom-question builder: a Sample / Hidden
- * status toggle pill, "Test #N" index label, and an Input grid for the test
- * input + expected output. Uses the shared `Field` + `Input` atoms.
+ * status toggle pill, "Test #N" index label, an Input grid for the test input +
+ * expected output, an optional Explanation field (LeetCode-style example
+ * explanations), and an optional Remove action. Uses the shared `Field` + `Input`
+ * atoms.
  */
+
+import { Trash2 } from "lucide-react";
 
 import { Field } from "@/components/theme/Field";
 import { Input } from "@/components/theme/Input";
@@ -17,9 +21,12 @@ export interface TestCaseCardProps {
   input: string;
   expectedOutput: string;
   isSample: boolean;
+  explanation?: string;
   onInputChange: (value: string) => void;
   onOutputChange: (value: string) => void;
   onToggleSample: () => void;
+  onExplanationChange?: (value: string) => void;
+  onRemove?: () => void;
   className?: string;
 }
 
@@ -28,9 +35,12 @@ export function TestCaseCard({
   input,
   expectedOutput,
   isSample,
+  explanation,
   onInputChange,
   onOutputChange,
   onToggleSample,
+  onExplanationChange,
+  onRemove,
   className,
 }: Readonly<TestCaseCardProps>) {
   return (
@@ -54,7 +64,19 @@ export function TestCaseCard({
         >
           {isSample ? "Sample" : "Hidden"}
         </button>
-        <span className="text-xs font-medium text-text-tertiary">Test #{index + 1}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-text-tertiary">Test #{index + 1}</span>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              aria-label={`Remove test case ${index + 1}`}
+              className="rounded-md p-1 text-text-tertiary transition-colors hover:bg-error-50 hover:text-error-600"
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -75,6 +97,17 @@ export function TestCaseCard({
           />
         </Field>
       </div>
+
+      {onExplanationChange && (
+        <Field id={`qb-tc-exp-${index}`} label="Explanation (shown with the example)">
+          <Input
+            id={`qb-tc-exp-${index}`}
+            value={explanation ?? ""}
+            onChange={(event) => onExplanationChange(event.target.value)}
+            placeholder="Optional walkthrough of the expected behaviour"
+          />
+        </Field>
+      )}
     </div>
   );
 }

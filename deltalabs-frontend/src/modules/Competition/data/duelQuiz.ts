@@ -350,6 +350,14 @@ function toDuelQuestion(q: TopicBattleQuestion): DuelQuestion | null {
         text: text || q.title || "Coding challenge",
         codeTemplate: q.codeTemplate ?? "",
         language: q.language || "HTML",
+        constraints: q.constraints || undefined,
+        testCases: (q.testCases ?? [])
+          .filter((tc) => tc.isSample === true)
+          .map((tc) => ({
+            input: tc.input,
+            expectedOutput: tc.expectedOutput,
+            explanation: tc.explanation || undefined,
+          })),
       };
     default:
       return null;

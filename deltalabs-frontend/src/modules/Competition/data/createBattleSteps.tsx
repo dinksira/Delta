@@ -3,6 +3,11 @@
  * The 8 fixed steps of the Create Topic Battle wizard, in order, with the
  * lucide icon rendered inside each ProgressStepper badge. Labels match the
  * Step 1 redesign spec (Topic Selection → Review & Launch).
+ *
+ * `getWizardSteps(timing)` returns the visible step list for the current
+ * "When to start Battle" choice: the Date & Time step is dropped for
+ * "Start Instantly" (there is nothing to schedule) and kept for
+ * "Schedule Later".
  */
 
 import { CalendarClock, Database, Folder, Globe2, Rocket, Swords, Trophy, Users } from "lucide-react";
@@ -21,3 +26,32 @@ export const CREATE_BATTLE_STEPS: CreateBattleWizardStep[] = [
 ];
 
 export const CREATE_BATTLE_TOTAL_STEPS = CREATE_BATTLE_STEPS.length;
+
+/** 1-based index of a step id in the given step list (0 if not present). */
+function stepIndex(steps: CreateBattleWizardStep[], id: string): number {
+  return steps.findIndex((s) => s.id === id) + 1;
+}
+
+/** Visible wizard steps for the given start timing. */
+export function getWizardSteps(timing: "instant" | "schedule"): CreateBattleWizardStep[] {
+  if (timing === "instant") {
+    return CREATE_BATTLE_STEPS.filter((s) => s.id !== "date-time");
+  }
+  return CREATE_BATTLE_STEPS;
+}
+
+/** 1-based step index for a step id, accounting for the active timing. */
+export function getWizardStepIndex(
+  id: string,
+  timing: "instant" | "schedule",
+): number {
+  return stepIndex(getWizardSteps(timing), id);
+}
+
+/** Step id at a 1-based position within the active timing's visible steps. */
+export function getWizardStepId(
+  position: number,
+  timing: "instant" | "schedule",
+): string | undefined {
+  return getWizardSteps(timing)[position - 1]?.id;
+}

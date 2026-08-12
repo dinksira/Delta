@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -1069,6 +1069,7 @@ def _question_schema_to_dict(q: CodingQuestionSchema) -> dict:
         "id": q.id or f"q_{uuid4().hex}",
         "title": q.title,
         "description": q.description,
+        "constraints": q.constraints,
         "code_template": q.code_template,
         "language": q.language,
         "difficulty": q.difficulty,
@@ -1094,6 +1095,7 @@ def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
         "id": f"q_{uuid4().hex}",
         "title": q.title,
         "description": q.description,
+        "constraints": q.constraints,
         "code_template": q.code_template,
         "language": q.language,
         "difficulty": q.difficulty,

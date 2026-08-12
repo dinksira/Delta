@@ -16,6 +16,7 @@ import { Typography } from "@/components/theme/Typography";
 import { cn } from "@/lib/utils";
 
 export const QUESTION_TYPE_OPTIONS = [
+  "Coding",
   "Multiple Choice",
   "True / False",
   "Fill-in-the-Blanks",

@@ -20,6 +20,8 @@ export interface BattleTopicGridProps {
   /** Enables the checkbox affordance; selection driven by `selectedTopicIds`. */
   multiSelect?: boolean;
   onSelect?: (id: string) => void;
+  /** Optional trailing grid cell rendered as the last item (e.g. "create your own topic"). */
+  action?: React.ReactNode;
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
@@ -31,11 +33,12 @@ export function BattleTopicGrid({
   selectedTopicIds = [],
   multiSelect = false,
   onSelect,
+  action,
   emptyTitle = "No topics found",
   emptyDescription = "Try a different search or category filter.",
   className,
 }: Readonly<BattleTopicGridProps>) {
-  if (topics.length === 0) {
+  if (topics.length === 0 && !action) {
     return (
       <div
         role="status"
@@ -67,6 +70,11 @@ export function BattleTopicGrid({
           />
         </li>
       ))}
+      {action && (
+        <li className="min-w-0">
+          {action}
+        </li>
+      )}
     </ul>
   );
 }

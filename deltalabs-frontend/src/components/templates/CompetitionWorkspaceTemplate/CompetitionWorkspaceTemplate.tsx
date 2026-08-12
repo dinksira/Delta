@@ -8,6 +8,12 @@
  * panel (~20% / 55% / 25%), and a shared bottom navigation bar with Previous
  * (left) and Next (right).
  *
+ * The center canvas carries an expand/collapse toggle (Maximize2/Minimize2) in
+ * its top-right corner: maximized state hides the left rail and right settings
+ * panel so the author gets a full-width editing surface; toggling back returns
+ * to the normal 3-column layout. The expanded flag is controlled internally
+ * and reset whenever the canvas content identity (`canvasKey`) changes.
+ *
  * @example
  * <CompetitionWorkspaceTemplate
  *   title="Question Builder"
@@ -25,9 +31,19 @@
  * </CompetitionWorkspaceTemplate>
  */
 
-import type { ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, ArrowRight, Bot, Link2, Layers, Plug, UserPlus } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bot,
+  Layers,
+  Link2,
+  Maximize2,
+  Minimize2,
+  Plug,
+  UserPlus,
+} from "lucide-react";
 
 import { BackButton } from "@/components/theme/BackButton";
 import { Button } from "@/components/theme/Button";
@@ -53,6 +69,8 @@ export interface CompetitionWorkspaceTemplateProps {
   onNext?: () => void;
   previousDisabled?: boolean;
   nextDisabled?: boolean;
+  /** Changing this value resets the canvas expand state (e.g. active question id). */
+  canvasKey?: string | number;
   className?: string;
 }
 
@@ -70,8 +88,14 @@ export function CompetitionWorkspaceTemplate({
   onNext,
   previousDisabled = false,
   nextDisabled = false,
+  canvasKey,
   className,
 }: Readonly<CompetitionWorkspaceTemplateProps>) {
+  const [canvasExpanded, setCanvasExpanded] = useState(false);
+  const previousKey = usePreviousKey(canvasKey);
+  const expanded = previousKey !== canvasKey ? false : canvasExpanded;
+  const toggleExpanded = () => setCanvasExpanded((value) => !value);
+
   return (
     <div
       className={cn(
@@ -134,11 +158,25 @@ export function CompetitionWorkspaceTemplate({
 
       {/* 3-column workspace grid */}
       <div className="flex flex-1 flex-col gap-6 lg:flex-row">
-        {leftRail}
-        <main className="min-w-0 flex-1 rounded-xl border border-border-default bg-surface-default p-4 shadow-sm md:p-6">
+        {!expanded && leftRail}
+        <main
+          className={cn(
+            "relative flex min-w-0 flex-1 flex-col gap-3 rounded-xl border border-border-default bg-surface-default p-4 shadow-sm md:p-6",
+          )}
+        >
+          <button
+            type="button"
+            onClick={toggleExpanded}
+            title={expanded ? "Minimize" : "Maximize"}
+            aria-label={expanded ? "Minimize editor" : "Maximize editor"}
+            aria-expanded={expanded}
+            className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-lg border border-border-default bg-surface-default text-text-secondary shadow-sm transition-colors hover:bg-surface-muted hover:text-primary-700"
+          >
+            {expanded ? <Minimize2 className="size-4" aria-hidden /> : <Maximize2 className="size-4" aria-hidden />}
+          </button>
           {children}
         </main>
-        {rightPanel}
+        {!expanded && rightPanel}
       </div>
 
       {/* Bottom navigation bar */}
@@ -164,6 +202,14 @@ export function CompetitionWorkspaceTemplate({
       </div>
     </div>
   );
+}
+
+/** Track the previous `canvasKey` so a content change collapses the canvas. */
+function usePreviousKey(key: string | number | undefined): string | number | undefined {
+  const previousRef = useRef<{ key: string | number | undefined }>({ key });
+  const previous = previousRef.current.key;
+  previousRef.current = { key };
+  return previous;
 }
 
 export default CompetitionWorkspaceTemplate;

@@ -50,6 +50,8 @@ export interface TopicBattleQuestion {
   id: string;
   title: string;
   description: string;
+  /** LeetCode-style constraints section (rich HTML), shown to participants. */
+  constraints?: string;
   codeTemplate: string;
   language: string;
   difficulty: string;

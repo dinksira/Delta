@@ -48,6 +48,7 @@ import {
   Scale,
   ScrollText,
   Sigma,
+  Sparkles,
   Swords,
   Trophy,
   Users,
@@ -59,6 +60,8 @@ import { SearchPill } from "@/components/molecules/SearchPill/SearchPill";
 import { SubjectPills } from "@/components/molecules/SubjectPills/SubjectPills";
 import type { SubjectPill } from "@/components/molecules/SubjectPills/SubjectPills";
 import type { BattleTopic } from "@/components/molecules/BattleTopicCard";
+import type { BattleTopicDifficulty } from "@/components/molecules/BattleTopicCard";
+import { CreateTopicCard } from "@/components/molecules/CreateTopicCard/CreateTopicCard";
 import { BattleTopicGrid } from "@/components/organisms/BattleTopicGrid/BattleTopicGrid";
 import { BattleFormatGrid } from "@/components/organisms/BattleFormatGrid/BattleFormatGrid";
 import { MatchVisibilityGrid } from "@/components/organisms/MatchVisibilityGrid/MatchVisibilityGrid";
@@ -72,7 +75,7 @@ import { SchedulePicker } from "@/components/organisms/SchedulePicker/SchedulePi
 import { QuestionSourceGrid } from "@/components/organisms/QuestionSourceGrid/QuestionSourceGrid";
 import { QuestionPreviewPanel } from "@/components/organisms/QuestionPreviewPanel/QuestionPreviewPanel";
 import { QuestionAuthoringEditor } from "@/components/organisms/QuestionAuthoringEditor/QuestionAuthoringEditor";
-import { QuestionBuilderEditor } from "@/components/organisms/QuestionBuilderEditor/QuestionBuilderEditor";
+import { CodeEditorModule } from "@/components/organisms/CodeEditorModule/CodeEditorModule";
 import { ModuleRail } from "@/components/organisms/ModuleRail/ModuleRail";
 import { ModuleSettingsPanel } from "@/components/organisms/ModuleSettingsPanel/ModuleSettingsPanel";
 import { QuestionTabBar } from "@/components/organisms/QuestionTabBar/QuestionTabBar";
@@ -92,13 +95,13 @@ import {
   BATTLE_TIMINGS,
   BATTLE_TIMEZONES,
   BATTLE_VISIBILITIES,
-  CREATE_BATTLE_STEPS,
-  CREATE_BATTLE_TOTAL_STEPS,
   ENTRY_FEE_OPTIONS,
   PRIZE_RULES,
   QUESTION_SOURCES,
   TOPIC_CATALOG,
   getSampleCategories,
+  getWizardStepId,
+  getWizardStepIndex,
 } from "@/modules/Competition/data";
 
 const ALL_FILTER = "All";
@@ -201,25 +204,25 @@ const FORMAT_LIMITS: Record<
     description: "This format supports up to 2 players maximum",
   },
   mini: {
-    min: 4,
+    min: 2,
     max: 4,
     title: "Format: Mini Tournament",
     description: "This format supports up to 4 players maximum",
   },
   t8: {
-    min: 8,
+    min: 2,
     max: 8,
     title: "Format: Tournament (8 Players)",
     description: "This format supports up to 8 players maximum",
   },
   t16: {
-    min: 16,
+    min: 2,
     max: 16,
     title: "Format: Tournament (16 Players)",
     description: "This format supports up to 16 players maximum",
   },
   t32: {
-    min: 32,
+    min: 2,
     max: 32,
     title: "Format: Tournament (32 Players)",
     description: "This format supports up to 32 players maximum",
@@ -250,12 +253,15 @@ function CreateBattleTopicWizard() {
     isLastStep,
     submitBattle,
     selectTopic,
+    steps,
+    totalSteps,
   } = useCreateBattleWizard();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showCreatedModal, setShowCreatedModal] = useState(false);
   const [showQuestionBuilder, setShowQuestionBuilder] = useState(false);
+  const [customTopics, setCustomTopics] = useState<BattleTopic[]>([]);
 
   // Step 1 (topic selection) flow state — mirrors desktop CreateTopicBattlePage.
   const [seeMore, setSeeMore] = useState(false);
@@ -312,6 +318,25 @@ function CreateBattleTopicWizard() {
     selectTopic("", "", "", "");
   }, [selectTopic]);
 
+  const handleCreateCustomTopic = useCallback(
+    (topic: { name: string; category: string; difficulty: string }) => {
+      const id = `custom-${Date.now().toString(36)}`;
+      const customTopic: BattleTopic = {
+        id,
+        name: topic.name,
+        category: topic.category,
+        difficulty: topic.difficulty as BattleTopicDifficulty,
+        icon: TOPIC_SUBJECT_ICONS[topic.category] ?? <Sparkles className="size-6" />,
+        questionCount: 0,
+      };
+      setCustomTopics((prev) => [...prev, customTopic]);
+      selectTopic(id, topic.name, topic.category, topic.difficulty);
+      setSelectedTopicIdsMap(new Map([[id, customTopic]]));
+      setIsMultiSelectMode(false);
+    },
+    [selectTopic],
+  );
+
   const selectedTopicIds = useMemo(
     () => Array.from(selectedTopicIdsMap.keys()),
     [selectedTopicIdsMap],
@@ -345,7 +370,8 @@ function CreateBattleTopicWizard() {
     };
   }, [draft]);
 
-  const builderOpen = showQuestionBuilder && currentStep === 7;
+  const currentStepId = getWizardStepId(currentStep, draft.visibility.timing);
+  const builderOpen = showQuestionBuilder && currentStepId === "questions";
 
   if (builderOpen) {
     return <QuestionBuilderStep onBack={() => setShowQuestionBuilder(false)} />;
@@ -356,8 +382,8 @@ function CreateBattleTopicWizard() {
       <CreateBattleWizardTemplate
         title="Create Topic Battle"
         currentStep={currentStep}
-        totalSteps={CREATE_BATTLE_TOTAL_STEPS}
-        steps={CREATE_BATTLE_STEPS}
+        totalSteps={totalSteps}
+        steps={steps}
         onBack={handleBack}
         onPrevious={goPrevious}
         previousDisabled={currentStep <= 1 || isSubmitting}
@@ -378,6 +404,8 @@ function CreateBattleTopicWizard() {
           onToggleMultiSelectMode={handleToggleMultiSelectMode}
           onClearMultiSelect={handleClearMultiSelect}
           onToggleMultiSelectTopic={handleToggleMultiSelectTopic}
+          customTopics={customTopics}
+          onCreateCustomTopic={handleCreateCustomTopic}
         />
       </CreateBattleWizardTemplate>
 
@@ -404,6 +432,8 @@ interface StepContentProps {
   onToggleMultiSelectMode: () => void;
   onClearMultiSelect: () => void;
   onToggleMultiSelectTopic: (topicId: string) => void;
+  customTopics: BattleTopic[];
+  onCreateCustomTopic: (topic: { name: string; category: string; difficulty: string }) => void;
 }
 
 function StepContent({
@@ -416,9 +446,14 @@ function StepContent({
   onToggleMultiSelectMode,
   onClearMultiSelect,
   onToggleMultiSelectTopic,
+  customTopics,
+  onCreateCustomTopic,
 }: StepContentProps) {
-  switch (currentStep) {
-    case 1:
+  const { draft } = useCreateBattleWizard();
+  const stepId = getWizardStepId(currentStep, draft.visibility.timing);
+
+  switch (stepId) {
+    case "topic-selection":
       return (
         <TopicSelectionStep
           isMultiSelectMode={isMultiSelectMode}
@@ -428,21 +463,23 @@ function StepContent({
           onToggleMultiSelectMode={onToggleMultiSelectMode}
           onClearMultiSelect={onClearMultiSelect}
           onToggleMultiSelectTopic={onToggleMultiSelectTopic}
+          customTopics={customTopics}
+          onCreateCustomTopic={onCreateCustomTopic}
         />
       );
-    case 2:
+    case "battle-format":
       return <BattleFormatStep />;
-    case 3:
+    case "match-type":
       return <MatchVisibilityStep />;
-    case 4:
+    case "player-setup":
       return <PlayerEntrySetupStep />;
-    case 5:
+    case "prize-rules":
       return <PrizeRulesStep />;
-    case 6:
+    case "date-time":
       return <ScheduleStep />;
-    case 7:
+    case "questions":
       return <QuestionPoolStep onOpenQuestionBuilder={onOpenQuestionBuilder} />;
-    case 8:
+    case "review-launch":
       return <ReviewLaunchStep />;
     default:
       return null;
@@ -490,6 +527,8 @@ interface TopicSelectionStepProps {
   onToggleMultiSelectMode: () => void;
   onClearMultiSelect: () => void;
   onToggleMultiSelectTopic: (topicId: string) => void;
+  customTopics: BattleTopic[];
+  onCreateCustomTopic: (topic: { name: string; category: string; difficulty: string }) => void;
 }
 
 function TopicSelectionStep({
@@ -500,6 +539,8 @@ function TopicSelectionStep({
   onToggleMultiSelectMode,
   onClearMultiSelect,
   onToggleMultiSelectTopic,
+  customTopics,
+  onCreateCustomTopic,
 }: TopicSelectionStepProps) {
   const { searchQuery, filter, draft, selectTopic, setSearchQuery, setFilter } =
     useCreateBattleWizard();
@@ -530,6 +571,20 @@ function TopicSelectionStep({
       questionCount: topicQuestionCount(topic.id),
     }));
   }, [filteredTopics, seeMore]);
+
+  const gridTopics = useMemo(
+    () => [...visibleTopics, ...customTopics],
+    [visibleTopics, customTopics],
+  );
+
+  const subjectOptions = useMemo(
+    () =>
+      Object.keys(TOPIC_SUBJECT_ICONS).map((category) => ({
+        value: category,
+        label: category,
+      })),
+    [],
+  );
 
   const selectedCount = selectedTopicIds.length;
 
@@ -598,7 +653,7 @@ function TopicSelectionStep({
       </div>
 
       <BattleTopicGrid
-        topics={visibleTopics}
+        topics={gridTopics}
         selectedId={draft.topic.id}
         selectedTopicIds={selectedTopicIds}
         multiSelect={isMultiSelectMode}
@@ -606,10 +661,18 @@ function TopicSelectionStep({
           if (isMultiSelectMode) {
             onToggleMultiSelectTopic(id);
           } else {
-            const topic = TOPIC_CATALOG.find((t) => t.id === id);
+            const topic =
+              TOPIC_CATALOG.find((t) => t.id === id) ??
+              customTopics.find((t) => t.id === id);
             if (topic) selectTopic(topic.id, topic.name, topic.category, topic.difficulty);
           }
         }}
+        action={
+          <CreateTopicCard
+            subjects={subjectOptions}
+            onCreate={onCreateCustomTopic}
+          />
+        }
       />
 
       {filteredTopics.length > TOPICS_PER_PAGE && (
@@ -656,7 +719,7 @@ function BattleFormatStep() {
 // ============================================================================
 
 function MatchVisibilityStep() {
-  const { draft, selectVisibility } = useCreateBattleWizard();
+  const { draft, selectVisibility, updateSchedule } = useCreateBattleWizard();
 
   return (
     <>
@@ -689,6 +752,26 @@ function MatchVisibilityStep() {
             }
           />
         </div>
+
+        {draft.visibility.timing === "schedule" && (
+          <div className="mt-8 flex flex-col gap-3">
+            <Typography as="h3" className="flex items-center gap-2 text-[15px] font-bold text-primary-700">
+              <CalendarClock className="size-4 text-primary-700" aria-hidden />
+              Schedule Your Battle
+            </Typography>
+            <SchedulePicker
+              date={draft.schedule.date}
+              time={draft.schedule.time}
+              timezone={draft.schedule.timezone}
+              onDateChange={(date) => updateSchedule(date, draft.schedule.time, draft.schedule.timezone)}
+              onTimeChange={(time) => updateSchedule(draft.schedule.date, time, draft.schedule.timezone)}
+              onTimezoneChange={(timezone) =>
+                updateSchedule(draft.schedule.date, draft.schedule.time, timezone)
+              }
+              timezones={BATTLE_TIMEZONES}
+            />
+          </div>
+        )}
       </div>
     </>
   );
@@ -781,7 +864,6 @@ function PrizeRulesStep() {
 
 function ScheduleStep() {
   const { draft, updateSchedule } = useCreateBattleWizard();
-  const isInstant = draft.visibility.timing === "instant";
 
   return (
     <>
@@ -792,14 +874,6 @@ function ScheduleStep() {
       />
 
       <div className="flex flex-col gap-6">
-        {isInstant && (
-          <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-muted px-4 py-3 text-sm text-text-secondary">
-            <Rocket className="size-4 shrink-0 text-primary-600" aria-hidden />
-            Battle starts instantly. Switch to “Schedule Later” in Match
-            Type to use this date and time.
-          </div>
-        )}
-
         <SchedulePicker
           date={draft.schedule.date}
           time={draft.schedule.time}
@@ -937,6 +1011,7 @@ function QuestionPoolStep({
 }
 
 const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
+  Coding: "coding",
   "Multiple Choice": "multiple_choice",
   "True / False": "true_false",
   "Fill-in-the-Blanks": "fill_blank",
@@ -946,7 +1021,7 @@ const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
 };
 
 const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
-  coding: undefined,
+  coding: "Coding",
   multiple_choice: "Multiple Choice",
   true_false: "True / False",
   fill_blank: "Fill-in-the-Blanks",
@@ -954,6 +1029,36 @@ const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
   writing: "Writing / Essay",
   ordering: "Ordering / Sequencing",
 };
+
+function ModuleSwitchPrompt({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: Readonly<{
+  icon: ReactNode;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+}>) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+      <div className="flex size-12 items-center justify-center rounded-full bg-surface-muted">
+        <span className="text-primary-600">{icon}</span>
+      </div>
+      <Typography as="h3" className="text-lg font-semibold text-text-primary">
+        {title}
+      </Typography>
+      <Typography className="max-w-sm text-sm text-text-secondary">{description}</Typography>
+      <Button className="mt-2" onClick={onAction}>
+        <Pencil className="size-4" aria-hidden />
+        {actionLabel}
+      </Button>
+    </div>
+  );
+}
 
 function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
   const {
@@ -967,7 +1072,9 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
     canGoNext,
   } = useCreateBattleWizard();
   const { customQuestions } = draft;
-  const [activeModule, setActiveModule] = useState("question");
+  // The Code Editor module is the default authoring surface: new questions are
+  // `kind: "coding"` by default, so the LeetCode-style canvas is the first view.
+  const [activeModule, setActiveModule] = useState("code");
 
   const activeQuestion =
     customQuestions.find((q) => q.id === activeQuestionId) ??
@@ -1028,6 +1135,7 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
       onPrevious={onBack}
       onNext={advanceToReview}
       nextDisabled={!canGoNext}
+      canvasKey={activeQuestion.id}
       secondaryActions={
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={onBack}>
@@ -1056,7 +1164,7 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
         </ModuleSettingsPanel>
       }
     >
-      {activeModule === "question" ? (
+      {activeModule === "code" || activeModule === "question" ? (
         <div className="flex h-full flex-col gap-5">
           <div className="flex flex-wrap items-center gap-3">
             <QuestionTabBar
@@ -1076,15 +1184,33 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
             />
           </div>
 
-          {activeQuestion.kind === "coding" ? (
-            <QuestionBuilderEditor
-              question={activeQuestion}
-              onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
-              onRemove={() => {
-                removeQuestion(activeQuestion.id);
-                if (customQuestions.length === 1) onBack();
-              }}
-              languages={QUESTION_LANGUAGES}
+          {activeModule === "code" ? (
+            activeQuestion.kind === "coding" ? (
+              <CodeEditorModule
+                question={activeQuestion}
+                onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+                onRemove={() => {
+                  removeQuestion(activeQuestion.id);
+                  if (customQuestions.length === 1) onBack();
+                }}
+                languages={QUESTION_LANGUAGES}
+              />
+            ) : (
+              <ModuleSwitchPrompt
+                icon={<Braces className="size-6" />}
+                title={`This is a ${QUESTION_KIND_LABELS[activeQuestion.kind] ?? "quiz"} question`}
+                description="The Code Editor module composes coding questions. Open the Question Builder module to author this question type."
+                actionLabel="Open Question Builder"
+                onAction={() => setActiveModule("question")}
+              />
+            )
+          ) : activeQuestion.kind === "coding" ? (
+            <ModuleSwitchPrompt
+              icon={<Code2 className="size-6" />}
+              title="Coding question detected"
+              description="This question is authored in the Code Editor module with the LeetCode-style canvas (problem statement, constraints, code template, and test cases)."
+              actionLabel="Open Code Editor"
+              onAction={() => setActiveModule("code")}
             />
           ) : (
             <QuestionAuthoringEditor
@@ -1106,8 +1232,8 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
             Module coming soon
           </Typography>
           <Typography className="max-w-sm text-sm text-text-secondary">
-            Select the Question Builder module to compose this battle&apos;s
-            questions.
+            Select the Code Editor or Question Builder module to compose this
+            battle&apos;s questions.
           </Typography>
         </div>
       )}
@@ -1149,26 +1275,46 @@ function ReviewLaunchStep() {
       value: draft.topic.name
         ? `${draft.topic.name}${draft.topic.difficulty ? ` · ${draft.topic.difficulty}` : ""}`
         : "Not selected",
-      step: 1,
+      step: getWizardStepIndex("topic-selection", draft.visibility.timing),
     },
-    { label: "Format", value: format?.title ?? draft.format.id, step: 2 },
+    {
+      label: "Format",
+      value: format?.title ?? draft.format.id,
+      step: getWizardStepIndex("battle-format", draft.visibility.timing),
+    },
     {
       label: "Visibility",
       value: `${visibility?.title ?? draft.visibility.id} · ${
         draft.visibility.timing === "schedule" ? "Scheduled" : "Instant"
       }`,
-      step: 3,
+      step: getWizardStepIndex("match-type", draft.visibility.timing),
     },
-    { label: "Players", value: `${draft.entrySetup.slots}`, step: 4 },
-    { label: "Entry fee", value: feeText, step: 4 },
+    {
+      label: "Players",
+      value: `${draft.entrySetup.slots}`,
+      step: getWizardStepIndex("player-setup", draft.visibility.timing),
+    },
+    { label: "Entry fee", value: feeText, step: getWizardStepIndex("player-setup", draft.visibility.timing) },
     {
       label: "Prize pool",
       value: `${draft.prizeDistribution.totalPool} ETB · ${prizeRule?.title ?? ""}`,
-      step: 5,
+      step: getWizardStepIndex("prize-rules", draft.visibility.timing),
     },
-    { label: "Schedule", value: scheduleText, step: 6 },
-    { label: "Question pool", value: poolText, step: 7 },
   ];
+
+  if (draft.visibility.timing === "schedule") {
+    rows.push({
+      label: "Schedule",
+      value: scheduleText,
+      step: getWizardStepIndex("date-time", draft.visibility.timing),
+    });
+  }
+
+  rows.push({
+    label: "Question pool",
+    value: poolText,
+    step: getWizardStepIndex("questions", draft.visibility.timing),
+  });
 
   return (
     <div className="flex flex-col gap-6">

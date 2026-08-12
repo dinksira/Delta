@@ -69,6 +69,7 @@ class CodingQuestionSchema(BaseModel):
     id: str = Field(default="")
     title: str = Field(default="", max_length=200)
     description: str = Field(default="")
+    constraints: str = Field(default="", max_length=4000)
     code_template: str = Field(default="", **_alias("codeTemplate"))
     language: str = Field(default="HTML", max_length=50)
     difficulty: str = Field(default="EASY", max_length=20)
@@ -219,6 +220,7 @@ class QuestionCreateRequest(BaseModel):
 
     title: str = Field(max_length=200)
     description: str = Field(default="")
+    constraints: str = Field(default="", max_length=4000)
     code_template: str = Field(default="", **_alias("codeTemplate"))
     language: str = Field(default="HTML", max_length=50)
     difficulty: str = Field(default="EASY", max_length=20)
@@ -257,6 +259,7 @@ class QuestionUpdateRequest(BaseModel):
 
     title: str | None = Field(default=None, max_length=200)
     description: str | None = None
+    constraints: str | None = Field(default=None, max_length=4000)
     code_template: str | None = Field(default=None, **_alias("codeTemplate"))
     language: str | None = Field(default=None, max_length=50)
     difficulty: str | None = Field(default=None, max_length=20)
@@ -292,6 +295,7 @@ class QuestionResponse(BaseModel):
     id: str
     title: str
     description: str
+    constraints: str = Field(default="")
     code_template: str = Field(**_alias("codeTemplate"))
     language: str
     difficulty: str
@@ -309,3 +313,77 @@ class QuestionResponse(BaseModel):
     matching_answers: list[MatchingAnswerSchema] = Field(**_alias("matchingAnswers"))
     matching_pairs: list[MatchPairSchema] = Field(**_alias("matchingPairs"))
     ordering_items: list[OrderItemSchema] = Field(**_alias("orderingItems"))
+
+
+# ============================================================================
+# Code execution (judge) — request/response for the Judge0-backed sandbox
+# ============================================================================
+
+
+class CodeExecuteRequest(BaseModel):
+    """Run a single snippet through the Judge0-backed sandbox."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    # UI language label (e.g. "Python", "C++") — mapped to a Judge0 runtime.
+    language: str = Field(min_length=1, max_length=50)
+    # Source code to compile/run.
+    code: str = Field(default="", max_length=100_000)
+    # Program stdin (used for `Run` with a single case and for grading each test).
+    stdin: str = Field(default="", max_length=50_000)
+
+
+class CodeRunResultSchema(BaseModel):
+    """stdout/stderr/exit code from a single program execution."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    stdout: str = Field(default="")
+    stderr: str = Field(default="")
+    exit_code: int = Field(default=0, **_alias("exitCode"))
+    compile_output: str = Field(default="", **_alias("compileOutput"))
+    """Best-effort first error line parsed from stderr/compile output (1-based)."""
+    error_line: int | None = Field(default=None, **_alias("errorLine"))
+    error_message: str = Field(default="", **_alias("errorMessage"))
+
+
+class CodeExecuteResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    run: CodeRunResultSchema
+    """Judge0 language label used (for display)."""
+    runtime: str = Field(default="")
+    runtime_version: str = Field(default="", **_alias("runtimeVersion"))
+
+
+class CodeRunTestCaseSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    index: int
+    input: str = Field(default="")
+    expected_output: str = Field(default="", **_alias("expectedOutput"))
+    is_sample: bool = Field(default=False, **_alias("isSample"))
+    passed: bool
+    actual_output: str = Field(default="", **_alias("actualOutput"))
+    stderr: str = Field(default="")
+    exit_code: int = Field(default=0, **_alias("exitCode"))
+    compile_output: str = Field(default="", **_alias("compileOutput"))
+    error_line: int | None = Field(default=None, **_alias("errorLine"))
+    error_message: str = Field(default="", **_alias("errorMessage"))
+
+
+class CodeSubmitRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    language: str = Field(min_length=1, max_length=50)
+    code: str = Field(default="", max_length=100_000)
+    test_cases: list[TestCaseSchema] = Field(default_factory=list, **_alias("testCases"))
+
+
+class CodeSubmitResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    results: list[CodeRunTestCaseSchema]
+    passed_count: int = Field(**_alias("passedCount"))
+    total_count: int = Field(**_alias("totalCount"))
+    all_passed: bool = Field(**_alias("allPassed"))

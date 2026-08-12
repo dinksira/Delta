@@ -1,0 +1,79 @@
+/**
+ * CodeEditor.theme.css
+ * Prism token colors mapped onto Delta Labs design tokens (--dl-color-*).
+ * Keeps syntax highlighting token-compliant — no raw hex values.
+ */
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--dl-color-text-tertiary);
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: var(--dl-color-text-secondary);
+}
+
+.token.namespace {
+  opacity: 0.8;
+}
+
+.token.keyword,
+.token.operator,
+.token.control {
+  color: var(--dl-color-primary-500);
+}
+
+.token.tag,
+.token.function,
+.token.method {
+  color: var(--dl-color-secondary-600);
+}
+
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.unit {
+  color: var(--dl-color-secondary-500);
+}
+
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex,
+.token.url,
+.token.template-string {
+  color: var(--dl-color-success-600);
+}
+
+.token.selector,
+.token.attr-name,
+.token.property {
+  color: var(--dl-color-primary-600);
+}
+
+.token.class-name,
+.token.builtin,
+.token.type,
+.token.module {
+  color: var(--dl-color-info-500);
+}
+
+.token.variable,
+.token.parameter,
+.token.this {
+  color: var(--dl-color-warning-600);
+}
+
+.token.important,
+.token.bold {
+  color: var(--dl-color-error-500);
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
+}

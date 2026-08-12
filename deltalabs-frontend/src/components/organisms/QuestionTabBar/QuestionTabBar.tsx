@@ -3,8 +3,10 @@
  * Atomic Level: Organism
  *
  * Question tab wrapper for the Competition Workspace canvas: a bordered tab box
- * with rounded `Q1.` / `Q2.` … badges (active badge filled with the neutral
- * surface-muted tone) and a trailing square "+ Add question" button.
+ * with rounded fixed-size `1.` / `2.` … number badges (active pill uses the
+ * neutral surface-muted tone) and a trailing square "+ Add question" button.
+ * The number badge is fixed-size and the title truncates, so tabs never grow
+ * as a question's title is typed.
  * @example <QuestionTabBar questions={questions} activeId={activeId} onSelect={select} onAdd={addQuestion} maxQuestions={50} />
  */
 
@@ -50,15 +52,20 @@ export function QuestionTabBar({
             onClick={() => onSelect(question.id)}
             aria-current={active ? "step" : undefined}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold transition-colors duration-150",
+              "inline-flex max-w-56 items-center gap-1.5 rounded-full border py-1 pl-1 pr-3 text-sm font-semibold transition-colors duration-150",
               active
                 ? "border-border-default bg-surface-muted text-text-primary"
                 : "border-border-default bg-surface-default text-text-secondary hover:bg-surface-muted hover:text-text-primary",
             )}
           >
-            <span aria-hidden>Q{index + 1}.</span>
+            <span
+              aria-hidden
+              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white"
+            >
+              {index + 1}
+            </span>
             {label ? (
-              <Typography as="span" className="max-w-40 truncate text-xs font-medium">
+              <Typography as="span" className="min-w-0 truncate text-xs font-medium">
                 {label}
               </Typography>
             ) : null}

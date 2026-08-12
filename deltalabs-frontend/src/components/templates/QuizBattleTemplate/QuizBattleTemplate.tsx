@@ -61,7 +61,8 @@ export function QuizBattleTemplate({
   onExit,
   className,
 }: Readonly<QuizBattleTemplateProps>) {
-  const finished = state.currentQuestionIndex >= state.totalQuestions;
+  const finished =
+    state.totalQuestions > 0 && state.currentQuestionIndex >= state.totalQuestions;
   const question = quiz.questions[state.currentQuestionIndex];
   const submit = onSubmit ?? (() => undefined);
   const totalPoints = quiz.questions.reduce((sum) => sum + 100, 0);

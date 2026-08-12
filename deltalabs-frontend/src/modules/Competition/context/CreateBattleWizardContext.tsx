@@ -10,7 +10,10 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
 
 import { createTopicBattle } from "@/modules/Competition/api";
-import { CREATE_BATTLE_TOTAL_STEPS } from "@/modules/Competition/data/createBattleSteps";
+import {
+  getWizardStepId,
+  getWizardSteps,
+} from "@/modules/Competition/data/createBattleSteps";
 import {
   INITIAL_TOPIC_BATTLE_DRAFT,
   createEmptyQuestion,
@@ -60,21 +63,22 @@ const INITIAL_STATE: CreateBattleWizardState = {
   activeQuestionId: "",
 };
 
-function clampStep(step: number): number {
-  return Math.min(CREATE_BATTLE_TOTAL_STEPS, Math.max(1, step));
+function clampStep(step: number, total: number): number {
+  return Math.min(total, Math.max(1, step));
 }
 
 function createBattleWizardReducer(
   state: CreateBattleWizardState,
   action: CreateBattleWizardAction,
 ): CreateBattleWizardState {
+  const visibleTotal = getWizardSteps(state.draft.visibility.timing).length;
   switch (action.type) {
     case "SET_CURRENT_STEP":
-      return { ...state, currentStep: clampStep(action.payload) };
+      return { ...state, currentStep: clampStep(action.payload, visibleTotal) };
     case "NEXT_STEP":
-      return { ...state, currentStep: clampStep(state.currentStep + 1) };
+      return { ...state, currentStep: clampStep(state.currentStep + 1, visibleTotal) };
     case "PREVIOUS_STEP":
-      return { ...state, currentStep: clampStep(state.currentStep - 1) };
+      return { ...state, currentStep: clampStep(state.currentStep - 1, visibleTotal) };
     case "UPDATE_DRAFT":
       return { ...state, draft: { ...state.draft, ...action.payload } };
     case "SELECT_TOPIC":
@@ -95,6 +99,7 @@ function createBattleWizardReducer(
     case "SELECT_VISIBILITY":
       return {
         ...state,
+        currentStep: clampStep(state.currentStep, getWizardSteps(action.payload.timing).length),
         draft: {
           ...state.draft,
           visibility: { id: action.payload.id, timing: action.payload.timing },
@@ -212,38 +217,43 @@ export function CreateBattleWizardProvider({
 
   const canGoNext = useMemo(() => {
     const { draft } = state;
-    switch (state.currentStep) {
-      case 1:
+    const stepId = getWizardStepId(state.currentStep, draft.visibility.timing);
+    switch (stepId) {
+      case "topic-selection":
         return Boolean(draft.topic.id && draft.topic.name && draft.topic.category);
-      case 2:
+      case "battle-format":
         return Boolean(draft.format.id);
-      case 3:
-        return Boolean(draft.visibility.id);
-      case 4:
+      case "match-type":
+        if (!draft.visibility.id) return false;
+        if (draft.visibility.timing === "schedule") {
+          return Boolean(draft.schedule.date && draft.schedule.time);
+        }
+        return true;
+      case "player-setup":
         if (!draft.entrySetup.slots || draft.entrySetup.slots < 2) return false;
         if (draft.entrySetup.fee === "Custom") {
           return Boolean(draft.entrySetup.customFee && draft.entrySetup.customFee > 0);
         }
         return Boolean(draft.entrySetup.fee);
-      case 5:
+      case "prize-rules":
         return Boolean(draft.prizeDistribution.id && draft.prizeDistribution.totalPool > 0);
-      case 6:
-        if (draft.visibility.timing === "schedule") {
-          return Boolean(draft.schedule.date && draft.schedule.time);
-        }
-        return true;
-      case 7:
+      case "date-time":
+        return Boolean(draft.schedule.date && draft.schedule.time);
+      case "questions":
         if (draft.questionPool.mode === "auto") return true;
         return (
           draft.customQuestions.length > 0 &&
           draft.customQuestions.every((q) => q.title.trim().length > 0)
         );
-      case 8:
-        return true;
       default:
         return true;
     }
   }, [state]);
+
+  const visibleSteps = useMemo(
+    () => getWizardSteps(state.draft.visibility.timing),
+    [state.draft.visibility.timing],
+  );
 
   const goToStep = useCallback((step: number) => {
     dispatch({ type: "SET_CURRENT_STEP", payload: step });
@@ -348,6 +358,7 @@ export function CreateBattleWizardProvider({
             id: q.id,
             title: q.title,
             description: q.description,
+            constraints: q.constraints,
             codeTemplate: q.codeTemplate,
             language: q.language,
             difficulty: q.difficulty,
@@ -411,9 +422,11 @@ export function CreateBattleWizardProvider({
 
   const value: CreateBattleWizardContextValue = {
     ...state,
+    steps: visibleSteps,
+    totalSteps: visibleSteps.length,
     canGoNext,
     isFirstStep: state.currentStep <= 1,
-    isLastStep: state.currentStep >= CREATE_BATTLE_TOTAL_STEPS,
+    isLastStep: state.currentStep >= visibleSteps.length,
     goToStep,
     goNext,
     goPrevious,

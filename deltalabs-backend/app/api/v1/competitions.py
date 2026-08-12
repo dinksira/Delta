@@ -1,11 +1,16 @@
-"""Topic battle API — create, list, hub aggregates, and question management."""
+"""Topic battle API — create, list, hub aggregates, question management, and code execution."""
 
 from fastapi import APIRouter, Depends
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.deps import CurrentUser, get_current_user, get_current_user_optional, get_db
+from app.domain.competitions.executor import CodeExecutor
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.schemas import (
+    CodeExecuteRequest,
+    CodeExecuteResponse,
+    CodeSubmitRequest,
+    CodeSubmitResponse,
     CompetitionHubResponse,
     CompetitionModeResponse,
     QuestionCreateRequest,
@@ -160,3 +165,26 @@ async def delete_question(
 ) -> dict[str, str]:
     await service.delete_question(battle_id=battle_id, question_id=question_id)
     return {"status": "deleted"}
+
+
+# ============================================================================
+# Code execution (judge) — Judge0-backed sandbox for the Code Editor module
+# ============================================================================
+
+
+@router.post("/execute", response_model=CodeExecuteResponse)
+async def execute_code(
+    payload: CodeExecuteRequest,
+    executor: CodeExecutor = Depends(lambda: CodeExecutor()),  # noqa: B008
+) -> CodeExecuteResponse:
+    """Run a single code snippet (Run action): compile + execute with stdin."""
+    return await executor.run(payload)
+
+
+@router.post("/submit", response_model=CodeSubmitResponse)
+async def submit_code(
+    payload: CodeSubmitRequest,
+    executor: CodeExecutor = Depends(lambda: CodeExecutor()),  # noqa: B008
+) -> CodeSubmitResponse:
+    """Grade the authored test cases (Submit action): run per case, compare."""
+    return await executor.submit(payload)

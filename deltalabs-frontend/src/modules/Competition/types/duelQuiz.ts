@@ -39,6 +39,13 @@ export interface DuelOrderingItem {
   text: string;
 }
 
+/** A sample test case shown to the player for a coding question. */
+export interface DuelTestCase {
+  input: string;
+  expectedOutput: string;
+  explanation?: string;
+}
+
 interface DuelQuestionBase {
   id: string;
   kind: QuestionKind;
@@ -71,7 +78,15 @@ export type DuelQuestion =
     })
   | (DuelQuestionBase & { kind: "ordering"; items: DuelOrderingItem[] })
   | (DuelQuestionBase & { kind: "writing" })
-  | (DuelQuestionBase & { kind: "coding"; codeTemplate: string; language: string });
+  | (DuelQuestionBase & {
+      kind: "coding";
+      codeTemplate: string;
+      language: string;
+      /** LeetCode-style constraints section, shown under the problem text. */
+      constraints?: string;
+      /** Sample (non-hidden) test cases shown to the player before coding. */
+      testCases: DuelTestCase[];
+    });
 
 /** The player's answer for a single question, keyed by kind. */
 export type ParticipantAnswer =

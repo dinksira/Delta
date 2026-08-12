@@ -3,6 +3,10 @@ import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub"
 import type { GameMode } from "@/modules/Competition/types/hub";
 import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+import type {
+  CodeExecuteResponse,
+  CodeSubmitResponse,
+} from "@/modules/Competition/types/codeExecution";
 
 /** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
@@ -54,4 +58,32 @@ export async function joinTopicBattle(id: string) {
 
 export async function completeTopicBattle(id: string) {
   return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/complete`);
+}
+
+/** Payload for POST /v1/competitions/execute (Run: compile + run once). */
+export interface ExecuteCodePayload {
+  language: string;
+  code: string;
+  stdin?: string;
+}
+
+export async function executeCode(payload: ExecuteCodePayload): Promise<CodeExecuteResponse> {
+  return apiClient.post<CodeExecuteResponse>("/v1/competitions/execute", { json: payload });
+}
+
+/** Payload for POST /v1/competitions/submit (grade authored test cases). */
+export interface SubmitCodePayload {
+  language: string;
+  code: string;
+  testCases: { input: string; expectedOutput: string }[];
+}
+
+export async function submitCode(payload: SubmitCodePayload): Promise<CodeSubmitResponse> {
+  return apiClient.post<CodeSubmitResponse>("/v1/competitions/submit", {
+    json: {
+      language: payload.language,
+      code: payload.code,
+      testCases: payload.testCases,
+    },
+  });
 }

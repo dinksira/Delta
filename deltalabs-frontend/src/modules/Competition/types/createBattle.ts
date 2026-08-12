@@ -67,6 +67,8 @@ export interface CodingQuestion {
   id: string;
   title: string;
   description: string;
+  /** LeetCode-style constraints section (rich HTML), rendered for participants. */
+  constraints: string;
   codeTemplate: string;
   language: string;
   difficulty: "EASY" | "MEDIUM" | "HARD";
@@ -119,6 +121,7 @@ export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): Coding
     id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
     title: "",
     description: "",
+    constraints: "",
     codeTemplate: "",
     language: "HTML",
     difficulty: "EASY",
@@ -247,6 +250,10 @@ export interface CreateBattleWizardState {
 }
 
 export interface CreateBattleWizardContextValue extends CreateBattleWizardState {
+  /** Visible wizard steps for the current start timing (Date & Time hidden for instant). */
+  steps: CreateBattleWizardStep[];
+  /** Number of visible steps. */
+  totalSteps: number;
   goToStep: (step: number) => void;
   goNext: () => void;
   goPrevious: () => void;

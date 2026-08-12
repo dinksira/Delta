@@ -10,4 +10,7 @@ export { QUESTION_SOURCES, getSampleCategories } from "./questionSources";
 export {
   CREATE_BATTLE_STEPS,
   CREATE_BATTLE_TOTAL_STEPS,
+  getWizardStepId,
+  getWizardStepIndex,
+  getWizardSteps,
 } from "./createBattleSteps";

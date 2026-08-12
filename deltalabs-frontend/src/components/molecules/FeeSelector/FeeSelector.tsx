@@ -4,9 +4,9 @@
  *
  * Entry-fee picker for the Create Topic Battle wizard (player & entry step).
  * Follows the Step 4 redesign spec: a "Entry Fee" header, a 2×2 grid of preset
- * fee cards (Free / 5 / 10 / 20 ETB per player, with "Popular" pills on Free
- * and 5), and an always-visible "Custom Amount" ETB input that activates the
- * Custom fee as soon as it is edited.
+ * fee cards (Free / 5 / 10 / 20 ETB per player), and an always-visible
+ * "Custom Amount" ETB input that activates the Custom fee as soon as it is
+ * edited.
  */
 
 import { Wallet } from "lucide-react";
@@ -16,8 +16,6 @@ import { cn } from "@/lib/utils";
 export interface EntryFeeOption {
   label: string;
   value: number | "Free";
-  /** Optional "Popular" pill in the card's top-right corner. */
-  isPopular?: boolean;
 }
 
 export interface FeeSelectorProps {
@@ -52,22 +50,12 @@ export function FeeSelector({
               onClick={() => onChange(option.value)}
               aria-pressed={selected}
               className={cn(
-                "relative flex min-h-14 items-center justify-center rounded-xl border-2 px-3 py-3 text-center transition-all duration-200",
+                "flex min-h-14 items-center justify-center rounded-xl border-2 px-3 py-3 text-center transition-all duration-200",
                 selected
                   ? "border-primary-700 bg-primary-700 text-white shadow-md"
                   : "border-border-default bg-surface-default text-text-primary hover:border-primary-400",
               )}
             >
-              {option.isPopular && (
-                <span
-                  className={cn(
-                    "absolute -top-2.5 right-3 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                    selected ? "bg-white text-primary-700" : "bg-primary-700 text-white",
-                  )}
-                >
-                  Popular
-                </span>
-              )}
               <span className="text-sm font-bold">{option.label}</span>
             </button>
           );

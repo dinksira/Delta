@@ -272,6 +272,7 @@ class Repository:
             id=str(q.get("id", "")),
             title=str(q.get("title", "")),
             description=str(q.get("description", "")),
+            constraints=str(q.get("constraints", "")),
             code_template=str(q.get("code_template", "")),
             language=str(q.get("language", "HTML")),
             difficulty=str(q.get("difficulty", "EASY")),

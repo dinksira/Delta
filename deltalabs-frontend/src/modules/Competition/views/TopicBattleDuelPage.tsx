@@ -51,7 +51,10 @@ export function TopicBattleDuelPage() {
     },
   });
 
-  const finished = Boolean(quiz) && duel.state.currentQuestionIndex >= duel.state.totalQuestions;
+  const finished =
+    Boolean(quiz) &&
+    duel.state.totalQuestions > 0 &&
+    duel.state.currentQuestionIndex >= duel.state.totalQuestions;
   const completionSent = useRef(false);
   useEffect(() => {
     if (finished && isAuthenticated && !completionSent.current) {

@@ -132,5 +132,25 @@ describe("gradeQuestion", () => {
     const missing: ParticipantAnswer = { kind: "matching", map: {} };
     expect(gradeQuestion(matching, missing)).toBe(false);
   });
+
+  it("does not auto-grade coding questions (review-based)", () => {
+    const coding: DuelQuestion = {
+      id: "q3",
+      kind: "coding",
+      text: "Two Sum",
+      difficulty: "EASY",
+      points: 100,
+      codeTemplate: "function twoSum(nums, target) {}",
+      language: "JavaScript",
+      constraints: "1 ≤ nums.length ≤ 10⁴",
+      testCases: [
+        { input: "[2,7,11,15], 9", expectedOutput: "[0,1]" },
+        { input: "[3,2,4], 6", expectedOutput: "[1,2]" },
+      ],
+    };
+    const submitted: ParticipantAnswer = { kind: "coding", code: "// solution" };
+    expect(gradeQuestion(coding, submitted)).toBeNull();
+    expect(gradeQuestion(coding, null)).toBeNull();
+  });
 });
 /** ################################ /COMPONENT ############################# */

@@ -14,15 +14,21 @@
  * coding. Draft state resets per question via the `key` on the caller.
  */
 
-import { useState } from "react";
-import { ArrowDown, ArrowUp, Check, Send, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Check, Loader2, Play, Send, X } from "lucide-react";
 
 import { BlankAnswerList } from "@/components/molecules/BlankAnswerList/BlankAnswerList";
+import { CodeEditor } from "@/components/molecules/CodeEditor/CodeEditor";
+import { RichText } from "@/components/atoms/RichText/RichText";
+import { RunConsole } from "@/components/molecules/RunConsole/RunConsole";
 import { Button } from "@/components/theme/Button";
 import { Field } from "@/components/theme/Field";
 import { Select } from "@/components/theme/Select";
 import { Textarea } from "@/components/theme/Textarea";
+import { Typography } from "@/components/theme/Typography";
+import { useCodeExecution } from "@/components/organisms/CodeEditorModule/useCodeExecution";
 import { cn } from "@/lib/utils";
+import type { TestCase } from "@/modules/Competition/types/createBattle";
 import type { DuelQuestion, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 
 export interface QuizAnswerFormProps {
@@ -392,24 +398,156 @@ function CodingAnswer({
   onSubmit: (answer: ParticipantAnswer) => void;
 }>) {
   const [code, setCode] = useState(question.codeTemplate);
+
+  // Map the duel's sample cases onto the authoring test-case shape the judge
+  // understands, so the participant gets real pass/fail grading on Submit.
+  const testCases: TestCase[] = useMemo(
+    () =>
+      question.testCases.map((tc) => ({
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        explanation: tc.explanation,
+        isSample: true,
+        isHidden: false,
+      })),
+    [question.testCases],
+  );
+
+  const execution = useCodeExecution({
+    language: question.language,
+    code,
+    testCases,
+  });
+
+  const handleSubmit = () => {
+    if (execution.busy) {
+      return;
+    }
+    if (testCases.length === 0) {
+      onSubmit({ kind: "coding", code });
+      return;
+    }
+    // Grade the sample cases against the judge, then lock the answer in.
+    void execution.submit().then(() => {
+      onSubmit({ kind: "coding", code });
+    });
+  };
+
   return (
-    <div className="flex flex-col gap-2">
-      <Field
-        id="coding-answer"
-        label={`Your code (${question.language}) — submitted for review after the battle`}
-        className="gap-1"
-      >
-        <Textarea
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[2fr_3fr]">
+      {/* Left: problem statement — constraints + sample test cases */}
+      <div className="flex min-w-0 flex-col gap-4">
+        {question.constraints && (
+          <div className="flex flex-col gap-1.5">
+            <Typography as="span" className="text-sm font-semibold text-text-primary">
+              Constraints
+            </Typography>
+            <div className="rounded-lg border border-border-default bg-surface-muted/40 px-3 py-2">
+              <RichText html={question.constraints} className="text-xs" />
+            </div>
+          </div>
+        )}
+
+        {question.testCases.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <Typography as="span" className="text-sm font-semibold text-text-primary">
+              Example test cases
+            </Typography>
+            <ul className="flex flex-col gap-2">
+              {question.testCases.map((tc, index) => (
+                <li
+                  key={`${tc.input}-${index}`}
+                  className="rounded-lg border border-border-default bg-surface-muted/40 px-3 py-2 font-mono text-xs"
+                >
+                  <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                    <div>
+                      <span className="text-text-tertiary">Input: </span>
+                      <span className="whitespace-pre-wrap text-text-primary">
+                        {tc.input || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-text-tertiary">Expected: </span>
+                      <span className="whitespace-pre-wrap text-text-primary">
+                        {tc.expectedOutput || "—"}
+                      </span>
+                    </div>
+                  </div>
+                  {tc.explanation && (
+                    <div className="mt-1 text-text-tertiary">
+                      <span>Explanation: </span>
+                      <span className="text-text-primary">{tc.explanation}</span>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Right: language + editor + Run/Submit + judge console */}
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-surface-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+            {question.language}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={execution.run}
+              disabled={execution.busy || revealed}
+            >
+              {execution.status === "running" && !execution.submitResults ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Play className="size-4" aria-hidden />
+              )}
+              Run
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSubmit}
+              disabled={execution.busy || revealed}
+            >
+              {execution.busy && execution.status === "running" ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Send className="size-4" aria-hidden />
+              )}
+              Submit
+            </Button>
+          </div>
+        </div>
+
+        <CodeEditor
           id="coding-answer"
-          rows={10}
-          className="font-mono text-xs"
           value={code}
-          disabled={revealed}
-          onChange={(event) => setCode(event.target.value)}
+          onChange={(value) => {
+            setCode(value);
+            if (execution.status === "done") {
+              execution.reset();
+            }
+          }}
+          language={question.language}
+          readOnly={revealed}
           placeholder="Write your solution…"
+          minLines={14}
+          errorLine={execution.errorLine}
         />
-      </Field>
-      {!revealed && <SubmitRow onSubmit={() => onSubmit({ kind: "coding", code })} />}
+
+        <RunConsole
+          status={execution.status}
+          result={execution.result}
+          submitResults={execution.submitResults}
+          error={execution.error}
+          onRun={execution.run}
+          onReset={execution.reset}
+          onDismissError={execution.dismissError}
+        />
+      </div>
     </div>
   );
 }
