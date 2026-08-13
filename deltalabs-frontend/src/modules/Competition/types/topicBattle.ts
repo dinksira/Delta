@@ -46,6 +46,28 @@ export interface TopicBattleOrderingItem {
   text: string;
 }
 
+/** Payload authored by the Markdown Pad workspace module (kind "markdown"). */
+export interface TopicBattleMarkdownPayload {
+  source: string;
+  rubric: string;
+}
+
+export interface TopicBattleMediaAsset {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+}
+
+/** Payload authored by the Design Canvas workspace module (kind "design"). */
+export interface TopicBattleDesignPayload {
+  brief: string;
+  cover: TopicBattleMediaAsset | null;
+  canvasWidth: number;
+  canvasHeight: number;
+  deliverables: string[];
+  rubric: string;
+}
+
 export interface TopicBattleQuestion {
   id: string;
   title: string;
@@ -71,6 +93,10 @@ export interface TopicBattleQuestion {
   matchingAnswers?: TopicBattleMatchingAnswer[];
   matchingPairs: TopicBattleMatchingPair[];
   orderingItems: TopicBattleOrderingItem[];
+  /** Markdown Pad payload (present when kind === "markdown"). */
+  markdown?: TopicBattleMarkdownPayload;
+  /** Design Canvas payload (present when kind === "design"). */
+  design?: TopicBattleDesignPayload;
 }
 
 export interface TopicBattleCreator {

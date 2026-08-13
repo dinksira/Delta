@@ -8,10 +8,13 @@
  * - multiple_choice / true_false → selecting an option submits immediately.
  * - fill_blank / matching / ordering / writing / coding → a draft is captured
  *   locally and a "Submit" button locks it in.
+ * - markdown / design → the authored Markdown Pad / Design Canvas brief is
+ *   rendered to the player and a free-form response is submitted for review.
  *
  * After submission (`revealed`), the correct answer is highlighted for the
  * auto-graded kinds and a "submitted for review" notice is shown for writing /
- * coding. Draft state resets per question via the `key` on the caller.
+ * coding / markdown / design. Draft state resets per question via the `key` on
+ * the caller.
  */
 
 import { useMemo, useState } from "react";
@@ -388,6 +391,110 @@ function WritingAnswer({
   );
 }
 
+function MarkdownAnswer({
+  revealed,
+  submittedText,
+  onSubmit,
+}: Readonly<{
+  revealed: boolean;
+  submittedText?: string;
+  onSubmit: (answer: ParticipantAnswer) => void;
+}>) {
+  const [text, setText] = useState("");
+  return (
+    <div className="flex flex-col gap-2">
+      <Field id="markdown-answer" label="Your response" className="gap-1">
+        <Textarea
+          id="markdown-answer"
+          rows={6}
+          value={revealed ? (submittedText ?? "") : text}
+          disabled={revealed}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Write your answer — you can use markdown formatting (headings, lists, code)…"
+        />
+      </Field>
+      {!revealed && <SubmitRow onSubmit={() => onSubmit({ kind: "markdown", text })} />}
+    </div>
+  );
+}
+
+function DesignAnswer({
+  question,
+  revealed,
+  submittedText,
+  onSubmit,
+}: Readonly<{
+  question: Extract<DuelQuestion, { kind: "design" }>;
+  revealed: boolean;
+  submittedText?: string;
+  onSubmit: (answer: ParticipantAnswer) => void;
+}>) {
+  const [text, setText] = useState("");
+  const hasCover = Boolean(question.coverUrl) && !question.coverUrl?.startsWith("media://");
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[2fr_3fr]">
+        <div className="flex min-w-0 flex-col gap-2">
+          <Typography as="span" className="text-sm font-semibold text-text-primary">
+            Design brief
+          </Typography>
+          <div className="rounded-lg border border-border-default bg-surface-muted/40 px-3 py-2">
+            <RichText html={question.brief || "No brief provided."} className="text-sm" />
+          </div>
+          {question.deliverables.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Typography as="span" className="text-sm font-semibold text-text-primary">
+                Deliverables
+              </Typography>
+              <ul className="ml-4 list-disc space-y-0.5 text-sm text-text-primary">
+                {question.deliverables.map((deliverable, index) => (
+                  <li key={`${deliverable}-${index}`}>{deliverable}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border-default bg-surface-muted px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+            Canvas size · {question.canvasWidth} × {question.canvasHeight} px
+          </span>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-border-default bg-surface-canvas">
+          {hasCover ? (
+            // eslint-disable-next-line @next/next/no-img-element -- resolved media API asset
+            <img
+              src={question.coverUrl ?? undefined}
+              alt="Design reference"
+              className="h-52 w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-52 flex-col items-center justify-center gap-1 text-center">
+              <Typography className="text-sm font-medium text-text-primary">
+                No reference image
+              </Typography>
+              <Typography className="text-xs text-text-secondary">
+                Follow the brief and deliverables above.
+              </Typography>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Field id="design-answer" label="Your submission" className="gap-1">
+        <Textarea
+          id="design-answer"
+          rows={4}
+          value={revealed ? (submittedText ?? "") : text}
+          disabled={revealed}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Describe your design and any decisions, or paste a link to your work…"
+        />
+      </Field>
+      {!revealed && <SubmitRow onSubmit={() => onSubmit({ kind: "design", text })} />}
+    </div>
+  );
+}
+
 function CodingAnswer({
   question,
   revealed,
@@ -607,6 +714,21 @@ export function QuizAnswerForm({
     }
     case "writing":
       return <WritingAnswer revealed={revealed} onSubmit={onSubmit} />;
+    case "markdown": {
+      const submitted = answer?.kind === "markdown" ? answer.text : undefined;
+      return <MarkdownAnswer revealed={revealed} submittedText={submitted} onSubmit={onSubmit} />;
+    }
+    case "design": {
+      const submitted = answer?.kind === "design" ? answer.text : undefined;
+      return (
+        <DesignAnswer
+          question={question}
+          revealed={revealed}
+          submittedText={submitted}
+          onSubmit={onSubmit}
+        />
+      );
+    }
     case "coding":
       return <CodingAnswer question={question} revealed={revealed} onSubmit={onSubmit} />;
     default:

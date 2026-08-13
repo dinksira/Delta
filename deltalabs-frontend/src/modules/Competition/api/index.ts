@@ -7,6 +7,7 @@ import type {
   CodeExecuteResponse,
   CodeSubmitResponse,
 } from "@/modules/Competition/types/codeExecution";
+import { uploadSchoolMediaFile } from "@/modules/School/api";
 
 /** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
@@ -86,4 +87,32 @@ export async function submitCode(payload: SubmitCodePayload): Promise<CodeSubmit
       testCases: payload.testCases,
     },
   });
+}
+
+/**
+ * Result of uploading a Design Canvas cover through the shared media pipeline
+ * (`upload-intent` → presigned PUT → complete).
+ */
+export interface DesignCoverUploadResult {
+  mediaId: string;
+  objectKey: string;
+  /** Playback-ready URL; may be unresolved while transcoding on some providers. */
+  url: string;
+}
+
+/** Upload a Design Canvas cover image via the shared `upload-intent` pipeline. */
+export async function uploadDesignCoverMedia(
+  orgId: string,
+  file: File,
+): Promise<DesignCoverUploadResult> {
+  const uploaded = await uploadSchoolMediaFile(orgId, file, {
+    caption: "Design canvas cover",
+    visibility: "org",
+    publishToFeed: false,
+  });
+  return {
+    mediaId: uploaded.mediaId,
+    objectKey: uploaded.objectKey,
+    url: uploaded.playbackUrl || `media://${uploaded.mediaId}`,
+  };
 }

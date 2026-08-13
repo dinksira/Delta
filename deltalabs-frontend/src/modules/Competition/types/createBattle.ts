@@ -28,8 +28,9 @@ export interface TestCase {
 
 /**
  * Discriminator for the authoring surface of a custom question.
- * "coding" keeps the code-template / test-case canvas; the remaining kinds are
- * quiz types composed in the QuestionAuthoringEditor organism.
+ * "coding" keeps the code-template / test-case canvas; the quiz types are
+ * composed in the QuestionAuthoringEditor organism; "markdown" and "design"
+ * open the Markdown Pad and Design Canvas workspace modules respectively.
  */
 export type QuestionKind =
   | "coding"
@@ -38,7 +39,42 @@ export type QuestionKind =
   | "fill_blank"
   | "matching"
   | "writing"
-  | "ordering";
+  | "ordering"
+  | "markdown"
+  | "design";
+
+/**
+ * A resolved media asset (image/video), typically produced by the upload-intent
+ * pipeline and stored on a question for participant rendering.
+ */
+export interface MediaAsset {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+}
+
+/** Payload authored by the Markdown Pad workspace module (kind "markdown"). */
+export interface MarkdownPadPayload {
+  /** Raw markdown source — single source of truth authored in MarkdownEditor. */
+  source: string;
+  /** Human-grading rubric / scoring notes (plain markdown). */
+  rubric: string;
+}
+
+/** Payload authored by the Design Canvas workspace module (kind "design"). */
+export interface DesignCanvasPayload {
+  /** Rich-HTML design brief authored with RichTextEditor. */
+  brief: string;
+  /** Cover / reference image resolved from the media upload pipeline. */
+  cover: MediaAsset | null;
+  /** Canvas dimensions in px the participant design should match. */
+  canvasWidth: number;
+  canvasHeight: number;
+  /** Ordered list of design deliverables (poster, palette, …). */
+  deliverables: string[];
+  /** Human-grading rubric / scoring notes. */
+  rubric: string;
+}
 
 export interface QuestionOption {
   id: string;
@@ -90,6 +126,10 @@ export interface CodingQuestion {
   matchingAnswers: QuestionMatchingAnswer[];
   matchingPairs: QuestionMatchingPair[];
   orderingItems: QuestionOrderItem[];
+  /** Markdown Pad payload (used when kind === "markdown"). */
+  markdown: MarkdownPadPayload;
+  /** Design Canvas payload (used when kind === "design"). */
+  design: DesignCanvasPayload;
 }
 
 let optionCounter = 0;
@@ -154,6 +194,18 @@ export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): Coding
     matchingAnswers: [],
     matchingPairs: [createEmptyPair()],
     orderingItems: [createEmptyOrderItem()],
+    markdown: {
+      source: "",
+      rubric: "",
+    },
+    design: {
+      brief: "",
+      cover: null,
+      canvasWidth: 1080,
+      canvasHeight: 1080,
+      deliverables: [],
+      rubric: "",
+    },
     ...overrides,
   };
 }

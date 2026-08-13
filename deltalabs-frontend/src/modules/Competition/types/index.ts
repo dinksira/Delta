@@ -52,4 +52,8 @@ export type {
   CodingQuestion,
   TestCase,
   QuestionPoolMode,
+  QuestionKind,
+  MediaAsset,
+  MarkdownPadPayload,
+  DesignCanvasPayload,
 } from "./createBattle";

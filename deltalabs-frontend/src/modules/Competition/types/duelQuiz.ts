@@ -12,6 +12,8 @@
  *   expected answer is not auto-graded.
  * - `writing` / `coding` accept a free-form / code answer that is recorded but
  *   not auto-scored (no code executor / rubric).
+ * - `markdown` / `design` render the authored Markdown Pad / Design Canvas brief
+ *   to the player; the free-form answer is recorded for human review.
  */
 
 import type { QuestionKind } from "@/modules/Competition/types/createBattle";
@@ -86,6 +88,27 @@ export type DuelQuestion =
       constraints?: string;
       /** Sample (non-hidden) test cases shown to the player before coding. */
       testCases: DuelTestCase[];
+    })
+  | (DuelQuestionBase & {
+      kind: "markdown";
+      /** Authored markdown source rendered to the player as the question body. */
+      source: string;
+      /** Human-grading notes / rubric (not shown to the player). */
+      rubric?: string;
+    })
+  | (DuelQuestionBase & {
+      kind: "design";
+      /** Rich-HTML design brief shown to the player. */
+      brief: string;
+      /** Ordered design deliverables the submission should meet. */
+      deliverables: string[];
+      /** Resolved cover / reference image URL, when one is set. */
+      coverUrl?: string | null;
+      /** Authored canvas dimensions in px the design should match. */
+      canvasWidth: number;
+      canvasHeight: number;
+      /** Human-grading notes / rubric (not shown to the player). */
+      rubric?: string;
     });
 
 /** The player's answer for a single question, keyed by kind. */
@@ -97,7 +120,9 @@ export type ParticipantAnswer =
   | { kind: "matching"; map: Record<string, string> }
   | { kind: "ordering"; itemIds: string[] }
   | { kind: "writing"; text: string }
-  | { kind: "coding"; code: string };
+  | { kind: "coding"; code: string }
+  | { kind: "markdown"; text: string }
+  | { kind: "design"; text: string };
 
 export interface DuelLeaderboardEntry {
   rank: number;
@@ -184,6 +209,8 @@ export function gradeQuestion(
     }
     case "writing":
     case "coding":
+    case "markdown":
+    case "design":
       return null;
     default:
       return null;

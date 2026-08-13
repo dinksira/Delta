@@ -83,6 +83,8 @@ import { QuestionTypeMenu } from "@/components/organisms/QuestionTypeMenu/Questi
 import { QuestionModuleSettings } from "@/components/molecules/QuestionModuleSettings/QuestionModuleSettings";
 import type { QuestionKind } from "@/modules/Competition/types/createBattle";
 import { CompetitionWorkspaceTemplate } from "@/components/templates/CompetitionWorkspaceTemplate/CompetitionWorkspaceTemplate";
+import { MarkdownPadModule } from "@/components/organisms/MarkdownPadModule/MarkdownPadModule";
+import { DesignCanvasModule } from "@/components/organisms/DesignCanvasModule/DesignCanvasModule";
 import { BattleCreatedModal } from "@/components/organisms/BattleCreatedModal/BattleCreatedModal";
 import { Button } from "@/components/theme/Button";
 import { Typography } from "@/components/theme/Typography";
@@ -112,7 +114,7 @@ const TOPICS_PER_PAGE = 8;
 /** Cap on custom questions a host can build (mirrors desktop totalQuestions=50). */
 const MAX_QUESTIONS = 50;
 
-/** Modules surfaced in the Competition Workspace rail. Only "question" is wired today. */
+/** Modules surfaced in the Competition Workspace rail; each renders its own canvas via `renderActiveModule`. */
 const WORKSPACE_MODULES = [
   { id: "code", label: "Code Editor", icon: Code2 },
   { id: "question", label: "Question Builder", icon: Braces },
@@ -1018,6 +1020,8 @@ const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
   "Matching": "matching",
   "Writing / Essay": "writing",
   "Ordering / Sequencing": "ordering",
+  "Markdown": "markdown",
+  "Design Challenge": "design",
 };
 
 const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
@@ -1028,6 +1032,8 @@ const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
   matching: "Matching",
   writing: "Writing / Essay",
   ordering: "Ordering / Sequencing",
+  markdown: "Markdown",
+  design: "Design Challenge",
 };
 
 function ModuleSwitchPrompt({
@@ -1083,6 +1089,96 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
   const advanceToReview = () => {
     onBack();
     goNext();
+  };
+
+  const removeActive = () => {
+    removeQuestion(activeQuestion.id);
+    if (customQuestions.length === 1) onBack();
+  };
+
+  // A module either matches the active question's kind (Code Editor = coding,
+  // Question Builder = the quiz kinds) or it *is* a kind (Markdown Pad /
+  // Design Canvas). Selecting a kind-specific module converts the active
+  // question so its canvas shows immediately instead of a switch prompt.
+  const selectModule = (moduleId: string) => {
+    if (moduleId === "markdown" || moduleId === "design") {
+      updateQuestion(activeQuestion.id, { kind: moduleId });
+    }
+    setActiveModule(moduleId);
+  };
+
+  const renderActiveModule = () => {
+    const kindLabel = QUESTION_KIND_LABELS[activeQuestion.kind] ?? "question";
+
+    switch (activeModule) {
+      case "code":
+        return activeQuestion.kind === "coding" ? (
+          <CodeEditorModule
+            question={activeQuestion}
+            onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+            onRemove={removeActive}
+            languages={QUESTION_LANGUAGES}
+          />
+        ) : (
+          <ModuleSwitchPrompt
+            icon={<Braces className="size-6" />}
+            title={`This is a ${kindLabel} question`}
+            description="The Code Editor module composes coding questions. Open the Question Builder module to author this question type."
+            actionLabel="Open Question Builder"
+            onAction={() => setActiveModule("question")}
+          />
+        );
+      case "question":
+        return activeQuestion.kind === "coding" ? (
+          <ModuleSwitchPrompt
+            icon={<Code2 className="size-6" />}
+            title="Coding question detected"
+            description="This question is authored in the Code Editor module with the LeetCode-style canvas (problem statement, constraints, code template, and test cases)."
+            actionLabel="Open Code Editor"
+            onAction={() => setActiveModule("code")}
+          />
+        ) : (
+          <QuestionAuthoringEditor
+            question={activeQuestion}
+            onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+            onRemove={removeActive}
+          />
+        );
+      case "markdown":
+        return activeQuestion.kind === "markdown" ? (
+          <MarkdownPadModule
+            question={activeQuestion}
+            onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+            onRemove={removeActive}
+          />
+        ) : (
+          <ModuleSwitchPrompt
+            icon={<ScrollText className="size-6" />}
+            title={`This is a ${kindLabel} question`}
+            description="The Markdown Pad module composes markdown questions with a source editor and live participant preview."
+            actionLabel="Convert to Markdown"
+            onAction={() => selectModule("markdown")}
+          />
+        );
+      case "design":
+        return activeQuestion.kind === "design" ? (
+          <DesignCanvasModule
+            question={activeQuestion}
+            onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
+            onRemove={removeActive}
+          />
+        ) : (
+          <ModuleSwitchPrompt
+            icon={<Palette className="size-6" />}
+            title={`This is a ${kindLabel} question`}
+            description="The Design Canvas module composes visual challenge questions with a brief, deliverables, cover image and canvas spec."
+            actionLabel="Convert to Design"
+            onAction={() => selectModule("design")}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   if (!activeQuestion) {
@@ -1152,7 +1248,7 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
         <ModuleRail
           modules={WORKSPACE_MODULES}
           activeId={activeModule}
-          onSelect={setActiveModule}
+          onSelect={selectModule}
         />
       }
       rightPanel={
@@ -1164,79 +1260,27 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
         </ModuleSettingsPanel>
       }
     >
-      {activeModule === "code" || activeModule === "question" ? (
-        <div className="flex h-full flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <QuestionTabBar
-              questions={customQuestions}
-              activeId={activeQuestion.id}
-              maxQuestions={MAX_QUESTIONS}
-              onSelect={(id) => setActiveQuestionId(id)}
-              onAdd={addQuestion}
-            />
-            <QuestionTypeMenu
-              value={QUESTION_KIND_LABELS[activeQuestion.kind]}
-              onSelect={(label) =>
-                updateQuestion(activeQuestion.id, {
-                  kind: QUESTION_TYPE_KINDS[label] ?? "coding",
-                })
-              }
-            />
-          </div>
+      <div className="flex h-full flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <QuestionTabBar
+            questions={customQuestions}
+            activeId={activeQuestion.id}
+            maxQuestions={MAX_QUESTIONS}
+            onSelect={(id) => setActiveQuestionId(id)}
+            onAdd={addQuestion}
+          />
+          <QuestionTypeMenu
+            value={QUESTION_KIND_LABELS[activeQuestion.kind]}
+            onSelect={(label) =>
+              updateQuestion(activeQuestion.id, {
+                kind: QUESTION_TYPE_KINDS[label] ?? "coding",
+              })
+            }
+          />
+        </div>
 
-          {activeModule === "code" ? (
-            activeQuestion.kind === "coding" ? (
-              <CodeEditorModule
-                question={activeQuestion}
-                onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
-                onRemove={() => {
-                  removeQuestion(activeQuestion.id);
-                  if (customQuestions.length === 1) onBack();
-                }}
-                languages={QUESTION_LANGUAGES}
-              />
-            ) : (
-              <ModuleSwitchPrompt
-                icon={<Braces className="size-6" />}
-                title={`This is a ${QUESTION_KIND_LABELS[activeQuestion.kind] ?? "quiz"} question`}
-                description="The Code Editor module composes coding questions. Open the Question Builder module to author this question type."
-                actionLabel="Open Question Builder"
-                onAction={() => setActiveModule("question")}
-              />
-            )
-          ) : activeQuestion.kind === "coding" ? (
-            <ModuleSwitchPrompt
-              icon={<Code2 className="size-6" />}
-              title="Coding question detected"
-              description="This question is authored in the Code Editor module with the LeetCode-style canvas (problem statement, constraints, code template, and test cases)."
-              actionLabel="Open Code Editor"
-              onAction={() => setActiveModule("code")}
-            />
-          ) : (
-            <QuestionAuthoringEditor
-              question={activeQuestion}
-              onChange={(updates) => updateQuestion(activeQuestion.id, updates)}
-              onRemove={() => {
-                removeQuestion(activeQuestion.id);
-                if (customQuestions.length === 1) onBack();
-              }}
-            />
-          )}
-        </div>
-      ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-surface-muted">
-            <Layers className="size-6 text-primary-600" aria-hidden />
-          </div>
-          <Typography as="h3" className="text-lg font-semibold text-text-primary">
-            Module coming soon
-          </Typography>
-          <Typography className="max-w-sm text-sm text-text-secondary">
-            Select the Code Editor or Question Builder module to compose this
-            battle&apos;s questions.
-          </Typography>
-        </div>
-      )}
+        {renderActiveModule()}
+      </div>
     </CompetitionWorkspaceTemplate>
   );
 }

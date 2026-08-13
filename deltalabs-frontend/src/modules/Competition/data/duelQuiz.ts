@@ -343,6 +343,28 @@ function toDuelQuestion(q: TopicBattleQuestion): DuelQuestion | null {
         kind: "writing",
         text: text || q.title || "Written response",
       };
+    case "markdown":
+      return {
+        ...base,
+        kind: "markdown",
+        text: q.title || "Markdown question",
+        source: q.markdown?.source ?? "",
+        rubric: q.markdown?.rubric || undefined,
+      };
+    case "design": {
+      const design = q.design;
+      return {
+        ...base,
+        kind: "design",
+        text: q.title || "Design challenge",
+        brief: design?.brief ?? "",
+        deliverables: design?.deliverables ?? [],
+        coverUrl: design?.cover?.url ?? null,
+        canvasWidth: design?.canvasWidth ?? 1080,
+        canvasHeight: design?.canvasHeight ?? 1080,
+        rubric: design?.rubric || undefined,
+      };
+    }
     case "coding":
       return {
         ...base,

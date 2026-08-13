@@ -20,6 +20,7 @@
 
 import { CheckCircle2, HelpCircle, MinusCircle, XCircle } from "lucide-react";
 
+import { Markdown } from "@/components/atoms/Markdown/Markdown";
 import { RichText } from "@/components/atoms/RichText/RichText";
 import { QuizAnswerForm } from "@/components/organisms/QuizAnswerForm/QuizAnswerForm";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,8 @@ const KIND_LABELS: Record<string, string> = {
   ordering: "Ordering",
   writing: "Writing / Essay",
   coding: "Coding",
+  markdown: "Markdown",
+  design: "Design Challenge",
 };
 
 export interface QuizQuestionCardProps {
@@ -79,10 +82,14 @@ export function QuizQuestionCard({
         </span>
       </div>
 
-      <RichText
-        html={question.text}
-        className="text-lg font-semibold leading-snug text-text-primary"
-      />
+      {question.kind === "markdown" ? (
+        <Markdown source={question.source} className="text-base" />
+      ) : (
+        <RichText
+          html={question.text}
+          className="text-lg font-semibold leading-snug text-text-primary"
+        />
+      )}
 
       <div className="mt-5">
         <QuizAnswerForm

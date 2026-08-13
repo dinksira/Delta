@@ -63,6 +63,40 @@ class OrderItemSchema(BaseModel):
     text: str = Field(default="")
 
 
+class MediaAssetSchema(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    url: str = Field(default="")
+    kind: str = Field(default="image")
+
+
+class MarkdownPayloadSchema(BaseModel):
+    """Payload authored by the Markdown Pad workspace module (kind "markdown")."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    source: str = Field(default="", max_length=100_000)
+    rubric: str = Field(default="")
+
+
+class DesignPayloadSchema(BaseModel):
+    """Payload authored by the Design Canvas workspace module (kind "design")."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    brief: str = Field(default="", max_length=100_000)
+    cover: MediaAssetSchema | None = Field(default=None)
+    canvas_width: int = Field(
+        default=1080, ge=64, le=4096, **_alias("canvasWidth"),
+    )
+    canvas_height: int = Field(
+        default=1080, ge=64, le=4096, **_alias("canvasHeight"),
+    )
+    deliverables: list[str] = Field(default_factory=list)
+    rubric: str = Field(default="")
+
+
 class CodingQuestionSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -100,6 +134,12 @@ class CodingQuestionSchema(BaseModel):
     )
     ordering_items: list[OrderItemSchema] = Field(
         default_factory=list, **_alias("orderingItems"),
+    )
+    markdown: MarkdownPayloadSchema = Field(
+        default_factory=MarkdownPayloadSchema,
+    )
+    design: DesignPayloadSchema = Field(
+        default_factory=DesignPayloadSchema,
     )
 
 
@@ -252,6 +292,12 @@ class QuestionCreateRequest(BaseModel):
     ordering_items: list[OrderItemSchema] = Field(
         default_factory=list, **_alias("orderingItems"),
     )
+    markdown: MarkdownPayloadSchema = Field(
+        default_factory=MarkdownPayloadSchema,
+    )
+    design: DesignPayloadSchema = Field(
+        default_factory=DesignPayloadSchema,
+    )
 
 
 class QuestionUpdateRequest(BaseModel):
@@ -287,6 +333,8 @@ class QuestionUpdateRequest(BaseModel):
     ordering_items: list[OrderItemSchema] | None = Field(
         default=None, **_alias("orderingItems"),
     )
+    markdown: MarkdownPayloadSchema | None = Field(default=None)
+    design: DesignPayloadSchema | None = Field(default=None)
 
 
 class QuestionResponse(BaseModel):
@@ -313,6 +361,8 @@ class QuestionResponse(BaseModel):
     matching_answers: list[MatchingAnswerSchema] = Field(**_alias("matchingAnswers"))
     matching_pairs: list[MatchPairSchema] = Field(**_alias("matchingPairs"))
     ordering_items: list[OrderItemSchema] = Field(**_alias("orderingItems"))
+    markdown: MarkdownPayloadSchema = Field(**_alias("markdown"))
+    design: DesignPayloadSchema = Field(**_alias("design"))
 
 
 # ============================================================================

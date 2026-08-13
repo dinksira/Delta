@@ -8,7 +8,13 @@ from typing import Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
 
-from app.domain.competitions.schemas import QuestionResponse, TopicBattleResponse
+from app.domain.competitions.schemas import (
+    DesignPayloadSchema,
+    MarkdownPayloadSchema,
+    MediaAssetSchema,
+    QuestionResponse,
+    TopicBattleResponse,
+)
 
 
 class Repository:
@@ -268,6 +274,11 @@ class Repository:
         raw_pairs = list(q.get("matching_pairs", []))
         raw_answers = list(q.get("matching_answers", []))
         matching_pairs, matching_answers = Repository._normalize_matching(raw_pairs, raw_answers)
+
+        markdown_doc = q.get("markdown") or {}
+        design_doc = q.get("design") or {}
+        cover_doc = design_doc.get("cover") if isinstance(design_doc, dict) else None
+
         return QuestionResponse(
             id=str(q.get("id", "")),
             title=str(q.get("title", "")),
@@ -290,6 +301,26 @@ class Repository:
             matching_answers=matching_answers,
             matching_pairs=matching_pairs,
             ordering_items=list(q.get("ordering_items", [])),
+            markdown=MarkdownPayloadSchema(
+                source=str(markdown_doc.get("source", "")),
+                rubric=str(markdown_doc.get("rubric", "")),
+            )
+            if isinstance(markdown_doc, dict)
+            else MarkdownPayloadSchema(),
+            design=DesignPayloadSchema(
+                brief=str(design_doc.get("brief", "")) if isinstance(design_doc, dict) else "",
+                cover=MediaAssetSchema(**cover_doc) if isinstance(cover_doc, dict) else None,
+                canvas_width=int(design_doc.get("canvas_width", 1080))
+                if isinstance(design_doc, dict)
+                else 1080,
+                canvas_height=int(design_doc.get("canvas_height", 1080))
+                if isinstance(design_doc, dict)
+                else 1080,
+                deliverables=list(design_doc.get("deliverables", []))
+                if isinstance(design_doc, dict)
+                else [],
+                rubric=str(design_doc.get("rubric", "")) if isinstance(design_doc, dict) else "",
+            ),
         )
 
     @staticmethod

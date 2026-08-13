@@ -152,5 +152,43 @@ describe("gradeQuestion", () => {
     expect(gradeQuestion(coding, submitted)).toBeNull();
     expect(gradeQuestion(coding, null)).toBeNull();
   });
+
+  it("does not auto-grade markdown questions (human review)", () => {
+    const markdown: DuelQuestion = {
+      id: "q4",
+      kind: "markdown",
+      text: "Explain photosynthesis",
+      source: "## Explain photosynthesis\n\nUse **markdown** to structure your answer.",
+      difficulty: "EASY",
+      points: 100,
+    };
+    const submitted: ParticipantAnswer = {
+      kind: "markdown",
+      text: "### Light reactions\n\nPhotosynthesis needs **light**.",
+    };
+    expect(gradeQuestion(markdown, submitted)).toBeNull();
+    expect(gradeQuestion(markdown, null)).toBeNull();
+  });
+
+  it("does not auto-grade design questions (human review)", () => {
+    const design: DuelQuestion = {
+      id: "q5",
+      kind: "design",
+      text: "Design a poster",
+      brief: "<p>Design a recruiting poster for Delta Labs.</p>",
+      deliverables: ["Poster", "Palette"],
+      coverUrl: null,
+      canvasWidth: 1080,
+      canvasHeight: 1080,
+      difficulty: "MEDIUM",
+      points: 100,
+    };
+    const submitted: ParticipantAnswer = {
+      kind: "design",
+      text: "A poster with the brand teal palette and bold headline.",
+    };
+    expect(gradeQuestion(design, submitted)).toBeNull();
+    expect(gradeQuestion(design, null)).toBeNull();
+  });
 });
 /** ################################ /COMPONENT ############################# */

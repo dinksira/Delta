@@ -13,6 +13,8 @@ from app.domain.competitions.schemas import (
     CodingQuestionSchema,
     CompetitionHubResponse,
     CompetitionModeResponse,
+    DesignPayloadSchema,
+    MarkdownPayloadSchema,
     QuestionCreateRequest,
     QuestionResponse,
     QuestionUpdateRequest,
@@ -1087,6 +1089,26 @@ def _question_schema_to_dict(q: CodingQuestionSchema) -> dict:
         "matching_answers": [a.model_dump() for a in q.matching_answers],
         "matching_pairs": [p.model_dump() for p in q.matching_pairs],
         "ordering_items": [o.model_dump() for o in q.ordering_items],
+        "markdown": _markdown_payload_dict(q.markdown),
+        "design": _design_payload_dict(q.design),
+    }
+
+
+def _markdown_payload_dict(payload: MarkdownPayloadSchema) -> dict:
+    return {
+        "source": payload.source,
+        "rubric": payload.rubric,
+    }
+
+
+def _design_payload_dict(payload: DesignPayloadSchema) -> dict:
+    return {
+        "brief": payload.brief,
+        "cover": payload.cover.model_dump() if payload.cover else None,
+        "canvas_width": payload.canvas_width,
+        "canvas_height": payload.canvas_height,
+        "deliverables": payload.deliverables,
+        "rubric": payload.rubric,
     }
 
 
@@ -1113,6 +1135,8 @@ def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
         "matching_answers": [a.model_dump() for a in q.matching_answers],
         "matching_pairs": [p.model_dump() for p in q.matching_pairs],
         "ordering_items": [o.model_dump() for o in q.ordering_items],
+        "markdown": _markdown_payload_dict(q.markdown),
+        "design": _design_payload_dict(q.design),
     }
 
 

@@ -376,6 +376,8 @@ export function CreateBattleWizardProvider({
             matchingAnswers: q.matchingAnswers,
             matchingPairs: q.matchingPairs,
             orderingItems: q.orderingItems,
+            markdown: q.markdown,
+            design: q.design,
           }))
         : [];
 
