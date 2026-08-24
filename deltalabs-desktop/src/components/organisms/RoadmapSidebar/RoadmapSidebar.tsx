@@ -41,7 +41,7 @@ export const RoadmapSidebar: React.FC<RoadmapSidebarProps> = ({
                 "hover:scale-105 active:scale-95",
                 isActive 
                   ? "bg-primary-900 text-white shadow-[0_8px_20px_-6px_rgba(23,74,95,0.4)] ring-2 ring-primary-900/10" 
-                  : "bg-white border border-border-primary text-primary-900 hover:border-primary-600 hover:shadow-md hover:bg-primary-50"
+                  : "bg-white border border-border-default text-primary-900 hover:border-primary-600 hover:shadow-md hover:bg-primary-50"
               )}
             >
               <Icon 

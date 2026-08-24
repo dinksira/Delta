@@ -1,12 +1,6 @@
-/**
- * CompetitionCard
- * A card with background image, dark gradient overlay, title, meta, tags, and Join Now button.
- */
-
 import { Trophy, ArrowRight } from "lucide-react";
 
 import { CompetitionMetaRow } from "@/components/molecules/CompetitionMetaRow/CompetitionMetaRow";
-import { Tag } from "@/components/atoms/Tag/Tag";
 import { cn } from "@/lib/utils";
 
 export interface CompetitionCardData {
@@ -36,7 +30,6 @@ export function CompetitionCard({
         className,
       )}
     >
-      {/* Background image or placeholder gradient */}
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={
@@ -45,17 +38,13 @@ export function CompetitionCard({
             : undefined
         }
       >
-        {/* Fallback gradient if no image */}
         {!competition.backgroundImageUrl && (
           <div className="h-full w-full bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900" />
         )}
-        {/* Dark gradient overlay for text legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" />
       </div>
 
-      {/* Content (above overlay) */}
-      <div className="relative z-10 flex flex-col justify-between h-full p-4">
-        {/* Top: trophy + title */}
+      <div className="relative z-10 flex h-full flex-col justify-between p-4">
         <div className="flex items-start gap-2">
           <Trophy className="mt-0.5 size-5 shrink-0 text-yellow-400" aria-hidden />
           <h3 className="text-lg font-semibold leading-tight text-white">
@@ -63,25 +52,25 @@ export function CompetitionCard({
           </h3>
         </div>
 
-        {/* Bottom: meta, tags, join button */}
         <div className="mt-auto flex flex-col gap-3 pt-8">
           <CompetitionMetaRow
             endsAt={competition.endsAt}
             participants={competition.participants}
           />
 
-          {/* Tags */}
           {competition.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {competition.tags.map((tag) => (
-                <Tag key={tag} className="bg-white/20 text-white">
+                <span
+                  key={tag}
+                  className="inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white"
+                >
                   {tag}
-                </Tag>
+                </span>
               ))}
             </div>
           )}
 
-          {/* Join Now */}
           {onJoin && (
             <button
               type="button"

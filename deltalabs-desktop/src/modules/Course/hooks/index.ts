@@ -1,5 +1,6 @@
-/** ################################ COMPONENT ############################# */
-/** Main exported component logic for this file. */
-/** Data and UI hooks. */
-export {};
-/** ################################ /COMPONENT ############################# */
+// ============================================================================
+// HOOKS
+// ============================================================================
+
+export { useSectionObserver, default as default } from './useSectionObserver';
+export type { UseSectionObserverOptions, UseSectionObserverReturn } from './useSectionObserver';

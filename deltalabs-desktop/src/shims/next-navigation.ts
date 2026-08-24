@@ -54,7 +54,8 @@ export function useRouter(): RouterInstance {
       window.location.hash = href;
     },
     replace: (href: string): void => {
-      window.location.hash = href;
+      window.history.replaceState(null, '', `#${href}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
     },
     prefetch: (): void => {
       // No-op for desktop client shim

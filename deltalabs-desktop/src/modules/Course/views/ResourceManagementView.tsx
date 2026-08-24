@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { ResourceSidebarTabId } from '@/components/organisms/ResourceSidebar';
 import { MarketplaceHomeView } from './MarketplaceHomeView';
@@ -16,54 +18,34 @@ export const ResourceManagementView: React.FC = () => {
 
   switch (activeSidebarTab) {
     case 'home':
-      return (
-        <MarketplaceHomeView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
-        />
-      );
+      return <MarketplaceHomeView />;
     case 'cart':
       return (
-        <CartView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
+        <CartView
+          activeSidebarTab={activeSidebarTab}
+          onSidebarTabChange={handleSidebarTabChange}
         />
       );
     case 'order':
-      return (
-        <OrderView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
-        />
-      );
+      return <OrderView />;
     case 'rent':
-      return (
-        <RentView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
-        />
-      );
+      return <RentView />;
     case 'notification':
       return (
-        <NotificationView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
+        <NotificationView
+          activeSidebarTab={activeSidebarTab}
+          onSidebarTabChange={handleSidebarTabChange}
         />
       );
     case 'resources':
       return (
-        <MyResourcesView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
+        <MyResourcesView
+          activeSidebarTab={activeSidebarTab}
+          onSidebarTabChange={handleSidebarTabChange}
         />
       );
     default:
-      return (
-        <MarketplaceHomeView 
-          activeSidebarTab={activeSidebarTab} 
-          onSidebarTabChange={handleSidebarTabChange} 
-        />
-      );
+      return <MarketplaceHomeView />;
   }
 };
 

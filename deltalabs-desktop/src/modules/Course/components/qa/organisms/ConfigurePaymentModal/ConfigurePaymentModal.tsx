@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Paperclip, ChevronDown } from "lucide-react";
 import { Modal } from "@/components/atoms/Modal/Modal";
-import { Typography, Button } from "@/components/theme";
+import { Button } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 
 /** ################################ /IMPORT ############################# */
@@ -33,7 +33,7 @@ export interface ConfigurePaymentModalProps {
 export const ConfigurePaymentModal: React.FC<ConfigurePaymentModalProps> = ({ isOpen, onClose, onConfirm }) => {
   const [amount, setAmount] = useState("");
   const [requirement, setRequirement] = useState("");
-  const [documentName, setDocumentName] = useState("");
+  const [documentName] = useState("");
   const [paymentType, setPaymentType] = useState("Selected Option");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 

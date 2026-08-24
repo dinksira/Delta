@@ -16,6 +16,7 @@ import { profileInitialsFromUser } from "@/lib/authDisplay";
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const isFeaturesRoute = pathname.startsWith("/features");
+  const isFeaturesHub = pathname === "/features";
   const isSchoolWorkspace = pathname.startsWith("/features/school");
   const variant = isFeaturesRoute ? "features_authorized" : "landing_authorized";
   const { session, isReady } = useAuthSession();
@@ -37,6 +38,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             "min-h-0 w-full flex-1",
             isSchoolWorkspace
               ? "flex flex-col overflow-hidden pl-6 md:pl-8 xl:pl-10"
+              : isFeaturesHub
+                ? "flex flex-col overflow-y-auto overscroll-y-contain pl-6 md:pl-8 xl:pl-10"
               : isFeaturesRoute
                 ? "flex flex-col overflow-y-auto overscroll-y-contain px-6 py-6 md:px-8 xl:px-10"
                 : "mx-auto flex max-w-6xl flex-col overflow-y-auto overscroll-y-contain px-2 py-6 md:px-3",

@@ -1,251 +1,114 @@
+"use client";
+
 import React, { useState } from 'react';
-import Image from 'next/image';
-import { Image as ImageIcon, Smile, Send, SquareDashedIcon } from 'lucide-react';
-import { Typography } from '@/components/theme';
-import ChatMessage, { ChatMessageProps } from '@/components/molecules/ChatMessage';
-import CommunityContactItem, { CommunityContactItemProps } from '@/components/molecules/CommunityContactItem';
-import { cx } from '@/components/theme/utils';
+import { SplitChatLayout } from '@/components/templates/SplitChatLayout';
+import { ChatSidebar } from '@/components/organisms/ChatSidebar';
+import { ChatMessage } from '@/components/molecules/ChatMessage';
+import { useCourse } from '../context/CourseContext';
+import { Input, Button } from '@/components/theme';
+
+const MOCK_CONTACTS = [
+  { id: '1', name: 'Alice Smith', isOnline: true, unreadCount: 2 },
+  { id: '2', name: 'Bob Johnson', isOnline: false, lastSeen: '2h ago' },
+  { id: '3', name: 'Charlie Davis', isOnline: true },
+];
+
+const MOCK_MESSAGES = [
+  { id: 'm1', content: 'Hey everyone, working on the new module!', senderId: '1', timestamp: '10:00 AM' },
+  { id: 'm2', content: 'That sounds great! Need any help?', senderId: 'me', timestamp: '10:05 AM' },
+  { id: 'm3', content: 'I might need some review on the architecture later today.', senderId: '1', timestamp: '10:15 AM' },
+];
 
 export const CommunityView: React.FC = () => {
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'community' | 'group' | 'setting'>('community');
+  const { currentUserStatus, toggleUserStatus } = useCourse();
+  const [activeContactId, setActiveContactId] = useState<string>('1');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [messageInput, setMessageInput] = useState('');
 
-  const messages: ChatMessageProps[] = [
-    {
-      id: '1',
-      text: 'next time you\'ll be awake at this hour why not now',
-      timestamp: 'Sat 2:10 AM',
-      senderName: 'Suzana Colin',
-      senderAvatar: '/university_student_avatar_profile_1776871573394.png',
-      isSelf: false,
-    },
-    {
-      id: '2',
-      text: 'Didn\'t I tell you not to put your phone on charge just because weekend?',
-      timestamp: 'Sat 2:10 AM',
-      senderName: 'Suzana Colin',
-      senderAvatar: '/university_student_avatar_profile_1776871573394.png',
-      isSelf: false,
-    },
-    {
-      id: '3',
-      emojiText: '🥺 🥺 🥺',
-      timestamp: 'Sat 2:10 AM',
-      senderName: 'Suzana Colin',
-      senderAvatar: '/university_student_avatar_profile_1776871573394.png',
-      isSelf: false,
-    }
-  ];
-
-  const contacts: CommunityContactItemProps[] = [
-    {
-      id: 'c1',
-      name: 'Suzana Colin',
-      handle: '@suzaaa',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'Chris Martin reacted with',
-      onlineStatus: 'Online',
-      isActive: true,
-    },
-    {
-      id: 'c2',
-      name: 'Suzana Colin',
-      handle: '@suzaaa',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'Chris Martin reacted with',
-      onlineStatus: 'Online',
-    },
-    {
-      id: 'c3',
-      name: 'Suzana Colin',
-      handle: '@suzaaa',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'Chris Martin reacted with',
-      onlineStatus: 'Oct 12',
-    },
-    {
-      id: 'c4',
-      name: 'Suzana Colin',
-      handle: '@suzaaa',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'Chris Martin reacted with',
-      onlineStatus: 'last seen recently',
-    },
-    {
-      id: 'c5',
-      name: 'Suzana Colin',
-      handle: '@suzaaa',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'Chris Martin reacted with',
-      onlineStatus: 'last seen recently',
-    },
-    {
-      id: 'c6',
-      name: 'Suzana Colin',
-      handle: '@suzana',
-      avatar: '/university_student_avatar_profile_1776871573394.png',
-      statusText: 'wow, if you can do this anymore',
-      onlineStatus: 'Dec 13',
-    }
-  ];
+  const handleSendMessage = () => {
+    if (!messageInput.trim()) return;
+    // In a real app, this would send via WebSockets or API
+    setMessageInput('');
+  };
 
   return (
-    <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-white">
-      {/* Left Area: Chat (70%) */}
-      <div className="flex-1 flex flex-col border-r border-[#174A5F]/5">
-        {/* Chat Header */}
-        <div className="px-8 py-6 space-y-8">
-          <Typography className="text-[28px] font-bold text-[#174A5F]">
-            Community
-          </Typography>
-
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden relative">
-              <Image src="/university_student_avatar_profile_1776871573394.png" alt="Suzana" fill className="object-cover" />
+    <SplitChatLayout
+      contactSidebar={
+        <ChatSidebar
+          contacts={MOCK_CONTACTS.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()))}
+          activeContactId={activeContactId}
+          onContactClick={setActiveContactId}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          currentUserStatus={currentUserStatus}
+          onStatusToggle={toggleUserStatus}
+        />
+      }
+      chatArea={
+        <div className="flex flex-col h-full bg-surface-canvas">
+          {/* Chat Header */}
+          <div className="flex-shrink-0 px-6 py-4 border-b border-border-default bg-surface-primary flex items-center justify-between shadow-sm z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold">
+                {MOCK_CONTACTS.find(c => c.id === activeContactId)?.name.charAt(0) || 'C'}
+              </div>
+              <div>
+                <h2 className="font-semibold text-text-primary text-lg">
+                  {MOCK_CONTACTS.find(c => c.id === activeContactId)?.name || 'Community Chat'}
+                </h2>
+                <p className="text-xs text-text-secondary">
+                  {MOCK_CONTACTS.find(c => c.id === activeContactId)?.isOnline ? 'Online' : 'Offline'}
+                </p>
+              </div>
             </div>
-            <div>
-              <Typography className="text-base font-bold text-[#174A5F]">
-                Suzana Colin
-              </Typography>
-              <Typography className="text-[10px] font-medium text-[#64748B]">
-                @suzana
-              </Typography>
+            
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" aria-label="Search in chat">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </Button>
             </div>
           </div>
-        </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 flex flex-col-reverse justify-start scroll-smooth">
-          {/* Using flex-col-reverse to simulate bottom-up flow for this mock */}
-          <div className="space-y-6 flex flex-col">
-            {messages.map((msg) => (
-              <ChatMessage key={msg.id} {...msg} />
-            ))}
-          </div>
-        </div>
-
-        {/* Input Area */}
-        <div className="px-8 py-8">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-4 text-[#174A5F]/40">
-              <button className="hover:text-[#174A5F] transition-colors">
-                <ImageIcon className="h-6 w-6" />
-              </button>
-              <button className="hover:text-[#174A5F] transition-colors">
-                <SquareDashedIcon className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="flex-1 h-[56px] bg-white border border-[#174A5F]/20 rounded-full flex items-center px-6 gap-3 group focus-within:border-[#174A5F]/40 transition-all">
-              <input 
-                type="text" 
-                placeholder="Start a message" 
-                className="flex-1 h-full bg-transparent outline-none text-[15px] text-[#174A5F] placeholder:text-[#174A5F]/30 font-medium"
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 flex flex-col">
+            {MOCK_MESSAGES.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                id={msg.id}
+                text={msg.content}
+                timestamp={msg.timestamp}
+                isSelf={msg.senderId === 'me'}
+                senderName={msg.senderId === 'me' ? 'You' : MOCK_CONTACTS.find(c => c.id === msg.senderId)?.name || 'Guest'}
+                senderAvatar=""
               />
-              <button className="text-[#174A5F]/40 hover:text-[#174A5F] transition-colors">
-                <Smile className="h-6 w-6" />
-              </button>
-            </div>
+            ))}
+            <div className="mt-auto" />
+          </div>
 
-            <button className="w-12 h-12 flex items-center justify-center text-[#174A5F] hover:scale-110 transition-transform">
-              <Send className="h-7 w-7" />
-            </button>
+          {/* Input Area */}
+          <div className="flex-shrink-0 p-4 border-t border-border-subtle bg-surface-primary">
+            <div className="flex gap-2">
+              <Input
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <Button variant="primary" onClick={handleSendMessage} disabled={!messageInput.trim()}>
+                Send
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Right Area: Sidebar (30%) */}
-      <div className="w-[380px] flex flex-col p-8 space-y-10">
-        {/* Right Tabs */}
-        <div className="flex items-center justify-between border-b border-[#174A5F]/5">
-          {[
-            { id: 'community', label: 'Community' },
-            { id: 'group', label: 'Group' },
-            { id: 'setting', label: 'Setting' },
-          ].map((tab) => (
-            <button 
-              key={tab.id}
-              onClick={() => setActiveSidebarTab(tab.id as any)}
-              className={cx(
-                "pb-4 text-[18px] font-bold transition-all relative",
-                activeSidebarTab === tab.id ? "text-[#174A5F]" : "text-[#174A5F]/40 hover:text-[#174A5F]/60"
-              )}
-            >
-              {tab.label}
-              {activeSidebarTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#174A5F]" />
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Contact/Group/Setting List */}
-        <div className="flex-1 overflow-y-auto no-scrollbar space-y-1">
-          {activeSidebarTab === 'community' && (
-            <>
-              {/* Online Indicator */}
-              <div className="flex items-center gap-2 mb-6">
-                <Typography className="text-xl font-bold text-[#174A5F]">
-                  2 online
-                </Typography>
-              </div>
-              {contacts.map((contact) => (
-                <CommunityContactItem key={contact.id} {...contact} />
-              ))}
-            </>
-          )}
-
-          {activeSidebarTab === 'group' && (
-            <div className="space-y-6">
-              {/* Create Group Button */}
-              <button className="w-full h-12 border-2 border-dashed border-[#174A5F]/20 rounded-lg flex items-center justify-center text-[13px] font-medium text-[#174A5F] hover:bg-[#174A5F]/5 transition-all mb-8">
-                Create Group
-              </button>
-              
-              <div className="space-y-4">
-                {[
-                  { id: 'g1', name: 'Physics Group', date: 'Dec 13' },
-                  { id: 'g2', name: 'Motion Group', date: 'Dec 13' },
-                ].map((group) => (
-                  <div key={group.id} className="flex items-center gap-4 p-2 hover:bg-[#174A5F]/5 rounded-xl cursor-pointer">
-                    <div className="w-12 h-12 rounded-full bg-[#F1F5F9] flex items-center justify-center p-2">
-                      <Image src="/biology_neural_network_hero.png" alt={group.name} width={32} height={32} className="object-contain" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <Typography className="text-sm font-bold text-[#174A5F]">{group.name}</Typography>
-                        <Typography className="text-[10px] text-[#64748B]">{group.date}</Typography>
-                      </div>
-                      <Typography className="text-[11px] text-[#64748B]">Chris Martin reacted with</Typography>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeSidebarTab === 'setting' && (
-            <div className="space-y-8 pt-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between gap-4">
-                  <Typography className="text-[13px] font-medium text-[#174A5F]">
-                    Recieve notifications
-                  </Typography>
-                  <div className="relative group">
-                    <div className="h-9 px-4 border border-[#174A5F]/10 rounded-lg flex items-center justify-between gap-4 min-w-[100px] bg-white cursor-pointer hover:border-[#174A5F]/20">
-                      <Typography className="text-[11px] font-bold text-[#174A5F]">Allowed</Typography>
-                      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-[#174A5F]/40">
-                        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 };
-
-export default CommunityView;

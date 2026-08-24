@@ -1,2 +1,5 @@
 export { PublicCompetitionTemplate } from "./PublicCompetitionTemplate";
-export type { PublicCompetitionTemplateProps } from "./PublicCompetitionTemplate";
+export type {
+  PublicCompetitionTemplateProps,
+  GameModeConfig,
+} from "./PublicCompetitionTemplate";

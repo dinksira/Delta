@@ -1,15 +1,6 @@
-/**
- * useFilteredCompetitions
- * Filters competitions by category and search query with debounce.
- */
-
 import { useMemo, useState, useEffect } from "react";
 
 import type { Competition, CompetitionCategory } from "@/modules/Competition/types";
-
-// ============================================================================
-// DEBOUNCE HOOK (inline — no standalone hook library exists yet)
-// ============================================================================
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -21,10 +12,6 @@ function useDebounce<T>(value: T, delay: number): T {
 
   return debounced;
 }
-
-// ============================================================================
-// FILTERED COMPETITIONS HOOK
-// ============================================================================
 
 export function useFilteredCompetitions(
   competitions: Competition[],

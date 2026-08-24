@@ -2,9 +2,9 @@
 /** Imports used by this file. */
 import type { ReactNode } from "react";
 
-import { FeedCard } from "@/components/features/feed/FeedCard";
-import { FeedMedia } from "@/components/features/feed/master/FeedMedia";
-import { FeedOverlayGradient } from "@/components/features/feed/FeedOverlayGradient";
+import { FeedCard } from "../FeedCard";
+import { FeedOverlayGradient } from "../FeedOverlayGradient";
+import { FeedMedia } from "./FeedMedia";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */

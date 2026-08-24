@@ -1,8 +1,3 @@
-/**
- * CompetitionGrid
- * Responsive grid that maps competitions[] into CompetitionCard components.
- */
-
 import { CompetitionCard } from "@/components/organisms/CompetitionCard/CompetitionCard";
 import type { CompetitionCardData } from "@/components/organisms/CompetitionCard/CompetitionCard";
 import { cn } from "@/lib/utils";

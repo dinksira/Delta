@@ -1,52 +1,15 @@
-/**
- * Competition API functions.
- */
-
 import { apiClient } from "@/lib/apiClient";
-import type { CodingQuestion, TestCase } from "@/modules/Competition/types/topicBattleDraft";
-import type { TopicBattle } from "@/modules/Competition/types/topicBattles";
+import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub";
+import type { GameMode } from "@/modules/Competition/types/hub";
+import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
+import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+import type {
+  CodeExecuteResponse,
+  CodeSubmitResponse,
+} from "@/modules/Competition/types/codeExecution";
+import { uploadSchoolMediaFile } from "@/modules/School/api";
 
-// ============================================================================
-// API FUNCTIONS — GENERAL COMPETITIONS
-// ============================================================================
-
-export async function fetchCompetitionModuleStatus() {
-  return apiClient.get("/v1/competitions");
-}
-
-export async function fetchCompetitions() {
-  return apiClient.get("/v1/competitions/list");
-}
-
-export async function fetchCompetitionDetail(id: string) {
-  return apiClient.get(`/v1/competitions/${id}`);
-}
-
-export async function saveCompetitionDraft(payload: Record<string, unknown>) {
-  return apiClient.post("/v1/competitions/draft", { json: payload });
-}
-
-export async function publishCompetition(payload: Record<string, unknown>) {
-  return apiClient.post("/v1/competitions", { json: payload });
-}
-
-// ============================================================================
-// API FUNCTIONS — TOPIC BATTLES
-// ============================================================================
-
-export interface QuestionApiShape {
-  title: string;
-  description: string;
-  codeTemplate: string;
-  language: string;
-  difficulty: string;
-  timeLimitMinutes: number;
-  points: number;
-  hintEnabled: boolean;
-  hintText: string;
-  testCases: TestCase[];
-}
-
+/** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
   title: string;
   subject: string;
@@ -58,68 +21,98 @@ export interface CreateTopicBattlePayload {
   scheduleDate?: string;
   scheduleTime?: string;
   scheduleTimezone?: string;
-  questions?: QuestionApiShape[];
+  format: string;
+  durationMinutes: number;
+  visibility: string;
+  timing: string;
+  prizeRule: string;
+  questionPoolMode: string;
+  easyPct: number;
+  mediumPct: number;
+  hardPct: number;
+  questions: CodingQuestion[];
 }
 
 export async function createTopicBattle(payload: CreateTopicBattlePayload): Promise<TopicBattle> {
-  return apiClient.post("/v1/competitions/topic-battles", { json: payload });
+  return apiClient.post<TopicBattle>("/v1/competitions/topic-battles", { json: payload });
 }
 
-export interface TopicBattleListResponse {
-  battles: TopicBattle[];
-  total: number;
+export async function fetchCompetitionModes() {
+  return apiClient.get<GameMode[]>("/v1/competitions/modes");
 }
 
-export async function fetchTopicBattles(): Promise<TopicBattleListResponse> {
-  return apiClient.get("/v1/competitions/topic-battles");
+export async function fetchCompetitionHub() {
+  return apiClient.get<CompetitionHubApiResponse>("/v1/competitions/hub");
 }
 
-export async function fetchTopicBattle(battleId: string): Promise<TopicBattle> {
-  return apiClient.get(`/v1/competitions/topic-battles/${battleId}`);
+export async function fetchTopicBattles() {
+  return apiClient.get<TopicBattleList>("/v1/competitions/topic-battles");
 }
 
-export async function joinTopicBattle(battleId: string): Promise<TopicBattle> {
-  return apiClient.post(`/v1/competitions/topic-battles/${battleId}/join`);
+export async function fetchTopicBattle(id: string) {
+  return apiClient.get<TopicBattle>(`/v1/competitions/topic-battles/${id}`);
 }
 
-// ============================================================================
-// QUESTION CRUD
-// ============================================================================
+export async function joinTopicBattle(id: string) {
+  return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/join`);
+}
 
-export interface QuestionResponse {
-  id: string;
-  title: string;
-  description: string;
-  codeTemplate: string;
+export async function completeTopicBattle(id: string) {
+  return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/complete`);
+}
+
+/** Payload for POST /v1/competitions/execute (Run: compile + run once). */
+export interface ExecuteCodePayload {
   language: string;
-  difficulty: string;
-  timeLimitMinutes: number;
-  points: number;
-  hintEnabled: boolean;
-  hintText: string;
-  testCases: TestCase[];
+  code: string;
+  stdin?: string;
 }
 
-export async function addQuestion(battleId: string, question: QuestionApiShape): Promise<QuestionResponse> {
-  return apiClient.post(`/v1/competitions/topic-battles/${battleId}/questions`, { json: question });
+export async function executeCode(payload: ExecuteCodePayload): Promise<CodeExecuteResponse> {
+  return apiClient.post<CodeExecuteResponse>("/v1/competitions/execute", { json: payload });
 }
 
-export async function listQuestions(battleId: string): Promise<QuestionResponse[]> {
-  return apiClient.get(`/v1/competitions/topic-battles/${battleId}/questions`);
+/** Payload for POST /v1/competitions/submit (grade authored test cases). */
+export interface SubmitCodePayload {
+  language: string;
+  code: string;
+  testCases: { input: string; expectedOutput: string }[];
 }
 
-export async function getQuestion(battleId: string, questionId: string): Promise<QuestionResponse> {
-  return apiClient.get(`/v1/competitions/topic-battles/${battleId}/questions/${questionId}`);
+export async function submitCode(payload: SubmitCodePayload): Promise<CodeSubmitResponse> {
+  return apiClient.post<CodeSubmitResponse>("/v1/competitions/submit", {
+    json: {
+      language: payload.language,
+      code: payload.code,
+      testCases: payload.testCases,
+    },
+  });
 }
 
-export async function updateQuestion(
-  battleId: string,
-  questionId: string,
-  question: Partial<QuestionApiShape>,
-): Promise<QuestionResponse> {
-  return apiClient.put(`/v1/competitions/topic-battles/${battleId}/questions/${questionId}`, { json: question });
+/**
+ * Result of uploading a Design Canvas cover through the shared media pipeline
+ * (`upload-intent` → presigned PUT → complete).
+ */
+export interface DesignCoverUploadResult {
+  mediaId: string;
+  objectKey: string;
+  /** Playback-ready URL; may be unresolved while transcoding on some providers. */
+  url: string;
 }
 
-export async function deleteQuestion(battleId: string, questionId: string): Promise<void> {
-  return apiClient.delete(`/v1/competitions/topic-battles/${battleId}/questions/${questionId}`);
+/** Upload a Design Canvas cover image via the shared `upload-intent` pipeline. */
+export async function uploadDesignCoverMedia(
+  orgId: string,
+  file: File,
+): Promise<DesignCoverUploadResult> {
+  const uploaded = await uploadSchoolMediaFile(orgId, file, {
+    caption: "Design canvas cover",
+    visibility: "org",
+    publishToFeed: false,
+  });
+  return {
+    mediaId: uploaded.mediaId,
+    objectKey: uploaded.objectKey,
+    url: uploaded.playbackUrl || `media://${uploaded.mediaId}`,
+  };
 }

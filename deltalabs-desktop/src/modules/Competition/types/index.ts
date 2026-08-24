@@ -1,8 +1,3 @@
-/**
- * Competition types
- * TypeScript definitions for the Competition module.
- */
-
 export type CompetitionCategory = "active" | "recent" | "community";
 
 export interface Competition {
@@ -25,6 +20,40 @@ export interface CompetitionContextValue extends CompetitionFilterState {
   setSearchQuery: (query: string) => void;
 }
 
-// Public competition landing types
-export type { UserStatus, Achievement, GameMode, UpcomingCompetition, CompetitionTab, UpcomingCompetitionStatus } from "./public";
-export type { HostCompetitionDraft, PrizeEntry, PhaseEntry, CompetitionModuleType, StepValidation } from "./host";
+export type {
+  TopicBattle,
+  TopicBattleList,
+  TopicBattleCreator,
+  TopicBattleQuestion,
+  TopicBattleTestCase,
+} from "./topicBattle";
+
+export type {
+  DuelQuestion,
+  DuelLeaderboardEntry,
+  DuelQuiz,
+  DuelState,
+} from "./duelQuiz";
+
+export type {
+  CompetitionTab,
+  HubStats,
+  GameMode,
+  Achievement,
+  UserStatus,
+  CompetitionHubData,
+} from "./hub";
+
+export type {
+  CreateBattleWizardStep,
+  CreateBattleWizardState,
+  CreateBattleWizardContextValue,
+  TopicBattleDraft,
+  CodingQuestion,
+  TestCase,
+  QuestionPoolMode,
+  QuestionKind,
+  MediaAsset,
+  MarkdownPadPayload,
+  DesignCanvasPayload,
+} from "./createBattle";

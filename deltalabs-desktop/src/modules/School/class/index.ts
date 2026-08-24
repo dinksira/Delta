@@ -6,7 +6,17 @@ export { ClassSessionSection } from "@/modules/School/class/ClassSessionSection"
 export { ClassSessionCard } from "@/modules/School/class/ClassSessionCard";
 export { ClassSessionsEmptyState } from "@/modules/School/class/ClassSessionsEmptyState";
 export { ClassNewSessionModals } from "@/modules/School/class/ClassNewSessionModals";
+export { ClassStudentsSection } from "@/modules/School/class/ClassStudentsSection";
+export { ClassStudentsTablePanel } from "@/modules/School/class/ClassStudentsTablePanel";
+export { ClassParentsTablePanel } from "@/modules/School/class/ClassParentsTablePanel";
+export { ClassTeachersTablePanel } from "@/modules/School/class/ClassTeachersTablePanel";
+export { ClassGradesTablePanel } from "@/modules/School/class/ClassGradesTablePanel";
+export { ClassScheduleTablePanel } from "@/modules/School/class/ClassScheduleTablePanel";
+export { ClassAssignmentsTablePanel } from "@/modules/School/class/ClassAssignmentsTablePanel";
+export { ClassRoadmapPanel } from "@/modules/School/roadmap/ClassRoadmapPanel";
+export { ClassAttendancePanel } from "@/modules/School/class/ClassAttendancePanel";
 export { ClassBottomNav } from "@/modules/School/class/ClassBottomNav";
+export { parseClassAttendanceView, type ClassAttendanceView } from "@/modules/School/class/classNavigation";
 export { ClassSessionMeetView } from "@/modules/School/class/ClassSessionMeetView";
 export { safeClassReturnHref } from "@/modules/School/class/classNavigation";
 export { userCanManageSchoolWorkspace as userCanManageSchoolClassWorkspace } from "@/modules/School/class/schoolClassPermissions";

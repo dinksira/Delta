@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Table2,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -39,8 +40,13 @@ import {
   updateSchoolWorkspaceItem,
 } from "@/modules/School/api";
 import { ManagementTableTemplatePickerModal } from "@/modules/School/managementTable/ManagementTableTemplatePickerModal";
+import { userCanManageSchoolWorkspace } from "@/modules/School/class/schoolClassPermissions";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
+import {
+  getWorkspaceTabId,
+  preserveWorkspaceTabId,
+} from "@/modules/Features/featureWorkspaceTabs";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */
@@ -64,6 +70,7 @@ const SCHOOL_DETAIL_SECTIONS = [
   { id: "management-table", label: "Management Table" },
   { id: "resource", label: "Resource" },
   { id: "students", label: "Students" },
+  { id: "parents", label: "Parents" },
   { id: "service", label: "Service" },
 ] as const;
 type SectionId = (typeof SCHOOL_DETAIL_SECTIONS)[number]["id"];
@@ -75,6 +82,7 @@ const ADDABLE_SECTION_OPTIONS = [
   { id: "management-table", label: "Management Table", icon: Network },
   { id: "resource", label: "Resource", icon: BookOpen },
   { id: "students", label: "Students", icon: GraduationCap },
+  { id: "parents", label: "Parents", icon: Users },
   { id: "service", label: "Service", icon: HandHelping },
 ] as const;
 type AddableSectionId = (typeof ADDABLE_SECTION_OPTIONS)[number]["id"];
@@ -91,6 +99,26 @@ function workspacePathIdsFromSearchParams(searchParams: URLSearchParams): string
   return legacy ? [legacy] : [];
 }
 
+function describeWorkspaceLoadError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === "school_not_found") {
+      return "This school was not found in your organization. It may have been removed or you may no longer have access.";
+    }
+    if (error.code === "workspace_parent_not_found") {
+      return "This folder could not be loaded (it may have been removed). Return to the school root and pick another department.";
+    }
+    if (error.status === 401 || error.status === 403) {
+      return error.message || "You do not have permission to view this school workspace.";
+    }
+    return error.message;
+  }
+  if (error instanceof TypeError) {
+    return "Could not reach the server. Check that the backend API is running and try again.";
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return "This folder could not be loaded (it may have been removed). Return to the school root and pick another department.";
+}
+
 const CREATION_CHOICES = [
   { id: "folder", label: "Folder" },
   { id: "department", label: "Department" },
@@ -99,16 +127,12 @@ const CREATION_CHOICES = [
   { id: "management-table", label: "Management Table" },
   { id: "resource", label: "Resource" },
   { id: "student", label: "Student" },
+  { id: "parent", label: "Parent" },
   { id: "service", label: "Service" },
   { id: "staff", label: "Staff" },
 ] as const;
 type CreationChoiceId = (typeof CREATION_CHOICES)[number]["id"];
 type FormFieldConfig = Readonly<{ key: string; label: string; placeholder: string }>;
-
-function userCanManageSchoolWorkspace(permissions: readonly string[] | undefined): boolean {
-  if (!permissions?.length) return false;
-  return permissions.includes("*") || permissions.includes("school:manage");
-}
 
 /** ################################ /CONSTANTS ############################# */
 
@@ -118,10 +142,12 @@ function DepartmentEmptyState({
   onCreate,
   canMutateWorkspace,
   accessPending,
+  schoolNotLinked,
 }: Readonly<{
   onCreate: () => void;
   canMutateWorkspace: boolean;
   accessPending: boolean;
+  schoolNotLinked?: boolean;
 }>) {
   return (
     <div className="flex min-h-[420px] w-full items-center justify-center py-16">
@@ -149,6 +175,11 @@ function DepartmentEmptyState({
             <Plus className="size-4" aria-hidden />
             New
           </Button>
+        ) : schoolNotLinked ? (
+          <p className="mt-5 max-w-[22rem] text-xs leading-relaxed text-text-tertiary">
+            This school is not linked to your account yet. Open it from{" "}
+            <span className="font-medium text-text-secondary">My School</span> or refresh the page after creating it.
+          </p>
         ) : canMutateWorkspace ? (
           <Button type="button" variant="primary" size="sm" className="mt-5 px-5" onClick={onCreate}>
             <Plus className="size-4" aria-hidden />
@@ -488,9 +519,11 @@ export function SchoolWorkspaceDetailView({
   
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
+  const searchParams = useSearchParams();
 
   const cleanSchoolId = (schoolId ?? "").trim();
+  const workspaceTabId = getWorkspaceTabId(searchParams);
+  const workspaceSessionKey = workspaceTabId ?? cleanSchoolId;
   const displaySchoolName = (schoolName ?? searchParams.get("name") ?? "").trim();
   const workspaceLabel = displaySchoolName.length > 0 ? displaySchoolName : cleanSchoolId;
   const viewFromRoute = (initialView ?? searchParams.get("view") ?? "all").trim().toLowerCase();
@@ -506,10 +539,16 @@ export function SchoolWorkspaceDetailView({
   });
   const waitingForOrgContext = Boolean(cleanSchoolId) && mySchoolsPending;
   const waitingForOrgAccess = Boolean(activeOrgId && cleanSchoolId) && orgAccessQuery.isPending;
+  const schoolNotLinked = Boolean(cleanSchoolId) && !mySchoolsPending && !schoolMembership;
   const accessGatingPending = waitingForOrgContext || waitingForOrgAccess;
   const canMutateWorkspace = useMemo(
-    () => userCanManageSchoolWorkspace(orgAccessQuery.data?.permissions),
-    [orgAccessQuery.data?.permissions],
+    () =>
+      userCanManageSchoolWorkspace(
+        orgAccessQuery.data?.permissions,
+        orgAccessQuery.data?.roleKeys,
+        schoolMembership?.roleKeys,
+      ),
+    [orgAccessQuery.data?.permissions, orgAccessQuery.data?.roleKeys, schoolMembership?.roleKeys],
   );
   const workspaceMutationLocked = accessGatingPending || !canMutateWorkspace;
 
@@ -579,19 +618,19 @@ export function SchoolWorkspaceDetailView({
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const persistVisibleTabsForSchool = (targetSchoolId: string, tabs: SectionId[]) => {
-    if (!targetSchoolId) return;
+  const persistVisibleTabsForSchool = (sessionKey: string, tabs: SectionId[]) => {
+    if (!sessionKey) return;
     try {
       localStorage.setItem(
-        `${SCHOOL_DETAIL_TABS_STORAGE_KEY}:${targetSchoolId}`,
+        `${SCHOOL_DETAIL_TABS_STORAGE_KEY}:${sessionKey}`,
         JSON.stringify(tabs.filter((id) => id !== "all")),
       );
     } catch {}
   };
-  const persistActiveTabForSchool = (targetSchoolId: string, tabId: SectionId) => {
-    if (!targetSchoolId) return;
+  const persistActiveTabForSchool = (sessionKey: string, tabId: SectionId) => {
+    if (!sessionKey) return;
     try {
-      localStorage.setItem(`${SCHOOL_DETAIL_ACTIVE_TAB_STORAGE_KEY}:${targetSchoolId}`, tabId);
+      localStorage.setItem(`${SCHOOL_DETAIL_ACTIVE_TAB_STORAGE_KEY}:${sessionKey}`, tabId);
     } catch {}
   };
 
@@ -634,6 +673,7 @@ export function SchoolWorkspaceDetailView({
   const mapSectionToCreationChoice = (section: SectionId): CreationChoiceId => {
     if (section === "departments") return "department";
     if (section === "students") return "student";
+    if (section === "parents") return "parent";
     return section as CreationChoiceId;
   };
   const mapCreationChoiceToItemType = (choice: CreationChoiceId): SchoolWorkspaceItemTypeDto =>
@@ -676,6 +716,9 @@ export function SchoolWorkspaceDetailView({
   const isWorkspaceBootstrapLoading = Boolean(cleanSchoolId) && (orgsPending || mySchoolsPending);
   const shouldShowWorkspaceLoading =
     isWorkspaceBootstrapLoading || workspaceItemsQuery.isPending || (workspaceItemsQuery.isFetching && !workspaceItemsQuery.data);
+  const workspaceLoadErrorMessage = workspaceItemsQuery.isError
+    ? describeWorkspaceLoadError(workspaceItemsQuery.error)
+    : null;
 
   const createWorkspaceItemMutation = useMutation({
     mutationFn: async (payload: {
@@ -758,24 +801,24 @@ export function SchoolWorkspaceDetailView({
     if (tabId === "all") return;
     setVisibleTabs((prev) => {
       const nextTabs = prev.filter((id) => id !== tabId);
-      persistVisibleTabsForSchool(cleanSchoolId, nextTabs);
+      persistVisibleTabsForSchool(workspaceSessionKey, nextTabs);
       return nextTabs;
     });
     if (currentView === tabId) {
       setCurrentView("all");
-      persistActiveTabForSchool(cleanSchoolId, "all");
+      persistActiveTabForSchool(workspaceSessionKey, "all");
     }
   };
   const onAddTab = (tabId: AddableSectionId) => {
     if (!visibleTabs.includes(tabId)) {
       setVisibleTabs((prev) => {
         const nextTabs = [...prev, tabId];
-        persistVisibleTabsForSchool(cleanSchoolId, nextTabs);
+        persistVisibleTabsForSchool(workspaceSessionKey, nextTabs);
         return nextTabs;
       });
     }
     setCurrentView(tabId);
-    persistActiveTabForSchool(cleanSchoolId, tabId);
+    persistActiveTabForSchool(workspaceSessionKey, tabId);
     setIsAddMenuOpen(false);
   };
 
@@ -809,6 +852,16 @@ export function SchoolWorkspaceDetailView({
     if (target === "student") {
       return {
         title: "Create Student Holder",
+        submitLabel: "ADD",
+        fields: [
+          { key: "title", label: "Title", placeholder: "title" },
+          { key: "description", label: "Description", placeholder: "Description" },
+        ],
+      };
+    }
+    if (target === "parent") {
+      return {
+        title: "Create Parent Holder",
         submitLabel: "ADD",
         fields: [
           { key: "title", label: "Title", placeholder: "title" },
@@ -881,20 +934,61 @@ export function SchoolWorkspaceDetailView({
   const navigateToClassDetail = (item: { id: string }) => {
     const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     router.push(
-      `/features/school/${encodeURIComponent(cleanSchoolId)}/class/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/class/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
+  const navigateToCourseDetail = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/course/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
+  const navigateToStudentRegistration = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/student/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
+    );
+  };
+
+  const navigateToParentRegistration = (item: { id: string }) => {
+    const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    router.push(
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/parent/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
     );
   };
 
   const navigateToDepartmentDetail = (item: { id: string }) => {
     const returnTo = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
     router.push(
-      `/features/school/${encodeURIComponent(cleanSchoolId)}/department/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/department/${encodeURIComponent(item.id)}?returnTo=${encodeURIComponent(returnTo)}`,
+        workspaceTabId,
+      ),
     );
   };
 
   const navigateWorkspaceRoot = () => {
     if (cleanDepartmentRootId) {
-      router.push(`/features/school/${encodeURIComponent(cleanSchoolId)}`);
+      router.push(
+        preserveWorkspaceTabId(
+          `/features/school/${encodeURIComponent(cleanSchoolId)}`,
+          workspaceTabId,
+        ),
+      );
       return;
     }
     pushWorkspacePath([]);
@@ -906,12 +1000,21 @@ export function SchoolWorkspaceDetailView({
 
   const itemOpensAsClassDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "class";
 
+  const itemOpensAsCourseDetail = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "course";
+
+  const itemOpensAsStudentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "student";
+
+  const itemOpensAsParentRegistration = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "parent";
+
   const itemOpensAsManagementTable = (item: (typeof filteredWorkspaceItems)[number]) => item.type === "management-table";
 
   const itemPrimaryOpens = (item: (typeof filteredWorkspaceItems)[number]) =>
     itemOpensAsFolder(item) ||
     itemOpensAsDepartmentRoute(item) ||
     itemOpensAsClassDetail(item) ||
+    itemOpensAsCourseDetail(item) ||
+    itemOpensAsStudentRegistration(item) ||
+    itemOpensAsParentRegistration(item) ||
     itemOpensAsManagementTable(item);
 
   const navigateToManagementTableWorkspace = (item: { id: string }) => {
@@ -921,7 +1024,10 @@ export function SchoolWorkspaceDetailView({
     const existingInstanceId = typeof meta.managementTableInstanceId === "string" ? meta.managementTableInstanceId : "";
     if (existingInstanceId.trim().length > 0) {
       router.push(
-        `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(existingInstanceId.trim())}`,
+        preserveWorkspaceTabId(
+          `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(existingInstanceId.trim())}`,
+          workspaceTabId,
+        ),
       );
       return;
     }
@@ -936,6 +1042,9 @@ export function SchoolWorkspaceDetailView({
       if (cleanDepartmentRootId) navigateIntoWorkspaceFolder(item);
       else navigateToDepartmentDetail(item);
     } else if (itemOpensAsClassDetail(item)) navigateToClassDetail(item);
+    else if (itemOpensAsCourseDetail(item)) navigateToCourseDetail(item);
+    else if (itemOpensAsStudentRegistration(item)) navigateToStudentRegistration(item);
+    else if (itemOpensAsParentRegistration(item)) navigateToParentRegistration(item);
     else if (itemOpensAsManagementTable(item)) navigateToManagementTableWorkspace(item);
   };
 
@@ -956,15 +1065,19 @@ export function SchoolWorkspaceDetailView({
     if (item.type === "management-table") return "Self Owned";
     if (item.type === "resource") return "Abebe Kebede";
     if (item.type === "student") return item.description ?? "Student Registration";
+    if (item.type === "parent") return item.description ?? "Parent Registration";
     return item.description ?? "";
   };
 
   useEffect(() => {
     if (!cleanSchoolId || !managementTableLegacyMt) return;
     router.replace(
-      `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(managementTableLegacyMt)}`,
+      preserveWorkspaceTabId(
+        `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(managementTableLegacyMt)}`,
+        workspaceTabId,
+      ),
     );
-  }, [cleanSchoolId, managementTableLegacyMt, router]);
+  }, [cleanSchoolId, managementTableLegacyMt, router, workspaceTabId]);
 
   useEffect(() => {
     if (!cleanSchoolId) return;
@@ -973,7 +1086,7 @@ export function SchoolWorkspaceDetailView({
     );
     let nextVisibleTabs: SectionId[] = defaultVisibleTabs;
     try {
-      const raw = localStorage.getItem(`${SCHOOL_DETAIL_TABS_STORAGE_KEY}:${cleanSchoolId}`);
+      const raw = localStorage.getItem(`${SCHOOL_DETAIL_TABS_STORAGE_KEY}:${workspaceSessionKey}`);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed)) {
@@ -986,10 +1099,10 @@ export function SchoolWorkspaceDetailView({
       }
     } catch {}
     setVisibleTabs(nextVisibleTabs);
-    setHydratedSchoolId(cleanSchoolId);
+    setHydratedSchoolId(workspaceSessionKey);
 
     try {
-      const rawActive = localStorage.getItem(`${SCHOOL_DETAIL_ACTIVE_TAB_STORAGE_KEY}:${cleanSchoolId}`);
+      const rawActive = localStorage.getItem(`${SCHOOL_DETAIL_ACTIVE_TAB_STORAGE_KEY}:${workspaceSessionKey}`);
       if (typeof rawActive === "string" && validViews.has(rawActive as SectionId)) {
         const restoredActive = rawActive as SectionId;
         setCurrentView(nextVisibleTabs.includes(restoredActive) ? restoredActive : "all");
@@ -998,25 +1111,52 @@ export function SchoolWorkspaceDetailView({
     } catch {}
     const nextInitialView = validViews.has(viewFromRoute as SectionId) ? (viewFromRoute as SectionId) : "all";
     setCurrentView(nextVisibleTabs.includes(nextInitialView) ? nextInitialView : "all");
-  }, [cleanSchoolId, validViews, viewFromRoute]);
+  }, [cleanSchoolId, validViews, viewFromRoute, workspaceSessionKey]);
 
   useEffect(() => setIsAddMenuOpen(false), [cleanSchoolId]);
+
+  useEffect(() => {
+    if (!cleanSchoolId || schoolMembership || mySchoolsPending) return;
+    void queryClient.invalidateQueries({ queryKey: schoolQueryKeys.mySchools(userId) });
+  }, [cleanSchoolId, mySchoolsPending, queryClient, schoolMembership, userId]);
+
   useEffect(() => {
     setSearchText("");
   }, [workspaceParentQueryKey, cleanSchoolId]);
 
   useEffect(() => {
-    if (!cleanSchoolId || hydratedSchoolId !== cleanSchoolId) return;
-    persistVisibleTabsForSchool(cleanSchoolId, visibleTabs);
-  }, [cleanSchoolId, hydratedSchoolId, visibleTabs]);
+    if (!workspaceSessionKey || hydratedSchoolId !== workspaceSessionKey) return;
+    persistVisibleTabsForSchool(workspaceSessionKey, visibleTabs);
+  }, [hydratedSchoolId, visibleTabs, workspaceSessionKey]);
   useEffect(() => {
-    if (!cleanSchoolId || hydratedSchoolId !== cleanSchoolId) return;
-    persistActiveTabForSchool(cleanSchoolId, currentView);
-  }, [cleanSchoolId, currentView, hydratedSchoolId]);
+    if (!workspaceSessionKey || hydratedSchoolId !== workspaceSessionKey) return;
+    persistActiveTabForSchool(workspaceSessionKey, currentView);
+  }, [currentView, hydratedSchoolId, workspaceSessionKey]);
   useEffect(() => {
     if (visibleTabs.includes(currentView)) return;
     setCurrentView("all");
   }, [currentView, visibleTabs]);
+
+  useEffect(() => {
+    if (!workspaceItemsQuery.isError) return;
+    const err = workspaceItemsQuery.error;
+    if (!(err instanceof ApiError) || err.code !== "workspace_parent_not_found") return;
+    if (workspacePathIds.length === 0 && !cleanDepartmentRootId) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("parent");
+    next.delete("parentName");
+    next.delete(WORKSPACE_PATH_QUERY);
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [
+    cleanDepartmentRootId,
+    pathname,
+    router,
+    searchParams,
+    workspaceItemsQuery.error,
+    workspaceItemsQuery.isError,
+    workspacePathIds.length,
+  ]);
 
   const departmentRouteRootItem = departmentRootItemQuery.data;
   const showDepartmentRouteBreadcrumbSkeleton = Boolean(
@@ -1125,7 +1265,7 @@ export function SchoolWorkspaceDetailView({
                     type="button"
                     onClick={() => {
                       setCurrentView(section.id);
-                      persistActiveTabForSchool(cleanSchoolId, section.id);
+                      persistActiveTabForSchool(workspaceSessionKey, section.id);
                     }}
                     className={[
                       "inline-flex shrink-0 items-center border-b-2 pb-0.5 font-medium",
@@ -1206,8 +1346,7 @@ export function SchoolWorkspaceDetailView({
         ) : workspaceItemsQuery.isError ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-xl border border-border-default bg-surface-default px-6 py-12 text-center">
             <p className="max-w-md text-sm text-text-secondary">
-              This folder could not be loaded (it may have been removed). Return to the school root and pick another
-              department.
+              {workspaceLoadErrorMessage}
             </p>
             <Button type="button" variant="primary" size="sm" onClick={navigateWorkspaceRoot}>
               Back to root
@@ -1366,7 +1505,13 @@ export function SchoolWorkspaceDetailView({
                                 : "Open department"
                               : itemOpensAsClassDetail(item)
                                 ? "Open class workspace"
-                                : "Only departments, folders, and classes can be opened here."
+                                : itemOpensAsCourseDetail(item)
+                                  ? "Open course workspace"
+                                  : itemOpensAsStudentRegistration(item)
+                                    ? "Open student registration"
+                                    : itemOpensAsParentRegistration(item)
+                                      ? "Open parent registration"
+                                      : "Only departments, folders, classes, courses, and registration areas can be opened here."
                         }
                         onClick={() => {
                           onPrimaryOpenWorkspaceItem(item);
@@ -1457,6 +1602,7 @@ export function SchoolWorkspaceDetailView({
             onCreate={onNewClick}
             canMutateWorkspace={canMutateWorkspace}
             accessPending={accessGatingPending}
+            schoolNotLinked={schoolNotLinked}
           />
         )}
         <EditWorkspaceItemModal
@@ -1559,7 +1705,10 @@ export function SchoolWorkspaceDetailView({
               setManagementTablePickerOpen(false);
               setPendingManagementTableItem(null);
               router.push(
-                `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(instanceId)}`,
+                preserveWorkspaceTabId(
+                  `/features/school/${encodeURIComponent(cleanSchoolId)}/management-tables/${encodeURIComponent(instanceId)}`,
+                  workspaceTabId,
+                ),
               );
             }}
           />

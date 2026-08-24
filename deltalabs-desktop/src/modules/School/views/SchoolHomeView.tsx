@@ -4,28 +4,30 @@
 /** Imports used by this file. */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { AlertCircle, School } from "lucide-react";
 
 import { SchoolBodySearch } from "@/components/features/school/SchoolBodySearch";
 import { SchoolConfirmActionModal } from "@/components/features/school/master/SchoolConfirmActionModal";
-import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
-import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
-import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
 import { SchoolDetailsDrawer } from "@/components/features/school/master/SchoolDetailsDrawer";
 import { SchoolEntityCard } from "@/components/features/school/master/SchoolEntityCard";
 import { SchoolStatePanel } from "@/components/features/school/master/SchoolStatePanel";
 import { SchoolStatStrip } from "@/components/features/school/master/SchoolStatStrip";
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { useFeatureTabs } from "@/contexts/FeatureTabs_Context";
+import { useWorkspaceTabHref } from "@/modules/Features/hooks/useWorkspaceTabHref";
+import { useWorkspaceTabNavigation } from "@/modules/Features/hooks/useWorkspaceTabNavigation";
 import { setSchoolArchived } from "@/modules/School/api";
+import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
+import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ COMPONENT ############################# */
 /** My School — overview, stats, search, and school cards (membership-based list). */
 export function SchoolHomeView() {
-  const router = useRouter();
+  const { push } = useWorkspaceTabNavigation();
   const { openWorkspaceTabAt } = useFeatureTabs();
+  const addSchoolHref = useWorkspaceTabHref("/features/school/create");
   const { isAuthenticated, isReady } = useAuthSession();
   const queryClient = useQueryClient();
   const { orgs, mySchools, orgsError, mySchoolsError, orgsPending, mySchoolsPending } =
@@ -97,7 +99,7 @@ export function SchoolHomeView() {
 
   return (
     <>
-      <SchoolWorkspaceHeader title="My School" addSchoolHref="/features/school/create" />
+      <SchoolWorkspaceHeader title="My School" addSchoolHref={addSchoolHref} />
       <div className="space-y-6 py-6">
         <SchoolStatStrip values={schoolStats} />
         <SchoolBodySearch id="school-home-search" />
@@ -161,7 +163,7 @@ export function SchoolHomeView() {
               }
               icon={School}
               actionLabel={mySchools.length === 0 ? "Add school" : undefined}
-              onAction={mySchools.length === 0 ? () => router.push("/features/school/create") : undefined}
+              onAction={mySchools.length === 0 ? () => push("/features/school/create") : undefined}
             />
           )}
         </div>

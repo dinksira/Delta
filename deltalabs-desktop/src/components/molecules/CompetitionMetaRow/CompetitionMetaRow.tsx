@@ -1,8 +1,3 @@
-/**
- * CompetitionMetaRow
- * Displays calendar + end date and users + participant count in a compact row.
- */
-
 import { Calendar, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";

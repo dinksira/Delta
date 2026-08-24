@@ -2,7 +2,7 @@
 /** Main exported component logic for this file. */
 /** FastExerciseWorkspace Organism: A prompt-based interface for generating practice exercises. */
 import React, { useState } from "react";
-import { Typography, Button } from "@/components/theme";
+import { Button } from "@/components/theme";
 import { cx } from "@/components/theme/utils";
 
 export const FastExerciseWorkspace: React.FC = () => {

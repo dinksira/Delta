@@ -1,7 +1,7 @@
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
 /** Shared button primitive for Delta Labs UI. */
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 
 import {
   type ButtonSize,
@@ -14,6 +14,7 @@ export type { ButtonSize, ButtonVariant };
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Button({
@@ -21,10 +22,12 @@ export function Button({
   variant = "primary",
   size = "md",
   type = "button",
+  ref,
   ...props
 }: Readonly<ButtonProps>) {
   return (
     <button
+      ref={ref}
       type={type}
       className={cxButtonDisabled(getButtonClassName(variant, size, className))}
       {...props}

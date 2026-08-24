@@ -6,6 +6,7 @@ export const authMutationKeys = {
   login: ["auth", "login"] as const,
   signup: ["auth", "signup"] as const,
   recover: ["auth", "recover"] as const,
+  recoverVerify: ["auth", "recoverVerify"] as const,
   resetPassword: ["auth", "resetPassword"] as const,
 } as const;
 /** ################################ /COMPONENT ############################# */

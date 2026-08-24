@@ -1,21 +1,8 @@
-/**
- * CompetitionFilterContext
- * Manages active category filter and search query state.
- */
-
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
 import type { CompetitionCategory, CompetitionContextValue } from "@/modules/Competition/types";
 
-// ============================================================================
-// CONTEXT
-// ============================================================================
-
 const CompetitionFilterContext = createContext<CompetitionContextValue | undefined>(undefined);
-
-// ============================================================================
-// PROVIDER
-// ============================================================================
 
 export interface CompetitionFilterProviderProps {
   children: ReactNode;
@@ -46,10 +33,6 @@ export function CompetitionFilterProvider({
     </CompetitionFilterContext.Provider>
   );
 }
-
-// ============================================================================
-// HOOK
-// ============================================================================
 
 export function useCompetitionFilter(): CompetitionContextValue {
   const context = useContext(CompetitionFilterContext);

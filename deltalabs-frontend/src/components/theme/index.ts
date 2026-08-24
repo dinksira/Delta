@@ -44,4 +44,11 @@ export { BackButton } from "@/components/theme/BackButton";
 export type { BackButtonProps } from "@/components/theme/BackButton";
 export { AiAssistantModal } from "@/components/theme/AiAssistantModal";
 export type { AiAssistantModalProps } from "@/components/theme/AiAssistantModal";
+export {
+  DOCUMENT_BLOCK_HTML,
+  DocumentEditor,
+  insertDocumentHtml,
+  runDocumentCommand,
+} from "@/components/theme/DocumentEditor";
+export type { DocumentEditorProps } from "@/components/theme/DocumentEditor";
 /** ################################ /COMPONENT ############################# */

@@ -1,205 +1,113 @@
-/** ################################ IMPORT ############################# */
-/** Imports used by this file. */
-import React, { useState, useEffect } from "react";
-import { QAPageLayout } from "../components/qa/templates/QAPageLayout";
-import { TabNav, QATabId } from "../components/qa/molecules/TabNav";
-import { SearchBar } from "../components/qa/molecules/SearchBar";
-import { cx } from "@/components/theme/utils";
-import { Typography, Button } from "@/components/theme";
-import { QuestionList } from "../components/qa/organisms/QuestionList";
-import { NotificationList } from "../components/qa/organisms/NotificationList";
-import { LiveList } from "../components/qa/organisms/LiveList";
-import { PaymentView } from "../components/qa/organisms/PaymentView";
-import { Switch } from "../components/qa/atoms/Switch";
-import { History } from "lucide-react";
-import { type SideTabId } from "../components/qa/organisms/SideNav";
-import { AskQuestionView } from "./AskQuestionView";
+"use client";
 
-/** ################################ /IMPORT ############################# */
+import React, { useState } from 'react';
+import { QADashboardLayout } from '@/components/templates/QADashboardLayout';
+import { QuestionCard } from '@/components/molecules/QuestionCard';
+import { Button, SearchInput } from '@/components/theme';
 
-/** ################################ COMPONENT ############################# */
-/** 
- * MyQuestionsPage View
- * The main container for the Q&A section.
- */
-export const MyQuestionsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<QATabId>("my-questions");
-  const [liveTab, setLiveTab] = useState<"my-live" | "community-live">("my-live");
-  const [sideTab, setSideTab] = useState<SideTabId>("my-questions");
-  const [isOnline, setIsOnline] = useState(true);
-  const [isAskingQuestion, setIsAskingQuestion] = useState(false);
-  
-  // Reset scroll when switching sub-tabs (Bookmark, Notification, etc)
-  useEffect(() => {
-    const container = document.querySelector('main.overflow-y-auto');
-    if (container) {
-      container.scrollTop = 0;
-    }
-  }, [sideTab, activeTab, isAskingQuestion]);
-
-  const isBookmark = sideTab === "bookmark";
-  const isNotification = sideTab === "notification";
-  const isLive = sideTab === "live";
-  const isPayment = sideTab === "payment";
-  const isCommunity = sideTab === "community";
-  const isNetwork = sideTab === "network";
-
-  const [networkTab, setNetworkTab] = useState<"my" | "community" | "schools">("my");
-
-  if (isAskingQuestion) {
-    return (
-      <QAPageLayout activeSideTab={sideTab} onSideTabChange={setSideTab}>
-        <AskQuestionView 
-          onBack={() => setIsAskingQuestion(false)} 
-          onNext={(data) => {
-            console.log("Next clicked with data:", data);
-            setIsAskingQuestion(false);
-          }} 
-        />
-      </QAPageLayout>
-    );
+const MOCK_QUESTIONS = [
+  {
+    id: 'q1',
+    title: 'How do I implement custom hooks in React with TypeScript?',
+    excerpt: 'I am trying to abstract some of my component logic into a custom hook but struggling with the generic types...',
+    author: { name: 'Alice Smith', avatarUrl: '' },
+    tags: ['react', 'typescript', 'hooks'],
+    upvotes: 12,
+    answersCount: 2,
+    createdAt: '2 hours ago',
+    isResolved: false,
+    isBookmarked: true,
+  },
+  {
+    id: 'q2',
+    title: 'What is the best way to handle state in Next.js 13?',
+    excerpt: 'With server components becoming the default, should I still use Redux or switch to Context/Zustand?',
+    author: { name: 'Bob Johnson', avatarUrl: '' },
+    tags: ['nextjs', 'state-management'],
+    upvotes: 45,
+    answersCount: 8,
+    createdAt: '1 day ago',
+    isResolved: true,
+    isBookmarked: false,
   }
+];
+
+export const MyQuestionsPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'my' | 'community' | 'school' | 'live'>('my');
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <QAPageLayout activeSideTab={sideTab} onSideTabChange={setSideTab}>
-      <div className="sticky top-0 z-40 bg-white -mx-8 px-8">
-        {isPayment ? (
-          <div className="flex items-center justify-between border-b border-border-subtle w-full px-1">
-            <div className="relative py-4 text-[15px] font-black text-primary-900 uppercase tracking-tight">
-              Payment Management
-              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />
-            </div>
-            <button className="flex items-center gap-2 text-text-tertiary hover:text-primary-600 transition-colors">
-              <span className="text-[13px] font-bold uppercase tracking-widest">History</span>
-              <History size={18} />
-            </button>
+    <QADashboardLayout
+      header={
+        <div className="flex justify-between items-end">
+          <div>
+            <h1 className="text-3xl font-bold text-text-primary mb-2">Q&A Dashboard</h1>
+            <p className="text-text-secondary">Manage your questions, find answers, and help the community.</p>
           </div>
-        ) : isLive ? (
-          <div className="flex items-center justify-between border-b border-border-subtle w-full px-1">
-            <div className="flex items-center gap-12">
-              <button 
-                onClick={() => setLiveTab("my-live")}
-                className={cx(
-                  "relative py-4 text-[15px] font-black uppercase tracking-tight transition-all",
-                  liveTab === "my-live" ? "text-primary-900" : "text-text-tertiary"
-                )}
-              >
-                My Live
-                {liveTab === "my-live" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />}
-              </button>
-              <button 
-                onClick={() => setLiveTab("community-live")}
-                className={cx(
-                  "relative py-4 text-[15px] font-black uppercase tracking-tight transition-all",
-                  liveTab === "community-live" ? "text-primary-900" : "text-text-tertiary"
-                )}
-              >
-                Community Live
-                {liveTab === "community-live" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />}
-              </button>
-            </div>
-            <Button 
-              onClick={() => setIsAskingQuestion(true)}
-              className="h-10 px-6 rounded-lg !bg-primary-900 !text-white border-none font-bold text-sm shadow-md transition-all active:scale-95"
-            >
-              Create Question
-            </Button>
-          </div>
-        ) : (isBookmark || isNotification) ? (
-          <div className="flex items-center border-b border-border-subtle w-full px-1">
-            <button className="relative py-4 text-[15px] font-black text-primary-900 uppercase tracking-tight">
-              {isBookmark ? "Bookmark" : "Notification"}
-              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />
-            </button>
-          </div>
-        ) : isCommunity ? (
-          <div className="relative flex items-center justify-between w-full px-1 border-b border-border-subtle">
-            <div className="relative py-4 text-[15px] font-black text-primary-900 uppercase tracking-tight">
-              Community Wiki
-              <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />
-            </div>
-            <Button 
-              onClick={() => setIsAskingQuestion(true)}
-              className="h-10 px-6 rounded-xl !bg-primary-900 !text-white border-none font-bold text-[13px] shadow-lg shadow-primary-900/10 transition-all"
-            >
-              Ask Question
-            </Button>
-          </div>
-        ) : isNetwork ? (
-          <div className="flex items-center justify-between border-b border-border-subtle w-full px-1">
-            <div className="flex items-center gap-12">
-              <button 
-                onClick={() => setNetworkTab("my")}
-                className={cx(
-                  "relative py-4 text-[15px] font-black uppercase tracking-tight transition-all",
-                  networkTab === "my" ? "text-primary-900" : "text-text-tertiary"
-                )}
-              >
-                My Questions
-                {networkTab === "my" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />}
-              </button>
-              <button 
-                onClick={() => setNetworkTab("community")}
-                className={cx(
-                  "relative py-4 text-[15px] font-black uppercase tracking-tight transition-all",
-                  networkTab === "community" ? "text-primary-900" : "text-text-tertiary"
-                )}
-              >
-                Community Questions
-                {networkTab === "community" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />}
-              </button>
-              <button 
-                onClick={() => setNetworkTab("schools")}
-                className={cx(
-                  "relative py-4 text-[15px] font-black uppercase tracking-tight transition-all",
-                  networkTab === "schools" ? "text-primary-900" : "text-text-tertiary"
-                )}
-              >
-                Schools
-                {networkTab === "schools" && <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-primary-600 rounded-t-full" />}
-              </button>
-            </div>
-            <Button 
-              onClick={() => setIsAskingQuestion(true)}
-              className="h-10 px-6 rounded-xl !bg-primary-900 !text-white border-none font-bold text-[13px] shadow-lg shadow-primary-900/10 transition-all"
-            >
-              Ask Question
-            </Button>
-          </div>
-        ) : (
-          <TabNav 
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-            onAskQuestion={() => setIsAskingQuestion(true)} 
-          />
-        )}
-      </div>
-
-      {isPayment ? (
-        <PaymentView />
-      ) : isLive ? (
-        <div className="flex flex-col">
-          <div className="flex items-center gap-3 py-6">
-            <Switch checked={isOnline} onChange={setIsOnline} />
-            <Typography className="text-[14px] font-black text-text-primary uppercase tracking-tighter">
-              Available online
-            </Typography>
-          </div>
-          <LiveList />
+          <Button variant="primary" size="lg">Ask a Question</Button>
         </div>
-      ) : isNotification ? (
-        <NotificationList />
-      ) : (
-        <>
-          <SearchBar />
-          <QuestionList 
-            defaultExpandedAll={activeTab === "my-answers" && !isBookmark} 
-            isBookmarkedView={isBookmark}
-          />
-        </>
-      )}
-    </QAPageLayout>
+      }
+      tabs={
+        <nav className="flex gap-8 border-b border-border-default pt-6">
+          {[
+            { id: 'my', label: 'My Questions' },
+            { id: 'community', label: 'Community' },
+            { id: 'school', label: 'School' },
+            { id: 'live', label: 'Live Q&A' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`pb-4 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-text-secondary hover:text-text-primary hover:border-border-default'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      }
+      filters={
+        <div className="flex gap-4 items-center">
+          <div className="w-96">
+            <SearchInput 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search questions..."
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm">Unresolved</Button>
+            <Button variant="secondary" size="sm">Bounties</Button>
+            <Button variant="secondary" size="sm">Bookmarked</Button>
+          </div>
+        </div>
+      }
+      content={
+        <div className="space-y-4">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-text-primary">
+              {activeTab === 'my' && 'Questions You Asked'}
+              {activeTab === 'community' && 'Latest Community Questions'}
+              {activeTab === 'school' && 'School Knowledge Base'}
+              {activeTab === 'live' && 'Active Live Sessions'}
+            </h2>
+            <select className="bg-transparent border-none text-sm text-text-secondary cursor-pointer outline-none">
+              <option>Newest first</option>
+              <option>Most voted</option>
+              <option>Unanswered</option>
+            </select>
+          </div>
+
+          <div className="grid gap-4">
+            {MOCK_QUESTIONS.map(q => (
+              <QuestionCard key={q.id} {...q} />
+            ))}
+          </div>
+        </div>
+      }
+    />
   );
 };
-
-/** ################################ /COMPONENT ############################# */

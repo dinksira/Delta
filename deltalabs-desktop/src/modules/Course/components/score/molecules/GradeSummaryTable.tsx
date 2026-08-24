@@ -3,7 +3,6 @@
 /** GradeSummaryTable Molecule: Displays assignment breakdown and weightage. */
 import React from "react";
 import { Typography } from "@/components/theme";
-import { cx } from "@/components/theme/utils";
 
 interface GradeRow {
   type: string;

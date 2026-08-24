@@ -4,8 +4,7 @@
 /** Imports used by this file. */
 import { useEffect, useState } from "react";
 
-import { Typography } from "@/components/theme";
-import { cx } from "@/components/theme/utils";
+import { Typography, cx } from "@/components/features/feed/primitives";
 import type {
   FeedClipFilterSelection,
   FeedContentModality,

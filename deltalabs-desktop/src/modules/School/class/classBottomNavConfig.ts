@@ -80,10 +80,12 @@ export const CLASS_START_TILES: readonly ClassStartTile[] = [
   { key: "assignment", label: "Assignment", navId: "assignment" },
 ] as const;
 
+/** Nav ids already shown on the fixed bottom bar (seven tabs + swappable last slot). */
 export function bottomBarNavIds(lastSlot: StoredLastNavSlot): ReadonlySet<ClassNavId> {
   return new Set<ClassNavId>([...CLASS_FIXED_NAV_IDS, lastSlot.navId]);
 }
 
+/** Start menu tiles — only items whose `navId` is not already on the bottom bar. */
 export function startMenuTiles(lastSlot: StoredLastNavSlot): readonly ClassStartTile[] {
   const onBar = bottomBarNavIds(lastSlot);
   return CLASS_START_TILES.filter((tile) => !onBar.has(tile.navId));
@@ -185,6 +187,7 @@ export function isBuiltClassNavSection(navId: ClassNavId): boolean {
     navId === "teacher" ||
     navId === "schedules" ||
     navId === "grade" ||
-    navId === "assignment"
+    navId === "assignment" ||
+    navId === "roadmap"
   );
 }

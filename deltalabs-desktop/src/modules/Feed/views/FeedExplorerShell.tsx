@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { useCallback, useId, useState } from "react";
 
 import { FeedFilterPanel, FeedSearchInput } from "@/components/features/feed";
-import { cx } from "@/components/theme/utils";
+import { cx } from "@/components/features/feed/primitives";
 /** ################################ /IMPORT ############################# */
 
 /** ################################ TYPES ############################# */

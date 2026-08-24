@@ -4,7 +4,6 @@
 import React from "react";
 import { SupplementLayout } from "../components/supplement/templates/SupplementLayout";
 import { ResourceLobby } from "../components/supplement/organisms/ResourceLobby";
-import { Typography } from "@/components/theme";
 
 export const SupplementView: React.FC = () => {
   return (

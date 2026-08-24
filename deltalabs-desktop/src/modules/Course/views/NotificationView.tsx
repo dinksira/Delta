@@ -57,7 +57,7 @@ export const NotificationView: React.FC<NotificationViewProps> = ({
       }
       header={
         <div className="flex items-center justify-between">
-          <Typography variant="h1" className="text-[32px] font-bold text-[#174A5F]">
+          <Typography variant="h1" className="text-[32px] font-bold text-text-primary">
             Notification
           </Typography>
         </div>

@@ -18,6 +18,10 @@ import type { AnchorHTMLAttributes, ReactNode } from 'react';
 export interface LinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string;
   children: ReactNode;
+  /** Accepted for Next.js parity; no-op in the desktop (everything is local). */
+  prefetch?: boolean;
+  /** Accepted for Next.js parity; no-op in the desktop. */
+  replace?: boolean;
 }
 
 // ============================================================================
@@ -29,6 +33,9 @@ export const Link: React.FC<LinkProps> = ({
   children,
   className = '',
   onClick,
+  replace = false,
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  prefetch,
   ...props
 }) => {
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>): void => {
@@ -45,7 +52,12 @@ export const Link: React.FC<LinkProps> = ({
     event.preventDefault();
     
     // Set hash state to trigger routers or load page locally
-    window.location.hash = href;
+    if (replace) {
+      window.history.replaceState(null, '', `#${href}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    } else {
+      window.location.hash = href;
+    }
   };
 
   return (

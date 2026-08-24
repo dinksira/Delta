@@ -4,7 +4,6 @@
 import React from "react";
 import { Typography } from "@/components/theme";
 import { Clock, Trophy, Monitor, Info, ExternalLink, TrendingUp } from "lucide-react";
-import { cx } from "@/components/theme/utils";
 
 export const ProgressCircleStat: React.FC = () => {
   const stats = [

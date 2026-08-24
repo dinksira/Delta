@@ -12,14 +12,16 @@ export function ClassPageHeader({
   onBack,
   loading,
   wrongType,
+  compact,
 }: Readonly<{
   title: string;
   onBack: () => void;
   loading: boolean;
   wrongType: boolean;
+  compact?: boolean;
 }>) {
   return (
-    <header className="mb-7 sm:mb-9">
+    <header className={[compact ? "mb-3 sm:mb-4" : "mb-7 sm:mb-9", "shrink-0"].join(" ")}>
       <div className="flex flex-nowrap items-center justify-between gap-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
           <button

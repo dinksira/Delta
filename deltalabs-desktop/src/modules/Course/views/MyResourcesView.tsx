@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { Search, SlidersHorizontal, Plus } from 'lucide-react';
 import { Typography } from '@/components/theme';
@@ -82,11 +84,11 @@ export const MyResourcesView: React.FC<MyResourcesViewProps> = ({
       }
       header={
         <div className="flex items-center justify-between">
-          <Typography variant="h1" className="text-[32px] font-bold text-[#174A5F]">
+          <Typography variant="h1" className="text-[32px] font-bold text-text-primary">
             My resources
           </Typography>
 
-          <button className="h-[44px] px-6 bg-[#174A5F] rounded-lg text-white font-bold text-sm flex items-center gap-2 hover:bg-[#133e50] transition-all shadow-md">
+          <button className="h-[44px] px-6 bg-primary-900 rounded-lg text-white font-bold text-sm flex items-center gap-2 hover:brightness-110 transition-all shadow-md">
             <Plus className="h-5 w-5 border-2 border-white rounded-full p-0.5" />
             Add Resource
           </button>
@@ -96,24 +98,24 @@ export const MyResourcesView: React.FC<MyResourcesViewProps> = ({
       <div className="space-y-10">
         {/* Search */}
         <div className="flex justify-center pt-2">
-          <div className="w-full max-w-[520px] h-12 bg-[#F8FAFC] border border-[#174A5F]/10 rounded-xl flex items-center overflow-hidden focus-within:border-[#174A5F]/30 transition-all">
+          <div className="w-full max-w-[520px] h-12 bg-surface-primary border border-border-subtle rounded-xl flex items-center overflow-hidden focus-within:border-primary-900 transition-all">
             <div className="px-4">
-              <Search className="h-5 w-5 text-[#174A5F]/40" />
+              <Search className="h-5 w-5 text-text-secondary" />
             </div>
             <input 
               type="text" 
               placeholder="Search" 
-              className="flex-1 h-full bg-transparent outline-none text-[15px] text-[#174A5F] placeholder:text-[#174A5F]/30"
+              className="flex-1 h-full bg-transparent outline-none text-[15px] text-text-primary placeholder:text-text-secondary"
             />
-            <div className="h-full w-px bg-[#174A5F]/10" />
-            <button className="px-4 h-full hover:bg-[#174A5F]/5 transition-colors">
-              <SlidersHorizontal className="h-5 w-5 text-[#174A5F]" />
+            <div className="h-full w-px bg-border-subtle" />
+            <button className="px-4 h-full hover:bg-surface-secondary transition-colors">
+              <SlidersHorizontal className="h-5 w-5 text-primary-900" />
             </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-12 border-b border-border-default/50 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-12 border-b border-border-subtle/50 overflow-x-auto no-scrollbar">
           {[
             { id: 'my-resources', label: 'My Resources' },
             { id: 'used', label: 'Used' },
@@ -128,12 +130,12 @@ export const MyResourcesView: React.FC<MyResourcesViewProps> = ({
               onClick={() => setActiveTab(tab.id as MyResourceTab)}
               className={cx(
                 "pb-4 text-sm font-bold transition-all relative whitespace-nowrap",
-                activeTab === tab.id ? "text-[#174A5F]" : "text-[#64748B] hover:text-[#174A5F]"
+                activeTab === tab.id ? "text-primary-900" : "text-text-secondary hover:text-text-primary"
               )}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#174A5F]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-900" />
               )}
             </button>
           ))}

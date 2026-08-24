@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Inbox } from "lucide-react";
 
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { SchoolBodySearch } from "@/components/features/school/SchoolBodySearch";
 import { SchoolConfirmActionModal } from "@/components/features/school/master/SchoolConfirmActionModal";
@@ -14,6 +15,11 @@ import { SchoolOfferDetailsDrawer } from "@/components/features/school/master/Sc
 import { SchoolOffersTable } from "@/components/features/school/master/SchoolOffersTable";
 import { SchoolStatePanel } from "@/components/features/school/master/SchoolStatePanel";
 import { SchoolWorkspaceHeader } from "@/components/features/school/layout/SchoolWorkspaceHeader";
+import { useWorkspaceTabHref } from "@/modules/Features/hooks/useWorkspaceTabHref";
+import {
+  getWorkspaceTabId,
+  preserveWorkspaceTabId,
+} from "@/modules/Features/featureWorkspaceTabs";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { cx } from "@/components/theme/utils";
 import {
@@ -51,6 +57,14 @@ type SchoolOffersViewProps = Readonly<{
 /** Offers — status tabs, search, and queue table (design shell). */
 export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
   const { isReady, isAuthenticated, session } = useAuthSession();
+  const searchParams = useSearchParams();
+  const workspaceTabId = getWorkspaceTabId(searchParams);
+  const addSchoolHref = useWorkspaceTabHref("/features/school/create");
+  const offersHref = (nextStatus: OfferStatus, nextView: OfferView) =>
+    preserveWorkspaceTabId(
+      `/features/school/offers?status=${nextStatus}&view=${nextView}`,
+      workspaceTabId,
+    );
   const enabled = isReady && isAuthenticated;
   const queryClient = useQueryClient();
   const { activeOrgId } = useSchoolActiveOrgId();
@@ -169,7 +183,7 @@ export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
 
   return (
     <>
-      <SchoolWorkspaceHeader title="Offers" addSchoolHref="/features/school/create" />
+      <SchoolWorkspaceHeader title="Offers" addSchoolHref={addSchoolHref} />
       <div className="bg-surface-canvas py-4">
         <p className="mb-3 text-sm text-text-secondary">
           Offers is the core negotiation module for partner ownership invites and direct offer exchanges. Marketplace bids
@@ -181,7 +195,7 @@ export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
             { key: "sent", label: "Sent offers" },
           ] as const).map((entry) => {
             const active = view === entry.key;
-            const href = `/features/school/offers?status=${status}&view=${entry.key}`;
+            const href = offersHref(status, entry.key);
             return (
               <Link
                 key={entry.key}
@@ -199,7 +213,7 @@ export function SchoolOffersView({ status, view }: SchoolOffersViewProps) {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <nav className="flex min-w-0 flex-1 flex-wrap gap-x-6 gap-y-2" aria-label="Offer status">
             {tabs.map((tab) => {
-              const href = `/features/school/offers?status=${tab.status}&view=${view}`;
+              const href = offersHref(tab.status, view);
               const active = tab.status === status;
               return (
                 <Link

@@ -70,7 +70,7 @@ function createMainWindow() {
       sandbox: false, // Required for some remote URL bridge integrations
     },
     backgroundColor: "#FFFFFF",
-    icon: path.join(app.getAppPath(), "..", "deltalabs-frontend", "public", "delta-logo.png"),
+    icon: path.join(app.getAppPath(), "dist", "out", "delta-logo.png"),
   });
 
   // Load the application

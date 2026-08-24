@@ -1,6 +1,6 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
-import { Typography } from "@/components/theme";
+import { Typography } from "@/components/features/feed/primitives";
 
 /** ################################ /IMPORT ############################# */
 /** ################################ TYPES ############################# */

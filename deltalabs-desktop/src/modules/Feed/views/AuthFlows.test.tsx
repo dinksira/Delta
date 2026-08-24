@@ -123,7 +123,7 @@ describe("Auth flow views", () => {
     });
   });
 
-  it("handles recover->reset->done transitions and password mismatch", async () => {
+  it("handles recover->verify->reset->done transitions and password mismatch", async () => {
     renderWithAppProviders(<RecoverPageView />);
 
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
@@ -135,18 +135,20 @@ describe("Auth flow views", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          "If an account exists for this email or phone, a verification code was sent.",
-        ),
-      ).toBeInTheDocument();
-      expect(screen.getByText("Reset your password")).toBeInTheDocument();
+      expect(screen.getByText("Enter verification code")).toBeInTheDocument();
+      expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
     });
 
     "123456".split("").forEach((digit, index) => {
       fireEvent.change(screen.getByLabelText(`Digit ${index + 1} of 6`), {
         target: { value: digit },
       });
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify code" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Reset your password")).toBeInTheDocument();
+      expect(screen.getByLabelText("New password")).toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText("New password"), {
@@ -160,6 +162,9 @@ describe("Auth flow views", () => {
     await waitFor(() => {
       expect(screen.getByText("Passwords do not match.")).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByLabelText("Back"));
+    expect(screen.getByText("Enter verification code")).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Back"));
     expect(screen.getByText("Recover your account")).toBeInTheDocument();

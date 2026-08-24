@@ -17,6 +17,7 @@ import { Button, DialogOverlay, DialogPanel, Field, Input, Select, Table, Typogr
 import type { TableColumn } from "@/components/theme";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { cx } from "@/components/theme/utils";
+import { useWorkspaceTabNavigation } from "@/modules/Features/hooks/useWorkspaceTabNavigation";
 import { ApiError } from "@/lib/apiClient";
 import {
   bidSchoolMarketplaceItem,
@@ -64,6 +65,7 @@ type SchoolMarketplaceViewProps = Readonly<{
 /** School Buy/Sell — marketplace tabs + cards (design shell). */
 export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
   const router = useRouter();
+  const { push: pushWithWorkspace } = useWorkspaceTabNavigation();
   const pathname = usePathname();
   const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
   const { isReady, isAuthenticated, session } = useAuthSession();
@@ -943,7 +945,7 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
                           setWithdrawBidOffer(myBid);
                           return;
                         }
-                        router.push(`/features/school/marketplace/${listingId}`);
+                        pushWithWorkspace(`/features/school/marketplace/${listingId}`);
                         return;
                       }
                       if (buyListingMutation.isPending || bidListingMutation.isPending) return;
@@ -952,7 +954,7 @@ export function SchoolMarketplaceView({ view }: SchoolMarketplaceViewProps) {
                     }}
                     onDetailsAction={(listingId) => {
                       if (!listingId) return;
-                      router.push(`/features/school/marketplace/${listingId}`);
+                      pushWithWorkspace(`/features/school/marketplace/${listingId}`);
                     }}
                     onEditAction={
                       isOwnedBySessionUser || view === "listings"

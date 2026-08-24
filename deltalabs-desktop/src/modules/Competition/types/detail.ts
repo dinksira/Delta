@@ -1,27 +1,23 @@
-/**
- * Competition detail types
- */
-
-export interface CompetitionPrize {
-  place: string;
-  amount: string;
-  description: string;
-}
-
-export interface CompetitionTimelineStep {
-  title: string;
-  dateRange: string;
-  description: string;
-}
-
 export interface CompetitionDetail {
   id: string;
   title: string;
-  bannerImageUrl: string;
-  heroTitle: string;
-  heroSubtitle: string;
-  deadline: string;
-  overview: string;
+  description: string;
+  endsAt: string;
+  participants: number;
+  tags: string[];
+  backgroundImageUrl: string;
+  rules: string[];
   prizes: CompetitionPrize[];
   timeline: CompetitionTimelineStep[];
+}
+
+export interface CompetitionPrize {
+  rank: string;
+  reward: string;
+}
+
+export interface CompetitionTimelineStep {
+  label: string;
+  date: string;
+  description: string;
 }

@@ -30,10 +30,8 @@ function GlobeIcon({ className }: Readonly<{ className?: string }>) {
 const utilityGlyphClass = "size-8 shrink-0";
 
 type NavLanguageControlProps = Readonly<{
-  /** `onPrimary`: teal header. `surface`: light modal / cards (bordered control). */
+  /** `onPrimary`: teal header (white glyphs). `surface`: light modal / cards (bordered control). */
   tone?: "onPrimary" | "surface";
-  /** Teal header rail (white glyphs). */
-  tone?: "onPrimary";
 }>;
 
 /** Header language picker: opens a menu and persists choice to `localStorage`. */

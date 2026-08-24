@@ -22,9 +22,18 @@ import {
   ClassSessionCard,
   ClassSessionSection,
   ClassSessionsEmptyState,
+  ClassStudentsTablePanel,
+  ClassParentsTablePanel,
+  ClassTeachersTablePanel,
+  ClassGradesTablePanel,
+  ClassScheduleTablePanel,
+  ClassAssignmentsTablePanel,
+  ClassRoadmapPanel,
+  ClassAttendancePanel,
   safeClassReturnHref,
   userCanManageSchoolClassWorkspace,
 } from "@/modules/School/class";
+import { isBuiltClassNavSection, type ClassNavId } from "@/modules/School/class/classBottomNavConfig";
 import { schoolQueryKeys } from "@/modules/School/hooks/schoolQueryKeys";
 import { useSchoolActiveOrgId } from "@/modules/School/hooks/useSchoolActiveOrgId";
 /** ################################ /IMPORT ############################# */
@@ -61,7 +70,16 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
     [cleanSchoolId, cleanClassId, searchParams],
   );
   const bottomNavSection = searchParams.get("nav");
+  const navSectionId = bottomNavSection?.trim() || "class";
   const showClassSessions = !bottomNavSection || bottomNavSection === "class";
+  const showClassStudents = bottomNavSection === "students";
+  const showClassParents = bottomNavSection === "parents";
+  const showClassAttendance = bottomNavSection === "attendance";
+  const showClassTeachers = bottomNavSection === "teacher";
+  const showClassGrades = bottomNavSection === "grade";
+  const showClassSchedules = bottomNavSection === "schedules";
+  const showClassAssignments = bottomNavSection === "assignment";
+  const showClassRoadmap = bottomNavSection === "roadmap";
 
   const schoolMembership = mySchools.find((row) => row.schoolId === cleanSchoolId) ?? null;
   const activeOrgId = schoolMembership?.orgId ?? null;
@@ -73,7 +91,11 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
     staleTime: 30_000,
     retry: false,
   });
-  const canMutate = userCanManageSchoolClassWorkspace(orgAccessQuery.data?.permissions);
+  const canMutate = userCanManageSchoolClassWorkspace(
+    orgAccessQuery.data?.permissions,
+    orgAccessQuery.data?.roleKeys,
+    schoolMembership?.roleKeys,
+  );
   const accessPending = orgAccessQuery.isPending;
 
   const classItemQuery = useQuery({
@@ -149,6 +171,9 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
       void queryClient.invalidateQueries({
         queryKey: schoolQueryKeys.classSessions(activeOrgId, cleanSchoolId, cleanClassId),
       });
+      void queryClient.invalidateQueries({
+        queryKey: schoolQueryKeys.classAttendance(activeOrgId, cleanSchoolId, cleanClassId),
+      });
     },
     onError: (e) => {
       if (e instanceof ApiError) {
@@ -200,11 +225,15 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
   const headerTitle = wrongType ? "Class" : (classItemQuery.data?.title ?? "Class");
 
   return (
-    <main className="min-h-0" aria-label="Class workspace">
+    <main
+      className={showClassRoadmap ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "min-h-0"}
+      aria-label="Class workspace"
+    >
       <ClassPageHeader
         title={headerTitle}
         loading={pageLoading}
         wrongType={wrongType}
+        compact={showClassRoadmap}
         onBack={() => router.push(returnHref)}
       />
 
@@ -214,7 +243,7 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
         <p className="text-sm leading-relaxed text-text-secondary">
           This workspace item is not a class. Open it from the school workspace.
         </p>
-      ) : !showClassSessions ? (
+      ) : !isBuiltClassNavSection(navSectionId as ClassNavId) ? (
         <div
           className="flex min-h-[22rem] flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-surface-muted/20 px-6 py-16 text-center"
           role="status"
@@ -226,6 +255,123 @@ export function SchoolClassDetailView({ schoolId, classItemId }: SchoolClassDeta
             sessions.
           </p>
         </div>
+      ) : showClassRoadmap ? (
+        activeOrgId ? (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ClassRoadmapPanel
+              orgId={activeOrgId}
+              schoolId={cleanSchoolId}
+              classItemId={cleanClassId}
+              classMetadata={classItemQuery.data?.metadata ?? null}
+              canMutate={canMutate && !accessPending}
+            />
+          </div>
+        ) : null
+      ) : showClassAssignments ? (
+        activeOrgId ? (
+          <ClassAssignmentsTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassSchedules ? (
+        activeOrgId ? (
+          <ClassScheduleTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassGrades ? (
+        activeOrgId ? (
+          <ClassGradesTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassTeachers ? (
+        activeOrgId ? (
+          <ClassTeachersTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassAttendance ? (
+        activeOrgId ? (
+          <ClassAttendancePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassParents ? (
+        activeOrgId ? (
+          <ClassParentsTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
+      ) : showClassStudents ? (
+        activeOrgId ? (
+          <ClassStudentsTablePanel
+            orgId={activeOrgId}
+            schoolId={cleanSchoolId}
+            classItemId={cleanClassId}
+            classMetadata={classItemQuery.data?.metadata ?? null}
+            canMutate={canMutate && !accessPending}
+            onBootstrapped={() => {
+              void queryClient.invalidateQueries({
+                queryKey: schoolQueryKeys.workspaceItem(activeOrgId, cleanSchoolId, cleanClassId),
+              });
+            }}
+          />
+        ) : null
       ) : (
         <ClassSessionSection
           title="Class Session"

@@ -1,3 +1,5 @@
+"use client";
+
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import React, { useState, useEffect } from "react";
@@ -9,7 +11,6 @@ import { FriendsLobby } from "../components/exercise/organisms/FriendsLobby";
 import { CommunityHeader, type CommunityTabId } from "../components/exercise/organisms/CommunityHeader";
 import { CommunityExerciseCard } from "../components/exercise/molecules/CommunityExerciseCard";
 import { PaginationControl } from "../components/exercise/molecules/PaginationControl";
-import { cx } from "@/components/theme/utils";
 import { HistoryLobby } from "../components/exercise/organisms/HistoryLobby";
 import { TutorLobby } from "../components/exercise/organisms/TutorLobby";
 import { NotificationList } from "../components/exercise/organisms/NotificationList";

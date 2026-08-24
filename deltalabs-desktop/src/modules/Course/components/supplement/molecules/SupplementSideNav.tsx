@@ -4,7 +4,6 @@
 import React from "react";
 import { BookOpen, User, History } from "lucide-react";
 import { cx } from "@/components/theme/utils";
-import { Typography } from "@/components/theme";
 
 export type SupplementNavId = "supplements" | "personal" | "history";
 

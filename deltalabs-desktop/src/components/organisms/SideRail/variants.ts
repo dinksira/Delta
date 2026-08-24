@@ -7,7 +7,7 @@
 // ============================================================================
 
 export const sideRailClasses = {
-  container: "flex h-full flex-col bg-surface-primary border-r border-border-primary transition-all duration-300",
+  container: "flex h-full flex-col bg-surface-default border-r border-border-default transition-all duration-300",
   expanded: "w-64",
   collapsed: "w-20",
   item: {

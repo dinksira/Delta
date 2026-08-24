@@ -19,5 +19,6 @@ export const feedQueryKeys = {
   telemetrySummary: (hours: number | undefined) =>
     [...feedQueryKeys.all, "telemetry-summary", hours ?? "all"] as const,
   workerHealth: () => [...feedQueryKeys.all, "worker-health"] as const,
+  customTab: (userId: string) => [...feedQueryKeys.all, "custom-tab", userId] as const,
 } as const;
 /** ################################ /COMPONENT ############################# */

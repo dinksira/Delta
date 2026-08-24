@@ -1,9 +1,5 @@
-/**
- * Competition context
- * Module UI context (Reducer + Context).
- */
-
+export { CompetitionFilterProvider, useCompetitionFilter } from "./CompetitionFilterContext";
 export {
-  CompetitionFilterProvider,
-  useCompetitionFilter,
-} from "./CompetitionFilterContext";
+  CreateBattleWizardProvider,
+  useCreateBattleWizard,
+} from "./CreateBattleWizardContext";

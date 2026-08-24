@@ -35,9 +35,16 @@ export interface SearchPillProps {
   filterOptions?: SearchPillOption[];
   /** Placeholder text for the input */
   placeholder?: string;
+  /** Input height: `"sm"` (40px) for compact rows, `"md"` (48px) default */
+  size?: "sm" | "md";
   /** Optional additional classes */
   className?: string;
 }
+
+const inputSizeClasses: Record<NonNullable<SearchPillProps["size"]>, string> = {
+  sm: "h-10 text-sm",
+  md: "h-12 text-base",
+};
 
 // ============================================================================
 // COMPONENT
@@ -50,6 +57,7 @@ export const SearchPill: React.FC<SearchPillProps> = ({
   onFilterChange,
   filterOptions = [],
   placeholder = "Search...",
+  size = "md",
   className
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -70,28 +78,31 @@ export const SearchPill: React.FC<SearchPillProps> = ({
 
   return (
     <div className={cn("w-full max-w-2xl relative group", className)} ref={dropdownRef}>
-      <input 
-        type="text" 
+      <input
+        type="text"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-12 pl-6 pr-32 rounded-full border border-slate-200 bg-white text-base text-text-primary outline-none transition-all focus:border-primary-600 focus:ring-4 focus:ring-primary-600/5 placeholder:text-slate-400"
+        className={cn(
+          "w-full pl-6 pr-44 rounded-full border border-border-default bg-surface-default text-text-primary outline-none transition-all focus:border-primary-600 focus:ring-4 focus:ring-primary-600/5 placeholder:text-text-tertiary",
+          inputSizeClasses[size]
+        )}
       />
-      
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-3 text-slate-500">
-        <Search 
-          size={18} 
-          className="cursor-pointer hover:text-primary-600 transition-colors" 
+
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2.5 text-text-secondary">
+        <Search
+          size={18}
+          className="cursor-pointer hover:text-primary-600 transition-colors"
         />
-        
-        <div className="w-[1px] h-4 bg-slate-200" />
-        
+
+        <div className="w-px h-4 bg-border-default" />
+
         {/* Filter Toggle */}
-        <button 
+        <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className={cn(
             "flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors hover:text-primary-600",
-            isDropdownOpen && "text-primary-600 bg-slate-50"
+            isDropdownOpen && "text-primary-600 bg-surface-muted"
           )}
           aria-label="Filter"
         >
@@ -99,7 +110,7 @@ export const SearchPill: React.FC<SearchPillProps> = ({
             <path d="M3 4.5H15M5.25 9H12.75M7.5 13.5H10.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           {activeOption && (
-            <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">
+            <span className="max-w-28 truncate text-xs font-bold whitespace-nowrap hidden sm:inline">
               {activeOption.label}
             </span>
           )}
@@ -107,7 +118,7 @@ export const SearchPill: React.FC<SearchPillProps> = ({
 
         {/* Dropdown Menu */}
         {isDropdownOpen && filterOptions.length > 0 && (
-          <div className="absolute top-full right-0 mt-2 w-48 rounded-xl border border-slate-200 bg-white shadow-lg py-2 z-50 animate-in fade-in zoom-in duration-200">
+          <div className="absolute top-full right-0 mt-2 w-48 rounded-xl border border-border-default bg-surface-default shadow-lg py-2 z-50 animate-in fade-in zoom-in duration-200">
             {filterOptions.map((option) => (
               <button
                 key={option.value}
@@ -116,7 +127,7 @@ export const SearchPill: React.FC<SearchPillProps> = ({
                   setIsDropdownOpen(false);
                 }}
                 className={cn(
-                  "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-slate-50",
+                  "w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-surface-muted",
                   activeFilter === option.value ? "text-primary-600 font-bold bg-primary-50/30" : "text-text-secondary"
                 )}
               >

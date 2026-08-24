@@ -1,3 +1,5 @@
+"use client";
+
 /** ################################ COMPONENT ############################# */
 /** Main exported component logic for this file. */
 /** SupplementLayout Template: Main layout structure for the supplement module. */

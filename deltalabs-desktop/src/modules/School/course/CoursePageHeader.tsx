@@ -1,0 +1,64 @@
+import { ArrowLeft, BookOpen, Play } from "lucide-react";
+
+import { SchoolDetailUtilityActions } from "@/components/features/school/SchoolDetailUtilityActions";
+import { CLASS_WORKSPACE_LAYOUT } from "@/modules/School/class/layoutConstants";
+
+export function CoursePageHeader({
+  title,
+  onBack,
+  loading,
+  wrongType,
+}: Readonly<{
+  title: string;
+  onBack: () => void;
+  loading: boolean;
+  wrongType: boolean;
+}>) {
+  return (
+    <header className="mb-5 shrink-0 sm:mb-7">
+      <div className="flex flex-nowrap items-center justify-between gap-2.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-surface-default text-text-secondary transition-colors hover:bg-surface-muted sm:h-9 sm:w-9"
+            aria-label="Back to school workspace"
+          >
+            <ArrowLeft className="size-4 sm:size-[1.05rem]" aria-hidden />
+          </button>
+          <span
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-default bg-surface-default text-text-secondary sm:h-9 sm:w-9"
+            aria-hidden
+            title="Course"
+          >
+            <BookOpen className="size-3.5 sm:size-4" aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1 pr-1">
+            {loading ? (
+              <div className="h-8 w-52 max-w-full animate-pulse rounded-md bg-surface-muted sm:h-9 sm:w-72" />
+            ) : wrongType ? (
+              <h1 className="text-base font-semibold text-text-primary sm:text-lg">Not a course</h1>
+            ) : (
+              <h1 className={[CLASS_WORKSPACE_LAYOUT.pageHeaderTitleClass, "line-clamp-2 sm:line-clamp-3"].join(" ")}>
+                {title}
+              </h1>
+            )}
+          </div>
+        </div>
+        {wrongType ? null : (
+          <div className="ml-1 flex shrink-0 items-center gap-1 pl-1 sm:ml-2 sm:pl-2">
+            <SchoolDetailUtilityActions />
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border-default bg-surface-default px-2.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-muted sm:h-9 sm:px-3 sm:text-sm"
+              title="Run"
+            >
+              <Play className="size-3.5" aria-hidden />
+              Run
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}

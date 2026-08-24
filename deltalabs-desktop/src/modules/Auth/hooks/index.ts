@@ -4,6 +4,7 @@
 export {
   useLoginMutation,
   useRecoverRequestMutation,
+  useRecoverVerifyMutation,
   useResetPasswordMutation,
   useSignupMutation,
 } from "@/modules/Auth/hooks/useAuthMutations";

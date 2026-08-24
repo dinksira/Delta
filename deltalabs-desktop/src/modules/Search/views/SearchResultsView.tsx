@@ -10,7 +10,7 @@ import { X } from "lucide-react";
 import { FeedClipFilterPanel, FeedSearchInput, FeedSearchSidebar } from "@/components/features/feed";
 import { cx } from "@/components/theme/utils";
 import { feedItemDetailPath, isLikelyAudioMediaUrl } from "@/lib/feedItemRoutes";
-import { useAuthMessages } from "@/i18n/LocaleContext";
+import { useFeedMessages } from "@/i18n/LocaleContext";
 import { fetchGlobalSearch, type SearchUserHitDto } from "@/modules/Feed/api";
 import type { LandingVideoClip } from "@/modules/Feed/data/mockVideoFeed";
 import {
@@ -80,8 +80,15 @@ const AUDIO_CARD_GRADIENTS = [
   "from-rose-600 via-pink-900 to-slate-950",
 ] as const;
 
-export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) {
-  const href = feedItemDetailPath(clip);
+export function SearchVideoTile({
+  clip,
+  onSelect,
+}: Readonly<{
+  clip: LandingVideoClip;
+  /** When set, opens the clip in-place instead of navigating away (e.g. custom tab viewer). */
+  onSelect?: (clip: LandingVideoClip) => void;
+}>) {
+  const href = onSelect ? null : feedItemDetailPath(clip);
   const isAudio = clip.contentType === "audio" || isLikelyAudioMediaUrl(clip.videoSrc);
   const grad = AUDIO_CARD_GRADIENTS[Math.abs(clip.mediaTone) % AUDIO_CARD_GRADIENTS.length];
 
@@ -116,6 +123,17 @@ export function SearchVideoTile({ clip }: Readonly<{ clip: LandingVideoClip }>) 
     </article>
   );
 
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelect(clip)}
+        className="block w-full cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2"
+      >
+        {inner}
+      </button>
+    );
+  }
   if (href) {
     return (
       <Link href={href} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-300 focus-visible:ring-offset-2">
@@ -147,8 +165,8 @@ function SearchUserRow({ user }: Readonly<{ user: SearchUserHitDto }>) {
 /** ################################ COMPONENT ############################# */
 export function SearchResultsView() {
   const router = useRouter();
-  const searchParams = typeof window === "undefined" ? new URLSearchParams() : useSearchParams();
-  const browseCategories = useAuthMessages().browseCategories;
+  const searchParams = useSearchParams();
+  const browseCategories = useFeedMessages().browseCategories;
 
   const qRaw = searchParams.get("q") ?? "";
   const q = qRaw.trim();

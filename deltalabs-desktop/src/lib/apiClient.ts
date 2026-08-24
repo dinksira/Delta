@@ -1,6 +1,7 @@
 /** ################################ IMPORT ############################# */
 /** Imports used by this file. */
 import { getPublicApiBaseUrl } from "@/lib/config";
+import { buildLoginModalRedirectHref } from "@/lib/authRedirect";
 import { ApiError, type ApiRequestInit, type HttpMethod } from "@/lib/apiClient.types";
 
 /** ################################ /IMPORT ############################# */
@@ -9,9 +10,14 @@ import { ApiError, type ApiRequestInit, type HttpMethod } from "@/lib/apiClient.
 /** Main exported component logic for this file. */
 export { ApiError, type ApiRequestInit, type HttpMethod } from "@/lib/apiClient.types";
 
+const AUTH_SESSION_STORAGE_KEY = "dl.auth.session.v1";
+const AUTH_SESSION_COOKIE_NAME = "dl_session";
+
 type AccessTokenGetter = () => string | null | undefined;
 
 let accessTokenGetter: AccessTokenGetter | undefined;
+
+let authExpiryRedirectQueued = false;
 
 /**
  * Register how the client resolves bearer tokens (e.g. from `Auth_Context`).
@@ -19,6 +25,33 @@ let accessTokenGetter: AccessTokenGetter | undefined;
  */
 export function setApiAccessTokenGetter(getter: AccessTokenGetter | undefined): void {
   accessTokenGetter = getter;
+  // A fresh getter implies a new login, so allow future session-expiry redirects.
+  authExpiryRedirectQueued = false;
+}
+
+/**
+ * The backend rejected the stored session as invalid or expired. Drop it from
+ * storage, notify auth state, and bounce to the login modal so the user can
+ * sign in again instead of staring at a blank authenticated view.
+ */
+function handleInvalidSession(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+  window.document.cookie = `${AUTH_SESSION_COOKIE_NAME}=; Max-Age=0; path=/; SameSite=Lax`;
+  setApiAccessTokenGetter(undefined);
+  window.dispatchEvent(new Event("dl:auth-expired"));
+
+  if (!authExpiryRedirectQueued) {
+    authExpiryRedirectQueued = true;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = buildLoginModalRedirectHref(current);
+  }
 }
 
 function generateRequestId(): string {
@@ -161,7 +194,7 @@ async function request<T>(method: HttpMethod, path: string, init: ApiRequestInit
   let token = accessTokenGetter?.();
   if (!token && typeof window !== "undefined") {
     try {
-      const raw = localStorage.getItem("dl.auth.session.v1");
+      const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.accessToken && parsed.expiresAt > Date.now()) {
@@ -194,6 +227,10 @@ async function request<T>(method: HttpMethod, path: string, init: ApiRequestInit
   const parsed = await parseBody(res);
 
   if (!res.ok) {
+    const code = extractCodeFromBody(parsed);
+    if (res.status === 401 && (code === "invalid_session" || code === "unauthenticated") && token) {
+      handleInvalidSession();
+    }
     throw toApiError(res.status, parsed, responseRequestId);
   }
 

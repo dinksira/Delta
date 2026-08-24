@@ -73,16 +73,23 @@ export type AuthMessages = {
   };
   recover: {
     titleRequest: string;
+    titleVerify: string;
     titleReset: string;
     titleDone: string;
     subtitleRequest: string;
+    subtitleVerify: string;
     subtitleReset: string;
     subtitleDone: string;
     recover: string;
+    verifyCode: string;
     resetPassword: string;
     goToLogin: string;
     doneBody: string;
     recoverFailed: string;
+    emailDeliveryFailed: string;
+    emailNotConfigured: string;
+    noEmailOnFile: string;
+    verifyFailed: string;
     resetFailed: string;
     newPassword: string;
     newPasswordPlaceholder: string;
@@ -219,17 +226,25 @@ const en: AuthMessages = {
   },
   recover: {
     titleRequest: "Recover your account",
+    titleVerify: "Enter verification code",
     titleReset: "Reset your password",
     titleDone: "Password reset complete",
     subtitleRequest: "Learn more and do more",
+    subtitleVerify: "Enter the code we sent to your email or phone",
     subtitleReset: "Create a new secure password",
     subtitleDone: "You can now login with your new password",
     recover: "Recover",
+    verifyCode: "Verify code",
     resetPassword: "Reset password",
     goToLogin: "Go to login",
     doneBody:
       "Your password has been updated. Continue to sign in and access your account.",
     recoverFailed: "Could not send a recovery code. Please try again.",
+    emailDeliveryFailed: "Could not send the recovery email. Please try again in a few minutes.",
+    emailNotConfigured:
+      "Recovery email could not be sent because email is not configured on the server. Please contact support.",
+    noEmailOnFile: "This account has no email address on file. Contact support for help.",
+    verifyFailed: "Invalid or expired verification code.",
     resetFailed: "Could not reset your password. Please try again.",
     newPassword: "New password",
     newPasswordPlaceholder: "Create new password",
@@ -369,17 +384,24 @@ const am: AuthMessages = {
   },
   recover: {
     titleRequest: "መለያዎን ይመልሱ",
+    titleVerify: "የማረጋገጫ ኮድ ያስገቡ",
     titleReset: "የይለፍ ቃል ይቀይሩ",
     titleDone: "የይለፍ ቃል ተቀይሯል",
     subtitleRequest: "ተጨማሪ ይወቁ፣ ተጨማሪ ያድርጉ",
+    subtitleVerify: "ወደ ኢሜይልዎ ወይም ስልክዎ የላክነውን ኮድ ያስገቡ",
     subtitleReset: "አዲስ ደህንነቱ የተጠበቀ የይለፍ ቃል ይፍጠሩ",
     subtitleDone: "አሁን በአዲሱ የይለፍ ቃልዎ መግባት ይችላሉ",
     recover: "ይላክ",
+    verifyCode: "ኮድ አረጋግጥ",
     resetPassword: "የይለፍ ቃል ቀይር",
     goToLogin: "ወደ መግቢያ ሂድ",
     doneBody:
       "የይለፍ ቃልዎ ተዘምኗል። ለመግባት እና መለያዎን ለመጠቀም ይቀጥሉ።",
     recoverFailed: "የመልሻ ኮድ መላክ አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
+    emailDeliveryFailed: "የመልሻ ኢሜይል መላክ አልተቻለም። እባክዎ ቆይተው እንደገና ይሞክሩ።",
+    emailNotConfigured: "የመልሻ ኢሜይል አልተላከም — በሰርቨር ላይ ኢሜይል አልተዋቀረም። እባክዎ ድጋፍ ያግኙ።",
+    noEmailOnFile: "በዚህ መለያ ላይ ኢሜይል አልተመዘገበም። እባክዎ ድጋፍ ያግኙ።",
+    verifyFailed: "ልክ ያልሆነ ወይም ጊዜው ያለፈ የማረጋገጫ ኮድ።",
     resetFailed: "የይለፍ ቃል መቀየር አልተቻለም። እባክዎ እንደገና ይሞክሩ።",
     newPassword: "አዲስ የይለፍ ቃል",
     newPasswordPlaceholder: "አዲስ የይለፍ ቃል ይፍጠሩ",

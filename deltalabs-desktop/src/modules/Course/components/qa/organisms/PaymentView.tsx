@@ -3,12 +3,9 @@
 import React from "react";
 import { 
   ArrowUp, 
-  Plus, 
-  History,
-  CreditCard
+  Plus
 } from "lucide-react";
 import { Typography } from "@/components/theme";
-import { cx } from "@/components/theme/utils";
 import Image from "next/image";
 
 /** ################################ /IMPORT ############################# */

@@ -1,147 +1,156 @@
-/**
- * PublicCompetitionPage
- * Hub page for both "Public Competitions" and "My Competitions" tabs.
- * Route: /features/competitions
- *
- * - Public tab: left-column status/achievements + right-column game modes/upcoming
- * - My Competitions tab: editable customizable table
- */
+"use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { Trophy, Users } from "lucide-react";
+import { Banknote, CalendarCheck, Clock, Swords, Trophy } from "lucide-react";
 
-import { usePublicData } from "@/modules/Competition/hooks/usePublicData";
-import { useCustomTable } from "@/modules/Competition/hooks/useCustomTable";
-import { PageHeader } from "@/components/organisms/PageHeader/PageHeader";
-import { TabsRow } from "@/components/organisms/TabsRow/TabsRow";
-import { MyCompetitionToolbar } from "@/components/organisms/MyCompetitionToolbar/MyCompetitionToolbar";
-import { CustomizableTable } from "@/components/organisms/CustomizableTable/CustomizableTable";
 import { PublicCompetitionTemplate } from "@/components/templates/PublicCompetitionTemplate/PublicCompetitionTemplate";
-import { MyCompetitionTemplate } from "@/components/templates/MyCompetitionTemplate/MyCompetitionTemplate";
-import { YourStatusCard } from "@/components/organisms/YourStatusCard/YourStatusCard";
-import { AchievementsCard } from "@/components/organisms/AchievementsCard/AchievementsCard";
-import { GameModeRow } from "@/components/organisms/GameModeRow/GameModeRow";
-import { UpcomingCompetitionCard } from "@/components/organisms/UpcomingCompetitionCard/UpcomingCompetitionCard";
+import type { GameModeConfig } from "@/components/templates/PublicCompetitionTemplate/PublicCompetitionTemplate";
+import type { SearchPillOption } from "@/components/molecules/SearchPill/SearchPill";
+import type { AchievementConfig } from "@/components/organisms/AchievementsPanel/AchievementsPanel";
+import { useCompetitionHub } from "@/modules/Competition/hooks/useCompetitionHub";
+import { toUpcomingItem } from "@/modules/Competition/utils";
+import type { CompetitionTab } from "@/modules/Competition/types/hub";
 
-// ============================================================================
-// COMPONENT
-// ============================================================================
+const GAME_MODE_ICONS: Record<string, Pick<GameModeConfig, "icon" | "accentTone" | "iconShape">> = {
+  "topic-battles": {
+    icon: <Swords className="size-6" />,
+    accentTone: "primary",
+    iconShape: "square",
+  },
+  championship: {
+    icon: <Trophy className="size-6" />,
+    accentTone: "secondary",
+    iconShape: "square",
+  },
+  "live-duels": {
+    icon: <Clock className="size-6" />,
+    accentTone: "info",
+    iconShape: "circle",
+  },
+};
+
+const ACHIEVEMENT_ICONS = [Trophy, Banknote, CalendarCheck];
 
 export function PublicCompetitionPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<CompetitionTab>("public");
+  const [searchValue, setSearchValue] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
 
-  const {
-    userStatus,
-    achievements,
-    gameModes,
-    upcomingCompetitions,
-    activeTab,
-    setActiveTab,
-    searchQuery,
-    setSearchQuery,
-    isLoaded,
-  } = usePublicData();
+  const { query, battles, myBattles, modes, userStatus, achievements } = useCompetitionHub();
 
-  const table = useCustomTable();
+  const gameModes = useMemo<GameModeConfig[]>(
+    () =>
+      modes.map((mode) => ({
+        ...mode,
+        ...GAME_MODE_ICONS[mode.id],
+        onAction: () =>
+          router.push(
+            mode.id === "topic-battles"
+              ? "/features/competitions/topic-battles"
+              : "/features/competitions/list",
+          ),
+      })),
+    [modes, router],
+  );
 
-  const handleFilterClick = useCallback(() => {
-  }, []);
+  const achievementConfigs = useMemo<AchievementConfig[]>(
+    () =>
+      achievements.map((achievement, index) => {
+        const Icon = ACHIEVEMENT_ICONS[index] ?? Trophy;
+        return { ...achievement, icon: <Icon className="size-5" /> };
+      }),
+    [achievements],
+  );
 
-  const handleHostCompetition = useCallback(() => {
+  const filterOptions = useMemo<SearchPillOption[]>(() => {
+    const seen = new Set<string>();
+    const options: SearchPillOption[] = [{ value: "all", label: "All difficulties" }];
+    battles.forEach((battle) => {
+      const difficulty = battle.difficulty.trim();
+      if (difficulty && !seen.has(difficulty)) {
+        seen.add(difficulty);
+        options.push({ value: difficulty, label: difficulty });
+      }
+    });
+    return options;
+  }, [battles]);
+
+  const filteredBattles = useMemo(() => {
+    const queryText = searchValue.trim().toLowerCase();
+    return battles.filter((battle) => {
+      const matchesSearch =
+        !queryText ||
+        battle.title.toLowerCase().includes(queryText) ||
+        battle.subject.toLowerCase().includes(queryText);
+      const matchesFilter = activeFilter === "all" || battle.difficulty === activeFilter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [battles, searchValue, activeFilter]);
+
+  const upcomingItems = useMemo(() => filteredBattles.map(toUpcomingItem), [filteredBattles]);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, [router]);
+
+  const handleHost = useCallback(() => {
     router.push("/features/competitions/host");
   }, [router]);
 
-  const handleCtaClick = useCallback((modeId: string) => {
-    if (modeId === "topic-battles") {
-      window.location.hash = "#/features/competitions/topic-battles";
-    }
-  }, []);
+  const handleInvite = useCallback(() => {
+    router.push("/features/competitions/host");
+  }, [router]);
 
-  const headerActions = [
-    { icon: <Trophy className="size-4" />, label: "Integrate" },
-    { icon: <Trophy className="size-4" />, label: "Automate" },
-    { icon: <Users className="size-4" />, label: "Invite" },
-  ];
+  const handleIntegrate = useCallback(() => {
+    router.push("/features/competitions/host");
+  }, [router]);
 
-  if (!isLoaded) {
-    return null;
-  }
+  const handleAutomate = useCallback(() => {
+    router.push("/features/competitions/host");
+  }, [router]);
+
+  const handleOpenBattle = useCallback(
+    (id: string) => {
+      router.push(`/features/competitions/${id}`);
+    },
+    [router],
+  );
+
+  const statusSlot = query.isLoading ? (
+    <div className="flex items-center justify-center rounded-2xl border border-border-default bg-surface-default p-12 text-text-secondary">
+      Loading competitions...
+    </div>
+  ) : query.isError ? (
+    <div className="flex items-center justify-center rounded-2xl border border-error-500 bg-error-50 p-6 text-error-700">
+      {query.error instanceof Error ? query.error.message : "Failed to load competitions"}
+    </div>
+  ) : null;
 
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-6">
-      {/* Page header — title changes with tab */}
-      <PageHeader
-        title={activeTab === "public" ? "Active Competition" : "My Competition"}
-        actions={headerActions}
-      />
-
-      {/* Tab bar — default right-side for public, MyCompetitionToolbar for mine */}
-      <TabsRow
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        onFilterClick={handleFilterClick}
-        onHostCompetition={handleHostCompetition}
-        rightSlot={
-          activeTab === "mine" ? (
-            <MyCompetitionToolbar onHostCompetition={handleHostCompetition} />
-          ) : undefined
-        }
-      />
-
-      {/* Conditional tab content */}
-      {activeTab === "public" ? (
-        <PublicCompetitionTemplate
-          leftColumn={
-            <>
-              <YourStatusCard
-                tier={userStatus.tier}
-                level={userStatus.level}
-                currentPoints={userStatus.currentPoints}
-                maxPoints={userStatus.maxPoints}
-                totalEarnings={userStatus.totalEarnings}
-                totalWon={userStatus.totalWon}
-              />
-              <AchievementsCard achievements={achievements} />
-            </>
-          }
-          rightColumn={
-            <>
-              <GameModeRow modes={gameModes} onCtaClick={handleCtaClick} />
-              <UpcomingCompetitionCard
-                competitions={upcomingCompetitions}
-                searchValue={searchQuery}
-                onSearchChange={setSearchQuery}
-                onFilterClick={handleFilterClick}
-              />
-            </>
-          }
-        />
-      ) : (
-        <MyCompetitionTemplate
-          header={null}
-          toolbar={null}
-          table={
-            <CustomizableTable
-              columns={table.columns}
-              rows={table.rows}
-              selectAll={table.selectAll}
-              selectedRows={table.selectedRows}
-              onToggleSelectAll={table.toggleSelectAll}
-              onAddColumn={table.addColumn}
-              onAddRow={table.addRow}
-              onToggleRowSelection={table.toggleRowSelection}
-              onUpdateCell={table.updateCell}
-              onUpdateColumnLabel={table.updateColumnLabel}
-              onRemoveColumn={table.removeColumn}
-              onRemoveRow={table.removeRow}
-            />
-          }
-        />
-      )}
-    </div>
+    <PublicCompetitionTemplate
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      onBack={handleBack}
+      onHost={handleHost}
+      onInvite={handleInvite}
+      onIntegrate={handleIntegrate}
+      onAutomate={handleAutomate}
+      userStatus={userStatus}
+      gameModes={gameModes}
+      achievements={achievementConfigs}
+      upcomingItems={upcomingItems}
+      myBattles={myBattles}
+      onOpenBattle={handleOpenBattle}
+      searchValue={searchValue}
+      onSearchChange={setSearchValue}
+      activeFilter={activeFilter}
+      filterOptions={filterOptions}
+      onFilterChange={setActiveFilter}
+      statusSlot={statusSlot}
+    />
   );
 }
 

@@ -12,6 +12,7 @@ import type {
 /** Main exported component logic for this file. */
   LoginInput,
   RecoverRequestInput,
+  RecoverVerifyInput,
   ResetPasswordInput,
   SignupInput,
 } from "@/modules/Auth/types/auth";
@@ -44,6 +45,13 @@ export function useRecoverRequestMutation() {
   return useMutation({
     mutationKey: authMutationKeys.recover,
     mutationFn: (input: RecoverRequestInput) => authApi.requestRecover(input),
+  });
+}
+
+export function useRecoverVerifyMutation() {
+  return useMutation({
+    mutationKey: authMutationKeys.recoverVerify,
+    mutationFn: (input: RecoverVerifyInput) => authApi.verifyRecover(input),
   });
 }
 

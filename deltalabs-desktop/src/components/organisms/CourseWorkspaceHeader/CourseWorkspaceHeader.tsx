@@ -62,11 +62,11 @@ export const CourseWorkspaceHeader: React.FC<CourseWorkspaceHeaderProps> = ({
   onToggle
 }) => {
   const navItems: NavItem[] = [
-    { label: "Super Course", href: "#", icon: Flag, active: true },
+    { label: "Super Course", href: "/features/course/super-course", icon: Flag, active: true },
     { label: "Recent Activity", href: "#", icon: History },
     { label: "Offline Courses", href: "#", icon: WifiOff },
     { label: "Message", href: "#", icon: MessageSquareText },
-    { label: "Unrolled Courses", href: "#", icon: LogOut },
+    { label: "Enrolled Courses", href: "#", icon: LogOut },
   ];
 
   return (

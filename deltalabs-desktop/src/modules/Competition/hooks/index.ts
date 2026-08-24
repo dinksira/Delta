@@ -1,11 +1,9 @@
-/**
- * Competition hooks
- * Data and UI hooks.
- */
-
-export { useCompetitions } from "./useCompetitions";
 export { useFilteredCompetitions } from "./useFilteredCompetitions";
-export { useCompetitionDetail } from "./useCompetitionDetail";
-export { usePublicData } from "./usePublicData";
-export { useCustomTable } from "./useCustomTable";
-export { useHostCompetitionWizard } from "./useHostCompetitionWizard";
+export { useTopicBattles } from "./useTopicBattles";
+export { useCompetitionHub } from "./useCompetitionHub";
+export { useCompetitionHubData } from "./useCompetitionHubData";
+export { competitionHubQueryKeys } from "./competitionHubQueryKeys";
+export { useJoinTopicBattle } from "./useJoinTopicBattle";
+export { useJoinBattleModal } from "./useJoinBattleModal";
+export { useDuelQuiz } from "./useDuelQuiz";
+export { topicBattleQueryKeys } from "./topicBattleQueryKeys";

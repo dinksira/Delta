@@ -18,10 +18,13 @@ export { Input } from "@/components/theme/Input";
 export type { InputProps } from "@/components/theme/Input";
 export { SearchInput } from "@/components/theme/SearchInput";
 export type { SearchInputProps } from "@/components/theme/SearchInput";
+export { Switch } from "@/components/theme/Switch";
+export type { SwitchProps } from "@/components/theme/Switch";
 export { Textarea } from "@/components/theme/Textarea";
 export type { TextareaProps } from "@/components/theme/Textarea";
 export { Field } from "@/components/theme/Field";
 export {
+  Dialog,
   DialogHeader,
   DialogOverlay,
   DialogPanel,
@@ -41,4 +44,11 @@ export { BackButton } from "@/components/theme/BackButton";
 export type { BackButtonProps } from "@/components/theme/BackButton";
 export { AiAssistantModal } from "@/components/theme/AiAssistantModal";
 export type { AiAssistantModalProps } from "@/components/theme/AiAssistantModal";
+export {
+  DOCUMENT_BLOCK_HTML,
+  DocumentEditor,
+  insertDocumentHtml,
+  runDocumentCommand,
+} from "@/components/theme/DocumentEditor";
+export type { DocumentEditorProps } from "@/components/theme/DocumentEditor";
 /** ################################ /COMPONENT ############################# */
