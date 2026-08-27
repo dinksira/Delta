@@ -1,3 +1,20 @@
+/**
+ * PublicCompetitionTemplate
+ *
+ * Tabbed layout for a public competition page — renders hub, management table,
+ * and detail tabs from state-driven tab identifiers.
+ *
+ * @example
+ * ```tsx
+ * <PublicCompetitionTemplate
+ *   activeTab="mine"
+ *   onTabChange={setActiveTab}
+ *   tabs={tabs}
+ * >
+ *   <CompetitionManagementTableView />
+ * </PublicCompetitionTemplate>
+ * ```
+ */
 import type { ReactNode } from "react";
 
 import { Bot, Link2, Plug, Plus, PlusCircle, Trophy } from "lucide-react";
@@ -15,10 +32,12 @@ import { UserStatusCard } from "@/components/organisms/UserStatusCard/UserStatus
 import { AchievementsPanel } from "@/components/organisms/AchievementsPanel/AchievementsPanel";
 import type { AchievementConfig } from "@/components/organisms/AchievementsPanel/AchievementsPanel";
 import { UpcomingCompetitionList } from "@/components/organisms/UpcomingCompetitionList/UpcomingCompetitionList";
-import { TopicBattleGrid } from "@/components/organisms/TopicBattleGrid/TopicBattleGrid";
+import { CompetitionManagementTableView } from "@/modules/Competition/managementTable/CompetitionManagementTableView";
 import type { CompetitionTab, UserStatus } from "@/modules/Competition/types/hub";
 import type { TopicBattle } from "@/modules/Competition/types/topicBattle";
 import { cn } from "@/lib/utils";
+
+// ===== TYPES =====
 
 export type GameModeConfig = GameModeCardProps & { id: string };
 
@@ -49,6 +68,8 @@ export interface PublicCompetitionTemplateProps {
   className?: string;
 }
 
+// ===== COMPONENT =====
+
 export function PublicCompetitionTemplate({
   activeTab,
   onTabChange,
@@ -63,7 +84,7 @@ export function PublicCompetitionTemplate({
   achievements,
   upcomingItems,
 
-  myBattles,
+  myBattles: _myBattles,
   onOpenBattle,
 
   searchValue,
@@ -178,14 +199,7 @@ export function PublicCompetitionTemplate({
                 Host Competition
               </Button>
             </div>
-            {statusSlot ?? (
-              <TopicBattleGrid
-                battles={myBattles}
-                onOpen={onOpenBattle}
-                emptyTitle="You haven't hosted a competition yet"
-                emptyDescription="Host your first competition and it will appear here."
-              />
-            )}
+            {statusSlot ?? <CompetitionManagementTableView />}
           </section>
         </>
       )}

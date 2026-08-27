@@ -1,11 +1,24 @@
 """Topic battle API — create, list, hub aggregates, question management, and code execution."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.deps import CurrentUser, get_current_user, get_current_user_optional, get_db
 from app.domain.competitions.executor import CodeExecutor
 from app.domain.competitions.repository import Repository as CompetitionsRepository
+from app.domain.management_table.schemas import (
+    ManagementTableColumnAppendInput,
+    ManagementTableColumnPatchInput,
+    ManagementTableDefinitionPublic,
+    ManagementTableGroupPublic,
+    ManagementTableInstanceBundleResponse,
+    ManagementTableRowCellsPatchInput,
+    ManagementTableRowListResponse,
+    ManagementTableRowMoveInput,
+    ManagementTableRowPublic,
+    ManagementTableTableGroupCreateInput,
+)
+from app.domain.management_table.service import ManagementTableService
 from app.domain.competitions.schemas import (
     CodeExecuteRequest,
     CodeExecuteResponse,
@@ -188,3 +201,158 @@ async def submit_code(
 ) -> CodeSubmitResponse:
     """Grade the authored test cases (Submit action): run per case, compare."""
     return await executor.submit(payload)
+
+
+# ============================================================================
+# Competition Management Table — per-user CRUD (school-free)
+# ============================================================================
+
+
+def _mt_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> ManagementTableService:
+    from app.domain.management_table.repository import ManagementTableRepository as MtRepo
+    from app.domain.school.repository import Repository as SchoolRepo
+    return ManagementTableService(mt_repo=MtRepo(db), school_repo=SchoolRepo(db))
+
+
+@router.post("/management-table/bootstrap", response_model=ManagementTableInstanceBundleResponse)
+async def bootstrap_competition_management_table(
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableInstanceBundleResponse:
+    svc = _mt_service(db)
+    return await svc.bootstrap_competition_management_table(org_id=org_id, user_id=user.user_id)
+
+
+@router.get("/management-table/instance", response_model=ManagementTableInstanceBundleResponse)
+async def get_competition_management_table_instance(
+    instance_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableInstanceBundleResponse:
+    svc = _mt_service(db)
+    return await svc.comp_get_instance_bundle(org_id=org_id, user_id=user.user_id, instance_id=instance_id)
+
+
+@router.get("/management-table/rows", response_model=ManagementTableRowListResponse)
+async def list_competition_management_table_rows(
+    instance_id: str = Query(),
+    group_id: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableRowListResponse:
+    svc = _mt_service(db)
+    return await svc.comp_list_rows(
+        org_id=org_id, user_id=user.user_id, instance_id=instance_id,
+        group_id=group_id, page=page, page_size=page_size,
+    )
+
+
+@router.post("/management-table/rows", response_model=ManagementTableRowPublic)
+async def create_competition_management_table_row(
+    instance_id: str = Query(),
+    group_id: str | None = Query(default=None),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableRowPublic:
+    svc = _mt_service(db)
+    return await svc.comp_create_row(
+        org_id=org_id, user_id=user.user_id, instance_id=instance_id, group_id=group_id,
+    )
+
+
+@router.patch("/management-table/rows/{row_id}", response_model=ManagementTableRowPublic)
+async def patch_competition_management_table_row(
+    row_id: str,
+    payload: ManagementTableRowCellsPatchInput,
+    instance_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableRowPublic:
+    svc = _mt_service(db)
+    return await svc.comp_patch_row(
+        org_id=org_id, user_id=user.user_id, instance_id=instance_id, row_id=row_id, payload=payload,
+    )
+
+
+@router.delete("/management-table/rows/{row_id}")
+async def delete_competition_management_table_row(
+    row_id: str,
+    instance_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> dict[str, str]:
+    svc = _mt_service(db)
+    await svc.comp_delete_row(org_id=org_id, user_id=user.user_id, instance_id=instance_id, row_id=row_id)
+    return {"status": "deleted"}
+
+
+@router.post("/management-table/rows/{row_id}/move", response_model=ManagementTableRowPublic)
+async def move_competition_management_table_row(
+    row_id: str,
+    payload: ManagementTableRowMoveInput,
+    instance_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableRowPublic:
+    svc = _mt_service(db)
+    return await svc.comp_move_row(
+        org_id=org_id, user_id=user.user_id, instance_id=instance_id, row_id=row_id, payload=payload,
+    )
+
+
+@router.post("/management-table/columns", response_model=ManagementTableDefinitionPublic)
+async def append_competition_management_table_column(
+    definition_id: str = Query(),
+    payload: ManagementTableColumnAppendInput = ...,
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableDefinitionPublic:
+    svc = _mt_service(db)
+    return await svc.comp_append_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, payload=payload)
+
+
+@router.patch("/management-table/columns/{column_id}", response_model=ManagementTableDefinitionPublic)
+async def patch_competition_management_table_column(
+    column_id: str,
+    payload: ManagementTableColumnPatchInput,
+    definition_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableDefinitionPublic:
+    svc = _mt_service(db)
+    return await svc.comp_patch_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, column_id=column_id, payload=payload)
+
+
+@router.delete("/management-table/columns/{column_id}", response_model=ManagementTableDefinitionPublic)
+async def delete_competition_management_table_column(
+    column_id: str,
+    definition_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableDefinitionPublic:
+    svc = _mt_service(db)
+    return await svc.comp_delete_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, column_id=column_id)
+
+
+@router.post("/management-table/groups", response_model=ManagementTableGroupPublic)
+async def create_competition_management_table_group(
+    payload: ManagementTableTableGroupCreateInput,
+    instance_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+) -> ManagementTableGroupPublic:
+    svc = _mt_service(db)
+    return await svc.comp_create_table_group(org_id=org_id, user_id=user.user_id, instance_id=instance_id, payload=payload)

@@ -10,6 +10,7 @@ from app.domain.management_table.repository import ManagementTableRepository
 from app.domain.management_table.schemas import (
     MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
     MANAGEMENT_TABLE_KIND_ASSIGNMENTS,
+    MANAGEMENT_TABLE_KIND_COMPETITIONS,
     MANAGEMENT_TABLE_KIND_GHOSTS,
     MANAGEMENT_TABLE_KIND_GRADES,
     MANAGEMENT_TABLE_KIND_LEAVE_REQUESTS,
@@ -2926,4 +2927,301 @@ class ManagementTableService:
             group_id=group_id,
             position=position,
             cells=cells,
+        )
+
+    # ── Competition management table helpers (school-free) ──────────────
+
+    @staticmethod
+    def _comp_school_id(user_id: str) -> str:
+        """Synthetic school_id for per-user competition tables."""
+        return f"comp_{user_id}"
+
+    async def comp_get_instance_bundle(
+        self, *, org_id: str, user_id: str, instance_id: str,
+    ) -> ManagementTableInstanceBundleResponse:
+        school_id = self._comp_school_id(user_id)
+        inst = await self._mt.find_instance(org_id=org_id, school_id=school_id, instance_id=instance_id)
+        if inst is None:
+            raise NotFoundError("Table instance not found.", code="management_table_instance_not_found")
+        def_doc = await self._mt.find_definition(
+            org_id=org_id, school_id=school_id, definition_id=str(inst["definition_id"]),
+        )
+        if def_doc is None:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        return ManagementTableInstanceBundleResponse(instance=map_instance(inst), definition=map_definition(def_doc))
+
+    async def comp_list_rows(
+        self, *, org_id: str, user_id: str, instance_id: str,
+        group_id: str | None, page: int, page_size: int,
+    ) -> ManagementTableRowListResponse:
+        school_id = self._comp_school_id(user_id)
+        bundle = await self.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        gid = (group_id or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        allowed = {g.id for g in bundle.instance.table_groups}
+        if gid not in allowed:
+            raise ValidationError("Unknown table group.", code="management_table_group_invalid")
+        skip = max(page - 1, 0) * page_size
+        items, total = await self._mt.list_rows(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            group_id=gid, skip=skip, limit=page_size,
+        )
+        return ManagementTableRowListResponse(items=[map_row(r) for r in items], total=total)
+
+    async def comp_create_row(
+        self, *, org_id: str, user_id: str, instance_id: str, group_id: str | None = None,
+    ) -> ManagementTableRowPublic:
+        school_id = self._comp_school_id(user_id)
+        bundle = await self.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        gid = (group_id or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        allowed = {g.id for g in bundle.instance.table_groups}
+        if gid not in allowed:
+            raise ValidationError("Unknown table group.", code="management_table_group_invalid")
+        col_ids = {c.id for c in bundle.definition.columns}
+        max_pos = await self._mt.max_row_position(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, group_id=gid,
+        )
+        position = (max_pos + 1) if max_pos is not None else 0
+        cells: dict[str, Any] = {}
+        for c in bundle.definition.columns:
+            if c.type == "checkbox":
+                cells[c.id] = False
+            elif c.type == "number":
+                cells[c.id] = None
+            else:
+                cells[c.id] = ""
+        cells = {k: v for k, v in cells.items() if k in col_ids}
+        doc = await self._mt.insert_row(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            group_id=gid, position=position, cells=cells,
+        )
+        return map_row(doc)
+
+    async def comp_patch_row(
+        self, *, org_id: str, user_id: str, instance_id: str, row_id: str,
+        payload: ManagementTableRowCellsPatchInput,
+    ) -> ManagementTableRowPublic:
+        school_id = self._comp_school_id(user_id)
+        bundle = await self.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        allowed = {c.id for c in bundle.definition.columns}
+        row = await self._mt.find_row(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id,
+        )
+        if row is None:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        existing_cells = dict(row["cells"]) if isinstance(row.get("cells"), dict) else {}
+        for key, val in payload.cells.items():
+            if key in allowed:
+                existing_cells[key] = val
+        ok = await self._mt.update_row_cells(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            row_id=row_id, cells=existing_cells,
+        )
+        if not ok:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        refreshed = await self._mt.find_row(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id,
+        )
+        assert refreshed is not None
+        return map_row(refreshed)
+
+    async def comp_delete_row(
+        self, *, org_id: str, user_id: str, instance_id: str, row_id: str,
+    ) -> None:
+        school_id = self._comp_school_id(user_id)
+        row = await self._mt.find_row(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id,
+        )
+        if row is None:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        group_id = str(row.get("group_id") or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        items, _total = await self._mt.list_rows(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            group_id=group_id, skip=0, limit=5000,
+        )
+        children_by_parent: dict[str, list[str]] = {}
+        for item in items:
+            parent = str(item.get("parent_row_id") or "").strip()
+            if not parent:
+                continue
+            children_by_parent.setdefault(parent, []).append(str(item["_id"]))
+        to_delete: list[str] = []
+        stack = [row_id]
+        seen: set[str] = set()
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            to_delete.append(current)
+            stack.extend(children_by_parent.get(current, []))
+        deleted = await self._mt.delete_rows_by_ids(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, row_ids=to_delete,
+        )
+        if deleted < 1:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+
+    async def comp_move_row(
+        self, *, org_id: str, user_id: str, instance_id: str, row_id: str,
+        payload: ManagementTableRowMoveInput,
+    ) -> ManagementTableRowPublic:
+        school_id = self._comp_school_id(user_id)
+        row = await self._mt.find_row(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id,
+        )
+        if row is None:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        group_id = str(row.get("group_id") or MANAGEMENT_TABLE_DEFAULT_GROUP_ID).strip() or MANAGEMENT_TABLE_DEFAULT_GROUP_ID
+        parent_raw = row.get("parent_row_id")
+        parent_row_id = str(parent_raw).strip() if parent_raw else None
+        siblings = await self._mt.list_sibling_rows(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            group_id=group_id, parent_row_id=parent_row_id,
+        )
+        index = next((i for i, s in enumerate(siblings) if str(s["_id"]) == row_id), -1)
+        if index < 0:
+            raise NotFoundError("Row not found.", code="management_table_row_not_found")
+        swap_index = index - 1 if payload.direction == "up" else index + 1
+        if swap_index < 0 or swap_index >= len(siblings):
+            raise ValidationError("Row is already at the edge.", code="management_table_row_move_edge")
+        other = siblings[swap_index]
+        other_id = str(other["_id"])
+        my_pos = int(row.get("position", index))
+        other_pos = int(other.get("position", swap_index))
+        if my_pos == other_pos:
+            await self._mt.update_row_position(org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id, position=swap_index)
+            await self._mt.update_row_position(org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=other_id, position=index)
+        else:
+            await self._mt.update_row_position(org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id, position=other_pos)
+            await self._mt.update_row_position(org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=other_id, position=my_pos)
+        refreshed = await self._mt.find_row(org_id=org_id, school_id=school_id, instance_id=instance_id, row_id=row_id)
+        assert refreshed is not None
+        return map_row(refreshed)
+
+    async def comp_append_column(
+        self, *, org_id: str, user_id: str, definition_id: str,
+        payload: ManagementTableColumnAppendInput,
+    ) -> ManagementTableDefinitionPublic:
+        school_id = self._comp_school_id(user_id)
+        doc = await self._mt.find_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+        if doc is None:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        col_type = _normalize_column_type(payload.type)
+        raw_cols = doc.get("columns")
+        existing: list[dict[str, Any]] = [dict(c) for c in raw_cols] if isinstance(raw_cols, list) else []
+        max_order = max((int(c.get("order", 0)) for c in existing), default=-1)
+        existing.append({"id": _new_column_id(), "title": payload.title.strip(), "type": col_type, "order": max_order + 1, "settings": dict(payload.settings)})
+        ok = await self._mt.update_definition(org_id=org_id, school_id=school_id, definition_id=definition_id, title=None, visibility=None, columns=existing)
+        if not ok:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        return await self.comp_get_definition(org_id=org_id, user_id=user_id, definition_id=definition_id)
+
+    async def comp_patch_column(
+        self, *, org_id: str, user_id: str, definition_id: str, column_id: str,
+        payload: ManagementTableColumnPatchInput,
+    ) -> ManagementTableDefinitionPublic:
+        school_id = self._comp_school_id(user_id)
+        doc = await self._mt.find_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+        if doc is None:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        raw_cols = doc.get("columns")
+        cols: list[dict[str, Any]] = [dict(c) for c in raw_cols] if isinstance(raw_cols, list) else []
+        target = next((c for c in cols if c.get("id") == column_id), None)
+        if target is None:
+            raise NotFoundError("Column not found.", code="management_table_column_not_found")
+        target["title"] = payload.title.strip()
+        ok = await self._mt.update_definition(org_id=org_id, school_id=school_id, definition_id=definition_id, title=None, visibility=None, columns=cols)
+        if not ok:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        return await self.comp_get_definition(org_id=org_id, user_id=user_id, definition_id=definition_id)
+
+    async def comp_delete_column(
+        self, *, org_id: str, user_id: str, definition_id: str, column_id: str,
+    ) -> ManagementTableDefinitionPublic:
+        school_id = self._comp_school_id(user_id)
+        doc = await self._mt.find_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+        if doc is None:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        raw_cols = doc.get("columns")
+        cols: list[dict[str, Any]] = [dict(c) for c in raw_cols] if isinstance(raw_cols, list) else []
+        cols = [c for c in cols if c.get("id") != column_id]
+        ok = await self._mt.update_definition(org_id=org_id, school_id=school_id, definition_id=definition_id, title=None, visibility=None, columns=cols)
+        if not ok:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        return await self.comp_get_definition(org_id=org_id, user_id=user_id, definition_id=definition_id)
+
+    async def comp_get_definition(
+        self, *, org_id: str, user_id: str, definition_id: str,
+    ) -> ManagementTableDefinitionPublic:
+        school_id = self._comp_school_id(user_id)
+        doc = await self._mt.find_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+        if doc is None:
+            raise NotFoundError("Table definition not found.", code="management_table_definition_not_found")
+        return map_definition(doc)
+
+    async def comp_create_table_group(
+        self, *, org_id: str, user_id: str, instance_id: str,
+        payload: ManagementTableTableGroupCreateInput,
+    ) -> ManagementTableGroupPublic:
+        school_id = self._comp_school_id(user_id)
+        await self.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        created = await self._mt.append_table_group(
+            org_id=org_id, school_id=school_id, instance_id=instance_id, title=payload.title,
+        )
+        if created is None:
+            raise NotFoundError("Table instance not found.", code="management_table_instance_not_found")
+        return ManagementTableGroupPublic(id=str(created["id"]), title=str(created.get("title", "")), order=int(created.get("order", 0)))
+
+    async def bootstrap_competition_management_table(
+        self, *, org_id: str, user_id: str,
+    ) -> ManagementTableInstanceBundleResponse:
+        """Bootstrap (or load) a per-user competition management table.
+
+        Uses a synthetic school_id so data never touches real school records.
+        """
+        school_id = self._comp_school_id(user_id)
+        workspace_item_id = f"comp_mt_{user_id}"
+        existing = await self._mt.find_instance_by_workspace_item(
+            org_id=org_id, school_id=school_id,
+            workspace_item_id=workspace_item_id,
+            table_kind=MANAGEMENT_TABLE_KIND_COMPETITIONS,
+        )
+        if existing is not None:
+            defn = await self.comp_get_definition(
+                org_id=org_id, user_id=user_id,
+                definition_id=str(existing["definition_id"]),
+            )
+            return ManagementTableInstanceBundleResponse(
+                instance=map_instance(existing), definition=defn,
+            )
+        starter_columns = [
+            {"id": _new_column_id(), "title": "Name", "type": "text", "order": 0, "settings": {}},
+            {"id": _new_column_id(), "title": "Status", "type": "status", "order": 1, "settings": {"options": [
+                {"id": "tracking", "label": "Tracking"},
+                {"id": "active", "label": "Active"},
+                {"id": "completed", "label": "Completed"},
+                {"id": "archived", "label": "Archived"},
+            ]}},
+            {"id": _new_column_id(), "title": "Start Date", "type": "date", "order": 2, "settings": {}},
+            {"id": _new_column_id(), "title": "End Date", "type": "date", "order": 3, "settings": {}},
+            {"id": _new_column_id(), "title": "Prize Pool", "type": "text", "order": 4, "settings": {}},
+            {"id": _new_column_id(), "title": "Link", "type": "link", "order": 5, "settings": {}},
+        ]
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id, school_id=school_id,
+            title="My Competitions", visibility="self_owned",
+            created_by_user_id=user_id, columns=starter_columns,
+        )
+        version = int(definition_doc.get("version", 1))
+        inst = await self._mt.insert_instance(
+            org_id=org_id,
+            school_id=school_id,
+            definition_id=str(definition_doc["_id"]),
+            definition_version=version,
+            title="My Competitions",
+            workspace_item_id=workspace_item_id,
+            table_kind=MANAGEMENT_TABLE_KIND_COMPETITIONS,
+        )
+        return ManagementTableInstanceBundleResponse(
+            instance=map_instance(inst),
+            definition=map_definition(definition_doc),
         )

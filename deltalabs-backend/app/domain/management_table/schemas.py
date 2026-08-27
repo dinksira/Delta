@@ -19,6 +19,7 @@ MANAGEMENT_TABLE_KIND_GRADES = "grades"
 MANAGEMENT_TABLE_KIND_SCHEDULES = "schedules"
 MANAGEMENT_TABLE_KIND_ASSIGNMENTS = "assignments"
 MANAGEMENT_TABLE_KIND_GHOSTS = "ghosts"
+MANAGEMENT_TABLE_KIND_COMPETITIONS = "competitions"
 
 ManagementTableVisibility = Literal["self_owned", "sharable"]
 ManagementTableDefinitionListScope = Literal["all", "template", "mine"]
