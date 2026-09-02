@@ -118,13 +118,6 @@ class Repository:
         )
         return str(user["_id"]) if user is not None else None
 
-    async def find_user_email_by_id(self, user_id: str) -> str | None:
-        """Resolve a user's email by id (used to label hosted battles)."""
-        user = await self._db["users"].find_one({"_id": user_id}, {"email": 1})
-        if user is None or not user.get("email"):
-            return None
-        return str(user["email"])
-
     async def upsert_topic_battle(self, doc: dict[str, Any]) -> None:
         """Insert or fully refresh a battle by its `_id` (used by demo seeding)."""
         battle_id = str(doc["_id"])

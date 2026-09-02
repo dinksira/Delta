@@ -101,6 +101,18 @@ export async function deleteCompetitionManagementTableRow(
   );
 }
 
+export async function populateManagementTableRowFromBattle(
+  instanceId: string,
+  rowId: string,
+  battleId: string,
+  orgId = "delta-labs",
+): Promise<CompetitionManagementTableRowDto> {
+  return apiClient.post<CompetitionManagementTableRowDto>(
+    `/v1/competitions/management-table/rows/${rowId}/populate-from-battle`,
+    { searchParams: { instance_id: instanceId, battle_id: battleId, org_id: orgId } },
+  );
+}
+
 export async function moveCompetitionManagementTableRow(
   instanceId: string,
   rowId: string,

@@ -1290,6 +1290,39 @@ def _mt_battle_cells(columns: list[dict[str, Any]], doc: dict[str, Any]) -> dict
     return cells
 
 
+def _battle_to_row_cells(
+    columns: list[dict[str, Any]], battle: dict[str, Any], battle_id: str,
+) -> dict[str, Any]:
+    """Map a battle document onto row cells by matching column title."""
+    cells: dict[str, Any] = {}
+    for col in columns:
+        title = str(col.get("title", "")).strip()
+        col_id = str(col.get("id", ""))
+        value: Any = ""
+        if title in ("Name", "Title"):
+            value = str(battle.get("title", ""))
+        elif title == "Status":
+            value = str(battle.get("status", "filling"))
+        elif title == "Start Date":
+            value = str(battle.get("schedule_date", ""))
+        elif title == "End Date":
+            ends = battle.get("countdown_ends_at")
+            value = str(ends) if ends else ""
+        elif title == "Prize Pool":
+            value = str(battle.get("prize_pool", "0 ETB"))
+        elif title == "Entry Fee":
+            value = str(battle.get("entry_fee", "Free"))
+        elif title == "Players":
+            value = int(battle.get("players_max", 0))
+        elif title == "Difficulty":
+            value = str(battle.get("difficulty", ""))
+        elif title == "Link":
+            value = f"/features/competitions/{battle_id}"
+        if value != "":
+            cells[col_id] = value
+    return cells
+
+
 def _mt_cells_to_battle_fields(
     columns: list[dict[str, Any]], cells: dict[str, Any],
 ) -> dict[str, Any]:
@@ -1828,11 +1861,10 @@ class Service:
     async def autofill_competition_management_table(
         self, *, org_id: str, user_id: str,
     ) -> ManagementTableInstanceBundleResponse:
-        """Bootstrap the per-user "My Competitions" table and fill one row per
-        battle the user hosts.
+        """Bootstrap (or load) the per-user "My Competitions" blank table.
 
-        Idempotent: existing rows are matched by their ``Link`` cell and patched,
-        so re-opening the tab never duplicates a battle.
+        The table starts with no columns/rows; the owner composes them from the
+        UI. This returns the empty bundle so the view can render a fresh grid.
         """
         mgt = self._management_table_service
         if mgt is None:
@@ -1840,48 +1872,86 @@ class Service:
                 "Management tables are unavailable.",
                 code="management_table_unavailable",
             )
-        bundle = await mgt.bootstrap_competition_management_table(org_id=org_id, user_id=user_id)
-        col_by_title = {str(c.title).strip(): str(c.id) for c in bundle.definition.columns}
-
-        await mgt.comp_ensure_status_options(
+        return await mgt.bootstrap_competition_management_table(
             org_id=org_id, user_id=user_id,
-            definition_id=bundle.definition.id,
-            battle_statuses=[
-                {"id": "filling", "label": "Filling"},
-                {"id": "scheduled", "label": "Scheduled"},
-                {"id": "live", "label": "Live"},
-                {"id": "finished", "label": "Finished"},
-            ],
         )
 
-        def _cells(doc: dict[str, Any]) -> dict[str, Any]:
-            cells: dict[str, Any] = {}
+    async def populate_row_from_battle(
+        self, *, org_id: str, user_id: str, instance_id: str, row_id: str, battle_id: str,
+    ) -> ManagementTableRowPublic:
+        """Fill a management-table row with a hosted battle's data.
 
-            def put(title: str, value: Any) -> None:
-                cid = col_by_title.get(title)
-                if cid:
-                    cells[cid] = value
-
-            ends = doc.get("countdown_ends_at")
-            put("Name", str(doc.get("title", "")))
-            put("Status", str(doc.get("status", "filling")))
-            put("Start Date", str(doc.get("schedule_date", "")))
-            put("End Date", str(ends) if ends else "")
-            put("Prize Pool", str(doc.get("prize_pool", "0 ETB")))
-            put("Link", f"/features/competitions/{doc['_id']}")
-            return cells
-
-        docs = await self._repository.find_all_topic_battles_by_owner(user_id)
-        rows = [
-            {"key": f"/features/competitions/{doc['_id']}", "cells": _cells(doc)}
-            for doc in docs
-        ]
-        if rows:
-            await mgt.comp_sync_owned_rows(
-                org_id=org_id, user_id=user_id,
-                instance_id=bundle.instance.id, battle_rows=rows,
+        Maps the battle document onto the table's columns by matching column
+        title (Name/Status/Start Date/End Date/Prize Pool/Link/Players, etc.).
+        Only fills cells whose column is editable; the caller must own both the
+        table and the battle.
+        """
+        mgt = self._management_table_service
+        if mgt is None:
+            raise PermissionDeniedError(
+                "Management tables are unavailable.",
+                code="management_table_unavailable",
             )
-        return bundle
+        battle = await self._repository.find_topic_battle_by_id(battle_id)
+        if battle is None:
+            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+        owner_id = str(battle.get("owner_user_id") or "")
+        if not owner_id or owner_id != user_id:
+            raise PermissionDeniedError(
+                "You can only link competitions you host.",
+                code="cannot_manage_battle",
+            )
+        bundle = await mgt.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        cells = _battle_to_row_cells(
+            [
+                {"id": c.id, "title": str(c.title), "type": str(c.type)}
+                for c in bundle.definition.columns
+            ],
+            dict(battle),
+            battle_id,
+        )
+        row = await mgt.comp_patch_row(
+            org_id=org_id, user_id=user_id, instance_id=instance_id,
+            row_id=row_id, payload=ManagementTableRowCellsPatchInput(cells=cells),
+        )
+        await mgt.comp_set_row_linked_battle(
+            org_id=org_id, user_id=user_id, instance_id=instance_id,
+            row_id=row_id, linked_battle_id=battle_id,
+        )
+        return row
+
+    async def resync_linked_competition_rows(
+        self, *, org_id: str, user_id: str, instance_id: str,
+    ) -> int:
+        """Fill newly added columns on linked rows from their linked battles.
+
+        Called after the column set changes so an already-linked row keeps its
+        data current without the owner re-linking.
+        """
+        mgt = self._management_table_service
+        if mgt is None:
+            return 0
+
+        async def populate(row_id: str, battle_id: str) -> dict[str, Any]:
+            battle = await self._repository.find_topic_battle_by_id(battle_id)
+            if battle is None:
+                return {}
+            bundle = await mgt.comp_get_instance_bundle(
+                org_id=org_id, user_id=user_id, instance_id=instance_id,
+            )
+            return _battle_to_row_cells(
+                [
+                    {"id": c.id, "title": str(c.title), "type": str(c.type)}
+                    for c in bundle.definition.columns
+                ],
+                dict(battle),
+                battle_id,
+            )
+
+        return await mgt.comp_resync_linked_rows(
+            org_id=org_id, user_id=user_id, instance_id=instance_id,
+            populate=populate,
+        )
 
     # ========================================================================
     # Question CRUD (embedded in battle document)

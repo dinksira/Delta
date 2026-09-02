@@ -30,7 +30,7 @@ import {
 import { competitionQueryKeys } from "@/modules/Competition/managementTable/competitionQueryKeys";
 import { ManagementTableAddColumnPopover } from "@/modules/Competition/managementTable/ManagementTableAddColumnPopover";
 import {
-  MANAGEMENT_TABLE_ADD_COLUMN_GROUPS,
+  COMPETITION_ADD_COLUMN_GROUPS,
   defaultSettingsForColumnType,
   defaultTitleForColumnType,
   filterAddColumnGroups,
@@ -67,6 +67,8 @@ export function CompetitionManagementTableView({
       battleId
         ? bootstrapTopicBattleManagementTable(battleId, ORG_ID)
         : bootstrapCompetitionManagementTable(ORG_ID),
+    staleTime: 0,
+    refetchOnMount: "always",
     retry: 1,
   });
 
@@ -95,11 +97,11 @@ export function CompetitionManagementTableView({
   }, [queryClient, instanceId]);
 
   const appendColumnMutation = useMutation({
-    mutationFn: (type: string) =>
+    mutationFn: (opt: ManagementTableAddColumnOption) =>
       appendCompetitionManagementTableColumn(definitionId, {
-        title: defaultTitleForColumnType(type as never),
-        type,
-        settings: defaultSettingsForColumnType(type as never),
+        title: opt.columnTitle ?? defaultTitleForColumnType(opt.supportedType!),
+        type: opt.supportedType!,
+        settings: defaultSettingsForColumnType(opt.supportedType!),
       }),
     onSuccess: invalidateBundleAndRows,
   });
@@ -115,7 +117,7 @@ export function CompetitionManagementTableView({
   });
 
   const addColumnOptions = useMemo(
-    () => filterAddColumnGroups(MANAGEMENT_TABLE_ADD_COLUMN_GROUPS, addColumn.search),
+    () => filterAddColumnGroups(COMPETITION_ADD_COLUMN_GROUPS, addColumn.search),
     [addColumn.search],
   );
 
@@ -124,7 +126,7 @@ export function CompetitionManagementTableView({
       window.alert("This column type is coming soon.");
       return;
     }
-    appendColumnMutation.mutate(opt.supportedType, {
+    appendColumnMutation.mutate(opt, {
       onSettled: () => addColumn.close(),
     });
   };

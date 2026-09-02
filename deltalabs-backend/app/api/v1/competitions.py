@@ -53,6 +53,25 @@ def _competitions_service(
     )
 
 
+async def _auto_resync_linked_rows(
+    db: AsyncIOMotorDatabase[dict[str, object]],
+    *,
+    org_id: str,
+    user_id: str,
+    definition_id: str,
+) -> None:
+    """After a column changes, re-fill linked rows from their battles."""
+    mgt = _mt_service(db)
+    instance_id = await mgt.comp_find_instance_id_by_definition(
+        org_id=org_id, user_id=user_id, definition_id=definition_id,
+    )
+    if not instance_id:
+        return
+    await _competitions_service(db).resync_linked_competition_rows(
+        org_id=org_id, user_id=user_id, instance_id=instance_id,
+    )
+
+
 # ============================================================================
 # Hub aggregates (game modes, user status, achievements)
 # ============================================================================
@@ -235,6 +254,25 @@ async def bootstrap_competition_management_table(
     )
 
 
+@router.post(
+    "/management-table/rows/{row_id}/populate-from-battle",
+    response_model=ManagementTableRowPublic,
+)
+async def populate_management_table_row_from_battle(
+    row_id: str,
+    instance_id: str = Query(),
+    battle_id: str = Query(),
+    org_id: str = Query(default="delta-labs"),
+    user: CurrentUser = Depends(get_current_user),
+    service: CompetitionsService = Depends(_competitions_service),
+) -> ManagementTableRowPublic:
+    """Fill a management-table row with a hosted battle's data (by column title)."""
+    return await service.populate_row_from_battle(
+        org_id=org_id, user_id=user.user_id,
+        instance_id=instance_id, row_id=row_id, battle_id=battle_id,
+    )
+
+
 @router.get("/management-table/instance", response_model=ManagementTableInstanceBundleResponse)
 async def get_competition_management_table_instance(
     instance_id: str = Query(),
@@ -329,7 +367,11 @@ async def append_competition_management_table_column(
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
 ) -> ManagementTableDefinitionPublic:
     svc = _mt_service(db)
-    return await svc.comp_append_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, payload=payload)
+    result = await svc.comp_append_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, payload=payload)
+    await _auto_resync_linked_rows(
+        db, org_id=org_id, user_id=user.user_id, definition_id=definition_id,
+    )
+    return result
 
 
 @router.patch("/management-table/columns/{column_id}", response_model=ManagementTableDefinitionPublic)
@@ -342,7 +384,11 @@ async def patch_competition_management_table_column(
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
 ) -> ManagementTableDefinitionPublic:
     svc = _mt_service(db)
-    return await svc.comp_patch_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, column_id=column_id, payload=payload)
+    result = await svc.comp_patch_column(org_id=org_id, user_id=user.user_id, definition_id=definition_id, column_id=column_id, payload=payload)
+    await _auto_resync_linked_rows(
+        db, org_id=org_id, user_id=user.user_id, definition_id=definition_id,
+    )
+    return result
 
 
 @router.delete("/management-table/columns/{column_id}", response_model=ManagementTableDefinitionPublic)

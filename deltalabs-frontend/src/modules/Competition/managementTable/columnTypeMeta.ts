@@ -12,7 +12,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
   AlignLeft,
+  BarChart3,
   Calendar,
+  CalendarClock,
   CheckSquare,
   File,
   Hash,
@@ -22,7 +24,10 @@ import {
   SquareKanban,
   Tag,
   TextCursor,
+  Ticket,
+  Trophy,
   User,
+  Users,
   Wrench,
 } from "lucide-react";
 
@@ -72,6 +77,41 @@ export const MANAGEMENT_TABLE_ADD_COLUMN_GROUPS: readonly ManagementTableAddColu
       { id: "phone", label: "Phone", icon: Phone, supportedType: "phone" },
       { id: "file", label: "File", icon: File },
       { id: "service", label: "Service", icon: Wrench },
+    ],
+  },
+];
+
+/**
+ * Competition-specific add-column presets.
+ *
+ * Each option maps to one field of a hosted competition (topic battle) so the
+ * owner composes a "My Competitions" table whose column titles match the data
+ * that gets auto-filled when a row is linked to a hosted battle. Pick a preset
+ * and the matching battle data fills that column automatically.
+ */
+export const COMPETITION_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGroup[] = [
+  {
+    title: "Identity",
+    options: [
+      { id: "comp-title", label: "Title", icon: TextCursor, supportedType: "text", columnTitle: "Title" },
+      { id: "comp-difficulty", label: "Difficulty", icon: BarChart3, supportedType: "dropdown", columnTitle: "Difficulty" },
+      { id: "comp-status", label: "Status", icon: Tag, supportedType: "status", columnTitle: "Status" },
+      { id: "comp-link", label: "Link", icon: Link2, supportedType: "link", columnTitle: "Link" },
+    ],
+  },
+  {
+    title: "Schedule",
+    options: [
+      { id: "comp-start-date", label: "Start Date", icon: Calendar, supportedType: "date", columnTitle: "Start Date" },
+      { id: "comp-end-date", label: "End Date", icon: CalendarClock, supportedType: "date", columnTitle: "End Date" },
+    ],
+  },
+  {
+    title: "Rewards & Scale",
+    options: [
+      { id: "comp-prize-pool", label: "Prize Pool", icon: Trophy, supportedType: "text", columnTitle: "Prize Pool" },
+      { id: "comp-entry-fee", label: "Entry Fee", icon: Ticket, supportedType: "text", columnTitle: "Entry Fee" },
+      { id: "comp-players", label: "Players", icon: Users, supportedType: "number", columnTitle: "Players" },
     ],
   },
 ];

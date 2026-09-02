@@ -16,16 +16,18 @@ import { useCallback, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Link2, Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/theme";
 import { ApiError } from "@/lib/apiClient";
+import { useCompetitionHubData } from "@/modules/Competition/hooks/useCompetitionHubData";
 import {
   createCompetitionManagementTableRow,
   deleteCompetitionManagementTableRow,
   fetchCompetitionManagementTableRows,
   patchCompetitionManagementTableRow,
   patchTopicBattleManagementTableRow,
+  populateManagementTableRowFromBattle,
 } from "@/modules/Competition/managementTable/api";
 import type { CompetitionManagementTableRowDto } from "@/modules/Competition/managementTable/types";
 import { competitionQueryKeys } from "@/modules/Competition/managementTable/competitionQueryKeys";
@@ -47,6 +49,74 @@ export type CompetitionManagementTableGroupSectionProps = Readonly<{
 
 // ===== COMPONENT =====
 
+function CompetitionLinkCell({
+  value,
+  open,
+  pending,
+  onToggle,
+  onPick,
+  battles,
+}: Readonly<{
+  value: unknown;
+  open: boolean;
+  pending: boolean;
+  onToggle: () => void;
+  onPick: (battleId: string) => void;
+  battles: readonly { id: string; title: string; status?: string }[];
+}>) {
+  const current = typeof value === "string" && value.trim() ? value.trim() : "";
+  const currentTitle = current
+    ? battles.find((b) => `/features/competitions/${b.id}` === current)?.title ?? current
+    : "";
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={pending}
+        className="flex h-7 w-full min-w-0 items-center gap-1 rounded border border-transparent px-1 text-left text-sm leading-none outline-none hover:border-primary-300 focus:border-primary-300 disabled:opacity-50"
+        title={currentTitle || "Link a hosted competition"}
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {currentTitle ? (
+            <span className="text-primary-600">{currentTitle}</span>
+          ) : (
+            <span className="text-text-tertiary">Link competition\u2026</span>
+          )}
+        </span>
+        <ChevronDown className="size-3.5 shrink-0 text-text-tertiary" aria-hidden />
+      </button>
+      {open ? (
+        <div className="absolute left-0 top-7 z-[200] w-64 rounded-xl border border-border-default bg-surface-default p-2 shadow-xl">
+          {battles.length === 0 ? (
+            <p className="px-2 py-3 text-center text-xs text-text-tertiary">
+              You don&apos;t host any competitions yet.
+            </p>
+          ) : (
+            battles.map((b) => {
+              const isActive = current === `/features/competitions/${b.id}`;
+              return (
+                <button
+                  key={b.id}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => onPick(b.id)}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-surface-muted disabled:opacity-50"
+                >
+                  <span className="min-w-0 truncate text-text-primary">{b.title}</span>
+                  {isActive ? (
+                    <span className="shrink-0 text-[10px] font-semibold text-primary-600">LINKED</span>
+                  ) : null}
+                </button>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CompetitionManagementTableGroupSection({
   orgId,
   definitionId,
@@ -59,6 +129,9 @@ export function CompetitionManagementTableGroupSection({
   const queryClient = useQueryClient();
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(() => new Set());
   const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
+  const [linkPickerRowId, setLinkPickerRowId] = useState<string | null>(null);
+  const [linkCellRowId, setLinkCellRowId] = useState<string | null>(null);
+  const { myBattles } = useCompetitionHubData();
 
   const enabled = parentEnabled && Boolean(groupId);
 
@@ -104,6 +177,16 @@ export function CompetitionManagementTableGroupSection({
       setDeleteConfirmRowId(null);
       await invalidateRows();
     },
+  });
+
+  const populateRowFromBattleMutation = useMutation({
+    mutationFn: ({ rowId, battleId }: { rowId: string; battleId: string }) =>
+      populateManagementTableRowFromBattle(instanceId, rowId, battleId, orgId),
+    onSuccess: () => {
+      setLinkPickerRowId(null);
+      setLinkCellRowId(null);
+    },
+    onSettled: () => invalidateRows(),
   });
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
@@ -234,24 +317,51 @@ export function CompetitionManagementTableGroupSection({
                           style={{ paddingLeft: depth > 0 ? 12 + depth * 14 : undefined }}
                         >
                           <div className="min-w-0 flex-1">
-                            <ManagementTableCellEditor
-                              column={col}
-                              value={row.cells[col.id]}
-                              onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
-                            />
+                            {!battleId &&
+                            ["title", "name", "link"].includes(col.title.trim().toLowerCase()) ? (
+                              <CompetitionLinkCell
+                                value={row.cells[col.id]}
+                                open={linkCellRowId === row.id}
+                                pending={populateRowFromBattleMutation.isPending}
+                                onToggle={() =>
+                                  setLinkCellRowId((prev) => (prev === row.id ? null : row.id))
+                                }
+                                onPick={(battleId) =>
+                                  populateRowFromBattleMutation.mutate({ rowId: row.id, battleId })
+                                }
+                                battles={myBattles}
+                              />
+                            ) : (
+                              <ManagementTableCellEditor
+                                column={col}
+                                value={row.cells[col.id]}
+                                onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
+                              />
+                            )}
                           </div>
                         </td>
                       ))}
                       <td className="sticky right-0 z-[2] h-9 border-b border-l border-border-default bg-surface-default px-1 align-middle shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30">
-                        <button
-                          type="button"
-                          className="inline-flex size-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-red-50 hover:text-red-600"
-                          title="Delete row"
-                          disabled={!enabled || deleteRowMutation.isPending}
-                          onClick={() => setDeleteConfirmRowId(row.id)}
-                        >
-                          <Trash2 className="size-3.5" aria-hidden />
-                        </button>
+                        <div className="flex items-center justify-end gap-0.5">
+                          <button
+                            type="button"
+                            className="inline-flex size-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-primary-50 hover:text-primary-600"
+                            title="Link competition data"
+                            disabled={populateRowFromBattleMutation.isPending}
+                            onClick={() => setLinkPickerRowId(row.id)}
+                          >
+                            <Link2 className="size-3.5" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex size-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-red-50 hover:text-red-600"
+                            title="Delete row"
+                            disabled={!enabled || deleteRowMutation.isPending}
+                            onClick={() => setDeleteConfirmRowId(row.id)}
+                          >
+                            <Trash2 className="size-3.5" aria-hidden />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -317,6 +427,74 @@ export function CompetitionManagementTableGroupSection({
             : "Could not delete row."}
         </p>
       ) : null}
+
+      {linkPickerRowId && typeof document !== "undefined"
+        ? createPortal(
+            <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40">
+              <div className="w-full max-w-lg rounded-xl border border-border-default bg-surface-default p-6 shadow-xl">
+                <h3 className="text-base font-semibold text-text-primary">
+                  Link competition data
+                </h3>
+                <p className="mt-1 text-xs text-text-tertiary">
+                  Pick a competition you host to fill this row&apos;s cells with its data.
+                </p>
+                <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+                  {myBattles.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-text-tertiary">
+                      You don&apos;t host any competitions yet.
+                    </p>
+                  ) : (
+                    myBattles.map((battle) => {
+                      const pending =
+                        populateRowFromBattleMutation.isPending &&
+                        populateRowFromBattleMutation.variables?.battleId === battle.id;
+                      return (
+                        <button
+                          key={battle.id}
+                          type="button"
+                          disabled={populateRowFromBattleMutation.isPending}
+                          onClick={() =>
+                            populateRowFromBattleMutation.mutate({
+                              rowId: linkPickerRowId,
+                              battleId: battle.id,
+                            })
+                          }
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-border-default px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-muted disabled:opacity-50"
+                        >
+                          <span className="min-w-0 truncate font-medium text-text-primary">
+                            {battle.title}
+                          </span>
+                          <span className="shrink-0 text-xs text-text-tertiary">
+                            {pending ? "Linking…" : `${battle.status} · ${battle.difficulty}`}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {populateRowFromBattleMutation.isError ? (
+                  <p className="mt-3 text-sm text-red-600" role="alert">
+                    {populateRowFromBattleMutation.error instanceof ApiError
+                      ? populateRowFromBattleMutation.error.message
+                      : "Could not link competition data."}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={populateRowFromBattleMutation.isPending}
+                    onClick={() => setLinkPickerRowId(null)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

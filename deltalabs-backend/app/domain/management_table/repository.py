@@ -198,6 +198,24 @@ class ManagementTableRepository:
         }
         return await self._db["school_management_table_instances"].find_one(query)
 
+    async def find_instance_by_definition(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        definition_id: str,
+        table_kind: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Locate the instance that uses a given definition (used to re-sync rows after column changes)."""
+        query: dict[str, Any] = {
+            "org_id": org_id,
+            "school_id": school_id,
+            "definition_id": definition_id,
+        }
+        if table_kind is not None:
+            query["table_kind"] = table_kind
+        return await self._db["school_management_table_instances"].find_one(query)
+
     def _rows_filter(self, *, org_id: str, school_id: str, instance_id: str, group_id: str) -> dict[str, Any]:
         base: dict[str, Any] = {"org_id": org_id, "school_id": school_id, "instance_id": instance_id}
         if group_id == MANAGEMENT_TABLE_DEFAULT_GROUP_ID:
@@ -351,37 +369,6 @@ class ManagementTableRepository:
             },
         )
 
-    async def find_row_by_link(
-        self,
-        *,
-        org_id: str,
-        school_id: str,
-        instance_id: str,
-        group_id: str,
-        link_col: str,
-        link_value: str,
-    ) -> dict[str, Any] | None:
-        """Find a row whose ``Link`` cell matches a given battle URL."""
-        link_value = str(link_value).strip()
-        if not link_value:
-            return None
-        filt: dict[str, Any] = {
-            "org_id": org_id,
-            "school_id": school_id,
-            "instance_id": instance_id,
-            f"cells.{link_col}": link_value,
-        }
-        if group_id == MANAGEMENT_TABLE_DEFAULT_GROUP_ID:
-            filt["$or"] = [
-                {"group_id": {"$exists": False}},
-                {"group_id": None},
-                {"group_id": ""},
-                {"group_id": MANAGEMENT_TABLE_DEFAULT_GROUP_ID},
-            ]
-        else:
-            filt["group_id"] = group_id
-        return await self._db["school_management_table_rows"].find_one(filt)
-
     async def update_row_cells(
         self,
         *,
@@ -402,6 +389,51 @@ class ManagementTableRepository:
             {"$set": {"cells": cells, "updated_at": now}},
         )
         return result.matched_count > 0
+
+    async def set_row_linked_battle(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        row_id: str,
+        linked_battle_id: str | None,
+    ) -> bool:
+        """Persist which hosted battle a row is linked to (for re-sync)."""
+        now = datetime.now(UTC)
+        result = await self._db["school_management_table_rows"].update_one(
+            {
+                "_id": row_id,
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+            },
+            {
+                "$set": {
+                    "linked_battle_id": linked_battle_id or None,
+                    "updated_at": now,
+                }
+            },
+        )
+        return result.matched_count > 0
+
+    async def list_linked_rows(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+    ) -> list[dict[str, Any]]:
+        """Return rows that are linked to a hosted battle (linked_battle_id set)."""
+        docs = await self._db["school_management_table_rows"].find(
+            {
+                "org_id": org_id,
+                "school_id": school_id,
+                "instance_id": instance_id,
+                "linked_battle_id": {"$ne": None},
+            }
+        ).to_list(length=500)
+        return [dict(d) for d in docs]
 
     async def max_row_position(
         self,
