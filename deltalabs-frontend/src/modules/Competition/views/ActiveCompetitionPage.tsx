@@ -86,11 +86,23 @@ export function ActiveCompetitionPage() {
     [battles, joinModal],
   );
 
-  const handleOpenBattle = useCallback(
+  const handleResumeBattle = useCallback(
     (id: string) => {
       router.push(`/features/competitions/battles/${id}`);
     },
     [router],
+  );
+
+  const handleOpenBattle = useCallback(
+    (id: string) => {
+      const battle = battles.find((b) => b.id === id);
+      if (battle?.isOwner) {
+        router.push(`/features/competitions/${id}`);
+      } else {
+        router.push(`/features/competitions/battles/${id}`);
+      }
+    },
+    [battles, router],
   );
 
   const statusSlot = query.isLoading ? (
@@ -122,7 +134,7 @@ export function ActiveCompetitionPage() {
         onCreateNew={handleUtilityAction}
         battles={filteredBattles}
         onJoinBattle={handleJoinBattle}
-        onResumeBattle={handleOpenBattle}
+        onResumeBattle={handleResumeBattle}
         onOpenBattle={handleOpenBattle}
         statusSlot={statusSlot}
       />

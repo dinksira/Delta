@@ -3196,6 +3196,10 @@ class ManagementTableService:
         starter_columns = [
             {"id": _new_column_id(), "title": "Name", "type": "text", "order": 0, "settings": {}},
             {"id": _new_column_id(), "title": "Status", "type": "status", "order": 1, "settings": {"options": [
+                {"id": "filling", "label": "Filling"},
+                {"id": "scheduled", "label": "Scheduled"},
+                {"id": "live", "label": "Live"},
+                {"id": "finished", "label": "Finished"},
                 {"id": "tracking", "label": "Tracking"},
                 {"id": "active", "label": "Active"},
                 {"id": "completed", "label": "Completed"},
@@ -3224,4 +3228,162 @@ class ManagementTableService:
         return ManagementTableInstanceBundleResponse(
             instance=map_instance(inst),
             definition=map_definition(definition_doc),
+        )
+
+    async def comp_find_instance_by_workspace_item(
+        self, *, org_id: str, user_id: str, workspace_item_id: str,
+    ) -> dict[str, Any] | None:
+        """Locate a competition-scoped instance by its workspace key (or None)."""
+        school_id = self._comp_school_id(user_id)
+        return await self._mt.find_instance_by_workspace_item(
+            org_id=org_id, school_id=school_id,
+            workspace_item_id=workspace_item_id,
+            table_kind=MANAGEMENT_TABLE_KIND_COMPETITIONS,
+        )
+
+    async def comp_bootstrap_scoped(
+        self, *, org_id: str, user_id: str, workspace_item_id: str,
+        title: str, columns: list[dict[str, Any]], row_cells: dict[str, Any] | None = None,
+    ) -> ManagementTableInstanceBundleResponse:
+        """Bootstrap a per-user competition table for an explicit workspace key.
+
+        Idempotent: reuses an existing instance for the same key. Optional
+        ``row_cells`` seeds the first row of the default group.
+        """
+        school_id = self._comp_school_id(user_id)
+        existing = await self._mt.find_instance_by_workspace_item(
+            org_id=org_id, school_id=school_id,
+            workspace_item_id=workspace_item_id,
+            table_kind=MANAGEMENT_TABLE_KIND_COMPETITIONS,
+        )
+        if existing is not None:
+            defn = await self.comp_get_definition(
+                org_id=org_id, user_id=user_id,
+                definition_id=str(existing["definition_id"]),
+            )
+            return ManagementTableInstanceBundleResponse(
+                instance=map_instance(existing), definition=defn,
+            )
+        definition_doc = await self._mt.insert_definition(
+            org_id=org_id, school_id=school_id,
+            title=title, visibility="self_owned",
+            created_by_user_id=user_id, columns=columns,
+        )
+        version = int(definition_doc.get("version", 1))
+        inst = await self._mt.insert_instance(
+            org_id=org_id, school_id=school_id,
+            definition_id=str(definition_doc["_id"]),
+            definition_version=version,
+            title=title,
+            workspace_item_id=workspace_item_id,
+            table_kind=MANAGEMENT_TABLE_KIND_COMPETITIONS,
+        )
+        if row_cells:
+            await self._mt.insert_row(
+                org_id=org_id, school_id=school_id,
+                instance_id=str(inst["_id"]),
+                group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+                position=0, cells=row_cells,
+            )
+        return ManagementTableInstanceBundleResponse(
+            instance=map_instance(inst),
+            definition=map_definition(definition_doc),
+        )
+
+    async def comp_upsert_first_row(
+        self, *, org_id: str, user_id: str, instance_id: str,
+        cells: dict[str, Any],
+    ) -> ManagementTableRowPublic:
+        """Create (or patch) the first row of the default group with ``cells``."""
+        school_id = self._comp_school_id(user_id)
+        items, _total = await self._mt.list_rows(
+            org_id=org_id, school_id=school_id, instance_id=instance_id,
+            group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID, skip=0, limit=1,
+        )
+        if items:
+            row_id = str(items[0]["_id"])
+        else:
+            created = await self.comp_create_row(
+                org_id=org_id, user_id=user_id, instance_id=instance_id,
+                group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+            )
+            row_id = created.id
+        return await self.comp_patch_row(
+            org_id=org_id, user_id=user_id, instance_id=instance_id,
+            row_id=row_id, payload=ManagementTableRowCellsPatchInput(cells=cells),
+        )
+
+    async def comp_sync_owned_rows(
+        self, *, org_id: str, user_id: str, instance_id: str, battle_rows: list[dict[str, Any]],
+    ) -> int:
+        """Idempotently create/patch one management-table row per owned battle.
+
+        ``battle_rows`` items: ``{"key": <unique link>, "cells": {<col_id>: value}}``.
+        A row is matched by its ``Link`` column value (the battle's URL), so re-runs
+        update existing rows instead of duplicating them. Returns rows written.
+        """
+        school_id = self._comp_school_id(user_id)
+        bundle = await self.comp_get_instance_bundle(org_id=org_id, user_id=user_id, instance_id=instance_id)
+        col_by_title: dict[str, str] = {
+            str(c.title).strip(): str(c.id) for c in bundle.definition.columns
+        }
+        link_col = col_by_title.get("Link")
+        for br in battle_rows:
+            cells: dict[str, Any] = dict(br.get("cells") or {})
+            key = str(br.get("key") or "")
+            if not key:
+                continue
+            if link_col:
+                existing = await self._mt.find_row_by_link(
+                    org_id=org_id, school_id=school_id, instance_id=instance_id,
+                    group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID, link_col=link_col, link_value=key,
+                )
+                if existing is not None:
+                    await self.comp_patch_row(
+                        org_id=org_id, user_id=user_id, instance_id=instance_id,
+                        row_id=str(existing["_id"]),
+                        payload=ManagementTableRowCellsPatchInput(cells=cells),
+                    )
+                    continue
+            created = await self.comp_create_row(
+                org_id=org_id, user_id=user_id, instance_id=instance_id,
+                group_id=MANAGEMENT_TABLE_DEFAULT_GROUP_ID,
+            )
+            await self.comp_patch_row(
+                org_id=org_id, user_id=user_id, instance_id=instance_id,
+                row_id=created.id, payload=ManagementTableRowCellsPatchInput(cells=cells),
+            )
+        return len(battle_rows)
+
+    async def comp_ensure_status_options(
+        self, *, org_id: str, user_id: str, definition_id: str,
+        battle_statuses: list[dict[str, str]],
+    ) -> None:
+        """Merge battle status choices into the ``Status`` column options.
+
+        The Status column renders as a dropdown; add each missing battle status
+        (id/label) to its options while keeping existing choices. Idempotent.
+        """
+        school_id = self._comp_school_id(user_id)
+        doc = await self._mt.find_definition(org_id=org_id, school_id=school_id, definition_id=definition_id)
+        if doc is None:
+            return
+        raw_cols = doc.get("columns")
+        cols: list[dict[str, Any]] = [dict(c) for c in raw_cols] if isinstance(raw_cols, list) else []
+        status_col = next((c for c in cols if str(c.get("title", "")).strip() == "Status"), None)
+        if status_col is None:
+            return
+        settings = dict(status_col.get("settings") or {})
+        opts_raw = settings.get("options")
+        opts = [dict(o) for o in opts_raw] if isinstance(opts_raw, list) else []
+        existing_ids = {str(o.get("id", "")) for o in opts}
+        for bs in battle_statuses:
+            sid = str(bs.get("id", "")).strip()
+            if sid and sid not in existing_ids:
+                opts.append({"id": sid, "label": str(bs.get("label", sid))})
+        settings["options"] = opts
+        status_col["settings"] = settings
+        await self._mt.update_definition(
+            org_id=org_id, school_id=school_id, definition_id=definition_id,
+            title=None, visibility=None, columns=cols,
         )

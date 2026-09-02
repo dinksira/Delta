@@ -38,10 +38,19 @@ from app.domain.competitions.service import Service as CompetitionsService
 router = APIRouter(prefix="/competitions", tags=["competitions"])
 
 
+def _mt_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> ManagementTableService:
+    from app.domain.management_table.repository import ManagementTableRepository as MtRepo
+    from app.domain.school.repository import Repository as SchoolRepo
+    return ManagementTableService(mt_repo=MtRepo(db), school_repo=SchoolRepo(db))
+
+
 def _competitions_service(
     db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),  # noqa: B008
 ) -> CompetitionsService:
-    return CompetitionsService(CompetitionsRepository(db))
+    return CompetitionsService(
+        CompetitionsRepository(db),
+        management_table_service=_mt_service(db),
+    )
 
 
 # ============================================================================
@@ -218,10 +227,12 @@ def _mt_service(db: AsyncIOMotorDatabase[dict[str, object]]) -> ManagementTableS
 async def bootstrap_competition_management_table(
     org_id: str = Query(default="delta-labs"),
     user: CurrentUser = Depends(get_current_user),
-    db: AsyncIOMotorDatabase[dict[str, object]] = Depends(get_db),
+    service: CompetitionsService = Depends(_competitions_service),
 ) -> ManagementTableInstanceBundleResponse:
-    svc = _mt_service(db)
-    return await svc.bootstrap_competition_management_table(org_id=org_id, user_id=user.user_id)
+    """Bootstrap the "My Competitions" table and autofill one row per owned battle."""
+    return await service.autofill_competition_management_table(
+        org_id=org_id, user_id=user.user_id,
+    )
 
 
 @router.get("/management-table/instance", response_model=ManagementTableInstanceBundleResponse)
@@ -356,3 +367,74 @@ async def create_competition_management_table_group(
 ) -> ManagementTableGroupPublic:
     svc = _mt_service(db)
     return await svc.comp_create_table_group(org_id=org_id, user_id=user.user_id, instance_id=instance_id, payload=payload)
+
+
+# ============================================================================
+# Battle-scoped Management Table — manage one hosted battle via the table
+# ============================================================================
+
+
+@router.post(
+    "/topic-battles/{battle_id}/management-table/bootstrap",
+    response_model=ManagementTableInstanceBundleResponse,
+)
+async def bootstrap_topic_battle_management_table(
+    battle_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    service: CompetitionsService = Depends(_competitions_service),
+) -> ManagementTableInstanceBundleResponse:
+    """Bootstrap (or load) the management table for one hosted battle."""
+    return await service.bootstrap_topic_battle_management_table(
+        battle_id=battle_id, user_id=user.user_id,
+    )
+
+
+@router.get(
+    "/topic-battles/{battle_id}/management-table/instance",
+    response_model=ManagementTableInstanceBundleResponse,
+)
+async def get_topic_battle_management_table(
+    battle_id: str,
+    user: CurrentUser = Depends(get_current_user),
+    service: CompetitionsService = Depends(_competitions_service),
+) -> ManagementTableInstanceBundleResponse:
+    """Load the management-table bundle for a hosted battle."""
+    return await service.get_topic_battle_management_table(
+        battle_id=battle_id, user_id=user.user_id,
+    )
+
+
+@router.get(
+    "/topic-battles/{battle_id}/management-table/rows",
+    response_model=ManagementTableRowListResponse,
+)
+async def list_topic_battle_management_rows(
+    battle_id: str,
+    group_id: str | None = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    user: CurrentUser = Depends(get_current_user),
+    service: CompetitionsService = Depends(_competitions_service),
+) -> ManagementTableRowListResponse:
+    """List rows of a hosted battle's management table."""
+    return await service.list_topic_battle_management_rows(
+        battle_id=battle_id, user_id=user.user_id,
+        group_id=group_id, page=page, page_size=page_size,
+    )
+
+
+@router.patch(
+    "/topic-battles/{battle_id}/management-table/rows/{row_id}",
+    response_model=ManagementTableRowPublic,
+)
+async def patch_topic_battle_management_row(
+    battle_id: str,
+    row_id: str,
+    payload: ManagementTableRowCellsPatchInput,
+    user: CurrentUser = Depends(get_current_user),
+    service: CompetitionsService = Depends(_competitions_service),
+) -> ManagementTableRowPublic:
+    """Patch a row cell; editable cells are synced back to the battle."""
+    return await service.patch_topic_battle_management_row(
+        battle_id=battle_id, user_id=user.user_id, row_id=row_id, payload=payload,
+    )

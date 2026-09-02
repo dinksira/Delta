@@ -25,6 +25,7 @@ import {
   deleteCompetitionManagementTableRow,
   fetchCompetitionManagementTableRows,
   patchCompetitionManagementTableRow,
+  patchTopicBattleManagementTableRow,
 } from "@/modules/Competition/managementTable/api";
 import type { CompetitionManagementTableRowDto } from "@/modules/Competition/managementTable/types";
 import { competitionQueryKeys } from "@/modules/Competition/managementTable/competitionQueryKeys";
@@ -41,6 +42,7 @@ export type CompetitionManagementTableGroupSectionProps = Readonly<{
   groupId: string;
   columns: readonly { id: string; title: string; type: string; order: number; settings?: Record<string, unknown> }[];
   parentEnabled: boolean;
+  battleId?: string;
 }>;
 
 // ===== COMPONENT =====
@@ -52,6 +54,7 @@ export function CompetitionManagementTableGroupSection({
   groupId,
   columns,
   parentEnabled,
+  battleId,
 }: CompetitionManagementTableGroupSectionProps) {
   const queryClient = useQueryClient();
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(() => new Set());
@@ -61,7 +64,7 @@ export function CompetitionManagementTableGroupSection({
 
   const rowsQuery = useQuery({
     queryKey: competitionQueryKeys.rows(orgId, instanceId, groupId),
-    queryFn: () => fetchCompetitionManagementTableRows(instanceId, groupId, 1, 500, orgId),
+    queryFn: () => fetchCompetitionManagementTableRows(instanceId, groupId, 1, 200, orgId),
     enabled,
   });
 
@@ -78,7 +81,9 @@ export function CompetitionManagementTableGroupSection({
 
   const patchRowMutation = useMutation({
     mutationFn: ({ rowId, cells }: { rowId: string; cells: Record<string, unknown> }) =>
-      patchCompetitionManagementTableRow(instanceId, rowId, cells, orgId),
+      battleId
+        ? patchTopicBattleManagementTableRow(battleId, rowId, cells, orgId)
+        : patchCompetitionManagementTableRow(instanceId, rowId, cells, orgId),
     onSuccess: (updated) => {
       queryClient.setQueryData(
         competitionQueryKeys.rows(orgId, instanceId, groupId),

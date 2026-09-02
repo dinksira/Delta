@@ -23,6 +23,7 @@ import { ApiError } from "@/lib/apiClient";
 import {
   appendCompetitionManagementTableColumn,
   bootstrapCompetitionManagementTable,
+  bootstrapTopicBattleManagementTable,
   createCompetitionManagementTableGroup,
   getCompetitionManagementTableInstance,
 } from "@/modules/Competition/managementTable/api";
@@ -42,17 +43,30 @@ import { useManagementTableAddColumnPopover } from "@/modules/School/managementT
 
 const ORG_ID = "delta-labs";
 
+// ===== TYPES =====
+
+export type CompetitionManagementTableViewProps = Readonly<{
+  battleId?: string;
+}>;
+
 // ===== COMPONENT =====
 
-export function CompetitionManagementTableView() {
+export function CompetitionManagementTableView({
+  battleId,
+}: CompetitionManagementTableViewProps) {
   const queryClient = useQueryClient();
   const addColumn = useManagementTableAddColumnPopover();
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupTitle, setNewGroupTitle] = useState("");
 
   const bootstrapQuery = useQuery({
-    queryKey: competitionQueryKeys.all,
-    queryFn: () => bootstrapCompetitionManagementTable(ORG_ID),
+    queryKey: battleId
+      ? [...competitionQueryKeys.all, "battle", battleId]
+      : competitionQueryKeys.all,
+    queryFn: () =>
+      battleId
+        ? bootstrapTopicBattleManagementTable(battleId, ORG_ID)
+        : bootstrapCompetitionManagementTable(ORG_ID),
     retry: 1,
   });
 
@@ -176,6 +190,7 @@ export function CompetitionManagementTableView() {
           groupId={g.id}
           columns={columns}
           parentEnabled={Boolean(bundleQuery.data)}
+          battleId={battleId}
         />
       ))}
 

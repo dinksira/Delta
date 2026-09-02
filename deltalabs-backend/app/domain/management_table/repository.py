@@ -351,6 +351,37 @@ class ManagementTableRepository:
             },
         )
 
+    async def find_row_by_link(
+        self,
+        *,
+        org_id: str,
+        school_id: str,
+        instance_id: str,
+        group_id: str,
+        link_col: str,
+        link_value: str,
+    ) -> dict[str, Any] | None:
+        """Find a row whose ``Link`` cell matches a given battle URL."""
+        link_value = str(link_value).strip()
+        if not link_value:
+            return None
+        filt: dict[str, Any] = {
+            "org_id": org_id,
+            "school_id": school_id,
+            "instance_id": instance_id,
+            f"cells.{link_col}": link_value,
+        }
+        if group_id == MANAGEMENT_TABLE_DEFAULT_GROUP_ID:
+            filt["$or"] = [
+                {"group_id": {"$exists": False}},
+                {"group_id": None},
+                {"group_id": ""},
+                {"group_id": MANAGEMENT_TABLE_DEFAULT_GROUP_ID},
+            ]
+        else:
+            filt["group_id"] = group_id
+        return await self._db["school_management_table_rows"].find_one(filt)
+
     async def update_row_cells(
         self,
         *,

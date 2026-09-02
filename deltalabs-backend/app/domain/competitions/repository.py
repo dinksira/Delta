@@ -93,6 +93,15 @@ class Repository:
         )
         return await self.find_topic_battle_by_id(battle_id)
 
+    async def patch_topic_battle(self, battle_id: str, fields: dict[str, Any]) -> dict[str, Any] | None:
+        """Apply ``$set`` updates to a battle document (management-table sync)."""
+        now = datetime.now(UTC)
+        await self._db["topic_battles"].update_one(
+            {"_id": battle_id},
+            {"$set": {**fields, "updated_at": now}},
+        )
+        return await self.find_topic_battle_by_id(battle_id)
+
     async def find_all_topic_battles_by_owner(self, owner_user_id: str) -> list[dict[str, Any]]:
         cursor = (
             self._db["topic_battles"]
@@ -108,6 +117,13 @@ class Repository:
             {"_id": 1},
         )
         return str(user["_id"]) if user is not None else None
+
+    async def find_user_email_by_id(self, user_id: str) -> str | None:
+        """Resolve a user's email by id (used to label hosted battles)."""
+        user = await self._db["users"].find_one({"_id": user_id}, {"email": 1})
+        if user is None or not user.get("email"):
+            return None
+        return str(user["email"])
 
     async def upsert_topic_battle(self, doc: dict[str, Any]) -> None:
         """Insert or fully refresh a battle by its `_id` (used by demo seeding)."""

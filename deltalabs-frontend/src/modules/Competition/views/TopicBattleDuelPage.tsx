@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Settings2 } from "lucide-react";
 
 import { Button } from "@/components/theme/Button";
 import { QuizBattleTemplate } from "@/components/templates/QuizBattleTemplate";
@@ -98,6 +98,33 @@ export function TopicBattleDuelPage() {
             size="sm"
             onClick={() => router.push("/features/competitions/topic-battles")}
           >
+            Browse battles
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (battle.isOwner) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+        <Settings2 className="size-10 text-primary-600" aria-hidden />
+        <h2 className="text-lg font-semibold text-text-primary">You host this battle</h2>
+        <p className="max-w-md text-sm text-text-secondary">
+          Manage and track it from the battle page. Only participants can play a duel — you
+          cannot take part in a battle you created.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => router.push(`/features/competitions/${battle.id}`)}
+          >
+            <Settings2 className="size-4" />
+            Manage &amp; Track
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleBack}>
+            <ArrowLeft className="size-4" />
             Browse battles
           </Button>
         </div>

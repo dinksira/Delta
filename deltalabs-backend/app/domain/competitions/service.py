@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from app.core.exceptions import NotFoundError, PermissionDeniedError
 from app.domain.competitions.repository import Repository
 from app.domain.competitions.schemas import (
     AchievementResponse,
@@ -23,6 +24,13 @@ from app.domain.competitions.schemas import (
     TopicBattleResponse,
     UserStatusResponse,
 )
+from app.domain.management_table.schemas import (
+    ManagementTableInstanceBundleResponse,
+    ManagementTableRowCellsPatchInput,
+    ManagementTableRowListResponse,
+    ManagementTableRowPublic,
+)
+from app.domain.management_table.service import ManagementTableService
 
 # ################################ CONSTANTS ################################
 # Server-side source of truth for the hub's game-mode cards.
@@ -1140,9 +1148,189 @@ def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
     }
 
 
+# ========================================================================
+# Battle management-table columns (drives the per-battle management table)
+# ========================================================================
+
+_MT_ORG_ID = "delta-labs"
+_MT_BATTLE_WORKSPACE_PREFIX = "comp_battle_"
+_MT_BATTLE_TABLE_TITLE = "Battle Management"
+
+_MT_BATTLE_STATUS_OPTIONS = [
+    {"id": "filling", "label": "Filling"},
+    {"id": "scheduled", "label": "Scheduled"},
+    {"id": "live", "label": "Live"},
+    {"id": "finished", "label": "Finished"},
+]
+_MT_DIFFICULTY_OPTIONS = [
+    {"id": "Easy", "label": "Easy"},
+    {"id": "Intermediate", "label": "Intermediate"},
+    {"id": "Hard", "label": "Hard"},
+]
+_MT_FORMAT_OPTIONS = [
+    {"id": "1v1", "label": "1v1"},
+    {"id": "mini", "label": "Mini"},
+    {"id": "t8", "label": "Top 8"},
+    {"id": "t16", "label": "Top 16"},
+    {"id": "t32", "label": "Top 32"},
+]
+_MT_VISIBILITY_OPTIONS = [
+    {"id": "public", "label": "Public"},
+    {"id": "private", "label": "Private"},
+]
+_MT_TIMING_OPTIONS = [
+    {"id": "instant", "label": "Instant"},
+    {"id": "schedule", "label": "Schedule"},
+]
+_MT_POOL_OPTIONS = [
+    {"id": "auto", "label": "Auto"},
+    {"id": "custom", "label": "Custom"},
+]
+
+# Editable cell title -> battle document field. Columns absent here are
+# rendered read-only (Joined, Questions, Link).
+_MT_BATTLE_FIELD_BY_TITLE: dict[str, str] = {
+    "Title": "title",
+    "Subject": "subject",
+    "Difficulty": "difficulty",
+    "Status": "status",
+    "Entry Fee": "entry_fee",
+    "Prize Pool": "prize_pool",
+    "Players": "players_max",
+    "Format": "format",
+    "Visibility": "visibility",
+    "Timing": "timing",
+    "Schedule Date": "schedule_date",
+    "Schedule Time": "schedule_time",
+    "Schedule Timezone": "schedule_timezone",
+    "Duration (min)": "duration_minutes",
+    "Question Pool": "question_pool_mode",
+    "Easy %": "easy_pct",
+    "Medium %": "medium_pct",
+    "Hard %": "hard_pct",
+}
+
+# Read-only cells derived from the battle document on every sync.
+_MT_BATTLE_DERIVED_CELLS: dict[str, str] = {
+    "Joined": "players_joined",
+    "Questions": "_questions_count",
+    "Link": "_link",
+}
+
+_MT_VALIDATED_CHOICES: dict[str, list[str]] = {
+    "difficulty": ["Easy", "Intermediate", "Hard"],
+    "status": ["filling", "scheduled", "live", "finished"],
+    "format": ["1v1", "mini", "t8", "t16", "t32"],
+    "visibility": ["public", "private"],
+    "timing": ["instant", "schedule"],
+    "question_pool_mode": ["auto", "custom"],
+}
+
+_MT_NUMBER_FIELDS: set[str] = {
+    "players_max", "duration_minutes", "easy_pct", "medium_pct", "hard_pct",
+}
+
+
+def _mt_starter_columns() -> list[dict[str, Any]]:
+    """Starter columns for a per-battle management table."""
+    cols = [
+        ("Title", "text", {}),
+        ("Subject", "text", {}),
+        ("Difficulty", "status", {"options": _MT_DIFFICULTY_OPTIONS}),
+        ("Status", "status", {"options": _MT_BATTLE_STATUS_OPTIONS}),
+        ("Entry Fee", "text", {}),
+        ("Prize Pool", "text", {}),
+        ("Players", "number", {}),
+        ("Joined", "number", {}),
+        ("Format", "dropdown", {"options": _MT_FORMAT_OPTIONS}),
+        ("Visibility", "dropdown", {"options": _MT_VISIBILITY_OPTIONS}),
+        ("Timing", "dropdown", {"options": _MT_TIMING_OPTIONS}),
+        ("Schedule Date", "date", {}),
+        ("Schedule Time", "text", {}),
+        ("Schedule Timezone", "text", {}),
+        ("Duration (min)", "number", {}),
+        ("Question Pool", "dropdown", {"options": _MT_POOL_OPTIONS}),
+        ("Easy %", "number", {}),
+        ("Medium %", "number", {}),
+        ("Hard %", "number", {}),
+        ("Questions", "number", {}),
+        ("Link", "link", {}),
+    ]
+    return [
+        {"id": f"col_{uuid4().hex}", "title": title, "type": col_type, "order": idx, "settings": settings}
+        for idx, (title, col_type, settings) in enumerate(cols)
+    ]
+
+
+def _mt_cell_columns(columns: list[Any]) -> list[dict[str, Any]]:
+    """Shrink definition columns to the ``{id, title}`` shape helpers need."""
+    return [{"id": c.id, "title": c.title} for c in columns]
+
+
+def _mt_battle_cells(columns: list[dict[str, Any]], doc: dict[str, Any]) -> dict[str, Any]:
+    """Project a battle document onto management-table cells by column title."""
+    battle_id = str(doc["_id"])
+    questions = list(doc.get("questions") or [])
+    cells: dict[str, Any] = {}
+    for column in columns:
+        title = str(column.get("title", ""))
+        col_id = str(column.get("id", ""))
+        field = _MT_BATTLE_FIELD_BY_TITLE.get(title)
+        derived = _MT_BATTLE_DERIVED_CELLS.get(title)
+        if field is not None:
+            cells[col_id] = doc.get(field, "")
+        elif derived == "players_joined":
+            cells[col_id] = int(doc.get("players_joined", 0))
+        elif derived == "_questions_count":
+            cells[col_id] = len(questions)
+        elif derived == "_link":
+            cells[col_id] = f"/features/competitions/{battle_id}"
+        else:
+            cells[col_id] = ""
+    return cells
+
+
+def _mt_cells_to_battle_fields(
+    columns: list[dict[str, Any]], cells: dict[str, Any],
+) -> dict[str, Any]:
+    """Map edited cells back to validated battle-document fields."""
+    by_id = {str(c.get("id", "")): c for c in columns}
+    updates: dict[str, Any] = {}
+    for col_id, raw in cells.items():
+        column = by_id.get(str(col_id))
+        if column is None:
+            continue
+        field = _MT_BATTLE_FIELD_BY_TITLE.get(str(column.get("title", "")))
+        if field is None:
+            continue
+        if field in _MT_NUMBER_FIELDS:
+            if raw is None or raw == "":
+                continue
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                continue
+        else:
+            if raw is None:
+                continue
+            value = str(raw).strip()
+            if not value:
+                continue
+        allowed = _MT_VALIDATED_CHOICES.get(field)
+        if allowed is not None and value not in allowed:
+            continue
+        updates[field] = value
+    return updates
+
+
 class Service:
-    def __init__(self, repository: Repository) -> None:
+    def __init__(
+        self,
+        repository: Repository,
+        management_table_service: ManagementTableService | None = None,
+    ) -> None:
         self._repository = repository
+        self._management_table_service = management_table_service
 
     async def bootstrap(self) -> None:
         await self._repository.ensure_indexes()
@@ -1439,6 +1627,7 @@ class Service:
                 user_id,
                 {"joined": 1, "points": points},
             )
+        await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
 
     async def complete_topic_battle(
@@ -1472,7 +1661,227 @@ class Service:
         updated = await self._repository.mark_topic_battle_completed(battle_id, user_id)
         if updated is None:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+        await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
+
+    # ========================================================================
+    # Battle management table (per-battle, owner-only)
+    # ========================================================================
+
+    async def bootstrap_topic_battle_management_table(
+        self, *, battle_id: str, user_id: str,
+    ) -> ManagementTableInstanceBundleResponse:
+        """Bootstrap (or load) the management table for one hosted battle.
+
+        Idempotent: reuses the existing instance for ``comp_battle_{battle_id}``
+        and refreshes the battle row from the current document.
+        """
+        await self.bootstrap()
+        doc = await self._require_battle_owner(battle_id, user_id)
+        mgt = self._management_table_service
+        if mgt is None:
+            raise PermissionDeniedError(
+                "Management tables are unavailable.",
+                code="management_table_unavailable",
+            )
+        workspace_item_id = f"{_MT_BATTLE_WORKSPACE_PREFIX}{battle_id}"
+        bundle = await mgt.comp_bootstrap_scoped(
+            org_id=_MT_ORG_ID, user_id=user_id,
+            workspace_item_id=workspace_item_id,
+            title=_MT_BATTLE_TABLE_TITLE,
+            columns=_mt_starter_columns(),
+        )
+        await self._sync_battle_row_to_table(
+            battle_id=battle_id, user_id=user_id, doc=doc, instance_id=bundle.instance.id
+        )
+        return bundle
+
+    async def get_topic_battle_management_table(
+        self, *, battle_id: str, user_id: str,
+    ) -> ManagementTableInstanceBundleResponse:
+        """Load the management-table bundle for a hosted battle."""
+        await self.bootstrap()
+        inst = await self._get_battle_management_instance(battle_id, user_id)
+        mgt = self._management_table_service
+        assert mgt is not None
+        return await mgt.comp_get_instance_bundle(
+            org_id=_MT_ORG_ID, user_id=user_id, instance_id=str(inst["_id"]),
+        )
+
+    async def list_topic_battle_management_rows(
+        self, *, battle_id: str, user_id: str,
+        group_id: str | None, page: int, page_size: int,
+    ) -> ManagementTableRowListResponse:
+        """List rows of a hosted battle's management table."""
+        await self.bootstrap()
+        inst = await self._get_battle_management_instance(battle_id, user_id)
+        mgt = self._management_table_service
+        assert mgt is not None
+        return await mgt.comp_list_rows(
+            org_id=_MT_ORG_ID, user_id=user_id, instance_id=str(inst["_id"]),
+            group_id=group_id, page=page, page_size=page_size,
+        )
+
+    async def patch_topic_battle_management_row(
+        self, *, battle_id: str, user_id: str, row_id: str,
+        payload: ManagementTableRowCellsPatchInput,
+    ) -> ManagementTableRowPublic:
+        """Patch a management-table row and sync editable cells to the battle."""
+        await self.bootstrap()
+        await self._require_battle_owner(battle_id, user_id)
+        inst = await self._get_battle_management_instance(battle_id, user_id)
+        instance_id = str(inst["_id"])
+        mgt = self._management_table_service
+        assert mgt is not None
+        bundle = await mgt.comp_get_instance_bundle(
+            org_id=_MT_ORG_ID, user_id=user_id, instance_id=instance_id,
+        )
+        row = await mgt.comp_patch_row(
+            org_id=_MT_ORG_ID, user_id=user_id,
+            instance_id=instance_id, row_id=row_id, payload=payload,
+        )
+        columns = _mt_cell_columns(bundle.definition.columns)
+        updates = _mt_cells_to_battle_fields(columns, row.cells)
+        if updates:
+            updated_doc = await self._repository.patch_topic_battle(battle_id, updates)
+            if updated_doc is not None:
+                cells = _mt_battle_cells(columns, updated_doc)
+                await mgt.comp_upsert_first_row(
+                    org_id=_MT_ORG_ID, user_id=user_id,
+                    instance_id=instance_id, cells=cells,
+                )
+        return row
+
+    async def _require_battle_owner(self, battle_id: str, user_id: str) -> dict[str, Any]:
+        """Load a battle and enforce that ``user_id`` hosts it."""
+        doc = await self._repository.find_topic_battle_by_id(battle_id)
+        if doc is None:
+            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+        if not user_id or str(doc.get("owner_user_id") or "") != user_id:
+            raise PermissionDeniedError(
+                "You can only manage battles you host.",
+                code="cannot_manage_battle",
+            )
+        return doc
+
+    async def _get_battle_management_instance(
+        self, battle_id: str, user_id: str,
+    ) -> dict[str, Any]:
+        """Load the management-table instance for a battle (owner-only)."""
+        await self._require_battle_owner(battle_id, user_id)
+        mgt = self._management_table_service
+        if mgt is None:
+            raise PermissionDeniedError(
+                "Management tables are unavailable.",
+                code="management_table_unavailable",
+            )
+        inst = await mgt.comp_find_instance_by_workspace_item(
+            org_id=_MT_ORG_ID, user_id=user_id,
+            workspace_item_id=f"{_MT_BATTLE_WORKSPACE_PREFIX}{battle_id}",
+        )
+        if inst is None:
+            raise NotFoundError(
+                "Battle management table not found. Open it first.",
+                code="management_table_instance_not_found",
+            )
+        return inst
+
+    async def _sync_battle_row_to_table(
+        self, *, battle_id: str, user_id: str, doc: dict[str, Any], instance_id: str,
+    ) -> None:
+        """Project the battle document onto the table's first row."""
+        mgt = self._management_table_service
+        assert mgt is not None
+        bundle = await mgt.comp_get_instance_bundle(
+            org_id=_MT_ORG_ID, user_id=user_id, instance_id=instance_id,
+        )
+        columns = _mt_cell_columns(bundle.definition.columns)
+        await mgt.comp_upsert_first_row(
+            org_id=_MT_ORG_ID, user_id=user_id,
+            instance_id=instance_id, cells=_mt_battle_cells(columns, doc),
+        )
+
+    async def _sync_battle_row_after_change(self, battle_id: str, user_id: str) -> None:
+        """Best-effort refresh of the owner's battle row (join/complete flows).
+
+        Runs with the battle owner's identity so participant joins/completions
+        still update the row the host sees. Never breaks the calling flow.
+        """
+        if not user_id or self._management_table_service is None:
+            return
+        try:
+            doc = await self._repository.find_topic_battle_by_id(battle_id)
+            if doc is None:
+                return
+            owner_id = str(doc.get("owner_user_id") or "")
+            if not owner_id:
+                return
+            inst = await self._get_battle_management_instance(battle_id, owner_id)
+            await self._sync_battle_row_to_table(
+                battle_id=battle_id, user_id=owner_id,
+                doc=doc, instance_id=str(inst["_id"]),
+            )
+        except Exception:
+            # Table sync is non-critical: never break join/complete on it.
+            pass
+
+    async def autofill_competition_management_table(
+        self, *, org_id: str, user_id: str,
+    ) -> ManagementTableInstanceBundleResponse:
+        """Bootstrap the per-user "My Competitions" table and fill one row per
+        battle the user hosts.
+
+        Idempotent: existing rows are matched by their ``Link`` cell and patched,
+        so re-opening the tab never duplicates a battle.
+        """
+        mgt = self._management_table_service
+        if mgt is None:
+            raise PermissionDeniedError(
+                "Management tables are unavailable.",
+                code="management_table_unavailable",
+            )
+        bundle = await mgt.bootstrap_competition_management_table(org_id=org_id, user_id=user_id)
+        col_by_title = {str(c.title).strip(): str(c.id) for c in bundle.definition.columns}
+
+        await mgt.comp_ensure_status_options(
+            org_id=org_id, user_id=user_id,
+            definition_id=bundle.definition.id,
+            battle_statuses=[
+                {"id": "filling", "label": "Filling"},
+                {"id": "scheduled", "label": "Scheduled"},
+                {"id": "live", "label": "Live"},
+                {"id": "finished", "label": "Finished"},
+            ],
+        )
+
+        def _cells(doc: dict[str, Any]) -> dict[str, Any]:
+            cells: dict[str, Any] = {}
+
+            def put(title: str, value: Any) -> None:
+                cid = col_by_title.get(title)
+                if cid:
+                    cells[cid] = value
+
+            ends = doc.get("countdown_ends_at")
+            put("Name", str(doc.get("title", "")))
+            put("Status", str(doc.get("status", "filling")))
+            put("Start Date", str(doc.get("schedule_date", "")))
+            put("End Date", str(ends) if ends else "")
+            put("Prize Pool", str(doc.get("prize_pool", "0 ETB")))
+            put("Link", f"/features/competitions/{doc['_id']}")
+            return cells
+
+        docs = await self._repository.find_all_topic_battles_by_owner(user_id)
+        rows = [
+            {"key": f"/features/competitions/{doc['_id']}", "cells": _cells(doc)}
+            for doc in docs
+        ]
+        if rows:
+            await mgt.comp_sync_owned_rows(
+                org_id=org_id, user_id=user_id,
+                instance_id=bundle.instance.id, battle_rows=rows,
+            )
+        return bundle
 
     # ========================================================================
     # Question CRUD (embedded in battle document)

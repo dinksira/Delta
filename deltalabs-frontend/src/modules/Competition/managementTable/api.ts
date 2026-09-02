@@ -161,3 +161,27 @@ export async function createCompetitionManagementTableGroup(
     { json: { title }, searchParams: { instance_id: instanceId, org_id: orgId } },
   );
 }
+
+// ===== BATTLE-SCOPED (per-battle management table) =====
+
+export async function bootstrapTopicBattleManagementTable(
+  battleId: string,
+  orgId = "delta-labs",
+): Promise<CompetitionManagementTableInstanceBundleDto> {
+  return apiClient.post<CompetitionManagementTableInstanceBundleDto>(
+    `/v1/competitions/topic-battles/${battleId}/management-table/bootstrap`,
+    { searchParams: { org_id: orgId } },
+  );
+}
+
+export async function patchTopicBattleManagementTableRow(
+  battleId: string,
+  rowId: string,
+  cells: Readonly<Record<string, unknown>>,
+  orgId = "delta-labs",
+): Promise<CompetitionManagementTableRowDto> {
+  return apiClient.patch<CompetitionManagementTableRowDto>(
+    `/v1/competitions/topic-battles/${battleId}/management-table/rows/${rowId}`,
+    { json: { cells }, searchParams: { org_id: orgId } },
+  );
+}
