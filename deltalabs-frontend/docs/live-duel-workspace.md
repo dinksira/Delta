@@ -111,7 +111,7 @@ Route `/features/competitions/live-duels/create` → `CreateLiveDuelPage`:
 | `LiveDuelCreateForm` | Setup form (title, subject, difficulty, duration, entry fee, prize pool, max players) with client validation + a live `LiveDuelCard` lobby preview; "Go Live" |
 | `LiveDuelCreateTemplate` | Create-page layout (back + brand header + centered form region) |
 | `createLiveDuel(input)` | Session registry (`REGISTERED_LIVE_DUELS` map in `liveDuelsCatalog.ts`): builds a `status: "live"`, `hostIsUser: true` entry, id `live-host-<ts>`; `getLiveDuelsCatalog()` merges it ahead of the demo list so it tops the lobby |
-| `LiveDuelRoomPage` | Reads `getLiveDuelEntry(id)?.hostIsUser` to switch the room into **host mode**: seeds via `buildLiveDuelRoom(id, { hostIsUser })` (host participant = current user), disables the demo question auto-rotation, and drops a `HostControlPanel` into the workspace `hostControlSlot`. Host mode is **runtime state**: the backend's `GET /{room_id}` derives `hostIsUser` from the authenticated requester, and `upsertLiveDuelEntry` no longer downgrades it, so a refreshing host keeps (or regains) their question builder once the room detail round-trips. Backend-room rosters seed from the real room detail (`participants`) plus the current user's account identity (`useAuthSession`), and joiners appear live over the socket (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`) |
+| `LiveDuelRoomPage` | Reads `getLiveDuelEntry(id)?.hostIsUser` to switch the room into **host mode**: seeds via `buildLiveDuelRoom(id, { hostIsUser })` (host participant = current user), disables the demo question auto-rotation, and drops a `HostControlPanel` into the workspace `hostControlSlot`. Host mode is **runtime state**: the backend's `GET /{room_id}` derives `hostIsUser` from the authenticated requester, and `upsertLiveDuelEntry` no longer downgrades it, so a refreshing host keeps (or regains) their question builder once the room detail round-trips. The room fetch is deferred until the auth session is ready (`useAuthSession().isReady`) and `hostIsUser` **only promotes** host mode (`true` → keep); a fetch that sees no auth (guest) or a racing first-load can never demote a hosting tab back to the participant side. Backend-room rosters seed from the real room detail (`participants`) plus the current user's account identity (`useAuthSession`), and joiners appear live over the socket (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`) |
 | `HostControlPanel` | Host dashboard card: LIVE badge, live viewer pill, on-air question (round/points/timer), composer, posted history with "On air" marker |
 | `HostQuestionComposer` | Full Question Builder canvas for every kind (line to the create-flow `QuestionAuthoringEditor` / `CodeEditorModule` / `MarkdownPadModule` / `DesignCanvasModule`) + point chips (100–1000) + timer select → `POST_LIVE_QUESTION` carrying the full authored payload on `LiveQuestion.question` → `QuestionModal` opens with the real structure, and the question appears at the stage focal for participants + in `room.postedQuestions` |
 
@@ -213,3 +213,20 @@ card and posted history in `LiveHostStage` / `HostControlPanel`.
    real mic analysis).
 3. Pending live-duel answers/judge scoring; the lobby already merges backend
    `REGISTERED_LIVE_DUELS`-style stored rooms via `GET /v1/live-duels`.
+
+### Dev test accounts (authenticated two-session testing)
+
+To exercise real host/participant flows across two sessions, `deltalabs-backend`
+ships an idempotent `scripts/seed_test_user.py` (run from `deltalabs-backend/`).
+It provisions a full-access dev account (personal workspace org + `org_owner`,
+permissions `["*"]`, `is_verified=True`) so the second browser session behaves
+like any signed-up owner:
+
+| Identity | Username | Dev password | Role |
+|---|---|---|---|
+| `test2@deltalabs.dev` | `test2` | `Test@123456` | `org_owner` (full access) |
+
+Password is overridable via `SEED_TEST_USER_PASSWORD` (`Test@123456` is a
+dev-only default; **never** point the script at production). The pre-existing
+`test@deltalabs.dev` (`testuser`) remains a plain `student` — use it if you want
+to check the participant side from a restricted account.

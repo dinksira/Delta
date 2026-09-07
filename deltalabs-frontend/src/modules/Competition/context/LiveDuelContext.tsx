@@ -52,15 +52,29 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
       return { ...state, room: { ...state.room, viewers: action.payload } };
     case "SET_LIVE_QUESTION":
       return { ...state, room: { ...state.room, liveQuestion: action.payload } };
-    case "POST_LIVE_QUESTION":
+    case "POST_LIVE_QUESTION": {
+      // The backend echoes a host's POST back to every subscriber (including the
+      // host). Id-based upsert: the optimistic dispatch lands the question
+      // immediately, then the authoritative echo replaces it in place (same id,
+      // server round/total) — never a duplicate row and never a modal re-open
+      // (LiveDuelRoomPage keys the modal on `liveQuestion.id`).
+      const alreadyLive = state.room.liveQuestion?.id === action.payload.id;
+      const alreadyPosted = state.room.postedQuestions.some(
+        (question) => question.id === action.payload.id,
+      );
+      if (!alreadyLive && alreadyPosted) {
+        return state;
+      }
+      const postedQuestions = alreadyPosted
+        ? state.room.postedQuestions.map((question) =>
+            question.id === action.payload.id ? action.payload : question,
+          )
+        : [action.payload, ...state.room.postedQuestions];
       return {
         ...state,
-        room: {
-          ...state.room,
-          liveQuestion: action.payload,
-          postedQuestions: [action.payload, ...state.room.postedQuestions],
-        },
+        room: { ...state.room, liveQuestion: action.payload, postedQuestions },
       };
+    }
     case "APPEND_CHAT_MESSAGE":
       // Backend WS fans a chat message back to every subscriber, including the
       // sender. Reducer-level dedup on message id keeps the array idempotent so
@@ -80,6 +94,24 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
           participants: state.room.participants.map((participant) =>
             participant.id === action.payload.id
               ? { ...participant, micMuted: action.payload.micMuted }
+              : participant,
+          ),
+        },
+      };
+    case "UPDATE_PARTICIPANT_MEDIA":
+      // Remote camera/mic state relayed by the room channel (`media-state`
+      // signals) so a remote tile's hardware indicator updates live.
+      return {
+        ...state,
+        room: {
+          ...state.room,
+          participants: state.room.participants.map((participant) =>
+            participant.id === action.payload.id
+              ? {
+                  ...participant,
+                  cameraOff: action.payload.cameraOff ?? participant.cameraOff,
+                  micMuted: action.payload.micMuted ?? participant.micMuted,
+                }
               : participant,
           ),
         },

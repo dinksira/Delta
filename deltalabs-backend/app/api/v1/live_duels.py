@@ -308,6 +308,20 @@ async def _ws_client_loop(
                 type="APPEND_CHAT_MESSAGE",
                 payload=pub_payload,
             )
+        elif kind == "media":
+            # WebRTC signaling relay: clients push offer/answer/ice/media-state
+            # envelopes and every subscriber receives them as `MEDIA_SIGNAL` with
+            # the *authenticated* sender stamped on (the room is a broadcast, so
+            # receivers filter by `fromUserId` / `toUserId`).
+            payload = incoming.get("payload")
+            if isinstance(payload, dict):
+                payload["fromUserId"] = user_id
+                await live_duels_queue.publish_live_duel_update(
+                    redis,
+                    room_id=room_id,
+                    type="MEDIA_SIGNAL",
+                    payload=payload,
+                )
 
 
 # ################################ HTTP ################################
@@ -445,7 +459,7 @@ async def post_live_duel_question(
 
     questions = doc.get("questions", [])
     round_number = len(questions) + 1
-    qid = str(ObjectId())
+    qid = (payload.id or "").strip() or str(ObjectId())
     question = {
         "id": qid,
         "round": round_number,
@@ -453,6 +467,7 @@ async def post_live_duel_question(
         "text": payload.text.strip(),
         "points": payload.points,
         "timeLabel": payload.time_label,
+        "question": payload.question,
     }
     await repository.append_question(room_id, question)
     await live_duels_queue.publish_live_duel_update(

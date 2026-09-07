@@ -24,6 +24,11 @@ export interface LiveVideoFeedProps {
   mediaStream: MediaStream | null;
   /** Mirrors the feed horizontally — set for self-view camera feeds. */
   mirror?: boolean;
+  /**
+   * Mutes the element. Defaults to `true` for self-view tiles (preventing
+   * feedback); set `false` for *remote* feeds whose audio must be heard.
+   */
+  muted?: boolean;
   /** Rounded shape: "square" | "rounded" | "circle". Default: "rounded". */
   shape?: "square" | "rounded" | "circle";
   className?: string;
@@ -32,6 +37,7 @@ export interface LiveVideoFeedProps {
 export function LiveVideoFeed({
   mediaStream,
   mirror = false,
+  muted = true,
   shape = "rounded",
   className,
 }: Readonly<LiveVideoFeedProps>) {
@@ -60,7 +66,7 @@ export function LiveVideoFeed({
       ref={videoRef}
       autoPlay
       playsInline
-      muted
+      muted={muted}
       aria-hidden
       className={cn(
         "pointer-events-none object-cover",

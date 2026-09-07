@@ -71,6 +71,8 @@ export interface LiveDuelWorkspaceTemplateProps {
   isSpeaking?: boolean;
   /** Normalized voice level 0–1 (scales the speaker's ocean ripple). */
   voiceLevel?: number;
+  /** Remote camera streams keyed by participant id (WebRTC mesh). */
+  participantStreams?: Readonly<Record<string, MediaStream>>;
   /** Participant ids whose cards should show the speaking ripple. */
   speakingIds?: ReadonlySet<string>;
   onToggleMic?: () => void;
@@ -97,6 +99,7 @@ export function LiveDuelWorkspaceTemplate({
   mediaError = null,
   isSpeaking = false,
   voiceLevel = 0,
+  participantStreams,
   speakingIds,
   onToggleMic,
   onToggleCamera,
@@ -129,6 +132,7 @@ export function LiveDuelWorkspaceTemplate({
           userMediaStream={mediaStream}
           userIsSpeaking={isSpeaking}
           userVoiceLevel={voiceLevel}
+          remoteStreams={participantStreams}
           speakingIds={speakingIds}
         />
         <LiveMessageBar onSend={onSendMessage} />

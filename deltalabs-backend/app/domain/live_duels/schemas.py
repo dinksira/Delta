@@ -8,6 +8,8 @@ frontend Live Duel views would not populate the Python attributes otherwise.
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -36,6 +38,14 @@ class LiveDuelQuestionRequest(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     points: int = Field(default=100, ge=10, le=10000)
     time_label: str | None = Field(default=None, max_length=12, **_alias("timeLabel"))
+    # Client-generated id: kept stable through the Pub/Sub echo so the host's
+    # optimistic dispatch and the backend fan-out share one question id (the
+    # frontend reducer dedupes on it). Falls back to a server ObjectId when
+    # missing.
+    id: str | None = Field(default=None, max_length=64)
+    # Full authored question payload (all nine kinds) so the participant-side
+    # `QuestionModal` renders the real structure instead of flat text only.
+    question: dict[str, Any] | None = Field(default=None)
 
 
 class LiveDuelChatRequest(BaseModel):

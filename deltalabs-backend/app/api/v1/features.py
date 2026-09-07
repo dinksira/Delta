@@ -52,13 +52,20 @@ async def _require_legacy_feature_access(
     user: CurrentUser = Depends(get_current_user),  # noqa: B008
     authz: AuthorizationService = Depends(get_authorization_service),  # noqa: B008
 ) -> tuple[CurrentUser, str]:
+    """Resolve the scope for the legacy public-features listing.
+
+    Prefer the user's own organizations so capability checks reflect real
+    memberships/roles (owner workspaces grant `*` full access). Fall back to
+    the configured default org for accounts with no org yet.
+    """
     settings = get_settings()
-    org_id = settings.authz_default_org_slug
-    profile = await authz.get_access_profile(user_id=user.user_id, org_id=org_id)
-    if profile.membership_state == "none":
-        # Compatibility: bootstrap a permissive synthetic profile for default public workspace.
-        return user, org_id
-    return user, org_id
+    owner_ids = await authz.list_org_ids_where_user_is_owner(user_id=user.user_id)
+    if owner_ids:
+        return user, owner_ids[0]
+    my_orgs = await authz.list_my_orgs(user_id=user.user_id)
+    if my_orgs.items:
+        return user, my_orgs.items[0].id
+    return user, settings.authz_default_org_slug
 
 
 async def _resolve_system_org_id(authz: AuthorizationService) -> str:

@@ -166,7 +166,7 @@ export function createEmptyQuestion(overrides?: Partial<CodingQuestion>): Coding
     language: "HTML",
     difficulty: "EASY",
     timeLimitMinutes: 10,
-    points: 1.0,
+    points: 100,
     hintEnabled: true,
     hintText: "",
     testCases: [

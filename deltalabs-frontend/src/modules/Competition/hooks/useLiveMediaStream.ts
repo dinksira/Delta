@@ -59,31 +59,75 @@ function resolveAudioContext(): AudioContextLike | undefined {
 
 export function useLiveMediaStream(): UseLiveMediaStreamResult {
   const { state } = useLiveDuel();
-  const activeRef = useRef(false);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoAcquiringRef = useRef(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceLevel, setVoiceLevel] = useState(0);
 
-  // Acquire / release camera + mic
-  useEffect(() => {
-    const wantActive = !state.isCameraOff;
+  // Reassemble the shared stream from whatever hardware is currently active:
+  // the persistent microphone + the live video track (while the camera is on).
+  const buildCombined = () => {
+    const tracks: MediaStreamTrack[] = [];
+    audioStreamRef.current?.getAudioTracks().forEach((track) => tracks.push(track));
+    videoStreamRef.current?.getVideoTracks().forEach((track) => tracks.push(track));
+    setStream(tracks.length > 0 ? new MediaStream(tracks) : null);
+  };
 
-    if (wantActive && !activeRef.current) {
+  // Persistent microphone: acquired once on mount so audio keeps flowing even
+  // when the camera is toggled off (Zoom-style). Combined into `stream` above.
+  useEffect(() => {
+    let cancelled = false;
+
+    navigator.mediaDevices
+      .getUserMedia({ audio: true, video: false })
+      .then((acquired) => {
+        if (cancelled) {
+          acquired.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        audioStreamRef.current = acquired;
+        setError(null);
+        buildCombined();
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const message =
+          err instanceof DOMException && err.name === "NotAllowedError"
+            ? "Camera/microphone access denied."
+            : "Could not access camera or microphone.";
+        setError(message);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Camera track lifecycle: acquire while the camera is on, release while off.
+  useEffect(() => {
+    const wantVideo = !state.isCameraOff;
+
+    if (wantVideo && !videoStreamRef.current && !videoAcquiringRef.current) {
+      videoAcquiringRef.current = true;
       let cancelled = false;
-      setError(null);
 
       navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
+        .getUserMedia({ video: true, audio: false })
         .then((acquired) => {
-          if (cancelled) {
-            acquired.getTracks().forEach((t) => t.stop());
+          videoAcquiringRef.current = false;
+          if (cancelled || state.isCameraOff) {
+            acquired.getTracks().forEach((track) => track.stop());
             return;
           }
-          activeRef.current = true;
-          setStream(acquired);
+          videoStreamRef.current = acquired;
+          setError(null);
+          buildCombined();
         })
         .catch((err: unknown) => {
+          videoAcquiringRef.current = false;
           if (cancelled) return;
           const message =
             err instanceof DOMException && err.name === "NotAllowedError"
@@ -97,10 +141,11 @@ export function useLiveMediaStream(): UseLiveMediaStreamResult {
       };
     }
 
-    if (!wantActive && activeRef.current) {
-      activeRef.current = false;
-      setStream(null);
+    if (!wantVideo && videoStreamRef.current) {
+      videoStreamRef.current.getTracks().forEach((track) => track.stop());
+      videoStreamRef.current = null;
       setError(null);
+      buildCombined();
     }
 
     return undefined;
@@ -173,12 +218,15 @@ export function useLiveMediaStream(): UseLiveMediaStreamResult {
   // Cleanup on unmount (also stops tracks so the hardware is released)
   useEffect(() => {
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
-      activeRef.current = false;
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+      videoStreamRef.current?.getTracks().forEach((track) => track.stop());
+      audioStreamRef.current = null;
+      videoStreamRef.current = null;
+      setStream(null);
       setIsSpeaking(false);
       setVoiceLevel(0);
     };
-  }, [stream]);
+  }, []);
 
   return { mediaStream: stream, error, isSpeaking, voiceLevel };
 }

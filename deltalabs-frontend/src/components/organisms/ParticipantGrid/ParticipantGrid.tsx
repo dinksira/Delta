@@ -30,6 +30,11 @@ export interface ParticipantGridProps {
   userIsSpeaking?: boolean;
   /** Real voice level 0–1 for the current user's tile ripple. */
   userVoiceLevel?: number;
+  /**
+   * Remote camera streams keyed by participant id (WebRTC mesh) — each remote
+   * tile renders its peer's live feed, unmuted so the remote audio is heard.
+   */
+  remoteStreams?: Readonly<Record<string, MediaStream>>;
   /** Participant ids whose tiles should show the speaking ripple. */
   speakingIds?: ReadonlySet<string>;
   className?: string;
@@ -40,6 +45,7 @@ export function ParticipantGrid({
   userMediaStream = null,
   userIsSpeaking = false,
   userVoiceLevel = 0,
+  remoteStreams,
   speakingIds,
   className,
 }: Readonly<ParticipantGridProps>) {
@@ -57,7 +63,12 @@ export function ParticipantGrid({
           <ParticipantCard
             key={participant.id}
             participant={participant}
-            mediaStream={participant.isYou ? userMediaStream : null}
+            mediaStream={
+              participant.isYou
+                ? userMediaStream
+                : (remoteStreams?.[participant.id] ?? null)
+            }
+            mediaMuted={participant.isYou}
             voiceLevel={participant.isYou ? userVoiceLevel : 0}
             isSpeaking={
               participant.isYou

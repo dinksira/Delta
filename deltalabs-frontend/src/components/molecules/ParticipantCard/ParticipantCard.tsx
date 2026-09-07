@@ -32,6 +32,11 @@ export interface ParticipantCardProps {
   participant: LiveParticipant;
   /** Live camera stream for the current user's tile (their card only). */
   mediaStream?: MediaStream | null;
+  /**
+   * Mutes the video element. Defaults to `true` (self-view avoids feedback);
+   * remote peer feeds pass `false` so the remote audio can be heard.
+   */
+  mediaMuted?: boolean;
   /** Voice-activity state for this card (drives the ocean ripple). */
   isSpeaking?: boolean;
   /** Normalized voice level 0–1 (scales the ripple size/intensity). */
@@ -42,6 +47,7 @@ export interface ParticipantCardProps {
 export function ParticipantCard({
   participant,
   mediaStream = null,
+  mediaMuted = true,
   isSpeaking = false,
   voiceLevel = 0,
   className,
@@ -60,7 +66,12 @@ export function ParticipantCard({
     >
       {/* Full-bleed video tile or monogram avatar */}
       {cameraOn ? (
-        <LiveVideoFeed mediaStream={mediaStream} mirror className="absolute inset-0 size-full" />
+        <LiveVideoFeed
+          mediaStream={mediaStream}
+          mirror
+          muted={mediaMuted}
+          className="absolute inset-0 size-full"
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-surface-muted">
           <Avatar

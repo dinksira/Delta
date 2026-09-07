@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { LiveDuelAction } from "@/modules/Competition/types/liveDuel";
+import type { LiveDuelAction, LiveMediaSignal } from "@/modules/Competition/types/liveDuel";
 
 const AUTH_SESSION_STORAGE_KEY = "dl.auth.session.v1";
 
@@ -74,6 +74,11 @@ export interface UseLiveDuelSocketOptions {
   /** Only connect when the room is backed by the realtime channel. */
   enabled: boolean;
   dispatch: (action: LiveDuelAction) => void;
+  /**
+   * Inbound WebRTC signaling (`MEDIA_SIGNAL` echoes) routed here instead of the
+   * room reducer; the RTC mesh hook registers this to drive peer negotiation.
+   */
+  onSignal?: (signal: LiveMediaSignal) => void;
 }
 
 export interface UseLiveDuelSocketResult {
@@ -81,12 +86,19 @@ export interface UseLiveDuelSocketResult {
   connected: boolean;
   /** Returns false when the socket is not open (caller falls back to demo). */
   sendChat: (text: string, emoji?: string) => boolean;
+  /**
+   * Sends a WebRTC signaling envelope to the room channel. The backend stamps
+   * `fromUserId` from the authenticated session, so callers must not set it.
+   * Returns false when the socket is not open.
+   */
+  sendSignal: (signal: Omit<LiveMediaSignal, "fromUserId">) => boolean;
 }
 
 export function useLiveDuelSocket({
   roomId,
   enabled,
   dispatch,
+  onSignal,
 }: Readonly<UseLiveDuelSocketOptions>): UseLiveDuelSocketResult {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -94,6 +106,8 @@ export function useLiveDuelSocket({
   const disposedRef = useRef(false);
   const dispatchRef = useRef(dispatch);
   dispatchRef.current = dispatch;
+  const onSignalRef = useRef(onSignal);
+  onSignalRef.current = onSignal;
   const roomIdRef = useRef(roomId);
   roomIdRef.current = roomId;
 
@@ -153,6 +167,10 @@ export function useLiveDuelSocket({
             payload?: unknown;
           };
           if (!data.type || !SERVER_ACTION_TYPES.has(data.type)) {
+            if (data.type === "MEDIA_SIGNAL") {
+              // WebRTC signaling is routed to the mesh hook, not the reducer.
+              onSignalRef.current?.(data.payload as LiveMediaSignal);
+            }
             return;
           }
           if (data.room_id !== roomIdRef.current) {
@@ -192,7 +210,16 @@ export function useLiveDuelSocket({
     return true;
   }, []);
 
-  return { connected, sendChat };
+  const sendSignal = useCallback((signal: Omit<LiveMediaSignal, "fromUserId">): boolean => {
+    const ws = socketRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+    ws.send(JSON.stringify({ kind: "media", payload: signal }));
+    return true;
+  }, []);
+
+  return { connected, sendChat, sendSignal };
 }
 
 export default useLiveDuelSocket;

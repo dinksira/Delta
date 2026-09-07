@@ -127,6 +127,28 @@ export interface LiveDuelServerEvent {
   at?: number;
 }
 
+/** One side's camera/mic state for remote participant indicators. */
+export interface LiveMediaState {
+  cameraOff: boolean;
+  micMuted: boolean;
+}
+
+/**
+ * WebRTC signaling envelope relayed through the room channel. Peers route on
+ * `fromUserId` (stamped by the backend so it is never spoofable) and target a
+ * single peer via `toUserId`; `media-state` is a room broadcast.
+ */
+export interface LiveMediaSignal {
+  type: "offer" | "answer" | "ice" | "media-state";
+  /** Authenticated sender id in the `MEDIA_SIGNAL` echo. */
+  fromUserId?: string;
+  /** Optional recipient id; omitted signals are room-wide. */
+  toUserId?: string;
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit | null;
+  media?: LiveMediaState;
+}
+
 export type LiveDuelAction =
   | { type: "SET_ROOM"; payload: LiveDuelRoom }
   | { type: "UPDATE_VIEWERS"; payload: number }
@@ -134,6 +156,7 @@ export type LiveDuelAction =
   | { type: "POST_LIVE_QUESTION"; payload: LiveQuestion }
   | { type: "APPEND_CHAT_MESSAGE"; payload: LiveChatMessage }
   | { type: "SET_PARTICIPANT_MUTED"; payload: { id: string; micMuted: boolean } }
+  | { type: "UPDATE_PARTICIPANT_MEDIA"; payload: { id: string; cameraOff?: boolean; micMuted?: boolean } }
   | { type: "ADD_PARTICIPANT"; payload: LiveParticipant }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
   | { type: "TOGGLE_MIC" }

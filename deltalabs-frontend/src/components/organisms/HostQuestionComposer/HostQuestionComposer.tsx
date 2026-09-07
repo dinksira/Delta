@@ -119,7 +119,9 @@ export function HostQuestionComposer({
       round,
       total: Math.max(round, 1),
       text,
-      points: draft.points,
+      // The backend enforces int points in [10, 10000]; normalize the draft
+      // (a float leftover from older seeds would otherwise 400 the POST).
+      points: Math.max(10, Math.round(draft.points)),
       timeLabel,
       question: draft,
     });

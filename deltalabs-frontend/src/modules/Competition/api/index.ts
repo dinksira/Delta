@@ -134,16 +134,28 @@ export async function fetchLiveDuelRoom(roomId: string): Promise<LiveDuelRoomDet
 }
 
 export interface PostLiveDuelQuestionPayload {
+  /** Client-generated id echoed back so host optimistic state dedupes. */
+  id: string;
   text: string;
   points: number;
   timeLabel?: string;
+  /** Full authored question payload (all nine kinds) for the QuestionModal. */
+  question?: CodingQuestion | null;
 }
 
 /** Host posts a question live; the backend fans it out via the room channel. */
 export async function postLiveDuelQuestion(
   roomId: string,
   payload: PostLiveDuelQuestionPayload,
-): Promise<{ id: string; round: number; total: number; text: string; points: number; timeLabel?: string }> {
+): Promise<{
+  id: string;
+  round: number;
+  total: number;
+  text: string;
+  points: number;
+  timeLabel?: string;
+  question?: CodingQuestion | null;
+}> {
   return apiClient.post(`/v1/live-duels/${roomId}/questions`, { json: payload });
 }
 
