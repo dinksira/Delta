@@ -22,7 +22,17 @@ export interface StageChatOverlayProps {
 const MAX_VISIBLE_MESSAGES = 3;
 
 export function StageChatOverlay({ messages, className }: Readonly<StageChatOverlayProps>) {
-  const visible = messages.slice(-MAX_VISIBLE_MESSAGES);
+  // Guard against duplicate rows with the same message id (e.g. an echo that
+  // slipped into state) so React never sees two children sharing a key.
+  const seen = new Set<string>();
+  const deduped = messages.filter((message) => {
+    if (seen.has(message.id)) {
+      return false;
+    }
+    seen.add(message.id);
+    return true;
+  });
+  const visible = deduped.slice(-MAX_VISIBLE_MESSAGES);
 
   return (
     <div className={cn("flex max-w-xs flex-col items-start gap-2", className)} aria-live="polite">

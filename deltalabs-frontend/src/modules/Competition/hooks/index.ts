@@ -16,4 +16,6 @@ export { useJoinLiveDuel } from "./useJoinLiveDuel";
 export { useJoinLiveDuelModal } from "./useJoinLiveDuelModal";
 export { useDuelQuiz } from "./useDuelQuiz";
 export { useLiveDuel } from "./useLiveDuel";
+export { useLiveDuelSocket } from "./useLiveDuelSocket";
+export { useLiveMediaStream } from "./useLiveMediaStream";
 export { topicBattleQueryKeys } from "./topicBattleQueryKeys";

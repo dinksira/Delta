@@ -64,6 +64,8 @@ export interface LiveDuelRoom {
   leaderboard: DuelLeaderboardEntry[];
   chat: LiveChatMessage[];
   liveQuestion: LiveQuestion | null;
+  /** History of questions the host has posted, newest first. */
+  postedQuestions: LiveQuestion[];
 }
 
 /** Catalog-level status of a Live Duel card in the lobby list. */
@@ -88,6 +90,8 @@ export interface LiveDuelEntry {
   /** Human label such as "60 min" / "2 rounds". */
   durationLabel?: string;
   hasJoined?: boolean;
+  /** True when the logged-in user created (and is hosting) this duel. */
+  hostIsUser?: boolean;
 }
 
 /** Full mutable Live Duel workspace state driven by the context reducer. */
@@ -97,10 +101,27 @@ export interface LiveDuelState {
   isCameraOff: boolean;
 }
 
+/** Room detail resolved from `GET /v1/live-duels/{id}`. */
+export interface LiveDuelRoomDetail extends LiveDuelEntry {
+  hostUserId?: string | null;
+  hasJoined?: boolean;
+  postedQuestions: LiveQuestion[];
+  chat: LiveChatMessage[];
+}
+
+/** Best-effort shape of a realtime event broadcast by `GET /v1/live-duels/ws`. */
+export interface LiveDuelServerEvent {
+  type: string;
+  room_id: string;
+  payload: unknown;
+  at?: number;
+}
+
 export type LiveDuelAction =
   | { type: "SET_ROOM"; payload: LiveDuelRoom }
   | { type: "UPDATE_VIEWERS"; payload: number }
   | { type: "SET_LIVE_QUESTION"; payload: LiveQuestion | null }
+  | { type: "POST_LIVE_QUESTION"; payload: LiveQuestion }
   | { type: "APPEND_CHAT_MESSAGE"; payload: LiveChatMessage }
   | { type: "SET_PARTICIPANT_MUTED"; payload: { id: string; micMuted: boolean } }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
@@ -114,6 +135,8 @@ export interface LiveDuelContextValue {
   dispatch: (action: LiveDuelAction) => void;
   /** Adds a chat message from the current user and clears the draft. */
   sendMessage: (text: string) => void;
+  /** Host: posts a question live to the stage focal and logs it in the room. */
+  postLiveQuestion: (question: LiveQuestion) => void;
   toggleMic: () => void;
   toggleCamera: () => void;
 }

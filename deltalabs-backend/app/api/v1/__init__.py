@@ -10,6 +10,7 @@ from app.api.v1.enrollments import router as enrollments_router
 from app.api.v1.features import org_router as org_features_router
 from app.api.v1.features import router as features_router
 from app.api.v1.feed import router as feed_router
+from app.api.v1.live_duels import router as live_duels_router
 from app.api.v1.help_support import router as help_support_router
 from app.api.v1.library import router as library_router
 from app.api.v1.media import org_router as org_media_router
@@ -50,6 +51,7 @@ api_router.include_router(chatroom_router)
 api_router.include_router(tutorials_router)
 api_router.include_router(research_router)
 api_router.include_router(competitions_router)
+api_router.include_router(live_duels_router)
 api_router.include_router(specialization_router)
 api_router.include_router(library_router)
 api_router.include_router(course_support_router)

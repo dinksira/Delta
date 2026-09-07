@@ -39,6 +39,7 @@ export const DEMO_LIVE_ROOM: LiveDuelRoom = {
     { id: "c3", username: "Zara Hussein", text: "Go team!", sentAt: 3, emoji: "🥳" },
   ],
   liveQuestion: null,
+  postedQuestions: [],
 };
 
 export const DEMO_LIVE_QUESTIONS: LiveQuestion[] = [

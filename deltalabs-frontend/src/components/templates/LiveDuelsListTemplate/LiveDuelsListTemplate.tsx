@@ -52,6 +52,8 @@ export interface LiveDuelsListTemplateProps {
   onJoinDuel?: (id: string) => void;
   onEnterDuel?: (id: string) => void;
 
+  /** Optional actions rendered at the right of the header (e.g. Create Duel). */
+  actionsSlot?: ReactNode;
   statusSlot?: ReactNode;
   noticeSlot?: ReactNode;
   className?: string;
@@ -74,6 +76,7 @@ export function LiveDuelsListTemplate({
   onJoinDuel,
   onEnterDuel,
 
+  actionsSlot,
   statusSlot,
   noticeSlot,
   className,
@@ -89,6 +92,7 @@ export function LiveDuelsListTemplate({
             Live Duels
           </Typography>
         </div>
+        {actionsSlot ? <div className="flex shrink-0 items-center gap-2">{actionsSlot}</div> : null}
       </div>
 
       {/* Toolbar: search + difficulty filter */}

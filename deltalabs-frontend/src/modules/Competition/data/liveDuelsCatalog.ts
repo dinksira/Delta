@@ -124,14 +124,109 @@ export const DEMO_LIVE_DUELS_SEED: LiveDuelRoom = {
   ],
   chat: [],
   liveQuestion: null,
+  postedQuestions: [],
 };
 
-/** Seed a room from an entry; falls back to the geography seed when unknown. */
-export function buildLiveDuelRoom(entryId?: string | null): LiveDuelRoom {
-  const entry = DEMO_LIVE_DUELS.find((candidate) => candidate.id === entryId);
+// ===== SESSION-CREATED DUEL REGISTRY =====
+
+/**
+ * Duels created in this session by the host. A backend `POST /live-duels`
+ * endpoint can replace this map without changing the lobby or room flow.
+ */
+const REGISTERED_LIVE_DUELS = new Map<string, LiveDuelEntry>();
+
+/** Lobby catalog: session-created + backend-resolved duels first, then demo. */
+export function getLiveDuelsCatalog(): LiveDuelEntry[] {
+  const registered = [...REGISTERED_LIVE_DUELS.values()];
+  const registeredIds = new Set(registered.map((entry) => entry.id));
+  return [...registered, ...DEMO_LIVE_DUELS.filter((entry) => !registeredIds.has(entry.id))];
+}
+
+/** Resolve a lobby entry from the registry or the demo list. */
+export function getLiveDuelEntry(entryId?: string | null): LiveDuelEntry | undefined {
+  const id = entryId ?? "";
+  return REGISTERED_LIVE_DUELS.get(id) ?? DEMO_LIVE_DUELS.find((candidate) => candidate.id === id);
+}
+
+export interface CreateLiveDuelInput {
+  title: string;
+  subject: string;
+  difficulty: string;
+  durationLabel: string;
+  entryFee: string;
+  prizePool: string;
+  playersMax: number;
+  hostName: string;
+  hostAvatarUrl?: string | null;
+}
+
+/** Register a new live duel hosted by the current user and return its entry. */
+export function createLiveDuel(input: CreateLiveDuelInput): LiveDuelEntry {
+  const entry: LiveDuelEntry = {
+    id: `live-host-${Date.now().toString(36)}`,
+    title: input.title.trim(),
+    subject: input.subject,
+    difficulty: input.difficulty,
+    status: "live",
+    hostName: input.hostName,
+    hostAvatarUrl: input.hostAvatarUrl ?? null,
+    viewers: 2 + Math.floor(Math.random() * 8),
+    playersJoined: 1,
+    playersMax: input.playersMax,
+    entryFee: input.entryFee,
+    prizePool: input.prizePool,
+    durationLabel: input.durationLabel,
+    hasJoined: true,
+    hostIsUser: true,
+  };
+  REGISTERED_LIVE_DUELS.set(entry.id, entry);
+  return entry;
+}
+
+/**
+ * Register an entry resolved from the backend (`GET /v1/live-duels`) so the
+ * lobby and room flows resolve it without further round-trips. The backend
+ * always serializes host-created rooms with `hostIsUser: true`, so remote
+ * entries are normalized to `false` unless the local registry already knows the
+ * current session is the host (set at create time).
+ */
+export function upsertLiveDuelEntry(entry: LiveDuelEntry): LiveDuelEntry {
+  const existing = REGISTERED_LIVE_DUELS.get(entry.id);
+  REGISTERED_LIVE_DUELS.set(entry.id, {
+    ...existing,
+    ...entry,
+    hostIsUser: existing?.hostIsUser === true,
+  });
+  return entry;
+}
+
+/** Seed a room from an entry — resolves the session-created registry first. */
+export interface BuildLiveDuelRoomOptions {
+  /**
+   * Treat the host participant as the current user (host-created duel). When
+   * omitted, defaults to `entry.hostIsUser`.
+   */
+  hostIsUser?: boolean;
+}
+
+export function buildLiveDuelRoom(
+  entryId?: string | null,
+  options?: BuildLiveDuelRoomOptions,
+): LiveDuelRoom {
+  const entry = getLiveDuelEntry(entryId);
   if (!entry) {
     return DEMO_LIVE_DUELS_SEED;
   }
+  const hostIsUser = options?.hostIsUser ?? entry.hostIsUser === true;
+  // Client-side demo roster around the host keeps the stage from looking empty.
+  const demoRoster = DEMO_LIVE_DUELS_SEED.participants.slice(1);
+  const hostCard: LiveDuelRoom["participants"][number] = {
+    id: "host",
+    name: entry.hostName,
+    avatarUrl: entry.hostAvatarUrl,
+    isHost: true,
+    isYou: hostIsUser,
+  };
   return {
     ...DEMO_LIVE_DUELS_SEED,
     id: entry.id,
@@ -139,10 +234,9 @@ export function buildLiveDuelRoom(entryId?: string | null): LiveDuelRoom {
     hostName: entry.hostName,
     hostAvatarUrl: entry.hostAvatarUrl,
     viewers: entry.viewers,
-    participants: [
-      { id: "host", name: entry.hostName, avatarUrl: entry.hostAvatarUrl, isHost: true },
-      { id: "you", name: "You", isYou: true },
-      ...DEMO_LIVE_DUELS_SEED.participants.slice(1),
-    ],
+    participants: hostIsUser
+      ? [hostCard, ...demoRoster]
+      // Non-hosts always get their own on-stage card (camera + voice tile).
+      : [hostCard, { id: "you", name: "You", isYou: true }, ...demoRoster],
   };
 }

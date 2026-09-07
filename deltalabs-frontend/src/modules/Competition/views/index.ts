@@ -11,3 +11,4 @@ export { CreateChampionshipPage } from "./CreateChampionshipPage";
 export { TopicBattleDuelPage } from "./TopicBattleDuelPage";
 export { LiveDuelRoomPage } from "./LiveDuelRoomPage";
 export { LiveDuelsPage } from "./LiveDuelsPage";
+export { CreateLiveDuelPage } from "./CreateLiveDuelPage";

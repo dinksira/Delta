@@ -1,9 +1,13 @@
 /**
  * LiveHostStage — the main live-streaming canvas of a Live Duel room.
  * Renders the host's broadcast workspace with a HUD overlay: LIVE + viewer
- * pill and floating host profile card on top, an audio-ripple focal point (or
- * the host's currently-posted question) in the center, and the stage chat
- * overlay + media control dock along the bottom edge.
+ * pill and floating host profile card on top, an audio-reactive
+ * `VoiceWaveIndicator` focal point (or the host's currently-posted question)
+ * in the center, and the stage chat overlay + media control dock along the
+ * bottom edge. The host's broadcast camera fills the stage as a full-bleed
+ * background only when they are the current broadcaster (`isHost`) — for
+ * everyone else their own camera lives in their on-stage participant card, so
+ * the big stage canvas stays reserved for the competition host.
  *
  * @example
  * ```tsx
@@ -14,17 +18,21 @@
  *   chatMessages={chat}
  *   isMicMuted={false}
  *   isCameraOff={true}
+ *   isHost
+ *   mediaStream={hostMediaStream}
  * />
  * ```
  */
 
 import type { LiveChatMessage, LiveQuestion } from "@/modules/Competition/types/liveDuel";
-import { Clock, Mic, Radio, Trophy, Users } from "lucide-react";
+import { Clock, Radio, Trophy, Users, VideoOff } from "lucide-react";
 
 import { Avatar } from "@/components/atoms/Avatar";
 import { LiveBadge } from "@/components/atoms/LiveBadge";
+import { LiveVideoFeed } from "@/components/molecules/LiveVideoFeed";
 import { MediaControlDock } from "@/components/molecules/MediaControlDock";
 import { StageChatOverlay } from "@/components/molecules/StageChatOverlay";
+import { VoiceWaveIndicator } from "@/components/molecules/VoiceWaveIndicator";
 import { cn } from "@/lib/utils";
 
 export interface LiveHostStageHost {
@@ -42,24 +50,20 @@ export interface LiveHostStageProps {
   chatMessages: LiveChatMessage[];
   isMicMuted: boolean;
   isCameraOff: boolean;
+  /** True when the current user is the room host (broadcaster). */
+  isHost?: boolean;
+  /** Host broadcast camera stream — shown full-bleed only when `isHost`. */
+  mediaStream?: MediaStream | null;
+  /** Non-null when getUserMedia failed (permission denied, no device, etc.). */
+  mediaError?: string | null;
+  /** Voice-activity state for the host focal point ripple. */
+  isSpeaking?: boolean;
+  /** Normalized voice level 0–1 (scales the host focal ripple). */
+  voiceLevel?: number;
   onToggleMic?: () => void;
   onToggleCamera?: () => void;
   onLeave?: () => void;
   className?: string;
-}
-
-function RippleFocal() {
-  return (
-    <div className="relative flex size-52 items-center justify-center" aria-hidden>
-      <span className="absolute inset-0 animate-ping rounded-full bg-primary-300/40" />
-      <span className="absolute inset-0 rounded-full bg-primary-300/40" />
-      <span className="absolute inset-6 rounded-full bg-primary-400/40" />
-      <span className="absolute inset-12 rounded-full bg-primary-600/30" />
-      <span className="flex size-16 items-center justify-center rounded-full bg-primary-700 text-white shadow-inner">
-        <Mic className="size-7" />
-      </span>
-    </div>
-  );
 }
 
 function LiveQuestionCard({ question }: Readonly<{ question: LiveQuestion }>) {
@@ -92,11 +96,18 @@ export function LiveHostStage({
   chatMessages,
   isMicMuted,
   isCameraOff,
+  isHost = false,
+  mediaStream = null,
+  mediaError = null,
+  isSpeaking = false,
+  voiceLevel = 0,
   onToggleMic,
   onToggleCamera,
   onLeave,
   className,
 }: Readonly<LiveHostStageProps>) {
+  const broadcasting = isHost && !isCameraOff && Boolean(mediaStream);
+
   return (
     <section
       aria-label="Live stage"
@@ -105,7 +116,18 @@ export function LiveHostStage({
         className,
       )}
     >
-      <div aria-hidden className="pointer-events-none absolute inset-0">
+      {/* Host camera background — full-bleed, only when the host broadcasts.
+          Mirrored because this is the host's own self-view on their device */}
+      {broadcasting ? <LiveVideoFeed mediaStream={mediaStream} mirror className="absolute inset-0 z-0 size-full" /> : null}
+
+      {/* Gradient + glow overlays */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 z-[1] transition-opacity duration-300",
+          broadcasting ? "opacity-40" : "opacity-100",
+        )}
+      >
         <div className="absolute -left-20 -top-24 size-80 rounded-full bg-primary-200/60 blur-3xl" />
         <div className="absolute -bottom-24 -right-16 size-80 rounded-full bg-primary-300/50 blur-3xl" />
       </div>
@@ -133,7 +155,7 @@ export function LiveHostStage({
           <LiveQuestionCard question={liveQuestion} />
         ) : (
           <>
-            <RippleFocal />
+            <VoiceWaveIndicator active={isSpeaking} level={voiceLevel} size="lg" />
             <p className="flex items-center gap-2 text-xs font-semibold text-text-tertiary">
               <Radio className="size-3.5" aria-hidden />
               Waiting for the host to post the next question...
@@ -141,6 +163,14 @@ export function LiveHostStage({
           </>
         )}
       </div>
+
+      {/* Media permission error banner */}
+      {isHost && mediaError ? (
+        <div className="relative z-10 mx-4 mb-3 flex items-center gap-2 rounded-lg border border-error-600/30 bg-error-600/10 px-3 py-2 text-xs font-semibold text-error-600">
+          <VideoOff className="size-4 shrink-0" aria-hidden />
+          <span>{mediaError}</span>
+        </div>
+      ) : null}
 
       <div className="relative z-10 flex flex-wrap items-end justify-between gap-4 p-4">
         <StageChatOverlay messages={chatMessages} />

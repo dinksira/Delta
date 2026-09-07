@@ -29,6 +29,7 @@ import type {
   LiveDuelContextValue,
   LiveDuelRoom,
   LiveDuelState,
+  LiveQuestion,
 } from "@/modules/Competition/types/liveDuel";
 
 // ===== INITIAL STATE =====
@@ -51,11 +52,26 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
       return { ...state, room: { ...state.room, viewers: action.payload } };
     case "SET_LIVE_QUESTION":
       return { ...state, room: { ...state.room, liveQuestion: action.payload } };
-    case "APPEND_CHAT_MESSAGE":
+    case "POST_LIVE_QUESTION":
       return {
         ...state,
-        room: { ...state.room, chat: [...state.room.chat, action.payload] },
+        room: {
+          ...state.room,
+          liveQuestion: action.payload,
+          postedQuestions: [action.payload, ...state.room.postedQuestions],
+        },
       };
+    case "APPEND_CHAT_MESSAGE":
+      // Backend WS fans a chat message back to every subscriber, including the
+      // sender. Reducer-level dedup on message id keeps the array idempotent so
+      // an echo (or a dev-mode double connect) never yields two rows with the
+      // same key.
+      return state.room.chat.some((message) => message.id === action.payload.id)
+        ? state
+        : {
+            ...state,
+            room: { ...state.room, chat: [...state.room.chat, action.payload] },
+          };
     case "SET_PARTICIPANT_MUTED":
       return {
         ...state,
@@ -103,6 +119,10 @@ export function LiveDuelProvider({ children, initialRoom }: Readonly<LiveDuelPro
     dispatch({ type: "APPEND_CHAT_MESSAGE", payload: message });
   }, []);
 
+  const postLiveQuestion = useCallback((question: LiveQuestion) => {
+    dispatch({ type: "POST_LIVE_QUESTION", payload: question });
+  }, []);
+
   const toggleMic = useCallback(() => {
     dispatch({ type: "TOGGLE_MIC" });
   }, []);
@@ -112,8 +132,8 @@ export function LiveDuelProvider({ children, initialRoom }: Readonly<LiveDuelPro
   }, []);
 
   const value = useMemo<LiveDuelContextValue>(
-    () => ({ state, dispatch, sendMessage, toggleMic, toggleCamera }),
-    [state, dispatch, sendMessage, toggleMic, toggleCamera],
+    () => ({ state, dispatch, sendMessage, postLiveQuestion, toggleMic, toggleCamera }),
+    [state, dispatch, sendMessage, postLiveQuestion, toggleMic, toggleCamera],
   );
 
   return <LiveDuelContext.Provider value={value}>{children}</LiveDuelContext.Provider>;

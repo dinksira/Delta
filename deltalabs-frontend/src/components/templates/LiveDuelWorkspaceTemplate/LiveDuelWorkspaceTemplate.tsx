@@ -3,7 +3,9 @@
  * room. Desktop (lg+) uses a 70/30 two-column split: the left column stacks the
  * host stage, on-stage participant grid, and live message bar; the right column
  * stacks the Battle Status and Live Leaderboard panels. Below `lg` everything
- * stacks vertically in reading order.
+ * stacks vertically in reading order. The template threads the current user's
+ * live media (camera self-view + voice-activity) to the host stage and
+ * participant grid, plus the room's simulated speaker rotation.
  *
  * @example
  * ```tsx
@@ -17,11 +19,18 @@
  *   leaderboard={scores}
  *   isMicMuted={false}
  *   isCameraOff={false}
+ *   isHost
+ *   mediaStream={mediaStream}
+ *   voiceLevel={voiceLevel}
+ *   isSpeaking={userSpeaking}
+ *   speakingIds={speakingIds}
  *   onSendMessage={sendMessage}
  *   onLeaveBattle={handleLeave}
  * />
  * ```
  */
+
+import type { ReactNode } from "react";
 
 import type { DuelLeaderboardEntry } from "@/modules/Competition/types/duelQuiz";
 import type {
@@ -48,8 +57,22 @@ export interface LiveDuelWorkspaceTemplateProps {
   leaderboard: DuelLeaderboardEntry[];
   /** Total active players; defaults to the on-stage roster size. */
   activePlayers?: number;
+  /** Host-only content (e.g. `HostControlPanel`) rendered under the stage. */
+  hostControlSlot?: ReactNode;
   isMicMuted: boolean;
   isCameraOff: boolean;
+  /** True when the current user is the room host (broadcaster). */
+  isHost?: boolean;
+  /** Current-user live camera stream (host stage + own participant tile). */
+  mediaStream?: MediaStream | null;
+  /** Non-null when getUserMedia failed (permission denied, no device, etc.). */
+  mediaError?: string | null;
+  /** Real voice-activity state for the current user's voice ripple. */
+  isSpeaking?: boolean;
+  /** Normalized voice level 0–1 (scales the speaker's ocean ripple). */
+  voiceLevel?: number;
+  /** Participant ids whose cards should show the speaking ripple. */
+  speakingIds?: ReadonlySet<string>;
   onToggleMic?: () => void;
   onToggleCamera?: () => void;
   onSendMessage: (text: string) => void;
@@ -66,8 +89,15 @@ export function LiveDuelWorkspaceTemplate({
   participants,
   leaderboard,
   activePlayers = participants.length,
+  hostControlSlot,
   isMicMuted,
   isCameraOff,
+  isHost = false,
+  mediaStream = null,
+  mediaError = null,
+  isSpeaking = false,
+  voiceLevel = 0,
+  speakingIds,
   onToggleMic,
   onToggleCamera,
   onSendMessage,
@@ -84,11 +114,23 @@ export function LiveDuelWorkspaceTemplate({
           chatMessages={chatMessages}
           isMicMuted={isMicMuted}
           isCameraOff={isCameraOff}
+          isHost={isHost}
+          mediaStream={mediaStream}
+          mediaError={mediaError}
+          isSpeaking={isSpeaking}
+          voiceLevel={voiceLevel}
           onToggleMic={onToggleMic}
           onToggleCamera={onToggleCamera}
           onLeave={onLeaveBattle}
         />
-        <ParticipantGrid participants={participants} />
+        {hostControlSlot}
+        <ParticipantGrid
+          participants={participants}
+          userMediaStream={mediaStream}
+          userIsSpeaking={isSpeaking}
+          userVoiceLevel={voiceLevel}
+          speakingIds={speakingIds}
+        />
         <LiveMessageBar onSend={onSendMessage} />
       </main>
 

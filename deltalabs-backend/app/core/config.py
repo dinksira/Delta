@@ -116,6 +116,10 @@ class Settings(BaseSettings):
         default="feed:clip:",
         description="Pub/Sub channel prefix for clip-level realtime fanout",
     )
+    live_duel_pubsub_channel_prefix: str = Field(
+        default="live_duel:",
+        description="Pub/Sub channel prefix for live-duel room realtime fanout",
+    )
 
     rate_limit_auth_posts_per_minute: int = Field(
         default=120,

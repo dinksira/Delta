@@ -6,6 +6,7 @@ export {
   TopicBattleDuelPage,
   LiveDuelRoomPage,
   LiveDuelsPage,
+  CreateLiveDuelPage,
 } from "@/modules/Competition/views";
 export {
   CompetitionFilterProvider,

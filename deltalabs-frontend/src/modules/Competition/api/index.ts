@@ -11,6 +11,7 @@ import type {
   CodeSubmitResponse,
 } from "@/modules/Competition/types/codeExecution";
 import { uploadSchoolMediaFile } from "@/modules/School/api";
+import type { LiveDuelEntry, LiveDuelRoomDetail } from "@/modules/Competition/types/liveDuel";
 
 /** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
@@ -89,13 +90,69 @@ export async function joinTopicBattle(id: string) {
 }
 
 /**
- * Join a live duel room. The backend live-room endpoint is still in design, so
- * this stub resolves after a short latency to keep the join flow identical to
- * the topic battle flow until the real channel lands.
+ * Join a live duel room. Backend-hosted rooms (`<24-hex-id>`) hit
+ * `POST /v1/live-duels/{id}/join` so the seat fill is shared; demo/local rooms
+ * resolve via the short stub to keep the bag-of-demo flow identical to the
+ * topic battle flow.
  */
 export async function joinLiveDuel(id: string): Promise<{ id: string; joined: boolean }> {
+  if (/^[0-9a-f]{24}$/i.test(id)) {
+    try {
+      await apiClient.post<LiveDuelEntry>(`/v1/live-duels/${id}/join`);
+      return { id, joined: true };
+    } catch {
+      // Fall through to the demo stub; the lobby join modal still succeeds.
+    }
+  }
   await new Promise((resolve) => setTimeout(resolve, 700));
   return { id, joined: true };
+}
+
+/** Payload for POST /v1/live-duels (host create, camelCase like the view types). */
+export interface CreateLiveDuelApiPayload {
+  title: string;
+  subject: string;
+  difficulty: string;
+  durationLabel: string;
+  entryFee: string;
+  prizePool: string;
+  playersMax: number;
+  hostName: string;
+  hostAvatarUrl?: string | null;
+}
+
+export async function createLiveDuelRoom(payload: CreateLiveDuelApiPayload): Promise<LiveDuelEntry> {
+  return apiClient.post<LiveDuelEntry>("/v1/live-duels", { json: payload });
+}
+
+export async function fetchLiveDuels(): Promise<LiveDuelEntry[]> {
+  return apiClient.get<LiveDuelEntry[]>("/v1/live-duels");
+}
+
+export async function fetchLiveDuelRoom(roomId: string): Promise<LiveDuelRoomDetail> {
+  return apiClient.get<LiveDuelRoomDetail>(`/v1/live-duels/${roomId}`);
+}
+
+export interface PostLiveDuelQuestionPayload {
+  text: string;
+  points: number;
+  timeLabel?: string;
+}
+
+/** Host posts a question live; the backend fans it out via the room channel. */
+export async function postLiveDuelQuestion(
+  roomId: string,
+  payload: PostLiveDuelQuestionPayload,
+): Promise<{ id: string; round: number; total: number; text: string; points: number; timeLabel?: string }> {
+  return apiClient.post(`/v1/live-duels/${roomId}/questions`, { json: payload });
+}
+
+/** Sends chat through the backend so every connected client in the room sees it. */
+export async function postLiveDuelChat(
+  roomId: string,
+  payload: { text: string; emoji?: string },
+): Promise<{ id: string; username: string; avatarUrl?: string | null; text: string; emoji?: string; sentAt: number }> {
+  return apiClient.post(`/v1/live-duels/${roomId}/chat`, { json: payload });
 }
 
 export async function completeTopicBattle(id: string) {

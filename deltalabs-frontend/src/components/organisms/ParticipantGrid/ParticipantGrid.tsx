@@ -1,11 +1,18 @@
 /**
- * ParticipantGrid — responsive grid of on-stage participant cards for the
- * Live Duel secondary content layer. Collapses from 4 columns (desktop) to 2
- * on small screens.
+ * ParticipantGrid — responsive grid of Zoom-style on-stage participant tiles
+ * for the Live Duel secondary content layer. Collapses from 4 columns
+ * (desktop) to 2 on small screens. The current user's tile receives their live
+ * camera stream (`userMediaStream`) + real voice level (`userVoiceLevel`);
+ * every other tile's ripple follows the room's `speakingIds` simulation.
  *
  * @example
  * ```tsx
- * <ParticipantGrid participants={room.participants} />
+ * <ParticipantGrid
+ *   participants={room.participants}
+ *   userMediaStream={mediaStream}
+ *   userVoiceLevel={voiceLevel}
+ *   speakingIds={speakingIds}
+ * />
  * ```
  */
 
@@ -17,10 +24,25 @@ import { cn } from "@/lib/utils";
 
 export interface ParticipantGridProps {
   participants: LiveParticipant[];
+  /** Live camera stream for the current user's tile (self-view). */
+  userMediaStream?: MediaStream | null;
+  /** Real voice-activity state (with hold) for the current user's ripple. */
+  userIsSpeaking?: boolean;
+  /** Real voice level 0–1 for the current user's tile ripple. */
+  userVoiceLevel?: number;
+  /** Participant ids whose tiles should show the speaking ripple. */
+  speakingIds?: ReadonlySet<string>;
   className?: string;
 }
 
-export function ParticipantGrid({ participants, className }: Readonly<ParticipantGridProps>) {
+export function ParticipantGrid({
+  participants,
+  userMediaStream = null,
+  userIsSpeaking = false,
+  userVoiceLevel = 0,
+  speakingIds,
+  className,
+}: Readonly<ParticipantGridProps>) {
   return (
     <section aria-label="Participants on stage" className={cn("", className)}>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -32,7 +54,17 @@ export function ParticipantGrid({ participants, className }: Readonly<Participan
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         {participants.map((participant) => (
-          <ParticipantCard key={participant.id} participant={participant} />
+          <ParticipantCard
+            key={participant.id}
+            participant={participant}
+            mediaStream={participant.isYou ? userMediaStream : null}
+            voiceLevel={participant.isYou ? userVoiceLevel : 0}
+            isSpeaking={
+              participant.isYou
+                ? userIsSpeaking
+                : speakingIds?.has(participant.id) ?? false
+            }
+          />
         ))}
       </div>
     </section>

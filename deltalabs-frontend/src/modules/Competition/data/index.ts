@@ -4,7 +4,11 @@ export {
   DEMO_LIVE_DUELS,
   DEMO_LIVE_DUELS_SEED,
   buildLiveDuelRoom,
+  getLiveDuelsCatalog,
+  getLiveDuelEntry,
+  createLiveDuel,
 } from "./liveDuelsCatalog";
+export type { CreateLiveDuelInput, BuildLiveDuelRoomOptions } from "./liveDuelsCatalog";
 export { BATTLE_FORMATS } from "./battleFormats";
 export { BATTLE_VISIBILITIES } from "./battleVisibility";
 export { BATTLE_TIMINGS } from "./battleTimings";
