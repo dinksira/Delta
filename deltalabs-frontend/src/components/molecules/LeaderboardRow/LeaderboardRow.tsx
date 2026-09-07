@@ -1,11 +1,13 @@
 /**
  * LeaderboardRow — a single ranked entry in a battle leaderboard.
  * Shows rank, monogram avatar, name, and points; highlights the current user
- * with a primary ring and "You" label.
+ * with a primary ring and "You" label. When `pointsLabel` is provided the
+ * points render stacked above the unit (e.g. "Points") for live leaderboards.
  *
  * @example
  * ```tsx
  * <LeaderboardRow entry={entry} />
+ * <LeaderboardRow entry={entry} pointsLabel="Points" />
  * ```
  */
 
@@ -15,10 +17,12 @@ import { cn } from "@/lib/utils";
 
 export interface LeaderboardRowProps {
   entry: DuelLeaderboardEntry;
+  /** Optional unit label stacked under the point value (e.g. "Points"). */
+  pointsLabel?: string;
   className?: string;
 }
 
-export function LeaderboardRow({ entry, className }: Readonly<LeaderboardRowProps>) {
+export function LeaderboardRow({ entry, pointsLabel, className }: Readonly<LeaderboardRowProps>) {
   const isUser = Boolean(entry.isCurrentUser);
 
   return (
@@ -54,9 +58,20 @@ export function LeaderboardRow({ entry, className }: Readonly<LeaderboardRowProp
           {isUser ? <span className="ml-1.5 text-xs font-medium text-primary-600">(You)</span> : null}
         </p>
       </div>
-      <span className="shrink-0 text-sm font-bold tabular-nums text-text-primary">
-        {entry.points.toLocaleString()}
-      </span>
+      {pointsLabel ? (
+        <span className="flex shrink-0 flex-col items-end leading-tight">
+          <span className="text-sm font-bold tabular-nums text-text-primary">
+            {entry.points.toLocaleString()}
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
+            {pointsLabel}
+          </span>
+        </span>
+      ) : (
+        <span className="shrink-0 text-sm font-bold tabular-nums text-text-primary">
+          {entry.points.toLocaleString()}
+        </span>
+      )}
     </div>
   );
 }

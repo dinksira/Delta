@@ -7,11 +7,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from app.core.exceptions import NotFoundError, PermissionDeniedError
+from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 from app.domain.competitions.repository import Repository
 from app.domain.competitions.schemas import (
     AchievementResponse,
+    ChampionshipCreateRequest,
+    ChampionshipNextSeasonResponse,
+    ChampionshipResponse,
+    ChampionshipSeasonResponse,
+    ChampionshipStageResponse,
+    ChampionshipStandingResponse,
     CodingQuestionSchema,
+    CompetitionGameResponse,
+    CompetitionGamesResponse,
     CompetitionHubResponse,
     CompetitionModeResponse,
     DesignPayloadSchema,
@@ -1024,6 +1032,311 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
     },
 ]
 
+# ── Demo championship (local dev) ─────────────────────────────────────────
+# Deterministic "Season 3" snapshot. The active stage is `unlocked`; finishing
+# it and the remaining stages completes the season and unlocks Season 4.
+_DEMO_CHAMPIONSHIP_SEASON: dict[str, object] = {
+    "id": "season_demo_3",
+    "number": 3,
+    "title": "Rise of the Titans",
+    "status": "active",
+    "starts_at": "2026-09-01T00:00:00Z",
+    "ends_at": "2026-11-30T23:59:59Z",
+    "total_stages": 5,
+    "completed_stages": 2,
+    "current_stage_order": 3,
+    "points_earned": 500,
+    "total_points": 1000,
+    "player_rank": 4,
+    "total_players": 128,
+}
+
+_DEMO_CHAMPIONSHIP_STAGES: list[dict[str, object]] = [
+    {
+        "id": "stage_3_r1",
+        "order": 1,
+        "name": "Qualifier Round",
+        "short_label": "R1",
+        "status": "completed",
+        "starts_at": "2026-09-01T00:00:00Z",
+        "points_to_earn": 200,
+        "points_earned": 200,
+        "battle_id": "tb_demo_math_olympiad",
+        "entry_fee": "Free",
+        "prize_pool": "ETB 12",
+        "prize_etb": 12,
+    },
+    {
+        "id": "stage_3_r2",
+        "order": 2,
+        "name": "Round of 32",
+        "short_label": "R32",
+        "status": "completed",
+        "starts_at": "2026-09-15T00:00:00Z",
+        "points_to_earn": 300,
+        "points_earned": 300,
+        "battle_id": "tb_demo_ml_club",
+        "entry_fee": "Free",
+        "prize_pool": "ETB 25",
+        "prize_etb": 25,
+    },
+    {
+        "id": "stage_3_r3",
+        "order": 3,
+        "name": "Round of 16",
+        "short_label": "R16",
+        "status": "unlocked",
+        "starts_at": "2026-09-28T00:00:00Z",
+        "points_to_earn": 200,
+        "points_earned": 0,
+        "is_current": True,
+        "battle_id": "tb_demo_bio_cells",
+        "entry_fee": "Free",
+        "prize_pool": "ETB 50",
+        "prize_etb": 50,
+    },
+    {
+        "id": "stage_3_qf",
+        "order": 4,
+        "name": "Quarterfinals",
+        "short_label": "QF",
+        "status": "locked",
+        "starts_at": "2026-10-12T00:00:00Z",
+        "points_to_earn": 200,
+        "points_earned": 0,
+        "battle_id": "tb_demo_ast_planets",
+        "entry_fee": "Free",
+        "prize_pool": "ETB 100",
+        "prize_etb": 100,
+    },
+    {
+        "id": "stage_3_sf",
+        "order": 5,
+        "name": "Semifinals & Grand Final",
+        "short_label": "F",
+        "status": "locked",
+        "starts_at": "2026-10-26T00:00:00Z",
+        "points_to_earn": 100,
+        "points_earned": 0,
+        "battle_id": "tb_demo_alg_sorting",
+        "entry_fee": "Free",
+        "prize_pool": "ETB 250",
+        "prize_etb": 250,
+    },
+]
+
+_DEMO_CHAMPIONSHIP_NEXT_SEASON: dict[str, object] = {
+    "number": 4,
+    "title": "Crown of the Delta",
+    "is_unlocked": False,
+    "unlock_hint": "Complete Season 3 to unlock Season 4 and claim your points.",
+}
+
+_DEMO_CHAMPIONSHIP_STANDINGS: list[dict[str, object]] = [
+    {"rank": 1, "name": "Lina Petrova", "points": 780},
+    {"rank": 2, "name": "Ken Nakamura", "points": 745},
+    {"rank": 3, "name": "Elena Okafor", "points": 690},
+    {"rank": 5, "name": "Omar Farouk", "points": 480},
+    {"rank": 6, "name": "Sara Hailu", "points": 455},
+    {"rank": 7, "name": "Juan Rivera", "points": 430},
+    {"rank": 8, "name": "Grace Adeyemi", "points": 395},
+]
+
+# ── Hosted championship wizard ─────────────────────────────────────────────
+# Stage run templates for the "Create new tournament" flow. Every stage maps
+# to a real seeded battle so the hosted season is immediately playable.
+_CHAMPIONSHIP_STAGE_RUNS: dict[int, list[tuple[str, str]]] = {
+    3: [
+        ("Qualifier Round", "R1"),
+        ("Semifinals", "SF"),
+        ("Grand Final", "F"),
+    ],
+    5: [
+        ("Qualifier Round", "R1"),
+        ("Round of 32", "R32"),
+        ("Round of 16", "R16"),
+        ("Quarterfinals", "QF"),
+        ("Semifinals & Grand Final", "F"),
+    ],
+    8: [
+        ("Qualifier Round", "R1"),
+        ("Round of 64", "R64"),
+        ("Round of 32", "R32"),
+        ("Round of 16", "R16"),
+        ("Quarterfinals", "QF"),
+        ("Semifinals", "SF"),
+        ("Finals", "F"),
+        ("Grand Final", "GF"),
+    ],
+}
+
+# Stages within a hosted season unlock on a weekly cadence from round 1.
+_CHAMPIONSHIP_STAGE_SPACING_DAYS = 7
+
+# Total points a full hosted season pays across its stages (matches demo).
+_CHAMPIONSHIP_TOTAL_STAGE_POINTS = 1000
+
+
+def _championship_stage_runs(stage_count: int) -> list[tuple[str, str]]:
+    """Returns the (name, short label) runs for the wizard's stage count."""
+    return _CHAMPIONSHIP_STAGE_RUNS.get(stage_count, _CHAMPIONSHIP_STAGE_RUNS[5])
+
+
+def _iso_utc(dt: datetime) -> str:
+    """Formats a datetime as the demo-style UTC ISO string (``...Z``)."""
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+# ── Demo Games lobby (local dev) ──────────────────────────────────────────
+# `battle_id` points at a real seeded topic battle so that clicking "Play"
+# drops the user straight into the duel engine and earns points on completion.
+# Live player counts are refreshed from the battle documents at request time.
+_DEMO_GAMES_CATALOG: list[dict[str, Any]] = [
+    {
+        "id": "game_championship_rise",
+        "title": "Rise of the Titans",
+        "genre": "Knockout Tournament",
+        "description": "Season-long knockout. Win stages, collect points, and claim the crown.",
+        "difficulty": "All Levels",
+        "tone": "primary",
+        "is_championship": True,
+        "status": "open",
+        "points_to_earn": 1000,
+        "battle_id": "tb_demo_math_olympiad",
+    },
+    {
+        "id": "game_logic_gates",
+        "title": "Logic Gates Throwdown",
+        "genre": "Code Battle",
+        "description": "Wire up logic gates in JavaScript and beat the clock.",
+        "difficulty": "Intermediate",
+        "tone": "emerald",
+        "status": "open",
+        "points_to_earn": 250,
+        "battle_id": "tb_demo_alg_fib",
+    },
+    {
+        "id": "game_linear_algebra",
+        "title": "Linear Algebra Sprint",
+        "genre": "Code Battle",
+        "description": "Determinants and dot products — fast and clean.",
+        "difficulty": "Beginner",
+        "tone": "cyan",
+        "status": "open",
+        "points_to_earn": 180,
+        "battle_id": "tb_demo_seed_other",
+    },
+    {
+        "id": "game_ml_cup",
+        "title": "ML Club: Trees vs Forests",
+        "genre": "Data Battle",
+        "description": "Tune Gini impurity, build trees, and beat the forest.",
+        "difficulty": "Advanced",
+        "tone": "violet",
+        "status": "open",
+        "points_to_earn": 500,
+        "battle_id": "tb_demo_ml_club",
+    },
+    {
+        "id": "game_chem_quiz",
+        "title": "Chemistry Pitstop",
+        "genre": "Quiz Sprint",
+        "description": "Rapid-fire chemistry rounds. Know your bonds before they break.",
+        "difficulty": "Intermediate",
+        "tone": "amber",
+        "status": "open",
+        "points_to_earn": 220,
+        "battle_id": "tb_demo_chem_quiz",
+    },
+    {
+        "id": "game_js_basics",
+        "title": "JS Fundamentals Dash",
+        "genre": "Quiz Sprint",
+        "description": "Scopes, closures, and promises at full speed.",
+        "difficulty": "Beginner",
+        "tone": "rose",
+        "status": "open",
+        "points_to_earn": 150,
+        "battle_id": "tb_demo_js_basics",
+    },
+    {
+        "id": "game_bio_cells",
+        "title": "Cell Biology Scramble",
+        "genre": "Quiz Sprint",
+        "description": "Organelles, membranes, and cycles — scramble them all.",
+        "difficulty": "Beginner",
+        "tone": "teal",
+        "status": "open",
+        "points_to_earn": 160,
+        "battle_id": "tb_demo_bio_cells",
+    },
+    {
+        "id": "game_ast_planets",
+        "title": "Planetary Quest",
+        "genre": "Quiz Sprint",
+        "description": "Cross the solar system answering orbital trivia.",
+        "difficulty": "Intermediate",
+        "tone": "indigo",
+        "status": "open",
+        "points_to_earn": 240,
+        "battle_id": "tb_demo_ast_planets",
+    },
+    {
+        "id": "game_alg_sorting",
+        "title": "Algo Sorting Dojo",
+        "genre": "Code Battle",
+        "description": "Implement mergesort, heaps, and friends under pressure.",
+        "difficulty": "Intermediate",
+        "tone": "orange",
+        "status": "open",
+        "points_to_earn": 300,
+        "battle_id": "tb_demo_alg_sorting",
+    },
+    {
+        "id": "game_midnight_league",
+        "title": "Midnight League — Elite",
+        "genre": "Invitational",
+        "description": "An invite-only gauntlet for the sharpest competitors.",
+        "difficulty": "Advanced",
+        "tone": "slate",
+        "status": "locked",
+        "points_to_earn": 2000,
+        "battle_id": None,
+        "unlock_hint": "Reach Level 5 to unlock the Midnight League.",
+    },
+    {
+        "id": "game_crypto_gp",
+        "title": "Crypto Grand Prix 2027",
+        "genre": "Season Event",
+        "description": "The year's biggest season event. Entry opens soon.",
+        "difficulty": "All Levels",
+        "tone": "fuchsia",
+        "status": "coming-soon",
+        "points_to_earn": 1500,
+        "battle_id": None,
+    },
+]
+
+# 3-stage unlock ladder recycled for every non-championship game. Each stage
+# maps to a real seeded battle in `_GAME_BATTLE_POOL` (existing demo battles).
+# NOTE: every id here must exist in the DB, otherwise stage duels 404.
+_GAME_STAGE_TEMPLATES: list[tuple[str, str]] = [
+    ("Warm-up Round", "W1"),
+    ("Seeded Round", "W2"),
+    ("Winner's Round", "W3"),
+]
+_GAME_STAGE_PRIZE_ETB: list[int] = [15, 30, 60]
+_GAME_BATTLE_POOL: list[str] = [
+    "tb_demo_math_olympiad",
+    "tb_demo_ml_club",
+    "tb_demo_chem_quiz",
+    "tb_demo_js_basics",
+    "tb_demo_bio_cells",
+    "tb_demo_ast_planets",
+    "tb_demo_alg_sorting",
+    "tb_demo_alg_fib",
+    "tb_demo_seed_other",
+]
+
 # ################################ /CONSTANTS ################################
 
 
@@ -1511,6 +1824,527 @@ class Service:
             achievements=achievements,
             my_battles=my_battles,
         )
+
+    # ========================================================================
+    # Championship (season-long knockout tournament)
+    # ========================================================================
+
+    async def get_championship(self, *, user_id: str | None) -> ChampionshipResponse:
+        """Snapshots the current Championship season for the requesting user.
+
+        Stage statuses reflect the user's own unlock progression: completed
+        stages stay earned with their prize, exactly one stage is unlocked and
+        current, and everything after stays locked. Uses the persisted hosted
+        season when one exists, otherwise falls back to the deterministic demo
+        season (anonymous or pre-launch users).
+        """
+        player_points = 0
+        completed: list[int] = []
+        stats: dict[str, Any] | None = None
+        if user_id is not None:
+            stats = await self._repository.get_user_stats(user_id)
+        if stats:
+            player_points = int(stats.get("championship_points", 0) or 0)
+            raw = stats.get("championship_completed", [])
+            completed = [int(o) for o in raw if isinstance(o, (int, float))]
+        completed_set = set(completed)
+        has_progress = bool(completed)
+
+        stored = await self._repository.get_active_championship()
+        if stored is not None:
+            season = dict(stored["season"])
+            stages_source: list[dict[str, Any]] = [
+                dict(s) for s in stored["stages"]
+            ]
+            next_season = dict(stored["next_season"])
+            db_standings = await self._repository.championship_standings()
+        else:
+            season = dict(_DEMO_CHAMPIONSHIP_SEASON)
+            stages_source = [dict(s) for s in _DEMO_CHAMPIONSHIP_STAGES]
+            next_season = dict(_DEMO_CHAMPIONSHIP_NEXT_SEASON)
+            db_standings = []
+
+        ordered = sorted(stages_source, key=lambda s: int(s["order"]))
+        next_unlocked = next(
+            (int(s["order"]) for s in ordered if int(s["order"]) not in completed_set),
+            None,
+        )
+
+        stages: list[ChampionshipStageResponse] = []
+        for stage in ordered:
+            if not has_progress:
+                stages.append(ChampionshipStageResponse.model_validate(stage))
+                continue
+            order = int(stage["order"])
+            is_done = order in completed_set
+            candidate = dict(stage)
+            candidate["status"] = (
+                "completed"
+                if is_done
+                else ("unlocked" if order == next_unlocked else "locked")
+            )
+            candidate["is_current"] = order == next_unlocked
+            candidate["points_earned"] = (
+                int(stage.get("points_to_earn", 0) or 0) if is_done else 0
+            )
+            stages.append(ChampionshipStageResponse.model_validate(candidate))
+
+        season_data = dict(season)
+        if has_progress:
+            season_data["completed_stages"] = len(completed)
+            season_data["current_stage_order"] = next_unlocked
+            season_data["points_earned"] = player_points
+
+        if stored is not None and db_standings:
+            standings: list[ChampionshipStandingResponse] = []
+            inserted_you = False
+            for entry in db_standings:
+                if entry["user_id"] == user_id:
+                    continue
+                if (
+                    not inserted_you
+                    and user_id is not None
+                    and player_points >= int(entry.get("points", 0) or 0)
+                ):
+                    standings.append(
+                        ChampionshipStandingResponse(
+                            rank=len(standings) + 1,
+                            name="You",
+                            points=player_points,
+                            is_current_user=True,
+                        )
+                    )
+                    inserted_you = True
+                standings.append(
+                    ChampionshipStandingResponse(
+                        rank=len(standings) + 1,
+                        name=str(entry.get("name", "Player")),
+                        points=int(entry.get("points", 0) or 0),
+                    )
+                )
+            if not inserted_you and user_id is not None:
+                standings.append(
+                    ChampionshipStandingResponse(
+                        rank=len(standings) + 1,
+                        name="You",
+                        points=player_points,
+                        is_current_user=True,
+                    )
+                )
+        elif stored is not None:
+            standings = [
+                ChampionshipStandingResponse(
+                    rank=1,
+                    name="You",
+                    points=player_points,
+                    is_current_user=True,
+                )
+            ]
+        else:
+            standings = [dict(entry) for entry in _DEMO_CHAMPIONSHIP_STANDINGS]
+            standings.insert(
+                3,
+                {
+                    "rank": 4,
+                    "name": "You",
+                    "points": player_points or 500,
+                    "is_current_user": True,
+                },
+            )
+            standings = [
+                ChampionshipStandingResponse.model_validate(entry) for entry in standings
+            ]
+
+        return ChampionshipResponse(
+            season=ChampionshipSeasonResponse.model_validate(season_data),
+            stages=stages,
+            standings=standings,
+            next_season=ChampionshipNextSeasonResponse.model_validate(next_season),
+        )
+
+    async def complete_championship_stage(
+        self,
+        *,
+        user_id: str,
+        stage_order: int,
+    ) -> ChampionshipResponse:
+        """Completes the currently unlocked stage, crediting its stage points
+        and ETB prize, then re-snapshots the season so the next stage unlocks.
+
+        Idempotent per stage: a stage can only be credited once.
+        """
+        stored = await self._repository.get_active_championship()
+        if stored is not None:
+            ordered = sorted(
+                (dict(s) for s in stored["stages"]),
+                key=lambda s: int(s["order"]),
+            )
+        else:
+            ordered = sorted(_DEMO_CHAMPIONSHIP_STAGES, key=lambda s: int(s["order"]))
+        stage = next((s for s in ordered if int(s["order"]) == stage_order), None)
+        if stage is None:
+            raise NotFoundError(f"Stage {stage_order} not found in the current season")
+
+        stats = await self._repository.get_user_stats(user_id)
+        raw_completed = (stats or {}).get("championship_completed", [])
+        completed_set = {
+            int(o) for o in raw_completed if isinstance(o, (int, float))
+        }
+        if stage_order in completed_set:
+            return await self.get_championship(user_id=user_id)
+
+        next_unlocked = next(
+            (int(s["order"]) for s in ordered if int(s["order"]) not in completed_set),
+            None,
+        )
+        if next_unlocked is None or stage_order != next_unlocked:
+            raise ConflictError("This stage is not unlocked yet")
+
+        await self._repository.complete_championship_stage_stats(
+            user_id=user_id,
+            stage_order=stage_order,
+            points=int(stage.get("points_to_earn", 0) or 0),
+            prize_etb=int(stage.get("prize_etb", 0) or 0),
+        )
+        return await self.get_championship(user_id=user_id)
+
+    async def create_championship(
+        self,
+        *,
+        payload: ChampionshipCreateRequest,
+        user_id: str | None = None,
+    ) -> ChampionshipResponse:
+        """Hosts and launches a brand-new Championship season.
+
+        Builds an escalating stage ladder (each stage tied to a real seeded
+        battle so it is instantly playable), persists it as the active season,
+        resets everyone's season progression, and snapshots the fresh season
+        for the host.
+        """
+        stored = await self._repository.get_active_championship()
+        if stored is not None:
+            prev_number = int((stored.get("season") or {}).get("number", 3) or 3)
+        else:
+            prev_number = 3
+        number = prev_number + 1
+        now = datetime.now(UTC)
+
+        _, launch_dt = self._build_launch_state(
+            payload.timing,
+            payload.schedule_date or "",
+            payload.schedule_time or "",
+            payload.schedule_timezone or "",
+        )
+        if payload.timing != "schedule" or launch_dt is None:
+            launch_dt = now
+
+        runs = _championship_stage_runs(payload.stage_count)
+        count = len(runs)
+        base = max(1, int(payload.prize_base_etb))
+        per_stage = max(1, _CHAMPIONSHIP_TOTAL_STAGE_POINTS // count)
+        pool_size = len(_GAME_BATTLE_POOL)
+
+        stages: list[dict[str, object]] = []
+        for index, (name, label) in enumerate(runs):
+            order = index + 1
+            prize = base * (2**index)
+            if index == count - 1:
+                prize += base * count
+            points = (
+                per_stage
+                if index < count - 1
+                else _CHAMPIONSHIP_TOTAL_STAGE_POINTS - per_stage * (count - 1)
+            )
+            start = launch_dt + timedelta(days=_CHAMPIONSHIP_STAGE_SPACING_DAYS * index)
+
+            custom_questions = (
+                payload.stage_questions[index]
+                if index < len(payload.stage_questions)
+                else []
+            )
+            if custom_questions:
+                battle_id = await self._compile_stage_battle(
+                    label=label,
+                    payload=payload,
+                    prize=prize,
+                    questions=custom_questions,
+                    user_id=user_id,
+                )
+            else:
+                battle_id = _GAME_BATTLE_POOL[(number + index) % pool_size]
+
+            stages.append(
+                {
+                    "id": f"stage_{number}_{index + 1}",
+                    "order": order,
+                    "name": name,
+                    "short_label": label,
+                    "status": "locked",
+                    "starts_at": _iso_utc(start),
+                    "points_to_earn": points,
+                    "points_earned": 0,
+                    "is_current": order == 1,
+                    "battle_id": battle_id,
+                    "entry_fee": payload.entry_fee or "Free",
+                    "prize_pool": f"ETB {prize}",
+                    "prize_etb": prize,
+                }
+            )
+        stages[0]["status"] = "unlocked"
+
+        season: dict[str, object] = {
+            "id": f"season_{number}",
+            "number": number,
+            "title": payload.title,
+            "status": "active",
+            "starts_at": _iso_utc(launch_dt),
+            "ends_at": _iso_utc(
+                launch_dt
+                + timedelta(days=_CHAMPIONSHIP_STAGE_SPACING_DAYS * (count - 1) + 7)
+            ),
+            "total_stages": count,
+            "completed_stages": 0,
+            "current_stage_order": 1,
+            "points_earned": 0,
+            "total_points": _CHAMPIONSHIP_TOTAL_STAGE_POINTS,
+            "player_rank": 1,
+            "total_players": 0,
+        }
+
+        next_season: dict[str, object] = {
+            "number": number + 1,
+            "title": f"Season {number + 1}",
+            "is_unlocked": False,
+            "unlock_hint": (
+                f"Complete {payload.title} to unlock the next season "
+                "and claim your points."
+            ),
+        }
+
+        doc: dict[str, Any] = {
+            "_id": "active",
+            "season": season,
+            "stages": stages,
+            "next_season": next_season,
+            "title": payload.title,
+            "description": payload.description,
+            "entry_fee": payload.entry_fee,
+            "prize_base_etb": base,
+            "timing": payload.timing,
+            "schedule_date": payload.schedule_date,
+            "schedule_time": payload.schedule_time,
+            "schedule_timezone": payload.schedule_timezone,
+            "created_by": user_id,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._repository.upsert_active_championship(doc)
+        await self._repository.reset_championship_progress()
+        return await self.get_championship(user_id=user_id)
+
+    async def _compile_stage_battle(
+        self,
+        *,
+        label: str,
+        payload: ChampionshipCreateRequest,
+        prize: int,
+        questions: list[CodingQuestionSchema],
+        user_id: str | None,
+    ) -> str:
+        """Compiles a stage's custom question set into a real topic battle.
+
+        Built exactly like ``create_topic_battle`` so the stage duel runs the
+        standard battle flow with the host's authored questions. Returns the
+        new battle id.
+        """
+        battle_id = f"tb_{uuid4().hex}"
+        now = datetime.now(UTC)
+        status, countdown_ends_at = self._build_launch_state(
+            payload.timing,
+            payload.schedule_date or "",
+            payload.schedule_time or "",
+            payload.schedule_timezone or "",
+        )
+
+        doc: dict[str, Any] = {
+            "_id": battle_id,
+            "title": f"{payload.title} · {label}",
+            "subject": (payload.title or "Championship")[:100],
+            "difficulty": "Custom",
+            "status": status,
+            "countdown_ends_at": countdown_ends_at,
+            "creator": {
+                "name": payload.creator_name or "You",
+            },
+            "prize_pool": f"ETB {prize}",
+            "entry_fee": payload.entry_fee or "Free",
+            "players_joined": 0,
+            "players_max": 1000,
+            "format": "mini",
+            "duration_minutes": 10,
+            "visibility": "public",
+            "timing": payload.timing,
+            "prize_rule": "winner-takes-all",
+            "schedule_date": payload.schedule_date or "",
+            "schedule_time": payload.schedule_time or "",
+            "schedule_timezone": payload.schedule_timezone or "UTC",
+            "question_pool_mode": "custom",
+            "easy_pct": 0,
+            "medium_pct": 0,
+            "hard_pct": 0,
+            "owner_user_id": user_id,
+            "participants": [],
+            "questions": [_question_schema_to_dict(q) for q in questions],
+            "created_at": now,
+            "updated_at": now,
+        }
+        await self._repository.insert_topic_battle(doc)
+        return battle_id
+
+    # ========================================================================
+    # Games lobby (playable game catalog)
+    # ========================================================================
+
+    @staticmethod
+    def _build_game_stages(
+        game_index: int,
+        points: int,
+        completed: list[int],
+    ) -> list[dict[str, object]]:
+        """Builds a 3-stage unlock ladder for a non-championship game.
+
+        Each stage maps to a real seeded battle, so completing a stage runs a
+        real duel and win credits points + ETB prize, unlocking the next one.
+        """
+        total = max(1, int(points or 0))
+        count = len(_GAME_STAGE_TEMPLATES)
+        base = max(1, total // count)
+        pool_size = len(_GAME_BATTLE_POOL)
+        completed_set = set(completed)
+        next_unlocked = next(
+            (order for order in range(1, count + 1) if order not in completed_set),
+            None,
+        )
+        stages: list[dict[str, object]] = []
+        for order in range(1, count + 1):
+            name, label = _GAME_STAGE_TEMPLATES[order - 1]
+            stage_points = base if order < count else total - base * (count - 1)
+            is_done = order in completed_set
+            prize_etb = _GAME_STAGE_PRIZE_ETB[order - 1]
+            stages.append(
+                {
+                    "id": f"gst_{game_index}_{order}",
+                    "order": order,
+                    "name": name,
+                    "short_label": label,
+                    "status": (
+                        "completed"
+                        if is_done
+                        else ("unlocked" if order == next_unlocked else "locked")
+                    ),
+                    "starts_at": "2026-09-01T00:00:00Z",
+                    "points_to_earn": stage_points,
+                    "points_earned": stage_points if is_done else 0,
+                    "is_current": order == next_unlocked,
+                    "battle_id": _GAME_BATTLE_POOL[(game_index + order - 1) % pool_size],
+                    "entry_fee": "Free",
+                    "prize_pool": f"ETB {prize_etb}",
+                    "prize_etb": prize_etb,
+                },
+            )
+        return stages
+
+    async def list_games(self, *, user_id: str | None) -> CompetitionGamesResponse:
+        """Lists the Games lobby, refreshing live player counts from battles.
+
+        Every ``open`` game carries a staged ladder ("Warm-up", "Seeded
+        Round", "Winner's Round") — each stage is a real battled duel whose
+        completion credits points + ETB prize and unlocks the next stage.
+        """
+        raw_game_stages: dict[str, list[int]] = {}
+        if user_id is not None:
+            stats = await self._repository.get_user_stats(user_id)
+            if stats:
+                nested = stats.get("game_stages")
+                if isinstance(nested, dict):
+                    raw_game_stages = {
+                        str(key): [int(order) for order in value if isinstance(order, (int, float))]
+                        for key, value in nested.items()
+                        if isinstance(value, list)
+                    }
+
+        games: list[CompetitionGameResponse] = []
+        for index, game in enumerate(_DEMO_GAMES_CATALOG):
+            live: dict[str, object] = {}
+            battle_id = game.get("battle_id")
+            if isinstance(battle_id, str):
+                doc = await self._repository.find_topic_battle_by_id(battle_id)
+                if doc is not None:
+                    live["players_count"] = int(doc.get("players_joined", 0))
+                    live["players_max"] = int(doc.get("players_max", 0))
+            game_dict = {**game, **live}
+            if game.get("status") == "open":
+                completed = raw_game_stages.get(str(game.get("id")), [])
+                game_index = int(index)
+                game_dict["stages"] = self._build_game_stages(
+                    game_index,
+                    int(game.get("points_to_earn", 0) or 0),
+                    completed,
+                )
+            games.append(CompetitionGameResponse.model_validate(game_dict))
+        open_count = sum(1 for game in games if game.status == "open")
+        return CompetitionGamesResponse(games=games, total=len(games), open_count=open_count)
+
+    async def complete_game_stage(
+        self,
+        *,
+        user_id: str,
+        game_id: str,
+        stage_order: int,
+    ) -> CompetitionGamesResponse:
+        """Completes the currently unlocked stage of a game ladder, crediting
+        its points + ETB prize, then re-snapshots the lobby so the next stage
+        unlocks. Idempotent per stage.
+        """
+        index = next(
+            (i for i, game in enumerate(_DEMO_GAMES_CATALOG) if game.get("id") == game_id),
+            None,
+        )
+        if index is None:
+            raise NotFoundError("Game not found")
+        game = _DEMO_GAMES_CATALOG[index]
+        if game.get("status") != "open":
+            raise ConflictError("This game is not open yet")
+
+        stats = await self._repository.get_user_stats(user_id)
+        nested = (stats or {}).get("game_stages")
+        completed = (
+            [int(order) for order in nested.get(game_id, []) if isinstance(order, (int, float))]
+            if isinstance(nested, dict)
+            else []
+        )
+        if stage_order in completed:
+            return await self.list_games(user_id=user_id)
+
+        count = len(_GAME_STAGE_TEMPLATES)
+        next_unlocked = next(
+            (order for order in range(1, count + 1) if order not in set(completed)),
+            None,
+        )
+        if next_unlocked is None or stage_order != next_unlocked:
+            raise ConflictError("This stage is not unlocked yet")
+
+        total = max(1, int(game.get("points_to_earn", 0) or 0))
+        base = max(1, total // count)
+        stage_points = base if stage_order < count else total - base * (count - 1)
+        await self._repository.complete_game_stage_stats(
+            user_id=user_id,
+            game_id=game_id,
+            stage_order=stage_order,
+            points=stage_points,
+            prize_etb=_GAME_STAGE_PRIZE_ETB[stage_order - 1],
+        )
+        return await self.list_games(user_id=user_id)
 
     # ========================================================================
     # Topic Battle CRUD

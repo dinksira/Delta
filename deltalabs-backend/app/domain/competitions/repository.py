@@ -181,6 +181,157 @@ class Repository:
         )
         return await self.get_user_stats(user_id)
 
+    async def complete_championship_stage_stats(
+        self,
+        user_id: str,
+        stage_order: int,
+        points: int,
+        prize_etb: int,
+    ) -> dict[str, Any] | None:
+        """Credits stage points + ETB prize and records the stage as completed.
+
+        Guarded by ``championship_completed != stage_order`` so a stage can
+        never be double-credited for the same user.
+        """
+        now = datetime.now(UTC)
+        set_on_insert: dict[str, Any] = {
+            "_id": user_id,
+            "points": 0,
+            "joined": 0,
+            "hosted": 0,
+            "won": 0,
+            "earnings_etb": 0,
+            "championship_points": 0,
+            "championship_earnings_etb": 0,
+            "championship_completed": [],
+            "created_at": now,
+        }
+        # A path cannot appear in both `$inc` and `$setOnInsert` (MongoDB
+        # rejects the update with a conflict error when the doc is inserted).
+        for key in (
+            "points",
+            "earnings_etb",
+            "championship_points",
+            "championship_earnings_etb",
+            "championship_completed",
+        ):
+            set_on_insert.pop(key, None)
+        await self._db["competition_user_stats"].update_one(
+            {"_id": user_id, "championship_completed": {"$ne": stage_order}},
+            {
+                "$inc": {
+                    "points": points,
+                    "earnings_etb": prize_etb,
+                    "championship_points": points,
+                    "championship_earnings_etb": prize_etb,
+                },
+                "$push": {"championship_completed": stage_order},
+                "$set": {"updated_at": now},
+                "$setOnInsert": set_on_insert,
+            },
+            upsert=True,
+        )
+        return await self.get_user_stats(user_id)
+
+    # ========================================================================
+    # Active championship season (singleton store + per-user reset)
+    # ========================================================================
+
+    async def get_active_championship(self) -> dict[str, Any] | None:
+        """Returns the persisted, currently hosted Championship season."""
+        return await self._db["championships"].find_one({"_id": "active"})
+
+    async def upsert_active_championship(self, doc: dict[str, Any]) -> dict[str, Any] | None:
+        """Stores a new hosted Championship season as the active season."""
+        await self._db["championships"].update_one(
+            {"_id": "active"},
+            {"$set": doc},
+            upsert=True,
+        )
+        return await self.get_active_championship()
+
+    async def reset_championship_progress(self) -> int:
+        """Wipes per-user season progression when a new season is hosted.
+
+        Lifetime points/earnings are untouched; only the season-scoped
+        ``championship_*`` fields reset so everyone starts the new season fresh.
+        """
+        now = datetime.now(UTC)
+        result = await self._db["competition_user_stats"].update_many(
+            {},
+            {
+                "$set": {
+                    "championship_completed": [],
+                    "championship_points": 0,
+                    "championship_earnings_etb": 0,
+                    "updated_at": now,
+                },
+            },
+        )
+        return result.modified_count
+
+    async def championship_standings(self, limit: int = 7) -> list[dict[str, Any]]:
+        """Top season ladder entries from real per-user progression."""
+        docs = await (
+            self._db["competition_user_stats"]
+            .find({"championship_points": {"$gt": 0}})
+            .sort("championship_points", DESCENDING)
+            .limit(limit)
+        ).to_list(length=limit)
+        ids = [str(doc["_id"]) for doc in docs]
+        names: dict[str, str] = {}
+        if ids:
+            async for user in self._db["users"].find(
+                {"_id": {"$in": ids}},
+                {"_id": 1, "username": 1, "full_name": 1},
+            ):
+                uid = str(user["_id"])
+                names[uid] = str(
+                    user.get("full_name") or user.get("username") or "Player"
+                )
+        return [
+            {
+                "user_id": str(doc["_id"]),
+                "name": names.get(str(doc["_id"]), "Player"),
+                "points": int(doc.get("championship_points", 0) or 0),
+            }
+            for doc in docs
+        ]
+
+    async def complete_game_stage_stats(
+        self,
+        user_id: str,
+        game_id: str,
+        stage_order: int,
+        points: int,
+        prize_etb: int,
+    ) -> dict[str, Any] | None:
+        """Credits points + ETB prize and records the stage as completed for
+        one game ladder. Guarded so a stage can never be double-credited."""
+        now = datetime.now(UTC)
+        stage_path = f"game_stages.{game_id}"
+        set_on_insert: dict[str, Any] = {
+            "_id": user_id,
+            "points": 0,
+            "joined": 0,
+            "hosted": 0,
+            "won": 0,
+            "earnings_etb": 0,
+            "game_stages": {game_id: []},
+            "created_at": now,
+        }
+        await self._db["competition_user_stats"].update_one(
+            {"_id": user_id, stage_path: {"$ne": stage_order}},
+            {
+                "$inc": {"points": points, "earnings_etb": prize_etb},
+                "$push": {stage_path: stage_order},
+                "$set": {"updated_at": now},
+                "$setOnInsert": set_on_insert,
+            },
+            upsert=True,
+        )
+        return await self.get_user_stats(user_id)
+
     # ========================================================================
     # Question embedded operations
     # ========================================================================

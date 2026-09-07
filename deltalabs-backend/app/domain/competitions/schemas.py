@@ -255,6 +255,153 @@ class CompetitionHubResponse(BaseModel):
     my_battles: list[TopicBattleResponse] = Field(**_alias("myBattles"))
 
 
+class ChampionshipStageResponse(BaseModel):
+    """A single stage of a championship season."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    order: int
+    name: str
+    short_label: str = Field(**_alias("shortLabel"))
+    status: str = Field(default="locked")
+    starts_at: str = Field(default="", **_alias("startsAt"))
+    points_to_earn: int = Field(default=0, **_alias("pointsToEarn"))
+    points_earned: int = Field(default=0, **_alias("pointsEarned"))
+    is_current: bool = Field(default=False, **_alias("isCurrent"))
+    battle_id: str | None = Field(default=None, **_alias("battleId"))
+    entry_fee: str = Field(default="Free", **_alias("entryFee"))
+    prize_pool: str = Field(default="", **_alias("prizePool"))
+
+
+class ChampionshipStandingResponse(BaseModel):
+    """A ranked entry in the season leaderboard."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    rank: int
+    name: str
+    avatar_url: str | None = Field(default=None, **_alias("avatarUrl"))
+    points: int
+    is_current_user: bool = Field(default=False, **_alias("isCurrentUser"))
+
+
+class ChampionshipSeasonResponse(BaseModel):
+    """Season summary shown in the Championship hero panel."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    number: int
+    title: str
+    status: str = Field(default="active")
+    starts_at: str = Field(default="", **_alias("startsAt"))
+    ends_at: str = Field(default="", **_alias("endsAt"))
+    total_stages: int = Field(**_alias("totalStages"))
+    completed_stages: int = Field(**_alias("completedStages"))
+    current_stage_order: int | None = Field(default=None, **_alias("currentStageOrder"))
+    points_earned: int = Field(**_alias("pointsEarned"))
+    total_points: int = Field(**_alias("totalPoints"))
+    player_rank: int = Field(**_alias("playerRank"))
+    total_players: int = Field(**_alias("totalPlayers"))
+
+
+class ChampionshipNextSeasonResponse(BaseModel):
+    """Info about the following season and whether it is unlocked."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    number: int
+    title: str
+    is_unlocked: bool = Field(**_alias("isUnlocked"))
+    unlock_hint: str = Field(**_alias("unlockHint"))
+
+
+class ChampionshipResponse(BaseModel):
+    """Aggregate payload for the Championship game mode."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    season: ChampionshipSeasonResponse
+    stages: list[ChampionshipStageResponse]
+    standings: list[ChampionshipStandingResponse]
+    next_season: ChampionshipNextSeasonResponse = Field(**_alias("nextSeason"))
+
+
+class ChampionshipCreateRequest(BaseModel):
+    """Payload for hosting a brand-new Championship season.
+
+    The wizard picks a title, stage count, entry fee and escalating prize
+    base, then either launches instantly or schedules the first round.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    title: str = Field(min_length=3, max_length=80)
+    description: str = Field(default="", max_length=500)
+    stage_count: int = Field(default=5, ge=3, le=8, **_alias("stageCount"))
+    entry_fee: str = Field(default="Free", max_length=40, **_alias("entryFee"))
+    prize_base_etb: int = Field(default=12, ge=1, le=10_000, **_alias("prizeBaseEtb"))
+    timing: str = Field(default="instant", pattern="^(instant|schedule)$")
+    schedule_date: str | None = Field(default=None, **_alias("scheduleDate"))
+    schedule_time: str | None = Field(default=None, **_alias("scheduleTime"))
+    schedule_timezone: str | None = Field(default=None, **_alias("scheduleTimezone"))
+    creator_name: str | None = Field(default=None, max_length=120, **_alias("creatorName"))
+    stage_questions: list[list[CodingQuestionSchema]] = Field(
+        default_factory=list, **_alias("stageQuestions"),
+    )
+
+
+class CompetitionGameStageResponse(BaseModel):
+    """One unlockable stage of a game's ladder — win to unlock the next."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    order: int
+    name: str
+    short_label: str = Field(**_alias("shortLabel"))
+    status: str = Field(default="locked")
+    starts_at: str = Field(default="", **_alias("startsAt"))
+    points_to_earn: int = Field(default=0, **_alias("pointsToEarn"))
+    points_earned: int = Field(default=0, **_alias("pointsEarned"))
+    is_current: bool = Field(default=False, **_alias("isCurrent"))
+    battle_id: str | None = Field(default=None, **_alias("battleId"))
+    entry_fee: str = Field(default="Free", **_alias("entryFee"))
+    prize_pool: str = Field(default="", **_alias("prizePool"))
+
+
+class CompetitionGameResponse(BaseModel):
+    """A single playable/upcoming game listed in the Games lobby."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    genre: str
+    description: str
+    difficulty: str
+    tone: str = Field(default="primary")
+    is_championship: bool = Field(default=False, **_alias("isChampionship"))
+    status: str = Field(default="open")
+    points_to_earn: int = Field(default=0, **_alias("pointsToEarn"))
+    players_count: int = Field(default=0, **_alias("playersCount"))
+    players_max: int | None = Field(default=None, **_alias("playersMax"))
+    battle_id: str | None = Field(default=None, **_alias("battleId"))
+    unlock_hint: str | None = Field(default=None, **_alias("unlockHint"))
+    stages: list[CompetitionGameStageResponse] = Field(default_factory=list)
+
+
+class CompetitionGamesResponse(BaseModel):
+    """Aggregate payload for the Games lobby."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    games: list[CompetitionGameResponse]
+    total: int
+    open_count: int = Field(**_alias("openCount"))
+
+
 class QuestionCreateRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

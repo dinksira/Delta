@@ -20,10 +20,14 @@ from app.domain.management_table.schemas import (
 )
 from app.domain.management_table.service import ManagementTableService
 from app.domain.competitions.schemas import (
+    ChampionshipCreateRequest,
+    ChampionshipResponse,
     CodeExecuteRequest,
     CodeExecuteResponse,
     CodeSubmitRequest,
     CodeSubmitResponse,
+    CompetitionGameResponse,
+    CompetitionGamesResponse,
     CompetitionHubResponse,
     CompetitionModeResponse,
     QuestionCreateRequest,
@@ -90,6 +94,71 @@ async def get_competition_hub(
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> CompetitionHubResponse:
     return await service.get_hub(user_id=user.user_id if user is not None else None)
+
+
+@router.get("/championship", response_model=ChampionshipResponse)
+async def get_championship(
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> ChampionshipResponse:
+    """Snapshot of the current Championship season for the user's profile."""
+    return await service.get_championship(
+        user_id=user.user_id if user is not None else None,
+    )
+
+
+@router.post("/championship", response_model=ChampionshipResponse)
+async def create_championship(
+    payload: ChampionshipCreateRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> ChampionshipResponse:
+    """Hosts and launches a brand-new Championship season for the user."""
+    return await service.create_championship(payload=payload, user_id=user.user_id)
+
+
+@router.get("/games", response_model=CompetitionGamesResponse)
+async def get_games(
+    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> CompetitionGamesResponse:
+    """Lists the Games lobby; each open game links into a playable battle."""
+    return await service.list_games(
+        user_id=user.user_id if user is not None else None,
+    )
+
+
+@router.post("/championship/stages/{stage_order}/complete", response_model=ChampionshipResponse)
+async def complete_championship_stage(
+    stage_order: int,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> ChampionshipResponse:
+    """Completes the currently unlocked stage, credits points + prize, and
+    unlocks the next stage."""
+    return await service.complete_championship_stage(
+        user_id=user.user_id,
+        stage_order=stage_order,
+    )
+
+
+@router.post(
+    "/games/{game_id}/stages/{stage_order}/complete",
+    response_model=CompetitionGamesResponse,
+)
+async def complete_game_stage(
+    game_id: str,
+    stage_order: int,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> CompetitionGamesResponse:
+    """Completes the currently unlocked stage of a game ladder, credits
+    points + prize, and unlocks the next stage; returns the refreshed lobby."""
+    return await service.complete_game_stage(
+        user_id=user.user_id,
+        game_id=game_id,
+        stage_order=stage_order,
+    )
 
 
 # ============================================================================
@@ -484,3 +553,5 @@ async def patch_topic_battle_management_row(
     return await service.patch_topic_battle_management_row(
         battle_id=battle_id, user_id=user.user_id, row_id=row_id, payload=payload,
     )
+
+

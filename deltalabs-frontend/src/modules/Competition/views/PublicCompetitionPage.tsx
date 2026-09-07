@@ -50,7 +50,9 @@ export function PublicCompetitionPage() {
           router.push(
             mode.id === "topic-battles"
               ? "/features/competitions/topic-battles"
-              : "/features/competitions/list",
+              : mode.id === "championship"
+                ? "/features/competitions/games"
+                : "/features/competitions/live-duels",
           ),
       })),
     [modes, router],

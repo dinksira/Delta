@@ -112,10 +112,10 @@ const ALL_FILTER = "All";
 const TOPICS_PER_PAGE = 8;
 
 /** Cap on custom questions a host can build (mirrors desktop totalQuestions=50). */
-const MAX_QUESTIONS = 50;
+export const MAX_QUESTIONS = 50;
 
 /** Modules surfaced in the Competition Workspace rail; each renders its own canvas via `renderActiveModule`. */
-const WORKSPACE_MODULES = [
+export const WORKSPACE_MODULES = [
   { id: "code", label: "Code Editor", icon: Code2 },
   { id: "question", label: "Question Builder", icon: Braces },
   { id: "markdown", label: "Markdown Pad", icon: ScrollText },
@@ -231,7 +231,7 @@ const FORMAT_LIMITS: Record<
   },
 };
 
-const QUESTION_LANGUAGES = [
+export const QUESTION_LANGUAGES = [
   "HTML", "CSS", "JavaScript", "TypeScript", "Python", "Java", "C++",
   "C#", "Go", "Rust", "SQL", "PHP",
 ];
@@ -1012,7 +1012,7 @@ function QuestionPoolStep({
   );
 }
 
-const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
+export const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
   Coding: "coding",
   "Multiple Choice": "multiple_choice",
   "True / False": "true_false",
@@ -1024,7 +1024,7 @@ const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
   "Design Challenge": "design",
 };
 
-const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
+export const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
   coding: "Coding",
   multiple_choice: "Multiple Choice",
   true_false: "True / False",
@@ -1036,7 +1036,7 @@ const QUESTION_KIND_LABELS: Record<QuestionKind, string | undefined> = {
   design: "Design Challenge",
 };
 
-function ModuleSwitchPrompt({
+export function ModuleSwitchPrompt({
   icon,
   title,
   description,

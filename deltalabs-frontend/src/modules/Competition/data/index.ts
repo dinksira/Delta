@@ -1,5 +1,10 @@
 export { buildDuelQuiz } from "./duelQuiz";
 export { TOPIC_CATEGORIES, TOPIC_CATALOG } from "./topicCatalog";
+export {
+  DEMO_LIVE_DUELS,
+  DEMO_LIVE_DUELS_SEED,
+  buildLiveDuelRoom,
+} from "./liveDuelsCatalog";
 export { BATTLE_FORMATS } from "./battleFormats";
 export { BATTLE_VISIBILITIES } from "./battleVisibility";
 export { BATTLE_TIMINGS } from "./battleTimings";

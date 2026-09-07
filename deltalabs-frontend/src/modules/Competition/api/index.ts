@@ -1,6 +1,9 @@
 import { apiClient } from "@/lib/apiClient";
 import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub";
 import type { GameMode } from "@/modules/Competition/types/hub";
+import type { ChampionshipApiResponse } from "@/modules/Competition/types/championship";
+import type { CreateChampionshipPayload } from "@/modules/Competition/types/championship";
+import type { CompetitionGamesResponse } from "@/modules/Competition/types/games";
 import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 import type {
@@ -45,6 +48,34 @@ export async function fetchCompetitionHub() {
   return apiClient.get<CompetitionHubApiResponse>("/v1/competitions/hub");
 }
 
+export async function fetchChampionship() {
+  return apiClient.get<ChampionshipApiResponse>("/v1/competitions/championship");
+}
+
+export async function completeChampionshipStage(stageOrder: number) {
+  return apiClient.post<ChampionshipApiResponse>(
+    `/v1/competitions/championship/stages/${stageOrder}/complete`,
+  );
+}
+
+export async function createChampionship(
+  payload: CreateChampionshipPayload,
+): Promise<ChampionshipApiResponse> {
+  return apiClient.post<ChampionshipApiResponse>("/v1/competitions/championship", {
+    json: payload,
+  });
+}
+
+export async function fetchGames() {
+  return apiClient.get<CompetitionGamesResponse>("/v1/competitions/games");
+}
+
+export async function completeGameStage(gameId: string, stageOrder: number) {
+  return apiClient.post<CompetitionGamesResponse>(
+    `/v1/competitions/games/${gameId}/stages/${stageOrder}/complete`,
+  );
+}
+
 export async function fetchTopicBattles() {
   return apiClient.get<TopicBattleList>("/v1/competitions/topic-battles");
 }
@@ -55,6 +86,16 @@ export async function fetchTopicBattle(id: string) {
 
 export async function joinTopicBattle(id: string) {
   return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/join`);
+}
+
+/**
+ * Join a live duel room. The backend live-room endpoint is still in design, so
+ * this stub resolves after a short latency to keep the join flow identical to
+ * the topic battle flow until the real channel lands.
+ */
+export async function joinLiveDuel(id: string): Promise<{ id: string; joined: boolean }> {
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  return { id, joined: true };
 }
 
 export async function completeTopicBattle(id: string) {

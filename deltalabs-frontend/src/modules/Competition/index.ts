@@ -4,12 +4,15 @@ export {
   PublicCompetitionPage,
   CreateBattleTopicPage,
   TopicBattleDuelPage,
+  LiveDuelRoomPage,
+  LiveDuelsPage,
 } from "@/modules/Competition/views";
 export {
   CompetitionFilterProvider,
   useCompetitionFilter,
   CreateBattleWizardProvider,
   useCreateBattleWizard,
+  LiveDuelProvider,
 } from "@/modules/Competition/context";
 export {
   useFilteredCompetitions,
@@ -17,6 +20,9 @@ export {
   useCompetitionHub,
   useJoinTopicBattle,
   useDuelQuiz,
+  useLiveDuel,
+  useJoinLiveDuel,
+  useJoinLiveDuelModal,
   topicBattleQueryKeys,
 } from "@/modules/Competition/hooks";
 export type {
@@ -43,6 +49,16 @@ export type {
   DuelLeaderboardEntry,
   DuelQuiz,
   DuelState,
+} from "@/modules/Competition/types";
+export type {
+  LiveDuelRoom,
+  LiveDuelState,
+  LiveDuelContextValue,
+  LiveChatMessage,
+  LiveParticipant,
+  LiveQuestion,
+  LiveDuelEntry,
+  LiveDuelEntryStatus,
 } from "@/modules/Competition/types";
 export type { CompetitionDetail } from "@/modules/Competition/types/detail";
 export type {
