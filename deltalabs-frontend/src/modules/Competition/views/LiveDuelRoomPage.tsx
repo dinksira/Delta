@@ -33,7 +33,7 @@ import { LeaveLiveDuelModal } from "@/components/organisms/LeaveLiveDuelModal";
 import { QuestionModal } from "@/components/organisms/QuestionModal";
 import { Button } from "@/components/theme/Button";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { fetchLiveDuelRoom, postLiveDuelQuestion } from "@/modules/Competition/api";
+import { fetchLiveDuelRoom, postLiveDuelQuestion, submitLiveDuelAnswer } from "@/modules/Competition/api";
 import { LiveDuelProvider } from "@/modules/Competition/context/LiveDuelContext";
 import {
   useLiveDuel,
@@ -48,6 +48,7 @@ import {
   upsertLiveDuelEntry,
   type BuildLiveDuelRoomOptions,
 } from "@/modules/Competition/data/liveDuelsCatalog";
+import type { ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import type { LiveDuelAction, LiveDuelRoom, LiveQuestion, LiveMediaSignal } from "@/modules/Competition/types/liveDuel";
 
 const VIEWER_TICK_MS = 6000;
@@ -127,6 +128,19 @@ function LiveDuelRoom({
   const [confirmingLeave, setConfirmingLeave] = useState(false);
   const [modalQuestion, setModalQuestion] = useState<LiveQuestion | null>(null);
   const [seenQuestionId, setSeenQuestionId] = useState<string | null>(null);
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [answerError, setAnswerError] = useState<string | null>(null);
+
+  // Server entries carry `userId`; highlight the current user's row so the
+  // (You) badge stays correct for every tab in the broadcast room.
+  const displayLeaderboard = useMemo(
+    () =>
+      room.leaderboard.map((entry) => ({
+        ...entry,
+        isCurrentUser: Boolean(entry.userId && currentUserId && entry.userId === currentUserId),
+      })),
+    [room.leaderboard, currentUserId],
+  );
 
   // Open the on-air question modal whenever a *new* question arrives in the
   // room state — whether the host posted it here (POST_LIVE_QUESTION) or it was
@@ -187,6 +201,22 @@ function LiveDuelRoom({
             participants: detail.participants,
           }),
         });
+        if (detail.leaderboard) {
+          dispatch({ type: "UPDATE_LEADERBOARD", payload: detail.leaderboard });
+        }
+        for (const record of detail.answers ?? []) {
+          if (currentUser?.id && record.userId === currentUser.id) {
+            dispatch({
+              type: "SET_LIVE_ANSWER_RESULT",
+              payload: {
+                questionId: record.questionId,
+                answer: record.answer,
+                correct: record.correct,
+                earnedPoints: record.earnedPoints,
+              },
+            });
+          }
+        }
       })
       .catch(() => {});
     return () => {
@@ -273,6 +303,38 @@ function LiveDuelRoom({
     postLiveQuestion(question);
   };
 
+  const handleSubmitAnswer = async (answer: ParticipantAnswer) => {
+    const question = modalQuestion;
+    if (!question || !isBackendRoom || submittingAnswer) {
+      return;
+    }
+    setSubmittingAnswer(true);
+    setAnswerError(null);
+    try {
+      const result = await submitLiveDuelAnswer(room.id, question.id, { answer });
+      dispatch({
+        type: "SET_LIVE_ANSWER_RESULT",
+        payload: {
+          questionId: question.id,
+          answer,
+          correct: result.correct,
+          earnedPoints: result.earnedPoints,
+        },
+      });
+      // The answer endpoint also fans the board out over the room channel; the
+      // HTTP echo keeps this tab in sync even if its socket dropped.
+      dispatch({ type: "UPDATE_LEADERBOARD", payload: result.leaderboard });
+    } catch (error) {
+      setAnswerError(
+        error instanceof Error ? error.message : "Failed to submit your answer.",
+      );
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
+
+  const activeAnswer = modalQuestion ? state.answers[modalQuestion.id] ?? null : null;
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -308,7 +370,7 @@ function LiveDuelRoom({
         liveQuestion={room.liveQuestion}
         chatMessages={room.chat}
         participants={onStageParticipants}
-        leaderboard={room.leaderboard}
+        leaderboard={displayLeaderboard}
         activePlayers={room.participants.length}
         hostControlSlot={
           effectiveIsHost ? (
@@ -345,6 +407,11 @@ function LiveDuelRoom({
         open={Boolean(modalQuestion)}
         question={modalQuestion}
         onClose={() => setModalQuestion(null)}
+        interactive={Boolean(isBackendRoom && !effectiveIsHost && modalQuestion?.question)}
+        result={activeAnswer}
+        submitting={submittingAnswer}
+        submitError={answerError}
+        onSubmitAnswer={handleSubmitAnswer}
       />
     </div>
   );

@@ -15,7 +15,7 @@
  * reducer later without touching the view layer.
  */
 
-import type { DuelLeaderboardEntry } from "@/modules/Competition/types/duelQuiz";
+import type { DuelLeaderboardEntry, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 
 /** A single comment pill rendered over the stage. */
@@ -76,6 +76,19 @@ export interface LiveDuelRoom {
   postedQuestions: LiveQuestion[];
 }
 
+/**
+ * The current user's locked-in answer for one posted question. Stored per
+ * `questionId` so re-opening the modal reveals the result and re-submitting is
+ * impossible. The backend is the single source of truth for grading and points.
+ */
+export interface LiveSubmittedAnswer {
+  questionId: string;
+  answer: ParticipantAnswer;
+  /** True/false when auto-graded; null for recorded-for-review kinds. */
+  correct: boolean | null;
+  earnedPoints: number;
+}
+
 /** Catalog-level status of a Live Duel card in the lobby list. */
 export type LiveDuelEntryStatus = "open" | "live" | "scheduled" | "finished";
 
@@ -107,6 +120,17 @@ export interface LiveDuelState {
   room: LiveDuelRoom;
   isMicMuted: boolean;
   isCameraOff: boolean;
+  /** Locked-in answers per `questionId` for the current user. */
+  answers: Record<string, LiveSubmittedAnswer>;
+}
+
+/** Raw answer record from `GET /v1/live-duels/{id}` (carries the user id so a reload can restore the current user's reveal). */
+export interface LiveDuelAnswerRecord {
+  questionId: string;
+  userId: string;
+  answer: ParticipantAnswer;
+  correct: boolean | null;
+  earnedPoints: number;
 }
 
 /** Room detail resolved from `GET /v1/live-duels/{id}`. */
@@ -115,6 +139,10 @@ export interface LiveDuelRoomDetail extends LiveDuelEntry {
   hasJoined?: boolean;
   /** Real on-stage roster (host + joined users) resolved from the backend. */
   participants?: LiveParticipant[];
+  /** Current ranked points table (real rooms only). */
+  leaderboard?: DuelLeaderboardEntry[];
+  /** Every recorded answer (so a reload restores the participant's reveal). */
+  answers?: LiveDuelAnswerRecord[];
   postedQuestions: LiveQuestion[];
   chat: LiveChatMessage[];
 }
@@ -159,6 +187,7 @@ export type LiveDuelAction =
   | { type: "UPDATE_PARTICIPANT_MEDIA"; payload: { id: string; cameraOff?: boolean; micMuted?: boolean } }
   | { type: "ADD_PARTICIPANT"; payload: LiveParticipant }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
+  | { type: "SET_LIVE_ANSWER_RESULT"; payload: LiveSubmittedAnswer }
   | { type: "TOGGLE_MIC" }
   | { type: "TOGGLE_CAMERA" };
 

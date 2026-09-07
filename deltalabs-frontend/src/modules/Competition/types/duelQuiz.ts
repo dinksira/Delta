@@ -130,6 +130,8 @@ export interface DuelLeaderboardEntry {
   avatarUrl?: string;
   points: number;
   isCurrentUser?: boolean;
+  /** Backend user id so live-duel rooms can mark the current user's row. */
+  userId?: string;
 }
 
 export interface DuelQuiz {

@@ -48,6 +48,14 @@ class LiveDuelQuestionRequest(BaseModel):
     question: dict[str, Any] | None = Field(default=None)
 
 
+class LiveDuelAnswerRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    # ParticipantAnswer envelope from the duel quiz types, keyed by kind
+    # (optionId / value / text / answers / map / itemIds / code).
+    answer: dict[str, Any] = Field(...)
+
+
 class LiveDuelChatRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 

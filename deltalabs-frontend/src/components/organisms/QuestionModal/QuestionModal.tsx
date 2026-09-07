@@ -1,15 +1,17 @@
 /**
- * QuestionModal — read-only display of a question the host has just posted live
- * in a Live Duel room. Opens the moment a round is posted so the room (host and
- * participants) sees the real, full question for every one of the nine kinds
- * (Multiple Choice, True / False, Fill-in-the-Blanks, Matching, Writing,
- * Ordering, Coding, Markdown, Design) instead of only the flat one-line `text`
- * fallback.
+ * QuestionModal — display of a question the host has just posted live in a
+ * Live Duel room. Opens the moment a round is posted so the room sees the
+ * real, full question for every one of the nine kinds (Multiple Choice, True /
+ * False, Fill-in-the-Blanks, Matching, Writing, Ordering, Coding, Markdown,
+ * Design) instead of only the flat one-line `text` fallback.
  *
- * The modal renders the authored structure per kind using the `RichText` /
- * `Markdown` atoms; correct answers are intentionally NOT revealed during the
- * live round (options, pools and stems are shown as the task without the answer
- * key). Host-posted questions carry the full payload on `LiveQuestion.question`;
+ * Hosts see the authored structure read-only per kind (`RichText` / `Markdown`
+ * atoms, correct answers intentionally NOT revealed during the live round).
+ * Participants in a real backend room switch to `interactive` mode: the shared
+ * `QuizAnswerForm` renders the answering surface and, once the backend grades
+ * the submission, the result banner and per-option highlight are revealed.
+ *
+ * Host-posted questions carry the full payload on `LiveQuestion.question`;
  * reduced payloads (backend WS echo / demo deck) fall back to the flat text.
  *
  * @example
@@ -24,14 +26,17 @@
 
 "use client";
 
-import { Clock, HelpCircle, Trophy } from "lucide-react";
+import { Check, Clock, HelpCircle, Loader2, Trophy, X } from "lucide-react";
 
 import { Markdown } from "@/components/atoms/Markdown/Markdown";
 import { RichText } from "@/components/atoms/RichText/RichText";
+import { QuizAnswerForm } from "@/components/organisms/QuizAnswerForm/QuizAnswerForm";
 import { Button } from "@/components/theme/Button";
 import { Dialog } from "@/components/theme/Dialog";
+import { toDuelQuestion } from "@/modules/Competition/data";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
-import type { LiveQuestion } from "@/modules/Competition/types/liveDuel";
+import type { ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
+import type { LiveQuestion, LiveSubmittedAnswer } from "@/modules/Competition/types/liveDuel";
 import { cn } from "@/lib/utils";
 
 // ===== CONSTANTS =====
@@ -345,6 +350,83 @@ function QuestionBody({ payload }: Readonly<{ payload: CodingQuestion }>) {
   );
 }
 
+// ===== INTERACTIVE PARTICIPANT ANSWER SURFACE =====
+
+function AnswerResultBanner({ result }: Readonly<{ result: LiveSubmittedAnswer }>) {
+  const isCorrect = result.correct === true;
+  const isIncorrect = result.correct === false;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium",
+        isCorrect && "border-success-500 bg-success-50 text-success-700",
+        isIncorrect && "border-error-500 bg-error-50 text-error-700",
+        !isCorrect && !isIncorrect && "border-border-default bg-surface-muted text-text-secondary",
+      )}
+    >
+      {isCorrect ? (
+        <Check className="size-4" aria-hidden />
+      ) : isIncorrect ? (
+        <X className="size-4" aria-hidden />
+      ) : (
+        <HelpCircle className="size-4" aria-hidden />
+      )}
+      <span>
+        {isCorrect
+          ? `Correct — +${result.earnedPoints.toLocaleString()} pts`
+          : isIncorrect
+            ? "Incorrect"
+            : "Submitted for review"}
+      </span>
+    </div>
+  );
+}
+
+function InteractiveAnswerBody({
+  payload,
+  result,
+  submitting,
+  submitError,
+  onSubmit,
+}: Readonly<{
+  payload: CodingQuestion;
+  result: LiveSubmittedAnswer | null;
+  submitting: boolean;
+  submitError: string | null;
+  onSubmit: (answer: ParticipantAnswer) => void;
+}>) {
+  const duelQuestion = toDuelQuestion(payload);
+  if (!duelQuestion) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {payload.kind === "markdown" ? (
+        <MarkdownView question={payload} />
+      ) : payload.kind !== "design" ? (
+        <Stem question={payload} />
+      ) : null}
+      {submitting && !result ? (
+        <div className="flex items-center gap-2 rounded-xl border border-border-default bg-surface-muted px-4 py-3 text-sm font-medium text-text-secondary">
+          <Loader2 className="size-4 animate-spin" aria-hidden />
+          Submitting answer…
+        </div>
+      ) : null}
+      {result ? <AnswerResultBanner result={result} /> : null}
+      {submitError ? (
+        <p className="text-sm font-medium text-error-600">{submitError}</p>
+      ) : null}
+      <QuizAnswerForm
+        key={duelQuestion.id}
+        question={duelQuestion}
+        revealed={Boolean(result)}
+        answer={result?.answer ?? null}
+        onSubmit={onSubmit}
+      />
+    </div>
+  );
+}
+
 // ===== MODAL =====
 
 export interface QuestionModalProps {
@@ -352,6 +434,19 @@ export interface QuestionModalProps {
   /** The posted live question to display; null renders nothing. */
   question: LiveQuestion | null;
   onClose: () => void;
+  /**
+   * Participant answering mode. When true (real backend room, non-host) the
+   * stem renders with the interactive duel-quiz answer surface instead of the
+   * read-only view, and the correct answer is revealed only once the backend
+   * grades the participant's submission (`result`).
+   */
+  interactive?: boolean;
+  /** Locked-in answer/grade for the current question (reveals on reopen). */
+  result?: LiveSubmittedAnswer | null;
+  /** True while the answer request is in flight (disables the close affordance). */
+  submitting?: boolean;
+  submitError?: string | null;
+  onSubmitAnswer?: (answer: ParticipantAnswer) => void;
   className?: string;
 }
 
@@ -359,6 +454,11 @@ export function QuestionModal({
   open,
   question,
   onClose,
+  interactive = false,
+  result = null,
+  submitting = false,
+  submitError = null,
+  onSubmitAnswer,
   className,
 }: Readonly<QuestionModalProps>) {
   if (!question) {
@@ -399,13 +499,23 @@ export function QuestionModal({
       <div className="flex max-h-[70vh] flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto px-6 py-5">
           {payload ? (
-            <QuestionBody payload={payload} />
+            interactive ? (
+              <InteractiveAnswerBody
+                payload={payload}
+                result={result}
+                submitting={submitting}
+                submitError={submitError}
+                onSubmit={onSubmitAnswer ?? (() => {})}
+              />
+            ) : (
+              <QuestionBody payload={payload} />
+            )
           ) : (
             <RichText html={question.text} className="text-base leading-relaxed" />
           )}
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-border-default px-6 py-4">
-          <Button variant="primary" size="lg" onClick={onClose}>
+          <Button variant="primary" size="lg" onClick={onClose} disabled={submitting}>
             Got it
           </Button>
         </div>

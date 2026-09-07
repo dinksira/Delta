@@ -93,6 +93,21 @@ class Repository:
         )
         return await self.find_by_id(room_id)
 
+    async def append_answer(
+        self,
+        room_id: str,
+        answer: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        try:
+            oid = ObjectId(room_id)
+        except Exception:
+            return None
+        await self.collection.update_one(
+            {"_id": oid},
+            {"$push": {"answers": answer}},
+        )
+        return await self.find_by_id(room_id)
+
     @staticmethod
     def to_entry(doc: dict[str, Any]) -> dict[str, Any]:
         """Map a stored room doc to the camelCase lobby/room JSON shape."""

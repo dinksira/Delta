@@ -39,6 +39,7 @@ export function createInitialLiveDuelState(initialRoom = DEMO_LIVE_ROOM): LiveDu
     room: initialRoom,
     isMicMuted: false,
     isCameraOff: true,
+    answers: {},
   };
 }
 
@@ -130,6 +131,15 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
           };
     case "UPDATE_LEADERBOARD":
       return { ...state, room: { ...state.room, leaderboard: action.payload } };
+    case "SET_LIVE_ANSWER_RESULT":
+      // The participant's own result for one question — kept per question id so
+      // the modal reveals the answer on reopen and never double-submits. The
+      // authoritative points already flowed into the room leaderboard via the
+      // backend `UPDATE_LEADERBOARD` fan-out.
+      return {
+        ...state,
+        answers: { ...state.answers, [action.payload.questionId]: action.payload },
+      };
     case "TOGGLE_MIC":
       return { ...state, isMicMuted: !state.isMicMuted };
     case "TOGGLE_CAMERA":

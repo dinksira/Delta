@@ -6,6 +6,7 @@ import type { CreateChampionshipPayload } from "@/modules/Competition/types/cham
 import type { CompetitionGamesResponse } from "@/modules/Competition/types/games";
 import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+import type { DuelLeaderboardEntry, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import type {
   CodeExecuteResponse,
   CodeSubmitResponse,
@@ -165,6 +166,25 @@ export async function postLiveDuelChat(
   payload: { text: string; emoji?: string },
 ): Promise<{ id: string; username: string; avatarUrl?: string | null; text: string; emoji?: string; sentAt: number }> {
   return apiClient.post(`/v1/live-duels/${roomId}/chat`, { json: payload });
+}
+
+/**
+ * Participant submits an answer to the live question. The backend grades it
+ * against the authored payload, folds the earned points into the room
+ * leaderboard, and returns the private result so this client can reveal the
+ * outcome without leaking the answer key to the other tabs.
+ */
+export async function submitLiveDuelAnswer(
+  roomId: string,
+  questionId: string,
+  payload: { answer: ParticipantAnswer },
+): Promise<{
+  questionId: string;
+  correct: boolean | null;
+  earnedPoints: number;
+  leaderboard: DuelLeaderboardEntry[];
+}> {
+  return apiClient.post(`/v1/live-duels/${roomId}/questions/${questionId}/answers`, { json: payload });
 }
 
 export async function completeTopicBattle(id: string) {

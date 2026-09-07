@@ -1,4 +1,4 @@
-export { buildDuelQuiz } from "./duelQuiz";
+export { buildDuelQuiz, toDuelQuestion } from "./duelQuiz";
 export { TOPIC_CATEGORIES, TOPIC_CATALOG } from "./topicCatalog";
 export {
   DEMO_LIVE_DUELS,

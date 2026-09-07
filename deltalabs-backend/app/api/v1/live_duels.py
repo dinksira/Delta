@@ -31,8 +31,10 @@ from app.core.config import get_settings
 from app.core.security import hash_session_token
 from app.domain.identity.repository import Repository as IdentityRepository
 from app.domain.live_duels import queue as live_duels_queue
+from app.domain.live_duels.grading import grade_live_duel_answer
 from app.domain.live_duels.repository import Repository as LiveDuelRepository
 from app.domain.live_duels.schemas import (
+    LiveDuelAnswerRequest,
     LiveDuelChatRequest,
     LiveDuelCreateRequest,
     LiveDuelQuestionRequest,
@@ -230,6 +232,37 @@ async def _room_participants(
     return roster
 
 
+def _live_leaderboard(
+    roster: list[dict[str, Any]],
+    answers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Ranked points table (frontend `DuelLeaderboardEntry` shape).
+
+    Every roster member appears once — the host sits at 0 and the real joined
+    users carry whatever they earned so far — so the panel's "N players" chip
+    and the row highlight stay stable between rounds.
+    """
+    points_by_user: dict[str, int] = {}
+    for answer in answers:
+        user_id = str(answer.get("user_id") or "")
+        points_by_user[user_id] = points_by_user.get(user_id, 0) + int(
+            answer.get("earned_points") or 0
+        )
+    rows = [
+        {
+            "userId": participant["id"],
+            "name": participant["name"],
+            "avatarUrl": participant.get("avatarUrl"),
+            "points": points_by_user.get(participant["id"], 0),
+        }
+        for participant in roster
+    ]
+    rows.sort(key=lambda row: row["points"], reverse=True)
+    for index, row in enumerate(rows):
+        row["rank"] = index + 1
+    return rows
+
+
 async def _ws_forward_loop(
     websocket: WebSocket,
     pubsub: Any,
@@ -390,6 +423,20 @@ async def get_live_duel(
             **entry,
             "hostIsUser": is_host,
             "participants": await _room_participants(db, doc),
+            "leaderboard": _live_leaderboard(
+                await _room_participants(db, doc),
+                doc.get("answers", []),
+            ),
+            "answers": [
+                {
+                    "questionId": answer.get("question_id"),
+                    "userId": str(answer.get("user_id") or ""),
+                    "answer": answer.get("answer", {}),
+                    "correct": answer.get("correct"),
+                    "earnedPoints": answer.get("earned_points", 0),
+                }
+                for answer in doc.get("answers", [])
+            ],
             "chat": [LiveDuelRepository.to_chat(msg) for msg in reversed(doc.get("chat", []))],
         }
     demo_entry = DEMO_BY_ID.get(room_id)
@@ -435,6 +482,13 @@ async def join_live_duel(
             "isHost": False,
         },
     )
+    roster = await _room_participants(db, doc)
+    await live_duels_queue.publish_live_duel_update(
+        redis,
+        room_id=room_id,
+        type="UPDATE_LEADERBOARD",
+        payload=_live_leaderboard(roster, doc.get("answers", [])),
+    )
     return LiveDuelRepository.to_entry(doc)
 
 
@@ -477,6 +531,104 @@ async def post_live_duel_question(
         payload=question,
     )
     return question
+
+
+@router.post("/{room_id}/questions/{question_id}/answers", response_model=dict[str, Any])
+async def submit_live_duel_answer(
+    room_id: str,
+    question_id: str,
+    payload: LiveDuelAnswerRequest,
+    current_user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
+) -> dict[str, Any]:
+    """Participant submits an answer to the live question.
+
+    The authored payload is graded on the server exactly like the duel quiz
+    (`grade_live_duel_answer`); the resulting points are folded into the room
+    leaderboard, which is recomputed and fanned out so every tab sees the ranked
+    table move in real time. Re-submitting the same question is idempotent and
+    returns the original result so a retry never double-counts points.
+    """
+    repository = LiveDuelRepository(db)
+    doc = await repository.find_by_id(room_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
+    if current_user.user_id not in [str(user_id) for user_id in doc.get("joined_user_ids", [])]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "not_joined"})
+    if doc.get("host_user_id") == current_user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "host_cannot_answer"},
+        )
+
+    question = next(
+        (entry for entry in doc.get("questions", []) if entry.get("id") == question_id),
+        None,
+    )
+    if question is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_question_not_found"},
+        )
+
+    existing = next(
+        (
+            entry
+            for entry in doc.get("answers", [])
+            if entry.get("question_id") == question_id
+            and str(entry.get("user_id")) == current_user.user_id
+        ),
+        None,
+    )
+    if existing is not None:
+        roster = await _room_participants(db, doc)
+        leaderboard = _live_leaderboard(roster, doc.get("answers", []))
+        return {
+            "questionId": question_id,
+            "correct": existing.get("correct"),
+            "earnedPoints": existing.get("earned_points", 0),
+            "leaderboard": leaderboard,
+        }
+
+    authored = question.get("question")
+    if isinstance(authored, dict):
+        correct = grade_live_duel_answer(authored, payload.answer)
+        earned_points = int(question.get("points") or 0) if correct is True else 0
+    else:
+        correct = None
+        earned_points = 0
+    record = {
+        "question_id": question_id,
+        "user_id": current_user.user_id,
+        "answer": payload.answer,
+        "correct": correct,
+        "earned_points": earned_points,
+        "at": int(time.time() * 1000),
+    }
+    updated_doc = await repository.append_answer(room_id, record)
+    if updated_doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
+    roster = await _room_participants(db, updated_doc)
+    leaderboard = _live_leaderboard(roster, updated_doc.get("answers", []))
+    await live_duels_queue.publish_live_duel_update(
+        redis,
+        room_id=room_id,
+        type="UPDATE_LEADERBOARD",
+        payload=leaderboard,
+    )
+    return {
+        "questionId": question_id,
+        "correct": correct,
+        "earnedPoints": earned_points,
+        "leaderboard": leaderboard,
+    }
 
 
 @router.post("/{room_id}/chat", response_model=dict[str, Any])
