@@ -111,7 +111,6 @@ class Repository:
             "entryFee": doc.get("entry_fee", "Free"),
             "prizePool": doc.get("prize_pool", "0 ETB"),
             "durationLabel": doc.get("duration_label", "60 min"),
-            "hostIsUser": True,
             "hasJoined": True,
             "postedQuestions": doc.get("questions", []),
         }

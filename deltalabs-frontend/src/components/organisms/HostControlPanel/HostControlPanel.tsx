@@ -20,6 +20,7 @@
 import { Eye } from "lucide-react";
 
 import { LiveBadge } from "@/components/atoms/LiveBadge";
+import { RichText } from "@/components/atoms/RichText/RichText";
 import { HostQuestionComposer } from "@/components/organisms/HostQuestionComposer";
 import type { LiveQuestion } from "@/modules/Competition/types/liveDuel";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ export function HostControlPanel({
           <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">
             On air · Round {liveQuestion.round}
           </p>
-          <p className="mt-0.5 text-sm font-medium text-text-primary">{liveQuestion.text}</p>
+          <RichText html={liveQuestion.text} className="mt-0.5 text-sm font-medium" />
           <p className="mt-0.5 text-xs tabular-nums text-text-secondary">
             {liveQuestion.points.toLocaleString()} pts · {liveQuestion.timeLabel}
           </p>
@@ -98,9 +99,10 @@ export function HostControlPanel({
                   )}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-text-primary">
-                      {question.text}
-                    </p>
+                    <RichText
+                      html={question.text}
+                      className="truncate text-sm font-medium"
+                    />
                     <p className="text-xs tabular-nums text-text-secondary">
                       R{question.round} · {question.points.toLocaleString()} pts ·{" "}
                       {question.timeLabel}

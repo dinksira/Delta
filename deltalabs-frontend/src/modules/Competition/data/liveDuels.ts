@@ -1,15 +1,16 @@
 /**
  * liveDuels data
- * Demo seed for the Live Duel room page. Contains a representative room, a
- * rotating deck of live questions, and a pool of simulated chat chatter so the
- * workspace demonstrates real-time behaviour (viewer drift, question posting,
- * incoming chat) without a backend channel yet.
+ * Demo seed for the Live Duel room page. Contains a representative room and a
+ * rotating deck of live questions so the workspace demonstrates real-time
+ * behaviour (viewer drift, question posting) without a backend channel yet.
+ * Mock participants and simulated chatter are intentionally absent — the grid
+ * shows only real users (host + the current user), matching the backend roster.
  *
  * A future WebSocket / SSE feed can dispatch the same actions (`liveDuel.ts`)
  * into the `LiveDuelProvider` reducer without touching the view layer.
  */
 
-import type { LiveChatMessage, LiveDuelRoom, LiveQuestion } from "@/modules/Competition/types/liveDuel";
+import type { LiveDuelRoom, LiveQuestion } from "@/modules/Competition/types/liveDuel";
 
 export const DEMO_LIVE_ROOM: LiveDuelRoom = {
   id: "live-geo-001",
@@ -18,26 +19,14 @@ export const DEMO_LIVE_ROOM: LiveDuelRoom = {
   hostAvatarUrl: null,
   viewers: 1247,
   participants: [
-    { id: "p1", name: "Dinksira Elsa", micMuted: true },
-    { id: "p2", name: "Kade Okafor", cameraOff: true },
-    { id: "p3", name: "Milo Tran", micMuted: true },
-    { id: "p4", name: "Zara Hussein", cameraOff: true },
-    { id: "p5", name: "Elias Novak" },
+    { id: "host", name: "Dr. Sarah Martinez", isHost: true },
     { id: "you", name: "You", isYou: true },
   ],
   leaderboard: [
-    { rank: 1, name: "Dink Sira", points: 1240 },
-    { rank: 2, name: "Kade Okafor", points: 1105 },
-    { rank: 3, name: "You", points: 850, isCurrentUser: true },
-    { rank: 4, name: "Milo Tran", points: 730 },
-    { rank: 5, name: "Zara Hussein", points: 610 },
-    { rank: 6, name: "Elias Novak", points: 405 },
+    { rank: 1, name: "Dr. Sarah Martinez", points: 0 },
+    { rank: 2, name: "You", points: 0, isCurrentUser: true },
   ],
-  chat: [
-    { id: "c1", username: "Kade Okafor", text: "This one is tough", sentAt: 1, emoji: "🤔" },
-    { id: "c2", username: "Milo Tran", text: "my body is ready", sentAt: 2, emoji: "🔥" },
-    { id: "c3", username: "Zara Hussein", text: "Go team!", sentAt: 3, emoji: "🥳" },
-  ],
+  chat: [],
   liveQuestion: null,
   postedQuestions: [],
 };
@@ -67,11 +56,4 @@ export const DEMO_LIVE_QUESTIONS: LiveQuestion[] = [
     points: 250,
     timeLabel: "0:20",
   },
-];
-
-export const DEMO_CHAT_ROTATION: LiveChatMessage[] = [
-  { id: "ca", username: "Milo Tran", text: "Is it La Paz?", emoji: "🤠", sentAt: 0 },
-  { id: "cb", username: "Zara Hussein", text: "nice round, Sarah!", emoji: "❤️", sentAt: 0 },
-  { id: "cc", username: "Kade Okafor", text: "locked in B", emoji: "✅", sentAt: 0 },
-  { id: "cd", username: "Elias Novak", text: "who else used the hint?", emoji: "🙋", sentAt: 0 },
 ];

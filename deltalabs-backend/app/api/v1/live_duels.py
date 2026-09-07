@@ -19,7 +19,13 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.api.deps import CurrentUser, get_current_user, get_db, get_redis
+from app.api.deps import (
+    CurrentUser,
+    get_current_user,
+    get_current_user_optional,
+    get_db,
+    get_redis,
+)
 from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
 from app.core.security import hash_session_token
@@ -191,6 +197,39 @@ async def _build_chat_message(
     }
 
 
+async def _room_participants(
+    db: AsyncIOMotorDatabase[dict[str, Any]],
+    doc: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Resolve the real on-stage roster (host + joined users) with display names.
+
+    Each entry matches the frontend `LiveParticipant` shape so the room can seed
+    the participant grid from real accounts instead of mock fillers.
+    """
+    identity_repository = IdentityRepository(db)
+    host_user_id = doc.get("host_user_id")
+    joined_ids = [str(user_id) for user_id in doc.get("joined_user_ids", [])]
+    ordered_ids: list[str] = []
+    if host_user_id:
+        ordered_ids.append(str(host_user_id))
+    for user_id in joined_ids:
+        if user_id not in ordered_ids:
+            ordered_ids.append(user_id)
+
+    roster: list[dict[str, Any]] = []
+    for user_id in ordered_ids:
+        user_doc = await identity_repository.find_user_by_id(user_id)
+        roster.append(
+            {
+                "id": user_id,
+                "name": user_doc.username if user_doc else "Player",
+                "avatarUrl": user_doc.avatar_url if user_doc else None,
+                "isHost": user_id == host_user_id,
+            }
+        )
+    return roster
+
+
 async def _ws_forward_loop(
     websocket: WebSocket,
     pubsub: Any,
@@ -320,15 +359,23 @@ async def create_live_duel(
 async def get_live_duel(
     room_id: str,
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+    current_user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
 ) -> dict[str, Any]:
-    """Room detail: entry + posted questions + chat replay."""
+    """Room detail: entry + posted questions + chat replay.
+
+    `hostIsUser` is derived from the authenticated requester so the frontend can
+    re-derive host mode after a page reload (the in-memory session registry does
+    not survive a refresh).
+    """
     repository = LiveDuelRepository(db)
     doc = await repository.find_by_id(room_id)
     if doc is not None:
         entry = LiveDuelRepository.to_entry(doc)
+        is_host = current_user is not None and doc.get("host_user_id") == current_user.user_id
         return {
             **entry,
-            "hostIsUser": False,
+            "hostIsUser": is_host,
+            "participants": await _room_participants(db, doc),
             "chat": [LiveDuelRepository.to_chat(msg) for msg in reversed(doc.get("chat", []))],
         }
     demo_entry = DEMO_BY_ID.get(room_id)
@@ -345,8 +392,14 @@ async def join_live_duel(
     room_id: str,
     current_user: CurrentUser = Depends(get_current_user),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
 ) -> dict[str, Any]:
-    """Join a host-created room (increments the seat fill)."""
+    """Join a host-created room (increments the seat fill).
+
+    The joiner's real identity is fanned out over the room channel so every
+    connected tab (including the host's) adds them to the on-stage grid
+    (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`).
+    """
     repository = LiveDuelRepository(db)
     if repository.find_by_id(room_id) is None:
         raise HTTPException(
@@ -354,6 +407,20 @@ async def join_live_duel(
             detail={"code": "live_duel_not_found"},
         )
     doc = await repository.mark_joined(room_id, current_user.user_id)
+
+    identity_repository = IdentityRepository(db)
+    user_doc = await identity_repository.find_user_by_id(current_user.user_id)
+    await live_duels_queue.publish_live_duel_update(
+        redis,
+        room_id=room_id,
+        type="JOIN_LIVE_DUEL",
+        payload={
+            "id": current_user.user_id,
+            "name": user_doc.username if user_doc else "Player",
+            "avatarUrl": user_doc.avatar_url if user_doc else None,
+            "isHost": False,
+        },
+    )
     return LiveDuelRepository.to_entry(doc)
 
 

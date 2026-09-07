@@ -29,6 +29,7 @@ import { Clock, Radio, Trophy, Users, VideoOff } from "lucide-react";
 
 import { Avatar } from "@/components/atoms/Avatar";
 import { LiveBadge } from "@/components/atoms/LiveBadge";
+import { RichText } from "@/components/atoms/RichText/RichText";
 import { LiveVideoFeed } from "@/components/molecules/LiveVideoFeed";
 import { MediaControlDock } from "@/components/molecules/MediaControlDock";
 import { StageChatOverlay } from "@/components/molecules/StageChatOverlay";
@@ -79,7 +80,7 @@ function LiveQuestionCard({ question }: Readonly<{ question: LiveQuestion }>) {
           {question.points} pts
         </span>
       </div>
-      <p className="text-base font-semibold leading-relaxed text-text-primary">{question.text}</p>
+      <RichText html={question.text} className="text-base font-semibold leading-relaxed" />
       {question.timeLabel ? (
         <p className="mt-3 text-xs font-semibold tabular-nums text-text-secondary">
           Time left: <span className="text-error-600">{question.timeLabel}</span>

@@ -121,6 +121,7 @@ export function HostQuestionComposer({
       text,
       points: draft.points,
       timeLabel,
+      question: draft,
     });
     resetDraft();
   };

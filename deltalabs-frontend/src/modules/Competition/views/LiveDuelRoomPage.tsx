@@ -3,8 +3,11 @@
  * Entry view for the Live Duel competition room. Wraps the workspace in a
  * `LiveDuelProvider` seeded from the route `[id]` (falls back to a default demo
  * room when the id is missing/unknown) and drives a lightweight real-time
- * simulation while the real channel arrives: viewer-count drift, rotating host
- * questions (with an idle beat between cycles), and incoming chat chatter.
+ * simulation while the real channel arrives: viewer-count drift and rotating
+ * host questions (with an idle beat between cycles). The on-stage grid shows
+ * only real users — the host, the current user, and (for backend rooms) joined
+ * participants pushed over the room WebSocket (`JOIN_LIVE_DUEL`). No mock
+ * participants or simulated chatter are rendered.
  *
  * When the duel was created by the current user (`entry.hostIsUser`), the room
  * renders in **host mode**: the question auto-rotation is disabled, the host
@@ -26,23 +29,24 @@ import { ArrowLeft, Radio } from "lucide-react";
 
 import { LiveDuelWorkspaceTemplate } from "@/components/templates/LiveDuelWorkspaceTemplate";
 import { HostControlPanel } from "@/components/organisms/HostControlPanel";
+import { LeaveLiveDuelModal } from "@/components/organisms/LeaveLiveDuelModal";
+import { QuestionModal } from "@/components/organisms/QuestionModal";
 import { Button } from "@/components/theme/Button";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
 import { fetchLiveDuelRoom, postLiveDuelQuestion } from "@/modules/Competition/api";
 import { LiveDuelProvider } from "@/modules/Competition/context/LiveDuelContext";
 import { useLiveDuel, useLiveDuelSocket, useLiveMediaStream } from "@/modules/Competition/hooks";
-import { DEMO_CHAT_ROTATION, DEMO_LIVE_QUESTIONS } from "@/modules/Competition/data/liveDuels";
+import { DEMO_LIVE_QUESTIONS } from "@/modules/Competition/data/liveDuels";
 import {
   buildLiveDuelRoom,
   getLiveDuelEntry,
   upsertLiveDuelEntry,
+  type BuildLiveDuelRoomOptions,
 } from "@/modules/Competition/data/liveDuelsCatalog";
-import type { LiveDuelAction, LiveDuelRoom } from "@/modules/Competition/types/liveDuel";
+import type { LiveDuelAction, LiveDuelRoom, LiveQuestion } from "@/modules/Competition/types/liveDuel";
 
 const VIEWER_TICK_MS = 6000;
-const CHAT_TICK_MS = 7000;
 const QUESTION_TICK_MS = 12000;
-const SPEAKER_TICK_MS = 5200;
-const SPEAKER_HOLD_MS = 4000;
 
 function isBackendRoomId(id?: string): boolean {
   return Boolean(id && /^[0-9a-f]{24}$/i.test(id));
@@ -51,8 +55,18 @@ function isBackendRoomId(id?: string): boolean {
 function LiveDuelRoom({
   isHost,
   isBackendRoom,
-}: Readonly<{ isHost: boolean; isBackendRoom: boolean }>) {
+  currentUser,
+}: Readonly<{
+  isHost: boolean;
+  isBackendRoom: boolean;
+  currentUser?: BuildLiveDuelRoomOptions["currentUser"];
+}>) {
   const router = useRouter();
+  // Host mode is a runtime value: the session registry seeds it, but a backend
+  // room fetched after a fresh page load must be allowed to promote the current
+  // user to host (`detail.hostIsUser`). Kept in state so the Host Control panel
+  // (with the question builder) appears once the fetch resolves.
+  const [effectiveIsHost, setEffectiveIsHost] = useState(isHost);
   const {
     state,
     dispatch,
@@ -73,42 +87,29 @@ function LiveDuelRoom({
     isSpeaking,
     voiceLevel,
   } = useLiveMediaStream();
-  const [speakingIds, setSpeakingIds] = useState<ReadonlySet<string>>(new Set());
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [modalQuestion, setModalQuestion] = useState<LiveQuestion | null>(null);
+  const [seenQuestionId, setSeenQuestionId] = useState<string | null>(null);
+
+  // Open the on-air question modal whenever a *new* question arrives in the
+  // room state — whether the host posted it here (POST_LIVE_QUESTION) or it was
+  // fanned out to this viewer (demo SET_LIVE_QUESTION / backend WS). An idle
+  // beat (null) clears the seen id so the deck loop re-opens the next question.
+  useEffect(() => {
+    if (!room.liveQuestion) {
+      setSeenQuestionId(null);
+      return;
+    }
+    if (room.liveQuestion.id !== seenQuestionId) {
+      setSeenQuestionId(room.liveQuestion.id);
+      setModalQuestion(room.liveQuestion);
+    }
+  }, [room.liveQuestion, seenQuestionId]);
 
   // Latest values read by the interval closures without re-subscribing.
   const viewersRef = useRef(room.viewers);
   viewersRef.current = room.viewers;
   const questionStepRef = useRef(0);
-  const rosterRef = useRef(room.participants);
-  rosterRef.current = room.participants;
-
-  // Simulate which *other* participants are currently speaking so their voice
-  // wave animates ("when someone talks"). The current user's card + host focal
-  // point use the real mic level from `useLiveMediaStream`.
-  useEffect(() => {
-    let clearTimer = 0;
-    const pickSpeaker = () => {
-      const others = rosterRef.current.filter((participant) => !participant.isYou);
-      if (others.length === 0) {
-        setSpeakingIds(new Set());
-        return;
-      }
-      const speaker = others[Math.floor(Math.random() * others.length)];
-      if (!speaker) {
-        return;
-      }
-      setSpeakingIds(new Set([speaker.id]));
-      window.clearTimeout(clearTimer);
-      clearTimer = window.setTimeout(() => setSpeakingIds(new Set()), SPEAKER_HOLD_MS);
-    };
-    const interval = window.setInterval(pickSpeaker, SPEAKER_TICK_MS);
-    const bootTimer = window.setTimeout(pickSpeaker, 1200);
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(bootTimer);
-      window.clearTimeout(clearTimer);
-    };
-  }, []);
 
   // Reflect the current user's real media state on their own participant card.
   const onStageParticipants = useMemo(
@@ -123,7 +124,8 @@ function LiveDuelRoom({
 
   // Backend rooms boot from the registry seed instantly, then reconcile with
   // the authoritative room detail once it arrives (rooms created by other
-  // users are not registered locally).
+  // users are not registered locally). The response carries `hostIsUser` so a
+  // refreshing host re-gains their Host Control panel after the round-trip.
   useEffect(() => {
     if (!isBackendRoom) {
       return;
@@ -135,10 +137,15 @@ function LiveDuelRoom({
           return;
         }
         upsertLiveDuelEntry(detail);
+        if (detail.hostIsUser !== undefined) {
+          setEffectiveIsHost(detail.hostIsUser === true);
+        }
         dispatch({
           type: "SET_ROOM",
           payload: buildLiveDuelRoom(detail.id, {
             hostIsUser: getLiveDuelEntry(detail.id)?.hostIsUser === true,
+            currentUser,
+            participants: detail.participants,
           }),
         });
       })
@@ -146,7 +153,7 @@ function LiveDuelRoom({
     return () => {
       active = false;
     };
-  }, [isBackendRoom, room.id, dispatch]);
+  }, [isBackendRoom, room.id, dispatch, currentUser]);
 
   useEffect(() => {
     const viewerInterval = window.setInterval(() => {
@@ -158,25 +165,11 @@ function LiveDuelRoom({
       dispatch(action);
     }, VIEWER_TICK_MS);
 
-    // Backend rooms receive real chat over the socket; never simulate chatter.
-    const chatInterval = isBackendRoom
-      ? undefined
-      : window.setInterval(() => {
-          const sample = DEMO_CHAT_ROTATION[Math.floor(Math.random() * DEMO_CHAT_ROTATION.length)];
-          if (!sample) {
-            return;
-          }
-          const action: LiveDuelAction = {
-            type: "APPEND_CHAT_MESSAGE",
-            payload: { ...sample, id: crypto.randomUUID(), sentAt: Date.now() },
-          };
-          dispatch(action);
-        }, CHAT_TICK_MS);
-
+    // Backend rooms receive real chat + roster over the socket; never simulate.
     // Host mode (and backend rooms) drive questions from the host control
     // panel; never auto-rotate there.
     const questionInterval =
-      isHost || isBackendRoom
+      effectiveIsHost || isBackendRoom
         ? undefined
         : window.setInterval(() => {
             const step = questionStepRef.current + 1;
@@ -195,16 +188,18 @@ function LiveDuelRoom({
 
     return () => {
       window.clearInterval(viewerInterval);
-      if (chatInterval) {
-        window.clearInterval(chatInterval);
-      }
       if (questionInterval) {
         window.clearInterval(questionInterval);
       }
     };
-  }, [dispatch, isHost, isBackendRoom]);
+  }, [dispatch, effectiveIsHost, isBackendRoom]);
 
   const handleLeave = () => {
+    setConfirmingLeave(true);
+  };
+
+  const handleConfirmLeave = () => {
+    setConfirmingLeave(false);
     router.push("/features/competitions");
   };
 
@@ -219,6 +214,9 @@ function LiveDuelRoom({
   };
 
   const handlePostQuestion = (question: Parameters<typeof postLiveQuestion>[0]) => {
+    // The room-level effect opens the QuestionModal for participants AND the
+    // host as soon as room.liveQuestion reflects the new question (frontend
+    // POST_LIVE_QUESTION dispatch or the backend WS fan-out).
     if (isBackendRoom) {
       void postLiveDuelQuestion(room.id, {
         text: question.text,
@@ -249,7 +247,7 @@ function LiveDuelRoom({
             <p className="flex items-center gap-1.5 text-xs text-text-secondary">
               <Radio className="size-3.5 text-error-500" aria-hidden />
               Arena · {room.title}
-              {isHost ? <span className="font-semibold text-primary-700">· Hosting</span> : null}
+              {effectiveIsHost ? <span className="font-semibold text-primary-700">· Hosting</span> : null}
               {isBackendRoom && connected ? (
                 <span className="text-primary-600">· Live</span>
               ) : null}
@@ -268,7 +266,7 @@ function LiveDuelRoom({
         leaderboard={room.leaderboard}
         activePlayers={room.participants.length}
         hostControlSlot={
-          isHost ? (
+          effectiveIsHost ? (
             <HostControlPanel
               viewers={room.viewers}
               liveQuestion={room.liveQuestion}
@@ -279,16 +277,28 @@ function LiveDuelRoom({
         }
         isMicMuted={isMicMuted}
         isCameraOff={isCameraOff}
-        isHost={isHost}
+        isHost={effectiveIsHost}
         mediaStream={mediaStream}
         mediaError={mediaError}
         isSpeaking={isSpeaking}
         voiceLevel={voiceLevel}
-        speakingIds={speakingIds}
         onToggleMic={toggleMic}
         onToggleCamera={toggleCamera}
         onSendMessage={handleSendMessage}
         onLeaveBattle={handleLeave}
+      />
+
+      <LeaveLiveDuelModal
+        open={confirmingLeave}
+        title={room.title}
+        onClose={() => setConfirmingLeave(false)}
+        onConfirm={handleConfirmLeave}
+      />
+
+      <QuestionModal
+        open={Boolean(modalQuestion)}
+        question={modalQuestion}
+        onClose={() => setModalQuestion(null)}
       />
     </div>
   );
@@ -296,18 +306,32 @@ function LiveDuelRoom({
 
 export function LiveDuelRoomPage() {
   const params = useParams<{ id?: string }>();
+  const { session } = useAuthSession();
   const backendRoom = isBackendRoomId(params.id);
+  // Real account identity for the on-stage self card (instead of placeholder
+  // "You") so a logged-in participant sees their own username in the grid.
+  const currentUser = useMemo<BuildLiveDuelRoomOptions["currentUser"]>(
+    () =>
+      session?.user
+        ? {
+            id: session.user.id,
+            name: session.user.username || session.user.fullName || "You",
+            avatarUrl: session.user.avatarUrl,
+          }
+        : undefined,
+    [session],
+  );
   const isHost = useMemo(
     () => getLiveDuelEntry(params.id)?.hostIsUser === true,
     [params.id],
   );
   const initialRoom = useMemo<LiveDuelRoom>(
-    () => buildLiveDuelRoom(params.id, { hostIsUser: isHost }),
-    [params.id, isHost],
+    () => buildLiveDuelRoom(params.id, { hostIsUser: isHost, currentUser }),
+    [params.id, isHost, currentUser],
   );
   return (
     <LiveDuelProvider initialRoom={initialRoom}>
-      <LiveDuelRoom isHost={isHost} isBackendRoom={backendRoom} />
+      <LiveDuelRoom isHost={isHost} isBackendRoom={backendRoom} currentUser={currentUser} />
     </LiveDuelProvider>
   );
 }

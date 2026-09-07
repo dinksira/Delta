@@ -72,12 +72,13 @@ export function ParticipantCard({
         </div>
       )}
 
-      {/* Zoom-style ocean ripple overlay */}
+      {/* Zoom-style ocean ripple overlay — pinned to the right edge so it never
+          sits over the participant's face in the centered camera feed */}
       <VoiceWaveIndicator
         active={isSpeaking}
         level={voiceLevel}
         size="sm"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 drop-shadow-sm"
+        className="absolute right-3 top-1/2 -translate-y-1/2 drop-shadow-sm"
       />
 
       {/* Bottom scrim + name label */}

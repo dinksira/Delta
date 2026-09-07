@@ -31,6 +31,9 @@ const SERVER_ACTION_TYPES = new Set<string>([
   "UPDATE_VIEWERS",
   "UPDATE_LEADERBOARD",
   "SET_LIVE_QUESTION",
+  // The backend labels real joins as `JOIN_LIVE_DUEL`; forward them into the
+  // reducer's participant action so every tab adds the joiner to the grid.
+  "JOIN_LIVE_DUEL",
 ]);
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -155,8 +158,10 @@ export function useLiveDuelSocket({
           if (data.room_id !== roomIdRef.current) {
             return;
           }
+          const actionType: LiveDuelAction["type"] =
+            data.type === "JOIN_LIVE_DUEL" ? "ADD_PARTICIPANT" : (data.type as LiveDuelAction["type"]);
           dispatchRef.current({
-            type: data.type as LiveDuelAction["type"],
+            type: actionType,
             payload: data.payload as never,
           });
         } catch {

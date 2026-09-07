@@ -16,6 +16,7 @@
  */
 
 import type { DuelLeaderboardEntry } from "@/modules/Competition/types/duelQuiz";
+import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 
 /** A single comment pill rendered over the stage. */
 export interface LiveChatMessage {
@@ -51,6 +52,13 @@ export interface LiveQuestion {
   points: number;
   /** Optional countdown label such as "0:20". */
   timeLabel?: string;
+  /**
+   * Full authored question payload (all nine kinds) when available. Host-posted
+   * questions carry it so the `QuestionModal` can render the real structure
+   * (MCQ options, fill-blank blanks, matching pairs, code template, markdown
+   * source, design brief…) instead of only the flat `text` fallback.
+   */
+  question?: CodingQuestion | null;
 }
 
 /** Snapshot of a running Live Duel room. */
@@ -105,6 +113,8 @@ export interface LiveDuelState {
 export interface LiveDuelRoomDetail extends LiveDuelEntry {
   hostUserId?: string | null;
   hasJoined?: boolean;
+  /** Real on-stage roster (host + joined users) resolved from the backend. */
+  participants?: LiveParticipant[];
   postedQuestions: LiveQuestion[];
   chat: LiveChatMessage[];
 }
@@ -124,6 +134,7 @@ export type LiveDuelAction =
   | { type: "POST_LIVE_QUESTION"; payload: LiveQuestion }
   | { type: "APPEND_CHAT_MESSAGE"; payload: LiveChatMessage }
   | { type: "SET_PARTICIPANT_MUTED"; payload: { id: string; micMuted: boolean } }
+  | { type: "ADD_PARTICIPANT"; payload: LiveParticipant }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
   | { type: "TOGGLE_MIC" }
   | { type: "TOGGLE_CAMERA" };

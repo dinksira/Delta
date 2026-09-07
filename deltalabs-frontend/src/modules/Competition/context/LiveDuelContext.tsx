@@ -84,6 +84,18 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
           ),
         },
       };
+    case "ADD_PARTICIPANT":
+      // Backend `JOIN_LIVE_DUEL` fan-out: add a real joiner to the stage grid
+      // (idempotent — the joining tab may also receive its own event).
+      return state.room.participants.some((participant) => participant.id === action.payload.id)
+        ? state
+        : {
+            ...state,
+            room: {
+              ...state.room,
+              participants: [...state.room.participants, action.payload],
+            },
+          };
     case "UPDATE_LEADERBOARD":
       return { ...state, room: { ...state.room, leaderboard: action.payload } };
     case "TOGGLE_MIC":
