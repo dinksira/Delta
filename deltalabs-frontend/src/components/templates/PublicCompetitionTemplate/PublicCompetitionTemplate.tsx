@@ -130,7 +130,7 @@ export function PublicCompetitionTemplate({
       {/* Sub-header: tabs + search + host */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <TabNav
-          variant="text"
+          variant="standalone"
           items={[
             { id: "public", label: "Public" },
             { id: "mine", label: "My Competitions" },
