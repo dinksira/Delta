@@ -74,24 +74,25 @@ than duplicated — the sanctioned path for a new variant.
 (`{ room, isMicMuted, isCameraOff }`) via a reducer with `[VERB]_[NOUN]`
 actions (`UPDATE_VIEWERS`, `SET_LIVE_QUESTION`, `APPEND_CHAT_MESSAGE`,
 `ADD_PARTICIPANT`, `TOGGLE_MIC`, `TOGGLE_CAMERA`, …). `useLiveDuel()` throws
-outside the provider. The provider seeds from `data/liveDuels.ts`
-(`DEMO_LIVE_ROOM`, `DEMO_LIVE_QUESTIONS`) and accepts an `initialRoom` prop.
+outside the provider. The provider takes a required `initialRoom` prop — the
+caller seeds a backend-room snapshot via `buildLiveDuelRoom(params.id, …)`
+(`data/liveDuelsCatalog.ts`); no demo seed exists anymore.
 
-`LiveDuelRoomPage` seeds the provider via `buildLiveDuelRoom(params.id, …)`
-(`data/liveDuelsCatalog.ts`) with the real current-user identity
-(`useAuthSession`) and drives a light **demo simulation** — viewer drift and
-rotating host questions (with an idle beat, disabled in host mode) — through the
-same `dispatch` a real WebSocket/SSE feed would use, so the view layer never
-changes when the channel lands. No mock participants or simulated chatter exist:
-backend rooms seed the grid from the room-detail roster and add joiners live.
-Host mode adds a `POST_LIVE_QUESTION` action that publishes the host's question
-to the stage focal **and** appends it to `room.postedQuestions` history.
+`LiveDuelRoomPage` seeds the provider with the real current-user identity
+(`useAuthSession`) and subscribes the room over the backend WebSocket
+(`useLiveDuelSocket`), dispatching server events through the same reducer. No
+mock participants, simulated viewers or simulated chatter exist: backend rooms
+seed the grid from the room-detail roster and add joiners live. Host mode adds a
+`POST_LIVE_QUESTION` action that publishes the host's question to the stage
+focal **and** appends it to `room.postedQuestions` history; an "End Duel" action
+calls `finishLiveDuel(roomId)` to freeze the final leaderboard for the lobby
+history and returns to the lobby.
 
 ## 5b. Lobby & join flow (mirrors Topic Battles)
 
 | Piece | Role |
 | --- | --- |
-| `data/liveDuelsCatalog.ts` | `DEMO_LIVE_DUELS` (6 entries), `DEMO_LIVE_DUELS_SEED`, `buildLiveDuelRoom(entryId?, options?)` |
+| `data/liveDuelsCatalog.ts` | Session registry: `getLiveDuelsCatalog()`, `getLiveDuelEntry(id)`, `upsertLiveDuelEntry(entry)`, `buildLiveDuelRoom(entryId?, options?)` (backend entries only) |
 | `LiveDuelCard` | Lobby card: status/live pill, viewers, host, subject·difficulty·duration, entry/prize economics, player fill, and a CTA that progresses Join → Enter Duel once joined |
 | `LiveDuelGrid` | 1→2→3 column grid + empty state |
 | `JoinLiveDuelModal` | Confirmation (recap, entry terms, guest note, error, confirm/cancel) → success view with "Enter Duel" |
@@ -110,8 +111,8 @@ Route `/features/competitions/live-duels/create` → `CreateLiveDuelPage`:
 | --- | --- |
 | `LiveDuelCreateForm` | Setup form (title, subject, difficulty, duration, entry fee, prize pool, max players) with client validation + a live `LiveDuelCard` lobby preview; "Go Live" |
 | `LiveDuelCreateTemplate` | Create-page layout (back + brand header + centered form region) |
-| `createLiveDuel(input)` | Session registry (`REGISTERED_LIVE_DUELS` map in `liveDuelsCatalog.ts`): builds a `status: "live"`, `hostIsUser: true` entry, id `live-host-<ts>`; `getLiveDuelsCatalog()` merges it ahead of the demo list so it tops the lobby |
-| `LiveDuelRoomPage` | Reads `getLiveDuelEntry(id)?.hostIsUser` to switch the room into **host mode**: seeds via `buildLiveDuelRoom(id, { hostIsUser })` (host participant = current user), disables the demo question auto-rotation, and drops a `HostControlPanel` into the workspace `hostControlSlot`. Host mode is **runtime state**: the backend's `GET /{room_id}` derives `hostIsUser` from the authenticated requester, and `upsertLiveDuelEntry` no longer downgrades it, so a refreshing host keeps (or regains) their question builder once the room detail round-trips. The room fetch is deferred until the auth session is ready (`useAuthSession().isReady`) and `hostIsUser` **only promotes** host mode (`true` → keep); a fetch that sees no auth (guest) or a racing first-load can never demote a hosting tab back to the participant side. Backend-room rosters seed from the real room detail (`participants`) plus the current user's account identity (`useAuthSession`), and joiners appear live over the socket (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`) |
+| `api#createLiveDuelRoom(payload)` | Real backend create: `POST /v1/live-duels` returns the authoritative entry, upserted as `hostIsUser: true` so the room boots in host mode and tops the lobby |
+| `LiveDuelRoomPage` | Reads `getLiveDuelEntry(id)?.hostIsUser` to switch the room into **host mode**: seeds via `buildLiveDuelRoom(id, { hostIsUser })` (host participant = current user), and drops a `HostControlPanel` into the workspace `hostControlSlot`. Host mode is **runtime state**: the backend's `GET /{room_id}` derives `hostIsUser` from the authenticated requester, and `upsertLiveDuelEntry` no longer downgrades it, so a refreshing host keeps (or regains) their question builder once the room detail round-trips. The room fetch is deferred until the auth session is ready (`useAuthSession().isReady`) and `hostIsUser` **only promotes** host mode (`true` → keep); a fetch that sees no auth (guest) or a racing first-load can never demote a hosting tab back to the participant side. Backend-room rosters seed from the real room detail (`participants`) plus the current user's account identity (`useAuthSession`), and joiners appear live over the socket (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`) |
 | `HostControlPanel` | Host dashboard card: LIVE badge, live viewer pill, on-air question (round/points/timer), composer, posted history with "On air" marker |
 | `HostQuestionComposer` | Full Question Builder canvas for every kind (line to the create-flow `QuestionAuthoringEditor` / `CodeEditorModule` / `MarkdownPadModule` / `DesignCanvasModule`) + point chips (100–1000) + timer select → `POST_LIVE_QUESTION` carrying the full authored payload on `LiveQuestion.question` → `QuestionModal` opens with the real structure, and the question appears at the stage focal for participants + in `room.postedQuestions` |
 

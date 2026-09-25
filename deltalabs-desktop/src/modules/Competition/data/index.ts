@@ -1,5 +1,12 @@
-export { buildDuelQuiz } from "./duelQuiz";
+export { buildDuelQuiz, toDuelQuestion } from "./duelQuiz";
 export { TOPIC_CATEGORIES, TOPIC_CATALOG } from "./topicCatalog";
+export {
+  buildLiveDuelRoom,
+  getLiveDuelsCatalog,
+  getLiveDuelEntry,
+  upsertLiveDuelEntry,
+} from "./liveDuelsCatalog";
+export type { CreateLiveDuelInput, BuildLiveDuelRoomOptions } from "./liveDuelsCatalog";
 export { BATTLE_FORMATS } from "./battleFormats";
 export { BATTLE_VISIBILITIES } from "./battleVisibility";
 export { BATTLE_TIMINGS } from "./battleTimings";

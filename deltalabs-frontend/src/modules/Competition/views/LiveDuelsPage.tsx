@@ -4,7 +4,8 @@
  * difficulty filter, subject pills, live-duel cards, and the identical join
  * confirmation → success → "Enter Duel" flow before dropping into the room. A
  * "Create Live Duel" action routes to the host setup page; session-created
- * duels appear at the top of the list.
+ * duels appear at the top of the list. A "Past duels" section replays finished
+ * rooms from the backend history with their snapshot final leaderboards.
  *
  * @example
  * ```tsx
@@ -21,11 +22,14 @@ import { Radio } from "lucide-react";
 
 import { LiveDuelsListTemplate } from "@/components/templates/LiveDuelsListTemplate";
 import { JoinLiveDuelModal } from "@/components/organisms/JoinLiveDuelModal";
+import { LiveDuelGrid } from "@/components/organisms/LiveDuelGrid/LiveDuelGrid";
+import { Typography } from "@/components/theme/Typography";
 import type { SearchPillOption } from "@/components/molecules/SearchPill/SearchPill";
 import type { SubjectPill } from "@/components/molecules/SubjectPills/SubjectPills";
 import { Button } from "@/components/theme/Button";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { fetchLiveDuels } from "@/modules/Competition/api";
+import { fetchLiveDuels, fetchLiveDuelHistory } from "@/modules/Competition/api";
+import type { LiveDuelHistoryEntry } from "@/modules/Competition/types/liveDuel";
 import { useJoinLiveDuelModal } from "@/modules/Competition/hooks/useJoinLiveDuelModal";
 import {
   getLiveDuelsCatalog,
@@ -43,6 +47,22 @@ export function LiveDuelsPage() {
   const [activeFilter, setActiveFilter] = useState(ALL_DIFFICULTIES);
   // Bump so the memos re-read the registry once the backend catalog arrives.
   const [remoteVersion, setRemoteVersion] = useState(0);
+  const [historyEntries, setHistoryEntries] = useState<LiveDuelHistoryEntry[]>([]);
+
+  // Finished rooms with their snapshot final leaderboards (replay surface).
+  useEffect(() => {
+    let active = true;
+    fetchLiveDuelHistory()
+      .then((history) => {
+        if (active) {
+          setHistoryEntries(history);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Merge the backend catalog into the local registry (deduped by id) so any
   // room a user navigates to resolves — even ones hosted by other sessions.
@@ -105,8 +125,7 @@ export function LiveDuelsPage() {
         duel.hostName.toLowerCase().includes(queryText);
       const matchesSubject =
         activeSubject === ALL_SUBJECTS || (duel.subject.trim() || "General") === activeSubject;
-      const matchesFilter =
-        activeFilter === ALL_DIFFICULTIES || duel.difficulty === activeFilter;
+      const matchesFilter = activeFilter === ALL_DIFFICULTIES || duel.difficulty === activeFilter;
       return matchesSearch && matchesSubject && matchesFilter;
     });
   }, [catalog, searchValue, activeSubject, activeFilter]);
@@ -156,6 +175,30 @@ export function LiveDuelsPage() {
             <Radio className="size-4" aria-hidden />
             Create Live Duel
           </Button>
+        }
+        footerSlot={
+          historyEntries.length > 0 ? (
+            <section aria-labelledby="past-live-duels-heading">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Typography
+                  as="h2"
+                  id="past-live-duels-heading"
+                  className="text-lg font-semibold text-text-primary"
+                >
+                  Past duels
+                </Typography>
+                <span className="text-sm tabular-nums text-text-secondary">
+                  {historyEntries.length} finished
+                </span>
+              </div>
+              <LiveDuelGrid
+                duels={historyEntries}
+                onEnter={handleEnterDuel}
+                emptyTitle="No finished duels yet"
+                emptyDescription="Replay finished live duels here with their final leaderboards."
+              />
+            </section>
+          ) : undefined
         }
       />
       <JoinLiveDuelModal

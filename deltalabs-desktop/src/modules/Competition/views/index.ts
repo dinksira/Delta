@@ -1,5 +1,14 @@
 export { ActiveCompetitionPage } from "./ActiveCompetitionPage";
+export { ChampionshipPage } from "./ChampionshipPage";
+export { ChampionshipStageDuelPage } from "./ChampionshipStageDuelPage";
 export { CompetitionDetailPage } from "./CompetitionDetail/CompetitionDetailPage";
+export { GamesPage } from "./GamesPage";
+export { GameDetailPage } from "./GameDetailPage";
+export { GameStageDuelPage } from "./GameStageDuelPage";
 export { PublicCompetitionPage } from "./PublicCompetitionPage";
 export { CreateBattleTopicPage } from "./CreateBattleTopicPage";
+export { CreateChampionshipPage } from "./CreateChampionshipPage";
 export { TopicBattleDuelPage } from "./TopicBattleDuelPage";
+export { LiveDuelRoomPage } from "./LiveDuelRoomPage";
+export { LiveDuelsPage } from "./LiveDuelsPage";
+export { CreateLiveDuelPage } from "./CreateLiveDuelPage";

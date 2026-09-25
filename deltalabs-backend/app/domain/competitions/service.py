@@ -24,9 +24,6 @@ from app.domain.competitions.schemas import (
     CompetitionModeResponse,
     DesignPayloadSchema,
     MarkdownPayloadSchema,
-    QuestionCreateRequest,
-    QuestionResponse,
-    QuestionUpdateRequest,
     TopicBattleCreateRequest,
     TopicBattleListResponse,
     TopicBattleResponse,
@@ -1433,34 +1430,6 @@ def _design_payload_dict(payload: DesignPayloadSchema) -> dict:
     }
 
 
-def _create_request_to_question_dict(q: QuestionCreateRequest) -> dict:
-    return {
-        "id": f"q_{uuid4().hex}",
-        "title": q.title,
-        "description": q.description,
-        "constraints": q.constraints,
-        "code_template": q.code_template,
-        "language": q.language,
-        "difficulty": q.difficulty,
-        "time_limit_minutes": q.time_limit_minutes,
-        "points": q.points,
-        "hint_enabled": q.hint_enabled,
-        "hint_text": q.hint_text,
-        "test_cases": [t.model_dump() for t in q.test_cases],
-        "kind": q.kind,
-        "mcq_options": [o.model_dump() for o in q.mcq_options],
-        "mcq_correct_id": q.mcq_correct_id,
-        "tf_answer": q.tf_answer,
-        "fill_expected": q.fill_expected,
-        "fill_answers": q.fill_answers,
-        "matching_answers": [a.model_dump() for a in q.matching_answers],
-        "matching_pairs": [p.model_dump() for p in q.matching_pairs],
-        "ordering_items": [o.model_dump() for o in q.ordering_items],
-        "markdown": _markdown_payload_dict(q.markdown),
-        "design": _design_payload_dict(q.design),
-    }
-
-
 # ========================================================================
 # Battle management-table columns (drives the per-battle management table)
 # ========================================================================
@@ -2445,6 +2414,26 @@ class Service:
         battles = [self._repository.doc_to_response(doc, viewer_user_id=user_id) for doc in docs]
         return TopicBattleListResponse(battles=battles, total=len(battles))
 
+    async def launch_due_scheduled_battles(self) -> int:
+        """Flip scheduled battles past their launch time to joinable (`filling`).
+
+        Runs on a lightweight asyncio loop in the app lifespan; keeps the lobby
+        honest without blocking request handling.
+        """
+        now = datetime.now(UTC)
+        due = await self._repository.find_due_scheduled_battles(now)
+        launched = 0
+        for doc in due:
+            battle_id = str(doc.get("_id"))
+            if not battle_id:
+                continue
+            await self._repository.patch_topic_battle(
+                battle_id,
+                {"status": "filling", "countdown_ends_at": None},
+            )
+            launched += 1
+        return launched
+
     async def get_topic_battle(
         self,
         *,
@@ -2786,109 +2775,3 @@ class Service:
             org_id=org_id, user_id=user_id, instance_id=instance_id,
             populate=populate,
         )
-
-    # ========================================================================
-    # Question CRUD (embedded in battle document)
-    # ========================================================================
-
-    async def add_question(
-        self,
-        *,
-        battle_id: str,
-        payload: QuestionCreateRequest,
-    ) -> QuestionResponse:
-        await self.bootstrap()
-        question_dict = _create_request_to_question_dict(payload)
-        doc = await self._repository.push_question(battle_id, question_dict)
-        if doc is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
-        questions = doc.get("questions", [])
-        q = next((q for q in questions if q["id"] == question_dict["id"]), None)
-        if q is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Question not found after insert.", code="question_not_found")
-        return self._repository.question_doc_to_response(q)
-
-    async def get_question(
-        self,
-        *,
-        battle_id: str,
-        question_id: str,
-    ) -> QuestionResponse:
-        await self.bootstrap()
-        doc = await self._repository.find_topic_battle_by_id(battle_id)
-        if doc is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
-        questions = doc.get("questions", [])
-        q = next((q for q in questions if q["id"] == question_id), None)
-        if q is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Question not found.", code="question_not_found")
-        return self._repository.question_doc_to_response(q)
-
-    async def list_questions(
-        self,
-        *,
-        battle_id: str,
-    ) -> list[QuestionResponse]:
-        await self.bootstrap()
-        doc = await self._repository.find_topic_battle_by_id(battle_id)
-        if doc is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
-        questions = doc.get("questions", [])
-        return [self._repository.question_doc_to_response(q) for q in questions]
-
-    async def update_question(
-        self,
-        *,
-        battle_id: str,
-        question_id: str,
-        payload: QuestionUpdateRequest,
-    ) -> QuestionResponse:
-        await self.bootstrap()
-        update_fields = payload.model_dump(exclude_none=True, exclude={"test_cases"})
-        if payload.test_cases is not None:
-            update_fields["test_cases"] = [t.model_dump() for t in payload.test_cases]
-
-        if not update_fields:
-            from app.core.exceptions import ValidationError
-
-            raise ValidationError("No fields to update.", code="no_update_fields")
-
-        doc = await self._repository.update_question(
-            battle_id=battle_id,
-            question_id=question_id,
-            update_fields=update_fields,
-        )
-        if doc is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Topic battle or question not found.", code="question_not_found")
-        questions = doc.get("questions", [])
-        q = next((q for q in questions if q["id"] == question_id), None)
-        if q is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Question not found after update.", code="question_not_found")
-        return self._repository.question_doc_to_response(q)
-
-    async def delete_question(
-        self,
-        *,
-        battle_id: str,
-        question_id: str,
-    ) -> None:
-        await self.bootstrap()
-        result = await self._repository.pull_question(battle_id, question_id)
-        if result is None:
-            from app.core.exceptions import NotFoundError
-
-            raise NotFoundError("Topic battle or question not found.", code="question_not_found")

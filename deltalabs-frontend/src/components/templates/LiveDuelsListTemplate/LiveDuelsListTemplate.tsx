@@ -56,6 +56,8 @@ export interface LiveDuelsListTemplateProps {
   actionsSlot?: ReactNode;
   statusSlot?: ReactNode;
   noticeSlot?: ReactNode;
+  /** Optional section rendered below the live grid (e.g. the past-duels history). */
+  footerSlot?: ReactNode;
   className?: string;
 }
 
@@ -79,6 +81,7 @@ export function LiveDuelsListTemplate({
   actionsSlot,
   statusSlot,
   noticeSlot,
+  footerSlot,
   className,
 }: Readonly<LiveDuelsListTemplateProps>) {
   return (
@@ -135,6 +138,8 @@ export function LiveDuelsListTemplate({
           />
         )}
       </section>
+
+      {footerSlot}
     </div>
   );
 }

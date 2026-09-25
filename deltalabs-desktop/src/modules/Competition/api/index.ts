@@ -1,13 +1,22 @@
 import { apiClient } from "@/lib/apiClient";
 import type { CompetitionHubApiResponse } from "@/modules/Competition/types/hub";
 import type { GameMode } from "@/modules/Competition/types/hub";
+import type { ChampionshipApiResponse } from "@/modules/Competition/types/championship";
+import type { CreateChampionshipPayload } from "@/modules/Competition/types/championship";
+import type { CompetitionGamesResponse } from "@/modules/Competition/types/games";
 import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+import type { DuelLeaderboardEntry, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import type {
   CodeExecuteResponse,
   CodeSubmitResponse,
 } from "@/modules/Competition/types/codeExecution";
 import { uploadSchoolMediaFile } from "@/modules/School/api";
+import type {
+  LiveDuelEntry,
+  LiveDuelHistoryEntry,
+  LiveDuelRoomDetail,
+} from "@/modules/Competition/types/liveDuel";
 
 /** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
@@ -45,6 +54,34 @@ export async function fetchCompetitionHub() {
   return apiClient.get<CompetitionHubApiResponse>("/v1/competitions/hub");
 }
 
+export async function fetchChampionship() {
+  return apiClient.get<ChampionshipApiResponse>("/v1/competitions/championship");
+}
+
+export async function completeChampionshipStage(stageOrder: number) {
+  return apiClient.post<ChampionshipApiResponse>(
+    `/v1/competitions/championship/stages/${stageOrder}/complete`,
+  );
+}
+
+export async function createChampionship(
+  payload: CreateChampionshipPayload,
+): Promise<ChampionshipApiResponse> {
+  return apiClient.post<ChampionshipApiResponse>("/v1/competitions/championship", {
+    json: payload,
+  });
+}
+
+export async function fetchGames() {
+  return apiClient.get<CompetitionGamesResponse>("/v1/competitions/games");
+}
+
+export async function completeGameStage(gameId: string, stageOrder: number) {
+  return apiClient.post<CompetitionGamesResponse>(
+    `/v1/competitions/games/${gameId}/stages/${stageOrder}/complete`,
+  );
+}
+
 export async function fetchTopicBattles() {
   return apiClient.get<TopicBattleList>("/v1/competitions/topic-battles");
 }
@@ -55,6 +92,115 @@ export async function fetchTopicBattle(id: string) {
 
 export async function joinTopicBattle(id: string) {
   return apiClient.post<TopicBattle>(`/v1/competitions/topic-battles/${id}/join`);
+}
+
+/**
+ * Join a live duel room (`POST /v1/live-duels/{id}/join`). Rooms are
+ * backend-hosted, so joining is a real network call; a 404/409 surfaces as a
+ * thrown error that the lobby join modal translates for the user.
+ */
+export async function joinLiveDuel(id: string): Promise<{ id: string; joined: boolean }> {
+  await apiClient.post<LiveDuelEntry>(`/v1/live-duels/${id}/join`);
+  return { id, joined: true };
+}
+
+/** Payload for POST /v1/live-duels (host create, camelCase like the view types). */
+export interface CreateLiveDuelApiPayload {
+  title: string;
+  subject: string;
+  difficulty: string;
+  durationLabel: string;
+  entryFee: string;
+  prizePool: string;
+  playersMax: number;
+  hostName: string;
+  hostAvatarUrl?: string | null;
+}
+
+export async function createLiveDuelRoom(
+  payload: CreateLiveDuelApiPayload,
+): Promise<LiveDuelEntry> {
+  return apiClient.post<LiveDuelEntry>("/v1/live-duels", { json: payload });
+}
+
+export async function fetchLiveDuels(): Promise<LiveDuelEntry[]> {
+  return apiClient.get<LiveDuelEntry[]>("/v1/live-duels");
+}
+
+export async function fetchLiveDuelRoom(roomId: string): Promise<LiveDuelRoomDetail> {
+  return apiClient.get<LiveDuelRoomDetail>(`/v1/live-duels/${roomId}`);
+}
+
+/** Finished duels (`GET /v1/live-duels/history`) with snapshot final leaderboards. */
+export async function fetchLiveDuelHistory(): Promise<LiveDuelHistoryEntry[]> {
+  return apiClient.get<LiveDuelHistoryEntry[]>("/v1/live-duels/history");
+}
+
+/** Host ends a live duel (`POST /v1/live-duels/{id}/finish`); fans out a SET_LIVE_DUEL_FINISHED. */
+export async function finishLiveDuel(roomId: string): Promise<LiveDuelRoomDetail> {
+  return apiClient.post<LiveDuelRoomDetail>(`/v1/live-duels/${roomId}/finish`);
+}
+
+export interface PostLiveDuelQuestionPayload {
+  /** Client-generated id echoed back so host optimistic state dedupes. */
+  id: string;
+  text: string;
+  points: number;
+  timeLabel?: string;
+  /** Full authored question payload (all nine kinds) for the QuestionModal. */
+  question?: CodingQuestion | null;
+}
+
+/** Host posts a question live; the backend fans it out via the room channel. */
+export async function postLiveDuelQuestion(
+  roomId: string,
+  payload: PostLiveDuelQuestionPayload,
+): Promise<{
+  id: string;
+  round: number;
+  total: number;
+  text: string;
+  points: number;
+  timeLabel?: string;
+  question?: CodingQuestion | null;
+}> {
+  return apiClient.post(`/v1/live-duels/${roomId}/questions`, { json: payload });
+}
+
+/** Sends chat through the backend so every connected client in the room sees it. */
+export async function postLiveDuelChat(
+  roomId: string,
+  payload: { text: string; emoji?: string },
+): Promise<{
+  id: string;
+  username: string;
+  avatarUrl?: string | null;
+  text: string;
+  emoji?: string;
+  sentAt: number;
+}> {
+  return apiClient.post(`/v1/live-duels/${roomId}/chat`, { json: payload });
+}
+
+/**
+ * Participant submits an answer to the live question. The backend grades it
+ * against the authored payload, folds the earned points into the room
+ * leaderboard, and returns the private result so this client can reveal the
+ * outcome without leaking the answer key to the other tabs.
+ */
+export async function submitLiveDuelAnswer(
+  roomId: string,
+  questionId: string,
+  payload: { answer: ParticipantAnswer },
+): Promise<{
+  questionId: string;
+  correct: boolean | null;
+  earnedPoints: number;
+  leaderboard: DuelLeaderboardEntry[];
+}> {
+  return apiClient.post(`/v1/live-duels/${roomId}/questions/${questionId}/answers`, {
+    json: payload,
+  });
 }
 
 export async function completeTopicBattle(id: string) {

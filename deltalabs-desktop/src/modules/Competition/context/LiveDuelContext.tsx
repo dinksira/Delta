@@ -1,0 +1,196 @@
+/**
+ * LiveDuelContext
+ * Context + reducer for the Live Duel competition workspace. Owns the mutable
+ * room snapshot (viewers, live question, chat, participants, leaderboard) plus
+ * the current user's media toggles. The `initialRoom` prop is required — the
+ * caller seeds a backend room snapshot (see `buildLiveDuelRoom`) so a live feed
+ * can subscribe without changing the view layer.
+ *
+ * Actions follow the `[VERB]_[NOUN]` UPPER_SNAKE_CASE convention;
+ * `LiveDuelContextValue` methods are synchronous.
+ *
+ * @example
+ * ```tsx
+ * <LiveDuelProvider initialRoom={buildLiveDuelRoom(roomId)}>
+ *   <LiveDuelRoom />
+ * </LiveDuelProvider>
+ * ```
+ */
+
+"use client";
+
+import { createContext, useCallback, useMemo, useReducer } from "react";
+import type { ReactNode } from "react";
+
+import type {
+  LiveChatMessage,
+  LiveDuelAction,
+  LiveDuelContextValue,
+  LiveDuelRoom,
+  LiveDuelState,
+  LiveQuestion,
+} from "@/modules/Competition/types/liveDuel";
+
+// ===== INITIAL STATE =====
+
+export function createInitialLiveDuelState(initialRoom: LiveDuelRoom): LiveDuelState {
+  return {
+    room: initialRoom,
+    isMicMuted: false,
+    isCameraOff: true,
+    answers: {},
+  };
+}
+
+// ===== REDUCER =====
+
+function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuelState {
+  switch (action.type) {
+    case "SET_ROOM":
+      return { ...state, room: action.payload };
+    case "UPDATE_VIEWERS":
+      return { ...state, room: { ...state.room, viewers: action.payload } };
+    case "SET_LIVE_QUESTION":
+      return { ...state, room: { ...state.room, liveQuestion: action.payload } };
+    case "POST_LIVE_QUESTION": {
+      // The backend echoes a host's POST back to every subscriber (including the
+      // host). Id-based upsert: the optimistic dispatch lands the question
+      // immediately, then the authoritative echo replaces it in place (same id,
+      // server round/total) — never a duplicate row and never a modal re-open
+      // (LiveDuelRoomPage keys the modal on `liveQuestion.id`).
+      const alreadyLive = state.room.liveQuestion?.id === action.payload.id;
+      const alreadyPosted = state.room.postedQuestions.some(
+        (question) => question.id === action.payload.id,
+      );
+      if (!alreadyLive && alreadyPosted) {
+        return state;
+      }
+      const postedQuestions = alreadyPosted
+        ? state.room.postedQuestions.map((question) =>
+            question.id === action.payload.id ? action.payload : question,
+          )
+        : [action.payload, ...state.room.postedQuestions];
+      return {
+        ...state,
+        room: { ...state.room, liveQuestion: action.payload, postedQuestions },
+      };
+    }
+    case "APPEND_CHAT_MESSAGE":
+      // Backend WS fans a chat message back to every subscriber, including the
+      // sender. Reducer-level dedup on message id keeps the array idempotent so
+      // an echo (or a dev-mode double connect) never yields two rows with the
+      // same key.
+      return state.room.chat.some((message) => message.id === action.payload.id)
+        ? state
+        : {
+            ...state,
+            room: { ...state.room, chat: [...state.room.chat, action.payload] },
+          };
+    case "SET_PARTICIPANT_MUTED":
+      return {
+        ...state,
+        room: {
+          ...state.room,
+          participants: state.room.participants.map((participant) =>
+            participant.id === action.payload.id
+              ? { ...participant, micMuted: action.payload.micMuted }
+              : participant,
+          ),
+        },
+      };
+    case "UPDATE_PARTICIPANT_MEDIA":
+      // Remote camera/mic state relayed by the room channel (`media-state`
+      // signals) so a remote tile's hardware indicator updates live.
+      return {
+        ...state,
+        room: {
+          ...state.room,
+          participants: state.room.participants.map((participant) =>
+            participant.id === action.payload.id
+              ? {
+                  ...participant,
+                  cameraOff: action.payload.cameraOff ?? participant.cameraOff,
+                  micMuted: action.payload.micMuted ?? participant.micMuted,
+                }
+              : participant,
+          ),
+        },
+      };
+    case "ADD_PARTICIPANT":
+      // Backend `JOIN_LIVE_DUEL` fan-out: add a real joiner to the stage grid
+      // (idempotent — the joining tab may also receive its own event).
+      return state.room.participants.some((participant) => participant.id === action.payload.id)
+        ? state
+        : {
+            ...state,
+            room: {
+              ...state.room,
+              participants: [...state.room.participants, action.payload],
+            },
+          };
+    case "UPDATE_LEADERBOARD":
+      return { ...state, room: { ...state.room, leaderboard: action.payload } };
+    case "SET_LIVE_ANSWER_RESULT":
+      // The participant's own result for one question — kept per question id so
+      // the modal reveals the answer on reopen and never double-submits. The
+      // authoritative points already flowed into the room leaderboard via the
+      // backend `UPDATE_LEADERBOARD` fan-out.
+      return {
+        ...state,
+        answers: { ...state.answers, [action.payload.questionId]: action.payload },
+      };
+    case "TOGGLE_MIC":
+      return { ...state, isMicMuted: !state.isMicMuted };
+    case "TOGGLE_CAMERA":
+      return { ...state, isCameraOff: !state.isCameraOff };
+    default:
+      return state;
+  }
+}
+
+// ===== CONTEXT =====
+
+const LiveDuelContext = createContext<LiveDuelContextValue | undefined>(undefined);
+
+export interface LiveDuelProviderProps {
+  children: ReactNode;
+  /** Backend room snapshot signed into the reducer (see `buildLiveDuelRoom`). */
+  initialRoom: LiveDuelRoom;
+}
+
+export function LiveDuelProvider({ children, initialRoom }: Readonly<LiveDuelProviderProps>) {
+  const [state, dispatch] = useReducer(liveDuelReducer, undefined, () =>
+    createInitialLiveDuelState(initialRoom),
+  );
+
+  const sendMessage = useCallback((text: string) => {
+    const message: LiveChatMessage = {
+      id: crypto.randomUUID(),
+      username: "You",
+      text,
+      sentAt: Date.now(),
+    };
+    dispatch({ type: "APPEND_CHAT_MESSAGE", payload: message });
+  }, []);
+
+  const postLiveQuestion = useCallback((question: LiveQuestion) => {
+    dispatch({ type: "POST_LIVE_QUESTION", payload: question });
+  }, []);
+
+  const toggleMic = useCallback(() => {
+    dispatch({ type: "TOGGLE_MIC" });
+  }, []);
+
+  const toggleCamera = useCallback(() => {
+    dispatch({ type: "TOGGLE_CAMERA" });
+  }, []);
+
+  const value = useMemo<LiveDuelContextValue>(
+    () => ({ state, dispatch, sendMessage, postLiveQuestion, toggleMic, toggleCamera }),
+    [state, dispatch, sendMessage, postLiveQuestion, toggleMic, toggleCamera],
+  );
+
+  return <LiveDuelContext.Provider value={value}>{children}</LiveDuelContext.Provider>;
+}
+
+export default LiveDuelContext;

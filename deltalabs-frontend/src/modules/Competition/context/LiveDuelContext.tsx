@@ -2,16 +2,16 @@
  * LiveDuelContext
  * Context + reducer for the Live Duel competition workspace. Owns the mutable
  * room snapshot (viewers, live question, chat, participants, leaderboard) plus
- * the current user's media toggles. The provider accepts an optional
- * `initialRoom` (defaults to the demo seed) so a live feed can subscribe
- * without changing the view layer.
+ * the current user's media toggles. The `initialRoom` prop is required — the
+ * caller seeds a backend room snapshot (see `buildLiveDuelRoom`) so a live feed
+ * can subscribe without changing the view layer.
  *
  * Actions follow the `[VERB]_[NOUN]` UPPER_SNAKE_CASE convention;
  * `LiveDuelContextValue` methods are synchronous.
  *
  * @example
  * ```tsx
- * <LiveDuelProvider>
+ * <LiveDuelProvider initialRoom={buildLiveDuelRoom(roomId)}>
  *   <LiveDuelRoom />
  * </LiveDuelProvider>
  * ```
@@ -22,7 +22,6 @@
 import { createContext, useCallback, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
 
-import { DEMO_LIVE_ROOM } from "@/modules/Competition/data/liveDuels";
 import type {
   LiveChatMessage,
   LiveDuelAction,
@@ -34,7 +33,7 @@ import type {
 
 // ===== INITIAL STATE =====
 
-export function createInitialLiveDuelState(initialRoom = DEMO_LIVE_ROOM): LiveDuelState {
+export function createInitialLiveDuelState(initialRoom: LiveDuelRoom): LiveDuelState {
   return {
     room: initialRoom,
     isMicMuted: false,
@@ -155,7 +154,8 @@ const LiveDuelContext = createContext<LiveDuelContextValue | undefined>(undefine
 
 export interface LiveDuelProviderProps {
   children: ReactNode;
-  initialRoom?: LiveDuelRoom;
+  /** Backend room snapshot signed into the reducer (see `buildLiveDuelRoom`). */
+  initialRoom: LiveDuelRoom;
 }
 
 export function LiveDuelProvider({ children, initialRoom }: Readonly<LiveDuelProviderProps>) {

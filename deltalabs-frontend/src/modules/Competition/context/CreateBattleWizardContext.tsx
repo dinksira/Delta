@@ -10,10 +10,7 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
 
 import { createTopicBattle } from "@/modules/Competition/api";
-import {
-  getWizardStepId,
-  getWizardSteps,
-} from "@/modules/Competition/data/createBattleSteps";
+import { getWizardStepId, getWizardSteps } from "@/modules/Competition/data/createBattleSteps";
 import {
   INITIAL_TOPIC_BATTLE_DRAFT,
   createEmptyQuestion,
@@ -208,10 +205,16 @@ const CreateBattleWizardContext = createContext<CreateBattleWizardContextValue |
 
 export interface CreateBattleWizardProviderProps {
   children: ReactNode;
+  /**
+   * Real owner display name stamped on `createTopicBattle` (defaults to "You"
+   * so guest creation still works).
+   */
+  creatorName?: string;
 }
 
 export function CreateBattleWizardProvider({
   children,
+  creatorName = "You",
 }: Readonly<CreateBattleWizardProviderProps>) {
   const [state, dispatch] = useReducer(createBattleWizardReducer, INITIAL_STATE);
 
@@ -399,7 +402,7 @@ export function CreateBattleWizardProvider({
         entryFee,
         prizePool,
         playersMax: draft.entrySetup.slots,
-        creatorName: "You",
+        creatorName,
         scheduleDate: draft.schedule.date || undefined,
         scheduleTime: draft.schedule.time || undefined,
         scheduleTimezone: draft.schedule.timezone || undefined,
@@ -420,7 +423,7 @@ export function CreateBattleWizardProvider({
         error instanceof Error ? error.message : "Failed to create battle. Please try again.";
       return { ok: false, message };
     }
-  }, [state]);
+  }, [state, creatorName]);
 
   const value: CreateBattleWizardContextValue = {
     ...state,

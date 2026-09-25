@@ -1,6 +1,7 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from time import perf_counter
 from typing import Any
 from uuid import uuid4
@@ -29,10 +30,12 @@ from app.core.readiness import run_readiness_checks
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.service import Service as CompetitionsService
 from app.domain.identity.repository import Repository
+from app.domain.live_duels.repository import Repository as LiveDuelRepository
 from app.infra.database import connect_mongodb, disconnect_mongodb, get_database
 from app.infra.email_client import configure_resend
 from app.infra.http_client import connect_http_client, disconnect_http_client
 from app.infra.redis_client import connect_redis, disconnect_redis
+from app.jobs.launchers import run_scheduled_battle_launcher
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
@@ -52,6 +55,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         db = get_database()
         await Repository(db).ensure_indexes()
+        await CompetitionsRepository(db).ensure_indexes()
+        await LiveDuelRepository(db).ensure_indexes()
         logger.info("startup.indexes_bootstrapped")
     except Exception as exc:
         logger.error("startup.index_bootstrap_failed", extra={"error": str(exc)})
@@ -63,9 +68,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:
         logger.error("startup.competitions_demo_seed_failed", extra={"error": str(exc)})
 
+    # Launch scheduled topic battles that are already past their start time
+    launcher_task = asyncio.create_task(run_scheduled_battle_launcher(db))
+
     try:
         yield
     finally:
+        launcher_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await launcher_task
         await disconnect_http_client()
         await disconnect_redis()
         disconnect_mongodb()

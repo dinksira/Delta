@@ -131,9 +131,17 @@ export function useSearchParams(): URLSearchParams {
 /**
  * Hook to retrieve route parameters parsed from the clean pathname.
  *
+ * Mirrors Next.js `useParams` and accepts an optional generic describing the
+ * param map (e.g. `useParams<{ id?: string }>()`).
+ *
  * @returns {Record<string, string | string[]>} Parameter dictionary.
  */
-export function useParams(): Record<string, string | string[]> {
+export function useParams<
+  TParams extends Record<string, string | string[] | undefined> = Record<
+    string,
+    string | string[]
+  >,
+>(): TParams {
   const pathname = usePathname();
   const parts = pathname.split('/').filter(Boolean);
   const params: Record<string, string | string[]> = {};
@@ -151,7 +159,7 @@ export function useParams(): Record<string, string | string[]> {
     params.id = lastPart;
   }
 
-  return params;
+  return params as unknown as TParams;
 }
 
 // ============================================================================

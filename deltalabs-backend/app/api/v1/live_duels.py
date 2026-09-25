@@ -1,10 +1,12 @@
 """Live Duel HTTP + WebSocket endpoints.
 
-Lobby gets the demo catalog merged with host-created rooms persisted in Mongo.
-Created rooms run a realtime Redis Pub/Sub channel (`live_duel:{room_id}`) that
-the WebSocket fans out to every client in the room as reducer-shaped events
-(`POST_LIVE_QUESTION`, `APPEND_CHAT_MESSAGE`, …) so the frontend dispatches them
-directly into its `LiveDuelContext` without changing the view layer.
+Host-created rooms are persisted in Mongo (the single source of truth for seats,
+questions, answers and chat). Created rooms run a realtime Redis Pub/Sub channel
+(`live_duel:{room_id}`) that the WebSocket fans out to every client in the room
+as reducer-shaped events (`POST_LIVE_QUESTION`, `APPEND_CHAT_MESSAGE`, …) so the
+frontend dispatches them directly into its `LiveDuelContext` without changing
+the view layer. Finished rooms snapshot their final leaderboard so the lobby's
+history/replay surface can list past duels with real results.
 """
 
 from __future__ import annotations
@@ -43,121 +45,6 @@ from app.domain.live_duels.schemas import (
 router = APIRouter(prefix="/live-duels", tags=["live-duels"])
 
 logger = logging.getLogger("deltalabs.live_duels.api")
-
-# ################################ DEMO CATALOG ################################
-# Mirrors the frontend lobby (same ids) so a solo demo room still resolves.
-DEMO_LIVE_DUELS: list[dict[str, Any]] = [
-    {
-        "id": "live-geo-001",
-        "title": "World Geography Showdown",
-        "subject": "Geography",
-        "difficulty": "Medium",
-        "status": "live",
-        "hostName": "Dr. Sarah Martinez",
-        "hostAvatarUrl": None,
-        "viewers": 1247,
-        "playersJoined": 8,
-        "playersMax": 20,
-        "entryFee": "Free",
-        "prizePool": "10,000 ETB",
-        "durationLabel": "10 rounds",
-        "hostIsUser": False,
-    },
-    {
-        "id": "live-math-002",
-        "title": "Quick Maths Live Duel",
-        "subject": "Mathematics",
-        "difficulty": "Easy",
-        "status": "open",
-        "hostName": "Prof. Elias Novak",
-        "hostAvatarUrl": None,
-        "viewers": 3,
-        "playersJoined": 3,
-        "playersMax": 16,
-        "entryFee": "50 ETB",
-        "prizePool": "5,000 ETB",
-        "durationLabel": "60 min",
-        "hostIsUser": False,
-    },
-    {
-        "id": "live-code-003",
-        "title": "Code Sprint Arena",
-        "subject": "Programming",
-        "difficulty": "Hard",
-        "status": "live",
-        "hostName": "Kade Okafor",
-        "hostAvatarUrl": None,
-        "viewers": 891,
-        "playersJoined": 12,
-        "playersMax": 24,
-        "entryFee": "100 ETB",
-        "prizePool": "20,000 ETB",
-        "durationLabel": "10 rounds",
-        "hostIsUser": False,
-    },
-    {
-        "id": "live-hist-004",
-        "title": "History Rapid Fire",
-        "subject": "History",
-        "difficulty": "Medium",
-        "status": "scheduled",
-        "hostName": "Zara Hussein",
-        "hostAvatarUrl": None,
-        "viewers": 0,
-        "playersJoined": 0,
-        "playersMax": 12,
-        "entryFee": "Free",
-        "prizePool": "3,000 ETB",
-        "scheduledAt": "2026-09-08T18:00:00.000Z",
-        "durationLabel": "45 min",
-        "hostIsUser": False,
-    },
-    {
-        "id": "live-bio-005",
-        "title": "Science Smackdown",
-        "subject": "Biology",
-        "difficulty": "Medium",
-        "status": "open",
-        "hostName": "Milo Tran",
-        "hostAvatarUrl": None,
-        "viewers": 0,
-        "playersJoined": 5,
-        "playersMax": 18,
-        "entryFee": "50 ETB",
-        "prizePool": "7,500 ETB",
-        "durationLabel": "60 min",
-        "hostIsUser": False,
-    },
-    {
-        "id": "live-gen-006",
-        "title": "Brain Brawl: Trivia",
-        "subject": "General",
-        "difficulty": "Easy",
-        "status": "live",
-        "hostName": "Dinksira Elsa",
-        "hostAvatarUrl": None,
-        "viewers": 1562,
-        "playersJoined": 20,
-        "playersMax": 40,
-        "entryFee": "Free",
-        "prizePool": "15,000 ETB",
-        "durationLabel": "10 rounds",
-        "hostIsUser": False,
-    },
-]
-
-DEMO_BY_ID: dict[str, dict[str, Any]] = {entry["id"]: entry for entry in DEMO_LIVE_DUELS}
-
-
-def _demo_room_detail(entry: dict[str, Any]) -> dict[str, Any]:
-    return {
-        **entry,
-        "hostUserId": None,
-        "hasJoined": False,
-        "postedQuestions": [],
-        "chat": [],
-    }
-
 
 # ################################ HELPERS ################################
 async def _authenticate_ws(
@@ -362,11 +249,10 @@ async def _ws_client_loop(
 async def list_live_duels(
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
 ) -> list[dict[str, Any]]:
-    """Lobby catalog: host-created rooms first, then the demo list."""
+    """Lobby catalog: every host-created room on the platform."""
     repository = LiveDuelRepository(db)
     stored = await repository.list_all()
-    entries = [LiveDuelRepository.to_entry(doc) for doc in stored]
-    return entries + DEMO_LIVE_DUELS
+    return [LiveDuelRepository.to_entry(doc) for doc in stored]
 
 
 @router.post("", response_model=dict[str, Any], status_code=status.HTTP_201_CREATED)
@@ -402,6 +288,16 @@ async def create_live_duel(
     return LiveDuelRepository.to_entry(doc)
 
 
+@router.get("/history", response_model=list[dict[str, Any]])
+async def get_live_duel_history(
+    db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+) -> list[dict[str, Any]]:
+    """Past duels: finished rooms with their snapshot final leaderboard."""
+    repository = LiveDuelRepository(db)
+    stored = await repository.list_finished()
+    return [LiveDuelRepository.to_entry(doc) for doc in stored]
+
+
 @router.get("/{room_id}", response_model=dict[str, Any])
 async def get_live_duel(
     room_id: str,
@@ -412,40 +308,92 @@ async def get_live_duel(
 
     `hostIsUser` is derived from the authenticated requester so the frontend can
     re-derive host mode after a page reload (the in-memory session registry does
-    not survive a refresh).
+    not survive a refresh). Finished rooms additionally return their snapshot
+    final leaderboard for the replay view.
     """
     repository = LiveDuelRepository(db)
     doc = await repository.find_by_id(room_id)
-    if doc is not None:
-        entry = LiveDuelRepository.to_entry(doc)
-        is_host = current_user is not None and doc.get("host_user_id") == current_user.user_id
-        return {
-            **entry,
-            "hostIsUser": is_host,
-            "participants": await _room_participants(db, doc),
-            "leaderboard": _live_leaderboard(
-                await _room_participants(db, doc),
-                doc.get("answers", []),
-            ),
-            "answers": [
-                {
-                    "questionId": answer.get("question_id"),
-                    "userId": str(answer.get("user_id") or ""),
-                    "answer": answer.get("answer", {}),
-                    "correct": answer.get("correct"),
-                    "earnedPoints": answer.get("earned_points", 0),
-                }
-                for answer in doc.get("answers", [])
-            ],
-            "chat": [LiveDuelRepository.to_chat(msg) for msg in reversed(doc.get("chat", []))],
-        }
-    demo_entry = DEMO_BY_ID.get(room_id)
-    if demo_entry is not None:
-        return _demo_room_detail(demo_entry)
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail={"code": "live_duel_not_found"},
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
+    entry = LiveDuelRepository.to_entry(doc)
+    is_host = current_user is not None and doc.get("host_user_id") == current_user.user_id
+    return {
+        **entry,
+        "hostIsUser": is_host,
+        "participants": await _room_participants(db, doc),
+        "leaderboard": _live_leaderboard(
+            await _room_participants(db, doc),
+            doc.get("answers", []),
+        ),
+        "answers": [
+            {
+                "questionId": answer.get("question_id"),
+                "userId": str(answer.get("user_id") or ""),
+                "answer": answer.get("answer", {}),
+                "correct": answer.get("correct"),
+                "earnedPoints": answer.get("earned_points", 0),
+            }
+            for answer in doc.get("answers", [])
+        ],
+        "chat": [LiveDuelRepository.to_chat(msg) for msg in reversed(doc.get("chat", []))],
+        "finalLeaderboard": doc.get("final_leaderboard") or None,
+        "finishedAt": doc.get("finished_at") or None,
+    }
+
+
+@router.post("/{room_id}/finish", response_model=dict[str, Any])
+async def finish_live_duel(
+    room_id: str,
+    current_user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+) -> dict[str, Any]:
+    """Host ends a live duel: freezes the seats, snapshots the final leaderboard.
+
+    The final leaderboard and completion time are persisted on the room document
+    so the lobby history/replay surface can surface real results after the
+    WebSocket channel is gone.
+    """
+    repository = LiveDuelRepository(db)
+    doc = await repository.find_by_id(room_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
+    if doc.get("host_user_id") != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "not_host"})
+    if doc.get("status") == "finished":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "already_finished"},
+        )
+
+    roster = await _room_participants(db, doc)
+    final_leaderboard = _live_leaderboard(roster, doc.get("answers", []))
+    winner_name = None
+    for row in final_leaderboard:
+        if int(row.get("points") or 0) > 0:
+            winner_name = str(row.get("name") or "Champion")
+            break
+    updated_doc = await repository.mark_finished(
+        room_id,
+        final_leaderboard=final_leaderboard,
+        winner_name=winner_name,
     )
+    if updated_doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
+    return {
+        **LiveDuelRepository.to_entry(updated_doc),
+        "finalLeaderboard": final_leaderboard,
+        "winnerName": winner_name,
+        "finishedAt": updated_doc.get("finished_at") or None,
+    }
 
 
 @router.post("/{room_id}/join", response_model=dict[str, Any])

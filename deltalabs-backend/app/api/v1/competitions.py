@@ -1,4 +1,4 @@
-"""Topic battle API — create, list, hub aggregates, question management, and code execution."""
+"""Topic battle API — create, list, hub aggregates, code execution, and management tables."""
 
 from fastapi import APIRouter, Depends, Query
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -6,6 +6,21 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.api.deps import CurrentUser, get_current_user, get_current_user_optional, get_db
 from app.domain.competitions.executor import CodeExecutor
 from app.domain.competitions.repository import Repository as CompetitionsRepository
+from app.domain.competitions.schemas import (
+    ChampionshipCreateRequest,
+    ChampionshipResponse,
+    CodeExecuteRequest,
+    CodeExecuteResponse,
+    CodeSubmitRequest,
+    CodeSubmitResponse,
+    CompetitionGamesResponse,
+    CompetitionHubResponse,
+    CompetitionModeResponse,
+    TopicBattleCreateRequest,
+    TopicBattleListResponse,
+    TopicBattleResponse,
+)
+from app.domain.competitions.service import Service as CompetitionsService
 from app.domain.management_table.schemas import (
     ManagementTableColumnAppendInput,
     ManagementTableColumnPatchInput,
@@ -19,25 +34,6 @@ from app.domain.management_table.schemas import (
     ManagementTableTableGroupCreateInput,
 )
 from app.domain.management_table.service import ManagementTableService
-from app.domain.competitions.schemas import (
-    ChampionshipCreateRequest,
-    ChampionshipResponse,
-    CodeExecuteRequest,
-    CodeExecuteResponse,
-    CodeSubmitRequest,
-    CodeSubmitResponse,
-    CompetitionGameResponse,
-    CompetitionGamesResponse,
-    CompetitionHubResponse,
-    CompetitionModeResponse,
-    QuestionCreateRequest,
-    QuestionResponse,
-    QuestionUpdateRequest,
-    TopicBattleCreateRequest,
-    TopicBattleListResponse,
-    TopicBattleResponse,
-)
-from app.domain.competitions.service import Service as CompetitionsService
 
 router = APIRouter(prefix="/competitions", tags=["competitions"])
 
@@ -222,59 +218,6 @@ async def complete_topic_battle(
         battle_id=battle_id,
         user_id=user.user_id,
     )
-
-
-# ============================================================================
-# Question CRUD (embedded in battle document)
-# ============================================================================
-
-
-@router.post("/topic-battles/{battle_id}/questions", response_model=QuestionResponse)
-async def add_question(
-    battle_id: str,
-    payload: QuestionCreateRequest,
-    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
-) -> QuestionResponse:
-    return await service.add_question(battle_id=battle_id, payload=payload)
-
-
-@router.get("/topic-battles/{battle_id}/questions", response_model=list[QuestionResponse])
-async def list_questions(
-    battle_id: str,
-    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
-) -> list[QuestionResponse]:
-    return await service.list_questions(battle_id=battle_id)
-
-
-@router.get("/topic-battles/{battle_id}/questions/{question_id}", response_model=QuestionResponse)
-async def get_question(
-    battle_id: str,
-    question_id: str,
-    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
-) -> QuestionResponse:
-    return await service.get_question(battle_id=battle_id, question_id=question_id)
-
-
-@router.put("/topic-battles/{battle_id}/questions/{question_id}", response_model=QuestionResponse)
-async def update_question(
-    battle_id: str,
-    question_id: str,
-    payload: QuestionUpdateRequest,
-    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
-) -> QuestionResponse:
-    return await service.update_question(
-        battle_id=battle_id, question_id=question_id, payload=payload,
-    )
-
-
-@router.delete("/topic-battles/{battle_id}/questions/{question_id}")
-async def delete_question(
-    battle_id: str,
-    question_id: str,
-    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
-) -> dict[str, str]:
-    await service.delete_question(battle_id=battle_id, question_id=question_id)
-    return {"status": "deleted"}
 
 
 # ============================================================================

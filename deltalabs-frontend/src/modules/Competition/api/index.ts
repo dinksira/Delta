@@ -12,7 +12,11 @@ import type {
   CodeSubmitResponse,
 } from "@/modules/Competition/types/codeExecution";
 import { uploadSchoolMediaFile } from "@/modules/School/api";
-import type { LiveDuelEntry, LiveDuelRoomDetail } from "@/modules/Competition/types/liveDuel";
+import type {
+  LiveDuelEntry,
+  LiveDuelHistoryEntry,
+  LiveDuelRoomDetail,
+} from "@/modules/Competition/types/liveDuel";
 
 /** Payload for POST /v1/competitions/topic-battles (mirrors backend TopicBattleCreateRequest). */
 export interface CreateTopicBattlePayload {
@@ -91,21 +95,12 @@ export async function joinTopicBattle(id: string) {
 }
 
 /**
- * Join a live duel room. Backend-hosted rooms (`<24-hex-id>`) hit
- * `POST /v1/live-duels/{id}/join` so the seat fill is shared; demo/local rooms
- * resolve via the short stub to keep the bag-of-demo flow identical to the
- * topic battle flow.
+ * Join a live duel room (`POST /v1/live-duels/{id}/join`). Rooms are
+ * backend-hosted, so joining is a real network call; a 404/409 surfaces as a
+ * thrown error that the lobby join modal translates for the user.
  */
 export async function joinLiveDuel(id: string): Promise<{ id: string; joined: boolean }> {
-  if (/^[0-9a-f]{24}$/i.test(id)) {
-    try {
-      await apiClient.post<LiveDuelEntry>(`/v1/live-duels/${id}/join`);
-      return { id, joined: true };
-    } catch {
-      // Fall through to the demo stub; the lobby join modal still succeeds.
-    }
-  }
-  await new Promise((resolve) => setTimeout(resolve, 700));
+  await apiClient.post<LiveDuelEntry>(`/v1/live-duels/${id}/join`);
   return { id, joined: true };
 }
 
@@ -122,7 +117,9 @@ export interface CreateLiveDuelApiPayload {
   hostAvatarUrl?: string | null;
 }
 
-export async function createLiveDuelRoom(payload: CreateLiveDuelApiPayload): Promise<LiveDuelEntry> {
+export async function createLiveDuelRoom(
+  payload: CreateLiveDuelApiPayload,
+): Promise<LiveDuelEntry> {
   return apiClient.post<LiveDuelEntry>("/v1/live-duels", { json: payload });
 }
 
@@ -132,6 +129,16 @@ export async function fetchLiveDuels(): Promise<LiveDuelEntry[]> {
 
 export async function fetchLiveDuelRoom(roomId: string): Promise<LiveDuelRoomDetail> {
   return apiClient.get<LiveDuelRoomDetail>(`/v1/live-duels/${roomId}`);
+}
+
+/** Finished duels (`GET /v1/live-duels/history`) with snapshot final leaderboards. */
+export async function fetchLiveDuelHistory(): Promise<LiveDuelHistoryEntry[]> {
+  return apiClient.get<LiveDuelHistoryEntry[]>("/v1/live-duels/history");
+}
+
+/** Host ends a live duel (`POST /v1/live-duels/{id}/finish`); fans out a SET_LIVE_DUEL_FINISHED. */
+export async function finishLiveDuel(roomId: string): Promise<LiveDuelRoomDetail> {
+  return apiClient.post<LiveDuelRoomDetail>(`/v1/live-duels/${roomId}/finish`);
 }
 
 export interface PostLiveDuelQuestionPayload {
@@ -164,7 +171,14 @@ export async function postLiveDuelQuestion(
 export async function postLiveDuelChat(
   roomId: string,
   payload: { text: string; emoji?: string },
-): Promise<{ id: string; username: string; avatarUrl?: string | null; text: string; emoji?: string; sentAt: number }> {
+): Promise<{
+  id: string;
+  username: string;
+  avatarUrl?: string | null;
+  text: string;
+  emoji?: string;
+  sentAt: number;
+}> {
   return apiClient.post(`/v1/live-duels/${roomId}/chat`, { json: payload });
 }
 
@@ -184,7 +198,9 @@ export async function submitLiveDuelAnswer(
   earnedPoints: number;
   leaderboard: DuelLeaderboardEntry[];
 }> {
-  return apiClient.post(`/v1/live-duels/${roomId}/questions/${questionId}/answers`, { json: payload });
+  return apiClient.post(`/v1/live-duels/${roomId}/questions/${questionId}/answers`, {
+    json: payload,
+  });
 }
 
 export async function completeTopicBattle(id: string) {

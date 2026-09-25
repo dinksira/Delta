@@ -3,3 +3,4 @@ export {
   CreateBattleWizardProvider,
   useCreateBattleWizard,
 } from "./CreateBattleWizardContext";
+export { LiveDuelProvider, createInitialLiveDuelState } from "./LiveDuelContext";

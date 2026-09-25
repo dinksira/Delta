@@ -88,10 +88,8 @@ import { DesignCanvasModule } from "@/components/organisms/DesignCanvasModule/De
 import { BattleCreatedModal } from "@/components/organisms/BattleCreatedModal/BattleCreatedModal";
 import { Button } from "@/components/theme/Button";
 import { Typography } from "@/components/theme/Typography";
-import {
-  CreateBattleWizardProvider,
-  useCreateBattleWizard,
-} from "@/modules/Competition/context";
+import { useAuthSession } from "@/contexts/AuthSession_Context";
+import { CreateBattleWizardProvider, useCreateBattleWizard } from "@/modules/Competition/context";
 import {
   BATTLE_FORMATS,
   BATTLE_TIMINGS,
@@ -134,14 +132,30 @@ const TRENDING_SUBJECTS: { value: string; label: string }[] = [
 
 /** Physics-flavored Science topics (spec pill "Physics"). */
 const PHYSICS_KEYWORDS = [
-  "quantum", "relativity", "physic", "thermo", "electro", "optics",
-  "wave", "mechanics", "nuclear", "particle", "astron",
+  "quantum",
+  "relativity",
+  "physic",
+  "thermo",
+  "electro",
+  "optics",
+  "wave",
+  "mechanics",
+  "nuclear",
+  "particle",
+  "astron",
 ];
 
 /** Chemistry-flavored Science topics (spec pill "Chemistry"). */
 const CHEMISTRY_KEYWORDS = [
-  "chem", "periodic", "reaction", "stoichiometry", "organic",
-  "inorganic", "molecule", "acid", "base",
+  "chem",
+  "periodic",
+  "reaction",
+  "stoichiometry",
+  "organic",
+  "inorganic",
+  "molecule",
+  "acid",
+  "base",
 ];
 
 /** Per-category subject icon rendered inside each topic card's icon chip. */
@@ -232,13 +246,25 @@ const FORMAT_LIMITS: Record<
 };
 
 export const QUESTION_LANGUAGES = [
-  "HTML", "CSS", "JavaScript", "TypeScript", "Python", "Java", "C++",
-  "C#", "Go", "Rust", "SQL", "PHP",
+  "HTML",
+  "CSS",
+  "JavaScript",
+  "TypeScript",
+  "Python",
+  "Java",
+  "C++",
+  "C#",
+  "Go",
+  "Rust",
+  "SQL",
+  "PHP",
 ];
 
 export function CreateBattleTopicPage() {
+  const { session } = useAuthSession();
+  const creatorName = session?.user?.username || session?.user?.fullName || "You";
   return (
-    <CreateBattleWizardProvider>
+    <CreateBattleWizardProvider creatorName={creatorName}>
       <CreateBattleTopicWizard />
     </CreateBattleWizardProvider>
   );
@@ -361,7 +387,7 @@ function CreateBattleTopicWizard() {
     const prizePool =
       fee === "Free"
         ? "0 ETB"
-        : `${(fee === "Custom" ? (draft.entrySetup.customFee || 0) : Number(fee)) * draft.entrySetup.slots} ETB`;
+        : `${(fee === "Custom" ? draft.entrySetup.customFee || 0 : Number(fee)) * draft.entrySetup.slots} ETB`;
     const format = BATTLE_FORMATS.find((f) => f.id === draft.format.id);
     return {
       title: draft.topic.name || "Your",
@@ -391,9 +417,7 @@ function CreateBattleTopicWizard() {
         previousDisabled={currentStep <= 1 || isSubmitting}
         onNext={isLastStep ? handleSubmit : goNext}
         nextDisabled={!canGoNext || isSubmitting}
-        nextLabel={
-          isLastStep ? (isSubmitting ? "Launching…" : "Launch Battle") : "Next"
-        }
+        nextLabel={isLastStep ? (isSubmitting ? "Launching…" : "Launch Battle") : "Next"}
         submitError={submitError}
       >
         <StepContent
@@ -558,8 +582,7 @@ function TopicSelectionStep({
   const filteredTopics = useMemo(() => {
     const queryText = searchQuery.trim().toLowerCase();
     return TOPIC_CATALOG.filter((topic) => {
-      const matchesSearch =
-        !queryText || topic.name.toLowerCase().includes(queryText);
+      const matchesSearch = !queryText || topic.name.toLowerCase().includes(queryText);
       const matchesFilter = matchesSubjectFilter(topic, filter);
       return matchesSearch && matchesFilter;
     });
@@ -664,26 +687,16 @@ function TopicSelectionStep({
             onToggleMultiSelectTopic(id);
           } else {
             const topic =
-              TOPIC_CATALOG.find((t) => t.id === id) ??
-              customTopics.find((t) => t.id === id);
+              TOPIC_CATALOG.find((t) => t.id === id) ?? customTopics.find((t) => t.id === id);
             if (topic) selectTopic(topic.id, topic.name, topic.category, topic.difficulty);
           }
         }}
-        action={
-          <CreateTopicCard
-            subjects={subjectOptions}
-            onCreate={onCreateCustomTopic}
-          />
-        }
+        action={<CreateTopicCard subjects={subjectOptions} onCreate={onCreateCustomTopic} />}
       />
 
       {filteredTopics.length > TOPICS_PER_PAGE && (
         <div className="flex justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSeeMoreChange(!seeMore)}
-          >
+          <Button variant="ghost" size="sm" onClick={() => onSeeMoreChange(!seeMore)}>
             {seeMore ? "Show Less" : `See More Topics (${filteredTopics.length})`}
           </Button>
         </div>
@@ -741,7 +754,10 @@ function MatchVisibilityStep() {
         <PrivateMatchSettings open={draft.visibility.id === "private"} />
 
         <div className="mt-8 flex flex-col gap-3">
-          <Typography as="h3" className="flex items-center gap-2 text-[15px] font-bold text-primary-700">
+          <Typography
+            as="h3"
+            className="flex items-center gap-2 text-[15px] font-bold text-primary-700"
+          >
             <Clock className="size-4 text-primary-700" aria-hidden />
             When to start Battle
           </Typography>
@@ -757,7 +773,10 @@ function MatchVisibilityStep() {
 
         {draft.visibility.timing === "schedule" && (
           <div className="mt-8 flex flex-col gap-3">
-            <Typography as="h3" className="flex items-center gap-2 text-[15px] font-bold text-primary-700">
+            <Typography
+              as="h3"
+              className="flex items-center gap-2 text-[15px] font-bold text-primary-700"
+            >
               <CalendarClock className="size-4 text-primary-700" aria-hidden />
               Schedule Your Battle
             </Typography>
@@ -765,8 +784,12 @@ function MatchVisibilityStep() {
               date={draft.schedule.date}
               time={draft.schedule.time}
               timezone={draft.schedule.timezone}
-              onDateChange={(date) => updateSchedule(date, draft.schedule.time, draft.schedule.timezone)}
-              onTimeChange={(time) => updateSchedule(draft.schedule.date, time, draft.schedule.timezone)}
+              onDateChange={(date) =>
+                updateSchedule(date, draft.schedule.time, draft.schedule.timezone)
+              }
+              onTimeChange={(time) =>
+                updateSchedule(draft.schedule.date, time, draft.schedule.timezone)
+              }
               onTimezoneChange={(timezone) =>
                 updateSchedule(draft.schedule.date, draft.schedule.time, timezone)
               }
@@ -820,9 +843,7 @@ function PlayerEntrySetupStep() {
           options={ENTRY_FEE_OPTIONS}
           value={draft.entrySetup.fee}
           customFee={draft.entrySetup.customFee}
-          onChange={(fee, customFee) =>
-            updateEntrySetup(draft.entrySetup.slots, fee, customFee)
-          }
+          onChange={(fee, customFee) => updateEntrySetup(draft.entrySetup.slots, fee, customFee)}
         />
       </div>
     </>
@@ -880,8 +901,12 @@ function ScheduleStep() {
           date={draft.schedule.date}
           time={draft.schedule.time}
           timezone={draft.schedule.timezone}
-          onDateChange={(date) => updateSchedule(date, draft.schedule.time, draft.schedule.timezone)}
-          onTimeChange={(time) => updateSchedule(draft.schedule.date, time, draft.schedule.timezone)}
+          onDateChange={(date) =>
+            updateSchedule(date, draft.schedule.time, draft.schedule.timezone)
+          }
+          onTimeChange={(time) =>
+            updateSchedule(draft.schedule.date, time, draft.schedule.timezone)
+          }
           onTimezoneChange={(timezone) =>
             updateSchedule(draft.schedule.date, draft.schedule.time, timezone)
           }
@@ -899,12 +924,8 @@ function ScheduleStep() {
 function QuestionPoolStep({
   onOpenQuestionBuilder,
 }: Readonly<{ onOpenQuestionBuilder: () => void }>) {
-  const {
-    draft,
-    updateQuestionPoolMode,
-    addQuestion,
-    setActiveQuestionId,
-  } = useCreateBattleWizard();
+  const { draft, updateQuestionPoolMode, addQuestion, setActiveQuestionId } =
+    useCreateBattleWizard();
   const { questionPool, customQuestions } = draft;
   const mode = questionPool.mode;
 
@@ -1017,10 +1038,10 @@ export const QUESTION_TYPE_KINDS: Record<string, QuestionKind> = {
   "Multiple Choice": "multiple_choice",
   "True / False": "true_false",
   "Fill-in-the-Blanks": "fill_blank",
-  "Matching": "matching",
+  Matching: "matching",
   "Writing / Essay": "writing",
   "Ordering / Sequencing": "ordering",
-  "Markdown": "markdown",
+  Markdown: "markdown",
   "Design Challenge": "design",
 };
 
@@ -1245,11 +1266,7 @@ function QuestionBuilderStep({ onBack }: Readonly<{ onBack: () => void }>) {
         </div>
       }
       leftRail={
-        <ModuleRail
-          modules={WORKSPACE_MODULES}
-          activeId={activeModule}
-          onSelect={selectModule}
-        />
+        <ModuleRail modules={WORKSPACE_MODULES} activeId={activeModule} onSelect={selectModule} />
       }
       rightPanel={
         <ModuleSettingsPanel>
@@ -1338,7 +1355,11 @@ function ReviewLaunchStep() {
       value: `${draft.entrySetup.slots}`,
       step: getWizardStepIndex("player-setup", draft.visibility.timing),
     },
-    { label: "Entry fee", value: feeText, step: getWizardStepIndex("player-setup", draft.visibility.timing) },
+    {
+      label: "Entry fee",
+      value: feeText,
+      step: getWizardStepIndex("player-setup", draft.visibility.timing),
+    },
     {
       label: "Prize pool",
       value: `${draft.prizeDistribution.totalPool} ETB · ${prizeRule?.title ?? ""}`,

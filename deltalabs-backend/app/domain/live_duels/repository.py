@@ -1,17 +1,19 @@
 """Live Duel room persistence (MongoDB).
 
 Rooms created by hosts are stored in the `live_duels` collection with a string
-`_id` (the hex `ObjectId`). The lobby merges stored rooms ahead of the demo
-catalog; the realtime event fanout is Redis-based (`queue.py`) and kept out of
-this repository.
+`_id` (the hex `ObjectId`). Finished rooms keep a snapshot of their final
+leaderboard + completion time for the lobby history/replay surface; the realtime
+event fanout is Redis-based (`queue.py`) and kept out of this repository.
 """
 
 from __future__ import annotations
 
+from time import time
 from typing import Any
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
+
 
 # ################################ REPOSITORY ################################
 class Repository:
@@ -27,6 +29,7 @@ class Repository:
     async def ensure_indexes(self) -> None:
         await self.collection.create_index("host_user_id")
         await self.collection.create_index("created_at")
+        await self.collection.create_index("status")
 
     async def insert(self, doc: dict[str, Any]) -> dict[str, Any]:
         result = await self.collection.insert_one(doc)
@@ -42,6 +45,33 @@ class Repository:
 
     async def list_all(self) -> list[dict[str, Any]]:
         cursor = self.collection.find().sort("created_at", -1)
+        return [doc async for doc in cursor]
+
+    async def mark_finished(
+        self,
+        room_id: str,
+        final_leaderboard: list[dict[str, Any]],
+        winner_name: str | None,
+    ) -> dict[str, Any] | None:
+        try:
+            oid = ObjectId(room_id)
+        except Exception:
+            return None
+        await self.collection.update_one(
+            {"_id": oid},
+            {
+                "$set": {
+                    "status": "finished",
+                    "final_leaderboard": final_leaderboard,
+                    "winner_name": winner_name,
+                    "finished_at": int(time() * 1000),
+                }
+            },
+        )
+        return await self.find_by_id(room_id)
+
+    async def list_finished(self) -> list[dict[str, Any]]:
+        cursor = self.collection.find({"status": "finished"}).sort("finished_at", -1)
         return [doc async for doc in cursor]
 
     async def mark_joined(self, room_id: str, user_id: str) -> dict[str, Any] | None:
@@ -127,6 +157,9 @@ class Repository:
             "prizePool": doc.get("prize_pool", "0 ETB"),
             "durationLabel": doc.get("duration_label", "60 min"),
             "hasJoined": True,
+            "scheduledAt": doc.get("scheduled_at") or None,
+            "finalLeaderboard": doc.get("final_leaderboard") or None,
+            "finishedAt": doc.get("finished_at") or None,
             "postedQuestions": doc.get("questions", []),
         }
 

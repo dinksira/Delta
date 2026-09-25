@@ -1,18 +1,17 @@
 /**
  * LiveDuelRoomPage
  * Entry view for the Live Duel competition room. Wraps the workspace in a
- * `LiveDuelProvider` seeded from the route `[id]` (falls back to a default demo
- * room when the id is missing/unknown) and drives a lightweight real-time
- * simulation while the real channel arrives: viewer-count drift and rotating
- * host questions (with an idle beat between cycles). The on-stage grid shows
- * only real users — the host, the current user, and (for backend rooms) joined
- * participants pushed over the room WebSocket (`JOIN_LIVE_DUEL`). No mock
- * participants or simulated chatter are rendered.
+ * `LiveDuelProvider` seeded from the route `[id]` via `buildLiveDuelRoom`, then
+ * subscribes the room over the backend WebSocket. The on-stage grid shows only
+ * real users — the host, the current user, and (for backend rooms) joined
+ * participants pushed over the room channel (`JOIN_LIVE_DUEL`). No mock
+ * participants, simulated viewers or simulated chatter are rendered.
  *
- * When the duel was created by the current user (`entry.hostIsUser`), the room
- * renders in **host mode**: the question auto-rotation is disabled, the host
- * participant is the current user, and a `HostControlPanel` lets the host post
- * questions live round by round.
+ * When the current user is the host (`entry.hostIsUser` / room detail), the room
+ * renders in **host mode**: the host participant is the current user, a
+ * `HostControlPanel` lets the host post questions live, and an "End Duel"
+ * action freezes the seat results (final leaderboard persisted for the lobby
+ * history) and returns to the lobby.
  *
  * @example
  * ```tsx
@@ -25,7 +24,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Radio } from "lucide-react";
+import { ArrowLeft, Flag, Radio } from "lucide-react";
 
 import { LiveDuelWorkspaceTemplate } from "@/components/templates/LiveDuelWorkspaceTemplate";
 import { HostControlPanel } from "@/components/organisms/HostControlPanel";
@@ -33,7 +32,12 @@ import { LeaveLiveDuelModal } from "@/components/organisms/LeaveLiveDuelModal";
 import { QuestionModal } from "@/components/organisms/QuestionModal";
 import { Button } from "@/components/theme/Button";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { fetchLiveDuelRoom, postLiveDuelQuestion, submitLiveDuelAnswer } from "@/modules/Competition/api";
+import {
+  fetchLiveDuelRoom,
+  finishLiveDuel,
+  postLiveDuelQuestion,
+  submitLiveDuelAnswer,
+} from "@/modules/Competition/api";
 import { LiveDuelProvider } from "@/modules/Competition/context/LiveDuelContext";
 import {
   useLiveDuel,
@@ -41,7 +45,6 @@ import {
   useLiveDuelSocket,
   useLiveMediaStream,
 } from "@/modules/Competition/hooks";
-import { DEMO_LIVE_QUESTIONS } from "@/modules/Competition/data/liveDuels";
 import {
   buildLiveDuelRoom,
   getLiveDuelEntry,
@@ -49,10 +52,11 @@ import {
   type BuildLiveDuelRoomOptions,
 } from "@/modules/Competition/data/liveDuelsCatalog";
 import type { ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
-import type { LiveDuelAction, LiveDuelRoom, LiveQuestion, LiveMediaSignal } from "@/modules/Competition/types/liveDuel";
-
-const VIEWER_TICK_MS = 6000;
-const QUESTION_TICK_MS = 12000;
+import type {
+  LiveDuelRoom,
+  LiveQuestion,
+  LiveMediaSignal,
+} from "@/modules/Competition/types/liveDuel";
 
 function isBackendRoomId(id?: string): boolean {
   return Boolean(id && /^[0-9a-f]{24}$/i.test(id));
@@ -76,14 +80,7 @@ function LiveDuelRoom({
   // user to host (`detail.hostIsUser`). Kept in state so the Host Control panel
   // (with the question builder) appears once the fetch resolves.
   const [effectiveIsHost, setEffectiveIsHost] = useState(isHost);
-  const {
-    state,
-    dispatch,
-    sendMessage,
-    postLiveQuestion,
-    toggleMic,
-    toggleCamera,
-  } = useLiveDuel();
+  const { state, dispatch, sendMessage, postLiveQuestion, toggleMic, toggleCamera } = useLiveDuel();
   const { room, isMicMuted, isCameraOff } = state;
   // Signals arrive through the socket options object, so the page routes them
   // via a ref the RTC hook fills in below (avoids a circular hook ordering).
@@ -96,12 +93,7 @@ function LiveDuelRoom({
       handleSignalRef.current(signal);
     },
   });
-  const {
-    mediaStream,
-    error: mediaError,
-    isSpeaking,
-    voiceLevel,
-  } = useLiveMediaStream();
+  const { mediaStream, error: mediaError, isSpeaking, voiceLevel } = useLiveMediaStream();
 
   // WebRTC mesh: one peer per remote stage participant, so both sides' cameras
   // render live once toggled on ("videos on show on both sides").
@@ -126,6 +118,9 @@ function LiveDuelRoom({
   });
   handleSignalRef.current = handleSignal;
   const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
+  const [finishingDuel, setFinishingDuel] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const [modalQuestion, setModalQuestion] = useState<LiveQuestion | null>(null);
   const [seenQuestionId, setSeenQuestionId] = useState<string | null>(null);
   const [submittingAnswer, setSubmittingAnswer] = useState(false);
@@ -144,8 +139,8 @@ function LiveDuelRoom({
 
   // Open the on-air question modal whenever a *new* question arrives in the
   // room state — whether the host posted it here (POST_LIVE_QUESTION) or it was
-  // fanned out to this viewer (demo SET_LIVE_QUESTION / backend WS). An idle
-  // beat (null) clears the seen id so the deck loop re-opens the next question.
+  // fanned out to this viewer over the backend WS. An idle (null) clears the
+  // seen id so the next round re-opens the modal.
   useEffect(() => {
     if (!room.liveQuestion) {
       setSeenQuestionId(null);
@@ -156,11 +151,6 @@ function LiveDuelRoom({
       setModalQuestion(room.liveQuestion);
     }
   }, [room.liveQuestion, seenQuestionId]);
-
-  // Latest values read by the interval closures without re-subscribing.
-  const viewersRef = useRef(room.viewers);
-  viewersRef.current = room.viewers;
-  const questionStepRef = useRef(0);
 
   // Reflect the current user's real media state on their own participant card.
   const onStageParticipants = useMemo(
@@ -224,53 +214,36 @@ function LiveDuelRoom({
     };
   }, [isBackendRoom, room.id, dispatch, currentUser, isReady]);
 
-  useEffect(() => {
-    const viewerInterval = window.setInterval(() => {
-      const drift = Math.floor(Math.random() * 50) - 8;
-      const action: LiveDuelAction = {
-        type: "UPDATE_VIEWERS",
-        payload: Math.max(0, viewersRef.current + drift),
-      };
-      dispatch(action);
-    }, VIEWER_TICK_MS);
-
-    // Backend rooms receive real chat + roster over the socket; never simulate.
-    // Host mode (and backend rooms) drive questions from the host control
-    // panel; never auto-rotate there.
-    const questionInterval =
-      effectiveIsHost || isBackendRoom
-        ? undefined
-        : window.setInterval(() => {
-            const step = questionStepRef.current + 1;
-            questionStepRef.current = step;
-            // Every (deckLength + 1)th beat is an idle pause before the deck loops.
-            const index = (step - 1) % (DEMO_LIVE_QUESTIONS.length + 1);
-            const action: LiveDuelAction =
-              index === DEMO_LIVE_QUESTIONS.length
-                ? { type: "SET_LIVE_QUESTION", payload: null }
-                : {
-                    type: "SET_LIVE_QUESTION",
-                    payload: DEMO_LIVE_QUESTIONS[index % DEMO_LIVE_QUESTIONS.length],
-                  };
-            dispatch(action);
-          }, QUESTION_TICK_MS);
-
-    return () => {
-      window.clearInterval(viewerInterval);
-      if (questionInterval) {
-        window.clearInterval(questionInterval);
-      }
-    };
-  }, [dispatch, effectiveIsHost, isBackendRoom]);
-
   const handleLeave = () => {
-
     setConfirmingLeave(true);
   };
 
   const handleConfirmLeave = () => {
     setConfirmingLeave(false);
     router.push("/features/competitions");
+  };
+
+  const handleRequestFinish = () => {
+    setConfirmingFinish(true);
+  };
+
+  const handleConfirmFinish = async () => {
+    if (!isBackendRoom || finishingDuel) {
+      return;
+    }
+    setFinishingDuel(true);
+    setFinishError(null);
+    try {
+      await finishLiveDuel(room.id);
+      setConfirmingFinish(false);
+      router.push("/features/competitions");
+    } catch (error) {
+      setFinishError(
+        error instanceof Error ? error.message : "Failed to end the duel. Please try again.",
+      );
+    } finally {
+      setFinishingDuel(false);
+    }
   };
 
   const handleSendMessage = (text: string) => {
@@ -325,15 +298,13 @@ function LiveDuelRoom({
       // HTTP echo keeps this tab in sync even if its socket dropped.
       dispatch({ type: "UPDATE_LEADERBOARD", payload: result.leaderboard });
     } catch (error) {
-      setAnswerError(
-        error instanceof Error ? error.message : "Failed to submit your answer.",
-      );
+      setAnswerError(error instanceof Error ? error.message : "Failed to submit your answer.");
     } finally {
       setSubmittingAnswer(false);
     }
   };
 
-  const activeAnswer = modalQuestion ? state.answers[modalQuestion.id] ?? null : null;
+  const activeAnswer = modalQuestion ? (state.answers[modalQuestion.id] ?? null) : null;
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
@@ -354,13 +325,52 @@ function LiveDuelRoom({
             <p className="flex items-center gap-1.5 text-xs text-text-secondary">
               <Radio className="size-3.5 text-error-500" aria-hidden />
               Arena · {room.title}
-              {effectiveIsHost ? <span className="font-semibold text-primary-700">· Hosting</span> : null}
-              {isBackendRoom && connected ? (
-                <span className="text-primary-600">· Live</span>
+              {effectiveIsHost ? (
+                <span className="font-semibold text-primary-700">· Hosting</span>
               ) : null}
+              {isBackendRoom && connected ? <span className="text-primary-600">· Live</span> : null}
             </p>
           </div>
         </div>
+        {effectiveIsHost && isBackendRoom ? (
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              {confirmingFinish ? (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={() => {
+                      setConfirmingFinish(false);
+                      setFinishError(null);
+                    }}
+                    disabled={finishingDuel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={handleConfirmFinish}
+                    disabled={finishingDuel}
+                  >
+                    {finishingDuel ? "Ending…" : "Confirm end"}
+                  </Button>
+                </>
+              ) : (
+                <Button variant="secondary" size="md" onClick={handleRequestFinish}>
+                  <Flag className="size-4" aria-hidden />
+                  End Duel
+                </Button>
+              )}
+            </div>
+            {finishError ? (
+              <p className="text-xs text-error-600" role="alert">
+                {finishError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <LiveDuelWorkspaceTemplate
@@ -434,10 +444,7 @@ export function LiveDuelRoomPage() {
         : undefined,
     [session],
   );
-  const isHost = useMemo(
-    () => getLiveDuelEntry(params.id)?.hostIsUser === true,
-    [params.id],
-  );
+  const isHost = useMemo(() => getLiveDuelEntry(params.id)?.hostIsUser === true, [params.id]);
   const initialRoom = useMemo<LiveDuelRoom>(
     () => buildLiveDuelRoom(params.id, { hostIsUser: isHost, currentUser }),
     [params.id, isHost, currentUser],

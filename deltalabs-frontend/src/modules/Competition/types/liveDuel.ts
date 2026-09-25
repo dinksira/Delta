@@ -11,8 +11,9 @@
  * - a scrolling chat feed of translated message pills,
  * - a live leaderboard reusing `DuelLeaderboardEntry` from the duel quiz.
  *
- * Demo seeding lives in `data/liveDuels.ts`; a WebSocket swap can feed the same
- * reducer later without touching the view layer.
+ * Rooms are backend-hosted and realtime (WebSocket + Redis Pub/Sub); the
+ * lobby history lists finished rooms with their snapshot final leaderboard for
+ * replay.
  */
 
 import type { DuelLeaderboardEntry, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
@@ -143,8 +144,20 @@ export interface LiveDuelRoomDetail extends LiveDuelEntry {
   leaderboard?: DuelLeaderboardEntry[];
   /** Every recorded answer (so a reload restores the participant's reveal). */
   answers?: LiveDuelAnswerRecord[];
+  /** Final leaderboard snapshot persisted when the host ended the duel (replay). */
+  finalLeaderboard?: DuelLeaderboardEntry[] | null;
+  /** Completion timestamp (epoch ms) set when the duel was finished. */
+  finishedAt?: number | null;
   postedQuestions: LiveQuestion[];
   chat: LiveChatMessage[];
+}
+
+/** A finished duel entry from `GET /v1/live-duels/history` (lobby replay list). */
+export interface LiveDuelHistoryEntry extends LiveDuelEntry {
+  /** Final ranked points table, frozen when the host ended the duel. */
+  finalLeaderboard?: DuelLeaderboardEntry[] | null;
+  /** Completion timestamp (epoch ms). */
+  finishedAt?: number | null;
 }
 
 /** Best-effort shape of a realtime event broadcast by `GET /v1/live-duels/ws`. */
@@ -184,7 +197,10 @@ export type LiveDuelAction =
   | { type: "POST_LIVE_QUESTION"; payload: LiveQuestion }
   | { type: "APPEND_CHAT_MESSAGE"; payload: LiveChatMessage }
   | { type: "SET_PARTICIPANT_MUTED"; payload: { id: string; micMuted: boolean } }
-  | { type: "UPDATE_PARTICIPANT_MEDIA"; payload: { id: string; cameraOff?: boolean; micMuted?: boolean } }
+  | {
+      type: "UPDATE_PARTICIPANT_MEDIA";
+      payload: { id: string; cameraOff?: boolean; micMuted?: boolean };
+    }
   | { type: "ADD_PARTICIPANT"; payload: LiveParticipant }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
   | { type: "SET_LIVE_ANSWER_RESULT"; payload: LiveSubmittedAnswer }

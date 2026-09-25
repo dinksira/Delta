@@ -48,6 +48,13 @@ class Repository:
         cursor = self._db["topic_battles"].find().sort("created_at", DESCENDING)
         return await cursor.to_list(length=1000)
 
+    async def find_due_scheduled_battles(self, now: datetime) -> list[dict[str, Any]]:
+        """Battles whose scheduled launch time has passed (flipped by the launcher)."""
+        cursor = self._db["topic_battles"].find(
+            {"status": "scheduled", "countdown_ends_at": {"$lte": now}}
+        )
+        return await cursor.to_list(length=100)
+
     async def find_topic_battle_by_id(self, battle_id: str) -> dict[str, Any] | None:
         return await self._db["topic_battles"].find_one({"_id": battle_id})
 
@@ -335,46 +342,6 @@ class Repository:
     # ========================================================================
     # Question embedded operations
     # ========================================================================
-
-    async def push_question(
-        self, battle_id: str, question_dict: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        now = datetime.now(UTC)
-        await self._db["topic_battles"].update_one(
-            {"_id": battle_id},
-            {
-                "$push": {"questions": question_dict},
-                "$set": {"updated_at": now},
-            },
-        )
-        return await self.find_topic_battle_by_id(battle_id)
-
-    async def update_question(
-        self,
-        battle_id: str,
-        question_id: str,
-        update_fields: dict[str, Any],
-    ) -> dict[str, Any] | None:
-        now = datetime.now(UTC)
-        set_fields = {f"questions.$[elem].{k}": v for k, v in update_fields.items()}
-        set_fields["updated_at"] = now
-        await self._db["topic_battles"].update_one(
-            {"_id": battle_id},
-            {"$set": set_fields},
-            array_filters=[{"elem.id": question_id}],
-        )
-        return await self.find_topic_battle_by_id(battle_id)
-
-    async def pull_question(self, battle_id: str, question_id: str) -> dict[str, Any] | None:
-        now = datetime.now(UTC)
-        await self._db["topic_battles"].update_one(
-            {"_id": battle_id},
-            {
-                "$pull": {"questions": {"id": question_id}},
-                "$set": {"updated_at": now},
-            },
-        )
-        return await self.find_topic_battle_by_id(battle_id)
 
     # ========================================================================
     # Response mapping

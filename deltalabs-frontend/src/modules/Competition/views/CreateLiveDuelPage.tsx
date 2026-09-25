@@ -1,9 +1,9 @@
 /**
  * CreateLiveDuelPage
  * Host flow entry: renders the Live Duel setup form inside the create template
- * and, on "Go Live", registers the duel (demo store) and navigates straight into
- * the room — where the user is the live host and can post questions in real
- * time. Host identity comes from the auth session.
+ * and, on "Go Live", creates the backend room (real chat + question fan-out)
+ * and navigates straight into it — where the user is the live host and can post
+ * questions in real time. Host identity comes from the auth session.
  *
  * @example
  * ```tsx
@@ -19,15 +19,9 @@ import { useRouter } from "next/navigation";
 
 import { LiveDuelCreateTemplate } from "@/components/templates/LiveDuelCreateTemplate";
 import { LiveDuelCreateForm } from "@/components/organisms/LiveDuelCreateForm";
-import {
-  createLiveDuelRoom,
-  type CreateLiveDuelApiPayload,
-} from "@/modules/Competition/api";
+import { createLiveDuelRoom, type CreateLiveDuelApiPayload } from "@/modules/Competition/api";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import {
-  createLiveDuel,
-  upsertLiveDuelEntry,
-} from "@/modules/Competition/data/liveDuelsCatalog";
+import { upsertLiveDuelEntry } from "@/modules/Competition/data/liveDuelsCatalog";
 import type { CreateLiveDuelInput } from "@/modules/Competition/data/liveDuelsCatalog";
 
 export function CreateLiveDuelPage() {
@@ -48,8 +42,8 @@ export function CreateLiveDuelPage() {
       setIsSubmitting(true);
       setSubmitError(null);
       try {
-        // Prefer the backend room (real chat + question fan-out); fall back to
-        // the local demo registry so the flow never hard-fails offline.
+        // Rooms are backend-hosted; create returns the authoritative entry,
+        // which is registered as host-owned so the room boots in host mode.
         const payload: CreateLiveDuelApiPayload = {
           title: input.title,
           subject: input.subject,
@@ -61,14 +55,9 @@ export function CreateLiveDuelPage() {
           hostName,
           hostAvatarUrl,
         };
-        const remote = await createLiveDuelRoom(payload).catch(() => null);
-        if (remote) {
-          upsertLiveDuelEntry({ ...remote, hostIsUser: true });
-          router.push(`/features/competitions/live-duels/${remote.id}`);
-          return;
-        }
-        const local = createLiveDuel(input);
-        router.push(`/features/competitions/live-duels/${local.id}`);
+        const remote = await createLiveDuelRoom(payload);
+        upsertLiveDuelEntry({ ...remote, hostIsUser: true });
+        router.push(`/features/competitions/live-duels/${remote.id}`);
       } catch {
         setSubmitError("Failed to go live. Please try again.");
         setIsSubmitting(false);

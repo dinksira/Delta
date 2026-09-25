@@ -12,6 +12,7 @@ import type {
   DuelQuestion,
   DuelQuiz,
 } from "@/modules/Competition/types/duelQuiz";
+import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 import type {
   TopicBattle,
   TopicBattleMatchingPair,
@@ -253,8 +254,16 @@ function pickDeck(subject: string): DuelQuestion[] {
   return FALLBACK_QUESTIONS;
 }
 
-/** Map an authored question (from the backend) into a participant DuelQuestion. */
-function toDuelQuestion(q: TopicBattleQuestion): DuelQuestion | null {
+/**
+ * Map an authored question (from the backend) into a participant DuelQuestion.
+ * Accepts both the topic-battle snapshot (`TopicBattleQuestion`) and the
+ * standalone authored payload a Live Duel host posts live (`CodingQuestion`) —
+ * they share the same authored surface, so the answering UI and grading rules
+ * are identical everywhere.
+ */
+export function toDuelQuestion(
+  q: CodingQuestion | TopicBattleQuestion,
+): DuelQuestion | null {
   const base = {
     id: q.id,
     difficulty: q.difficulty,

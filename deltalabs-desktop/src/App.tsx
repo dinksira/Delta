@@ -46,8 +46,17 @@ import { FeaturesPageView } from '@/modules/Features/views/FeaturesPageView';
 // Competition module views
 import {
   ActiveCompetitionPage,
+  ChampionshipPage,
+  ChampionshipStageDuelPage,
   CompetitionDetailPage,
   CreateBattleTopicPage,
+  CreateChampionshipPage,
+  CreateLiveDuelPage,
+  GameDetailPage,
+  GamesPage,
+  GameStageDuelPage,
+  LiveDuelRoomPage,
+  LiveDuelsPage,
   PublicCompetitionPage,
   TopicBattleDuelPage,
 } from '@/modules/Competition/views';
@@ -235,6 +244,15 @@ const ROUTES: readonly RouteDefinition[] = [
   { path: '/features/competitions/topic-battles', type: 'app', render: () => <ActiveCompetitionPage /> },
   { path: '/features/competitions/host', type: 'app', render: () => <CreateBattleTopicPage /> },
   { path: '/features/competitions/battles/:id', type: 'app', render: () => <TopicBattleDuelPage /> },
+  { path: '/features/competitions/live-duels', type: 'app', render: () => <LiveDuelsPage /> },
+  { path: '/features/competitions/games', type: 'app', render: () => <GamesPage /> },
+  { path: '/features/competitions/championship', type: 'app', render: () => <ChampionshipPage /> },
+  { path: '/features/competitions/live-duels/create', type: 'app', render: () => <CreateLiveDuelPage /> },
+  { path: '/features/competitions/live-duels/:id', type: 'app', render: () => <LiveDuelRoomPage /> },
+  { path: '/features/competitions/games/:id', type: 'app', render: () => <GameDetailPage /> },
+  { path: '/features/competitions/championship/host', type: 'app', render: () => <CreateChampionshipPage /> },
+  { path: '/features/competitions/championship/stages/:id', type: 'app', render: () => <ChampionshipStageDuelPage /> },
+  { path: '/features/competitions/games/:id/stages/:stageId', type: 'app', render: () => <GameStageDuelPage /> },
   { path: '/features/competitions/:id', type: 'app', render: () => <CompetitionDetailPage /> },
 
   // ===== Course =====
