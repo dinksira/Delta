@@ -3,7 +3,12 @@
 /** Shared Tailwind class maps for button-styled controls (button and link). */
 import { cx } from "@/components/theme/utils";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "outlineInverse";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "link"
+  | "outlineInverse";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export const buttonVariantClasses: Readonly<Record<ButtonVariant, string>> = {
@@ -13,6 +18,8 @@ export const buttonVariantClasses: Readonly<Record<ButtonVariant, string>> = {
     "text-text-primary bg-surface-default border border-border-default hover:bg-primary-50 focus-visible:ring-primary-200",
   ghost:
     "text-text-secondary bg-transparent border border-transparent hover:bg-primary-50 focus-visible:ring-primary-200",
+  /** Chrome-free text action: teal label, no border or fill. Underlines on hover. */
+  link: "text-primary-600 bg-transparent border border-transparent hover:underline focus-visible:ring-primary-300",
   /** Teal header rail: bordered pill; label stays one line; width follows text. */
   outlineInverse:
     "h-10 rounded-full border border-white bg-transparent px-5 text-[15px] font-medium text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-0 sm:px-6 sm:text-base",
@@ -27,6 +34,10 @@ export const buttonSizeClasses: Readonly<Record<ButtonSize, string>> = {
 const buttonBaseClasses =
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium shadow-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
 
+/** `link` and `outlineInverse` are chrome-free text actions: no fill, no radius. */
+const unchmelledBaseClasses =
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
+
 const outlineInverseBaseClasses =
   "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
 
@@ -37,6 +48,9 @@ export function getButtonClassName(
 ): string {
   if (variant === "outlineInverse") {
     return cx(outlineInverseBaseClasses, buttonVariantClasses.outlineInverse, className);
+  }
+  if (variant === "link") {
+    return cx(unchmelledBaseClasses, buttonVariantClasses.link, className);
   }
   return cx(
     buttonBaseClasses,
