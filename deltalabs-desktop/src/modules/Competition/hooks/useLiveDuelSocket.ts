@@ -20,7 +20,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { LiveDuelAction, LiveMediaSignal } from "@/modules/Competition/types/liveDuel";
+import type {
+  LiveDuelAction,
+  LiveDuelEndedPayload,
+  LiveMediaSignal,
+} from "@/modules/Competition/types/liveDuel";
 
 const AUTH_SESSION_STORAGE_KEY = "dl.auth.session.v1";
 
@@ -34,6 +38,9 @@ const SERVER_ACTION_TYPES = new Set<string>([
   // The backend labels real joins as `JOIN_LIVE_DUEL`; forward them into the
   // reducer's participant action so every tab adds the joiner to the grid.
   "JOIN_LIVE_DUEL",
+  // Presence keeps each tab's roster honest about who is actually connected.
+  "PARTICIPANT_ONLINE",
+  "PARTICIPANT_OFFLINE",
 ]);
 
 const MAX_RECONNECT_ATTEMPTS = 3;
@@ -79,6 +86,12 @@ export interface UseLiveDuelSocketOptions {
    * room reducer; the RTC mesh hook registers this to drive peer negotiation.
    */
   onSignal?: (signal: LiveMediaSignal) => void;
+  /**
+   * `DUEL_ENDED` fan-out: the host ended the duel or the backend abandoned the
+   * room. The page uses this to close the workspace instead of hanging on a
+   * frozen live stage.
+   */
+  onDuelEnded?: (payload: LiveDuelEndedPayload) => void;
 }
 
 export interface UseLiveDuelSocketResult {
@@ -99,6 +112,7 @@ export function useLiveDuelSocket({
   enabled,
   dispatch,
   onSignal,
+  onDuelEnded,
 }: Readonly<UseLiveDuelSocketOptions>): UseLiveDuelSocketResult {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -108,6 +122,8 @@ export function useLiveDuelSocket({
   dispatchRef.current = dispatch;
   const onSignalRef = useRef(onSignal);
   onSignalRef.current = onSignal;
+  const onDuelEndedRef = useRef(onDuelEnded);
+  onDuelEndedRef.current = onDuelEnded;
   const roomIdRef = useRef(roomId);
   roomIdRef.current = roomId;
 
@@ -166,8 +182,15 @@ export function useLiveDuelSocket({
             room_id?: string;
             payload?: unknown;
           };
-          if (!data.type || !SERVER_ACTION_TYPES.has(data.type)) {
-            if (data.type === "MEDIA_SIGNAL") {
+          const type = data.type ?? "";
+          // Duel ended (host finished or backend abandoned): route to the page —
+          // not the reducer — so it can close the workspace cleanly.
+          if (type === "DUEL_ENDED") {
+            onDuelEndedRef.current?.(data.payload as LiveDuelEndedPayload);
+            return;
+          }
+          if (!type || !SERVER_ACTION_TYPES.has(type)) {
+            if (type === "MEDIA_SIGNAL") {
               // WebRTC signaling is routed to the mesh hook, not the reducer.
               onSignalRef.current?.(data.payload as LiveMediaSignal);
             }
@@ -176,8 +199,38 @@ export function useLiveDuelSocket({
           if (data.room_id !== roomIdRef.current) {
             return;
           }
+          // Presence events carry different payload shapes (offline = id only);
+          // normalize both into the reducer's single presence action.
+          if (type === "PARTICIPANT_ONLINE") {
+            const participant = data.payload as {
+              id: string;
+              name: string;
+              avatarUrl?: string | null;
+              isHost?: boolean;
+            };
+            dispatchRef.current({
+              type: "UPDATE_PARTICIPANT_PRESENCE",
+              payload: {
+                id: participant.id,
+                online: true,
+                participant: { ...participant, online: true },
+              },
+            });
+            return;
+          }
+          if (type === "PARTICIPANT_OFFLINE") {
+            const { id } = data.payload as { id?: string };
+            if (!id) {
+              return;
+            }
+            dispatchRef.current({
+              type: "UPDATE_PARTICIPANT_PRESENCE",
+              payload: { id, online: false, participant: null },
+            });
+            return;
+          }
           const actionType: LiveDuelAction["type"] =
-            data.type === "JOIN_LIVE_DUEL" ? "ADD_PARTICIPANT" : (data.type as LiveDuelAction["type"]);
+            type === "JOIN_LIVE_DUEL" ? "ADD_PARTICIPANT" : (type as LiveDuelAction["type"]);
           dispatchRef.current({
             type: actionType,
             payload: data.payload as never,
