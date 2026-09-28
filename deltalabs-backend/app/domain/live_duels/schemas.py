@@ -30,6 +30,10 @@ class LiveDuelCreateRequest(BaseModel):
     players_max: int = Field(default=16, ge=2, le=100, **_alias("playersMax"))
     host_name: str = Field(min_length=1, max_length=60, **_alias("hostName"))
     host_avatar_url: str | None = Field(default=None, **_alias("hostAvatarUrl"))
+    # Optional epoch-ms start for a scheduled room. When present the room boots
+    # in `scheduled` status and the launcher flips it to `live` at start time;
+    # absent rooms go live immediately (today's default behavior).
+    scheduled_at: int | None = Field(default=None, ge=0, **_alias("scheduledAt"))
 
 
 class LiveDuelQuestionRequest(BaseModel):
