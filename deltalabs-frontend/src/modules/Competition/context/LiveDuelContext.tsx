@@ -128,6 +128,27 @@ function liveDuelReducer(state: LiveDuelState, action: LiveDuelAction): LiveDuel
               participants: [...state.room.participants, action.payload],
             },
           };
+    case "UPDATE_PARTICIPANT_PRESENCE":
+      // WS presence: online events graft a late arrival in and mark everyone's
+      // tile connected; offline events dim the tile (id-only payload) without
+      // removing the seat — a reconnect should not churn the roster.
+      return {
+        ...state,
+        room: {
+          ...state.room,
+          participants: state.room.participants.some(
+            (participant) => participant.id === action.payload.id,
+          )
+            ? state.room.participants.map((participant) =>
+                participant.id === action.payload.id
+                  ? { ...participant, online: action.payload.online }
+                  : participant,
+              )
+            : action.payload.online && action.payload.participant
+              ? [...state.room.participants, action.payload.participant]
+              : state.room.participants,
+        },
+      };
     case "UPDATE_LEADERBOARD":
       return { ...state, room: { ...state.room, leaderboard: action.payload } };
     case "SET_LIVE_ANSWER_RESULT":
