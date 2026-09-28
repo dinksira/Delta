@@ -1,4 +1,10 @@
-"""Live Duel realtime event publisher (Redis Pub/Sub, best-effort)."""
+"""Live Duel realtime event publisher (Redis Pub/Sub + presence, best-effort).
+
+The Pub/Sub channel fans room events out to every connected WebSocket. A small
+Redis set per room tracks which participants currently hold an open socket so
+the WebSocket endpoint can emit accurate `PARTICIPANT_ONLINE` / `PARTICIPANT_
+OFFLINE` events without churning the Mongo roster on every reconnect.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +17,14 @@ from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
 
 logger = logging.getLogger("deltalabs.live_duels.queue")
+
+ONLINE_PRESENCE_TTL_SECONDS = 30 * 60
+
+
+def _online_presence_key(room_id: str) -> str:
+    settings = get_settings()
+    return f"{settings.live_duel_pubsub_channel_prefix}{room_id}:online"
+
 
 # ################################ FANOUT ################################
 async def publish_live_duel_update(
@@ -39,3 +53,40 @@ async def publish_live_duel_update(
 
 
 # ################################ /FANOUT ################################
+
+# ################################ PRESENCE ################################
+async def add_online_participant(
+    redis: AsyncRedis,
+    *,
+    room_id: str,
+    user_id: str,
+) -> None:
+    """Mark a participant as holding an open socket for the room (with TTL)."""
+    key = _online_presence_key(room_id)
+    try:
+        await redis.sadd(key, user_id)
+        await redis.expire(key, ONLINE_PRESENCE_TTL_SECONDS)
+    except Exception:
+        logger.warning(
+            "live_duel.presence.sadd_failed",
+            extra={"room_id": room_id, "user_id": user_id},
+        )
+
+
+async def remove_online_participant(
+    redis: AsyncRedis,
+    *,
+    room_id: str,
+    user_id: str,
+) -> None:
+    """Clear a participant's open-socket marker (best-effort, disconnected)."""
+    try:
+        await redis.srem(_online_presence_key(room_id), user_id)
+    except Exception:
+        logger.warning(
+            "live_duel.presence.srem_failed",
+            extra={"room_id": room_id, "user_id": user_id},
+        )
+
+
+# ################################ /PRESENCE ################################
