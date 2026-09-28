@@ -85,12 +85,23 @@ function LiveDuelRoom({
   // Signals arrive through the socket options object, so the page routes them
   // via a ref the RTC hook fills in below (avoids a circular hook ordering).
   const handleSignalRef = useRef<(signal: LiveMediaSignal) => void>(() => {});
+  const duelEndedRef = useRef(false);
   const { connected, sendChat, sendSignal } = useLiveDuelSocket({
     roomId: room.id,
     enabled: isBackendRoom,
     dispatch,
     onSignal: (signal: LiveMediaSignal) => {
       handleSignalRef.current(signal);
+    },
+    onDuelEnded: () => {
+      // The host ended the duel (or the backend abandoned the room): close the
+      // workspace and return to the hub so a participant tab never hangs on a
+      // frozen live stage. Guarded so a broadcast + host echo cannot double-nav.
+      if (duelEndedRef.current) {
+        return;
+      }
+      duelEndedRef.current = true;
+      router.push("/features/competitions");
     },
   });
   const { mediaStream, error: mediaError, isSpeaking, voiceLevel } = useLiveMediaStream();
