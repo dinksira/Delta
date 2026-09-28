@@ -220,6 +220,19 @@ async def complete_topic_battle(
     )
 
 
+@router.delete("/topic-battles/{battle_id}", response_model=TopicBattleResponse)
+async def cancel_topic_battle(
+    battle_id: str,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> TopicBattleResponse:
+    """Owner cancels a scheduled topic battle before it launches."""
+    return await service.cancel_topic_battle(
+        battle_id=battle_id,
+        user_id=user.user_id,
+    )
+
+
 # ============================================================================
 # Code execution (judge) — Judge0-backed sandbox for the Code Editor module
 # ============================================================================
