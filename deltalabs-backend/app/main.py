@@ -34,8 +34,8 @@ from app.domain.live_duels.repository import Repository as LiveDuelRepository
 from app.infra.database import connect_mongodb, disconnect_mongodb, get_database
 from app.infra.email_client import configure_resend
 from app.infra.http_client import connect_http_client, disconnect_http_client
-from app.infra.redis_client import connect_redis, disconnect_redis
-from app.jobs.launchers import run_scheduled_battle_launcher
+from app.infra.redis_client import connect_redis, disconnect_redis, get_redis_client
+from app.jobs.launchers import run_competition_jobs
 
 _settings = get_settings()
 configure_logging(_settings.log_level)
@@ -68,8 +68,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:
         logger.error("startup.competitions_demo_seed_failed", extra={"error": str(exc)})
 
-    # Launch scheduled topic battles that are already past their start time
-    launcher_task = asyncio.create_task(run_scheduled_battle_launcher(db))
+    # Run scheduled content launches + abandoned-state cleanup in the background.
+    # The Redis client is handed in so the sweep can publish `DUEL_ENDED` fan-out
+    # to any tab still connected to a room it is finishing on the host's behalf.
+    launcher_task = asyncio.create_task(run_competition_jobs(db, get_redis_client()))
 
     try:
         yield
