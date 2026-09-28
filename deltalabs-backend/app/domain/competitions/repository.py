@@ -55,6 +55,14 @@ class Repository:
         )
         return await cursor.to_list(length=100)
 
+    async def find_stale_filling_battles(self, older_than: datetime) -> list[dict[str, Any]]:
+        """Filling battles with no activity since `older_than` (no-show candidates
+        for the sweepers, which cancel them instead of leaving dead battles up)."""
+        cursor = self._db["topic_battles"].find(
+            {"status": "filling", "updated_at": {"$lt": older_than}}
+        )
+        return await cursor.to_list(length=100)
+
     async def find_topic_battle_by_id(self, battle_id: str) -> dict[str, Any] | None:
         return await self._db["topic_battles"].find_one({"_id": battle_id})
 
