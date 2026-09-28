@@ -119,6 +119,23 @@ async def _room_participants(
     return roster
 
 
+async def _presence_participant(
+    db: AsyncIOMotorDatabase[dict[str, Any]],
+    room_doc: dict[str, Any] | None,
+    user_id: str,
+) -> dict[str, Any]:
+    """Resolve one participant for a presence broadcast (sidebar tile shape)."""
+    identity_repository = IdentityRepository(db)
+    user_doc = await identity_repository.find_user_by_id(user_id)
+    host_user_id = room_doc.get("host_user_id") if room_doc else None
+    return {
+        "id": user_id,
+        "name": user_doc.username if user_doc else "Player",
+        "avatarUrl": user_doc.avatar_url if user_doc else None,
+        "isHost": user_id == host_user_id,
+    }
+
+
 def _live_leaderboard(
     roster: list[dict[str, Any]],
     answers: list[dict[str, Any]],
@@ -261,15 +278,20 @@ async def create_live_duel(
     current_user: CurrentUser = Depends(get_current_user),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
 ) -> dict[str, Any]:
-    """Register a new live duel hosted by the current user."""
+    """Register a new live duel hosted by the current user.
+
+    A `scheduledAt` start registers the room in `scheduled` status (the launcher
+    flips it to live at that time); otherwise it goes live immediately.
+    """
     repository = LiveDuelRepository(db)
     oid = ObjectId()
+    now = int(time.time())
     doc = {
         "_id": oid,
         "title": payload.title.strip(),
         "subject": payload.subject,
         "difficulty": payload.difficulty,
-        "status": "live",
+        "status": "scheduled" if payload.scheduled_at is not None else "live",
         "host_name": payload.host_name,
         "host_avatar_url": payload.host_avatar_url,
         "host_user_id": current_user.user_id,
@@ -280,9 +302,11 @@ async def create_live_duel(
         "prize_pool": payload.prize_pool,
         "duration_label": payload.duration_label,
         "joined_user_ids": [current_user.user_id],
+        "scheduled_at": payload.scheduled_at,
+        "last_activity_at": int(time.time() * 1000),
         "questions": [],
         "chat": [],
-        "created_at": int(time.time()),
+        "created_at": now,
     }
     await repository.insert(doc)
     return LiveDuelRepository.to_entry(doc)
@@ -349,12 +373,15 @@ async def finish_live_duel(
     room_id: str,
     current_user: CurrentUser = Depends(get_current_user),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
 ) -> dict[str, Any]:
     """Host ends a live duel: freezes the seats, snapshots the final leaderboard.
 
     The final leaderboard and completion time are persisted on the room document
     so the lobby history/replay surface can surface real results after the
-    WebSocket channel is gone.
+    WebSocket channel is gone. The ending is also fanned out (`DUEL_ENDED`) so
+    every participant tab closes the workspace instead of hanging on a frozen
+    "live" stage.
     """
     repository = LiveDuelRepository(db)
     doc = await repository.find_by_id(room_id)
@@ -388,6 +415,17 @@ async def finish_live_duel(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "live_duel_not_found"},
         )
+    await live_duels_queue.publish_live_duel_update(
+        redis,
+        room_id=room_id,
+        type="DUEL_ENDED",
+        payload={
+            "reason": "host_finished",
+            "finalLeaderboard": final_leaderboard,
+            "winnerName": winner_name,
+            "finishedAt": updated_doc.get("finished_at") or None,
+        },
+    )
     return {
         **LiveDuelRepository.to_entry(updated_doc),
         "finalLeaderboard": final_leaderboard,
@@ -622,7 +660,13 @@ async def live_duel_ws(
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
     redis: AsyncRedis = Depends(get_redis),  # noqa: B008
 ) -> None:
-    """Realtime room fanout: subscribe to `live_duel:{room_id}` and forward events."""
+    """Realtime room fanout: subscribe to `live_duel:{room_id}` and forward events.
+
+    Connect/close also maintain the room's online-presence set and broadcast
+    `PARTICIPANT_ONLINE` / `PARTICIPANT_OFFLINE` so every tab's roster shows who
+    is actually holding an open socket (a transient reconnect does not touch the
+    Mongo roster — only this short-lived Redis marker).
+    """
     room_id = (websocket.query_params.get("room_id") or "").strip()
     if not room_id:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing room id.")
@@ -636,6 +680,7 @@ async def live_duel_ws(
     channel = f"{settings.live_duel_pubsub_channel_prefix}{room_id}"
     pubsub = redis.pubsub()
     await websocket.accept()
+
     try:
         await pubsub.subscribe(channel)
     except Exception as exc:
@@ -646,6 +691,18 @@ async def live_duel_ws(
         )
         await pubsub.aclose()
         return
+
+    # Announce this socket so the roster reflects real connectivity; the offline
+    # marker is cleared in the finally block when this connection closes.
+    room_doc = await LiveDuelRepository(db).find_by_id(room_id)
+    presence = await _presence_participant(db, room_doc, user_id)
+    await live_duels_queue.add_online_participant(redis, room_id=room_id, user_id=user_id)
+    await live_duels_queue.publish_live_duel_update(
+        redis,
+        room_id=room_id,
+        type="PARTICIPANT_ONLINE",
+        payload=presence,
+    )
 
     forward_task = asyncio.create_task(_ws_forward_loop(websocket, pubsub, channel))
     client_task = asyncio.create_task(_ws_client_loop(websocket, redis, db, room_id, user_id))
@@ -666,6 +723,15 @@ async def live_duel_ws(
             await pubsub.unsubscribe(channel)
         finally:
             await pubsub.aclose()
+        await live_duels_queue.remove_online_participant(
+            redis, room_id=room_id, user_id=user_id
+        )
+        await live_duels_queue.publish_live_duel_update(
+            redis,
+            room_id=room_id,
+            type="PARTICIPANT_OFFLINE",
+            payload={"id": user_id},
+        )
 
 
 # ################################ /WEBSOCKET ################################
