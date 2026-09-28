@@ -1,160 +1,179 @@
-"use client";
-
-import React, { useState } from "react";
-import { MinusCircle, PlusCircle } from "lucide-react";
-import { Typography, Button } from "@/components/theme";
-import { Modal } from "@/components/atoms/Modal/Modal";
-
-// ============================================================================
-// TYPES & INTERFACES
-// ============================================================================
-
-export interface CustomParameter {
-  id: string;
-  name: string;
-  value: string;
-}
-
-export interface CustomParametersModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (parameters: CustomParameter[]) => void;
-}
-
-// ============================================================================
-// COMPONENT: CustomParametersModal
-// ============================================================================
-
 /**
- * CustomParametersModal - Organism
- * 
- * A high-fidelity modal for adding custom parameters to a tutor request.
- * Features dynamic row addition and precise design alignment.
+ * CustomParametersModal
+ * Organism: dialog for adding custom name/value parameters to a tutor request.
+ *
+ * Row state, validation, and the row markup live in sibling modules so this
+ * file stays a thin composition over the shared `Modal`, `Field`, and `Input`.
+ *
+ * @example
+ * ```tsx
+ * <CustomParametersModal
+ *   isOpen={open}
+ *   onClose={() => setOpen(false)}
+ *   onAdd={(parameters) => setCustomParameters(parameters)}
+ * />
+ * ```
  */
-export const CustomParametersModal: React.FC<CustomParametersModalProps> = ({
+
+/** ################################ IMPORT ############################# */
+/** React core, shared primitives, and local building blocks. */
+import React from "react";
+
+import { Plus, Minus, X } from "lucide-react";
+
+import { Modal } from "@/components/atoms/Modal/Modal";
+import { Button } from "@/components/theme/Button";
+import { Typography } from "@/components/theme/Typography";
+import { cn } from "@/lib/utils";
+import type { CustomParametersModalProps } from "./CustomParametersModal.types";
+import { ParameterRow } from "./ParameterRow";
+import { useParameterRows } from "./useParameterRows";
+import {
+  closeButtonClasses,
+  contentClasses,
+  controlButtonClasses,
+  controlsClasses,
+  controlsDividerClasses,
+  dividerClasses,
+  emptyClasses,
+  eyebrowClasses,
+  footerClasses,
+  headerClasses,
+  listClasses,
+  removeControlButtonClasses,
+  subtitleClasses,
+  titleClasses,
+} from "./variants";
+/** ################################ /IMPORT ############################# */
+
+/** ################################ COMPONENT ############################# */
+/** Main exported component logic for this file. */
+
+/** Props for {@link ParametersHeader}. */
+export interface ParametersHeaderProps {
+  /** Adds an empty row. */
+  onAddRow: () => void;
+  /** Removes the last row, if any. */
+  onRemoveLastRow: () => void;
+  /** Whether any rows remain. */
+  hasRows: boolean;
+  /** Dismisses the dialog. */
+  onClose: () => void;
+}
+
+/** Heading block, add/remove controls, and an explicit close button. */
+function ParametersHeader({
+  onAddRow,
+  onRemoveLastRow,
+  hasRows,
+  onClose,
+}: Readonly<ParametersHeaderProps>) {
+  return (
+    <div className={headerClasses}>
+      <div>
+        <Typography className={eyebrowClasses}>Custom parameters</Typography>
+        <Typography className={titleClasses}>Add the details your tutor should know</Typography>
+        <Typography className={subtitleClasses}>
+          Optional. Each row is a name and a value, for example “Session length” and “90 minutes”.
+        </Typography>
+      </div>
+
+      <div className={controlsClasses}>
+        <button type="button" onClick={onAddRow} aria-label="Add a parameter row" className={controlButtonClasses}>
+          <Plus className="size-5" aria-hidden="true" />
+        </button>
+        <span aria-hidden="true" className={controlsDividerClasses} />
+        <button
+          type="button"
+          onClick={onRemoveLastRow}
+          disabled={!hasRows}
+          aria-label="Remove the last parameter row"
+          className={removeControlButtonClasses}
+        >
+          <Minus className="size-5" aria-hidden="true" />
+        </button>
+        <span aria-hidden="true" className={controlsDividerClasses} />
+        <button type="button" onClick={onClose} aria-label="Close dialog" className={closeButtonClasses}>
+          <X className="size-5" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Props for {@link ParametersFooter}. */
+export interface ParametersFooterProps {
+  /** Whether the current rows can be submitted. */
+  canSubmit: boolean;
+  /** Submits the rows and closes the dialog. */
+  onSubmit: () => void;
+}
+
+/** Footer holding the single submit action. */
+function ParametersFooter({ canSubmit, onSubmit }: Readonly<ParametersFooterProps>) {
+  return (
+    <div className={footerClasses}>
+      <Button size="lg" disabled={!canSubmit} onClick={onSubmit}>
+        Add parameters
+      </Button>
+    </div>
+  );
+}
+
+/** Lets the user add arbitrary name/value parameters before sending a request. */
+export function CustomParametersModal({
   isOpen,
   onClose,
   onAdd,
-}) => {
-  const [parameters, setParameters] = useState<CustomParameter[]>([
-    { id: "1", name: "", value: "" },
-    { id: "2", name: "", value: "" },
-  ]);
-
-  const handleAddRow = () => {
-    const newId = (parameters.length + 1).toString();
-    setParameters([...parameters, { id: newId, name: "", value: "" }]);
-  };
-
-  const handleRemoveRow = (id: string) => {
-    if (parameters.length > 1) {
-      setParameters(parameters.filter((p) => p.id !== id));
-    }
-  };
-
-  const handleInputChange = (id: string, field: "name" | "value", newValue: string) => {
-    setParameters(
-      parameters.map((p) => (p.id === id ? { ...p, [field]: newValue } : p))
-    );
-  };
+  ariaLabel = "Custom parameters",
+  className,
+}: Readonly<CustomParametersModalProps>) {
+  const { rows, errors, canSubmit, addRow, removeRow, updateRow, submit } = useParameterRows();
+  const lastRowId = rows.at(-1)?.id;
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose}
-      showHeader={false}
-      className="max-w-[850px] w-full"
-    >
-      <div className="bg-white rounded-none p-8 space-y-8">
-        {/* HEADER SECTION */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Typography className="text-[14px] font-bold text-[#1D4A44] uppercase tracking-wider">
-                Custom Parameters
-              </Typography>
-              <Typography className="text-[12px] text-slate-400 font-medium ml-4">
-                Select
-              </Typography>
-            </div>
-            
-            <div className="flex items-center gap-3 text-[#1D4A44]/60">
-              <PlusCircle 
-                onClick={handleAddRow}
-                className="h-5 w-5 cursor-pointer hover:text-[#1D4A44] transition-colors" 
+    <Modal isOpen={isOpen} onClose={onClose} showHeader={false} ariaLabel={ariaLabel} noPadding>
+      <div className={cn(contentClasses, className)}>
+        <ParametersHeader
+          onAddRow={addRow}
+          onRemoveLastRow={() => lastRowId && removeRow(lastRowId)}
+          hasRows={rows.length > 0}
+          onClose={onClose}
+        />
+
+        <div className={dividerClasses} />
+
+        {rows.length === 0 ? (
+          <p className={emptyClasses}>No parameters yet. Use + to add one.</p>
+        ) : (
+          <div className={listClasses}>
+            {rows.map((row) => (
+              <ParameterRow
+                key={row.id}
+                row={row}
+                error={errors[row.id]}
+                onChange={updateRow}
+                onRemove={removeRow}
               />
-              <div className="w-px h-4 bg-slate-200" />
-              <MinusCircle 
-                onClick={() => {
-                  if (parameters.length > 0) {
-                    handleRemoveRow(parameters[parameters.length - 1].id);
-                  }
-                }}
-                className="h-5 w-5 cursor-pointer hover:text-red-500 transition-colors" 
-              />
-            </div>
+            ))}
           </div>
-          <div className="h-px w-full bg-[#1D4A44]/20 mt-2" />
-        </div>
+        )}
 
-        {/* PARAMETERS LIST */}
-        <div className="space-y-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-          {parameters.map((param) => (
-            <div 
-              key={param.id}
-              className="bg-white rounded-xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-slate-50 relative group"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Parameter Name */}
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block ml-1">
-                    Parameter Name
-                  </label>
-                  <input 
-                    type="text"
-                    value={param.name}
-                    onChange={(e) => handleInputChange(param.id, "name", e.target.value)}
-                    placeholder="Value"
-                    className="w-full h-12 px-4 rounded-lg border border-slate-200 text-[13px] text-text-primary outline-none focus:border-[#1D4A44] transition-all"
-                  />
-                </div>
-
-                {/* Parameter Value */}
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest block ml-1">
-                    Parameter Value
-                  </label>
-                  <input 
-                    type="text"
-                    value={param.value}
-                    onChange={(e) => handleInputChange(param.id, "value", e.target.value)}
-                    placeholder="Value"
-                    className="w-full h-12 px-4 rounded-lg border border-slate-200 text-[13px] text-text-primary outline-none focus:border-[#1D4A44] transition-all"
-                  />
-                </div>
-              </div>
-
-              {/* Resize Handle / Indicator (matching design) */}
-              <div className="absolute bottom-2 right-2">
-                <div className="w-2 h-2 border-r-2 border-b-2 border-slate-300 rounded-br-[2px]" />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* FOOTER ACTIONS */}
-        <div className="flex flex-col items-center pt-4">
-          <Button 
-            onClick={() => onAdd(parameters)}
-            className="h-12 px-16 rounded-lg !bg-[#1D4A44] !text-white font-bold text-[15px] shadow-lg shadow-[#1D4A44]/20 hover:scale-[1.02] transition-transform"
-          >
-            Add
-          </Button>
-          
-        </div>
+        <ParametersFooter
+          canSubmit={canSubmit}
+          onSubmit={() => {
+            onAdd(submit());
+            onClose();
+          }}
+        />
       </div>
     </Modal>
   );
-};
+}
 
+CustomParametersModal.displayName = "CustomParametersModal";
+/** ################################ /COMPONENT ############################# */
+
+/** ################################ EXPORTS ############################# */
 export default CustomParametersModal;
+/** ################################ /EXPORTS ############################# */
