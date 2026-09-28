@@ -60,22 +60,29 @@ export function ParticipantGrid({
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
         {participants.map((participant) => (
-          <ParticipantCard
+          <div
             key={participant.id}
-            participant={participant}
-            mediaStream={
-              participant.isYou
-                ? userMediaStream
-                : (remoteStreams?.[participant.id] ?? null)
-            }
-            mediaMuted={participant.isYou}
-            voiceLevel={participant.isYou ? userVoiceLevel : 0}
-            isSpeaking={
-              participant.isYou
-                ? userIsSpeaking
-                : speakingIds?.has(participant.id) ?? false
-            }
-          />
+            className={cn(
+              "transition-opacity duration-300",
+              participant.online === false && "opacity-50",
+            )}
+          >
+            <ParticipantCard
+              participant={participant}
+              mediaStream={
+                participant.isYou
+                  ? userMediaStream
+                  : (remoteStreams?.[participant.id] ?? null)
+              }
+              mediaMuted={participant.isYou}
+              voiceLevel={participant.isYou ? userVoiceLevel : 0}
+              isSpeaking={
+                participant.isYou
+                  ? userIsSpeaking
+                  : speakingIds?.has(participant.id) ?? false
+              }
+            />
+          </div>
         ))}
       </div>
     </section>
