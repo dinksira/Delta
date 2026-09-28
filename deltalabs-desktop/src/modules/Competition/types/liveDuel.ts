@@ -41,6 +41,19 @@ export interface LiveParticipant {
   micMuted?: boolean;
   /** Participant camera disabled indicator (top-right of the card). */
   cameraOff?: boolean;
+  /** True while the participant holds an open room socket (WS presence). */
+  online?: boolean;
+}
+
+/**
+ * Realtime presence update for one roster tile. `online === false` only carries
+ * the id (the backend does not re-resolve a name for a disconnect); online
+ * events carry the full participant so a late arrival can be grafted in.
+ */
+export interface ParticipantPresence {
+  id: string;
+  online: boolean;
+  participant?: LiveParticipant | null;
 }
 
 /** The question the host has posted live, shown at the stage focal point. */
@@ -168,6 +181,18 @@ export interface LiveDuelServerEvent {
   at?: number;
 }
 
+/**
+ * `DUEL_ENDED` fan-out: the host finished the duel (or the backend abandoned it
+ * after no activity). Every open room tab routes this into its page so the
+ * workspace closes instead of hanging on a frozen live stage.
+ */
+export interface LiveDuelEndedPayload {
+  reason: "host_finished" | "abandoned";
+  finalLeaderboard?: DuelLeaderboardEntry[] | null;
+  winnerName?: string | null;
+  finishedAt?: number | null;
+}
+
 /** One side's camera/mic state for remote participant indicators. */
 export interface LiveMediaState {
   cameraOff: boolean;
@@ -202,6 +227,7 @@ export type LiveDuelAction =
       payload: { id: string; cameraOff?: boolean; micMuted?: boolean };
     }
   | { type: "ADD_PARTICIPANT"; payload: LiveParticipant }
+  | { type: "UPDATE_PARTICIPANT_PRESENCE"; payload: ParticipantPresence }
   | { type: "UPDATE_LEADERBOARD"; payload: DuelLeaderboardEntry[] }
   | { type: "SET_LIVE_ANSWER_RESULT"; payload: LiveSubmittedAnswer }
   | { type: "TOGGLE_MIC" }
