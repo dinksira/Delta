@@ -24,12 +24,20 @@ import {
 // ============================================================================
 // INTERNAL MODULE & SYSTEM COMPONENT IMPORTS
 // ============================================================================
-import { Typography } from '@/components/theme';
+import { RelatedCoursesSection } from '@/components/organisms/RelatedCoursesSection';
+import { CourseReviewsSection } from '@/components/organisms/CourseReviewsSection';
+import { CoursePrerequisitesSection } from '@/components/organisms/CoursePrerequisitesSection';
+import { CourseAnalysisSection } from '@/components/organisms/CourseAnalysisSection';
 import { CourseBottomDock } from '../components/intro/molecules/CourseBottomDock';
+import { HireTutorSection } from '../components/intro/sections/HireTutorSection';
 import { CourseDetailLayout } from '../components/intro/templates/CourseDetailLayout';
 import { MediaViewer } from '../components/intro/organisms/MediaViewer';
 import { EngagementPanel } from '../components/intro/organisms/EngagementPanel';
 import { useCourse } from '../context/CourseContext';
+import { useRelatedCourses } from '../hooks/useRelatedCourses';
+import { useCourseReviews } from '../hooks/useCourseReviews';
+import { useCourseAnalysis } from '../hooks/useCourseAnalysis';
+import { COURSE_PREREQUISITES, COURSE_REQUIREMENTS } from '../data/prerequisiteData';
 import { CommunityView } from './CommunityView';
 import { MyQuestionsPage } from './MyQuestionsPage';
 import { ExerciseTestView } from './ExerciseTestView';
@@ -224,6 +232,9 @@ CourseTopSubNav.displayName = 'CourseTopSubNav';
 
 export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ courseId }) => {
   const { enrolledCourses, fetchEnrolledCourses } = useCourse();
+  const relatedCourses = useRelatedCourses();
+  const courseReviews = useCourseReviews();
+  const analysis = useCourseAnalysis();
   const router = useRouter();
 
   const [activeDockTab, setActiveDockTab] = useState<CourseDockTabId>('intro');
@@ -332,30 +343,78 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ courseId }) 
     }
   };
 
-  // Generic block generator for supporting modular page sections
-  const renderGenericFallbackSection = (
-    id: CourseSubNavTabId, 
-    sectionRef: React.RefObject<HTMLDivElement | null>, 
-    title: string, 
-    description: string
-  ) => {
-    return (
-      <div 
-        ref={sectionRef} 
-        data-section-id={id}
-        className="w-full px-8 py-4 bg-surface-canvas text-text-primary scroll-mt-28"
-      >
-        <div className="p-6 border border-border-subtle rounded-2xl bg-surface-primary shadow-sm">
-          <Typography variant="h2" className="mb-2">
-            {title}
-          </Typography>
-          <Typography className="leading-relaxed text-text-secondary">
-            {description}
-          </Typography>
-        </div>
-      </div>
+  // Shared scroll-anchor wrapper so every sub-nav target keeps the same offset
+  const renderScrollSection = (
+    id: CourseSubNavTabId,
+    sectionRef: React.RefObject<HTMLDivElement | null>,
+    content: React.ReactNode
+  ) => (
+    <div
+      ref={sectionRef}
+      data-section-id={id}
+      className="w-full px-8 py-4 bg-surface-canvas text-text-primary scroll-mt-28"
+    >
+      {content}
+    </div>
+  );
+
+  // Related-course rail backed by the shared library organism
+  const renderRelatedCoursesSection = () =>
+    renderScrollSection(
+      'related',
+      relatedRef,
+      <RelatedCoursesSection
+        courses={relatedCourses.courses}
+        searchValue={relatedCourses.searchValue}
+        onSearchChange={relatedCourses.setSearchValue}
+        onFilterClick={relatedCourses.cycleFilter}
+        onSortClick={relatedCourses.cycleSort}
+        isFilterActive={relatedCourses.isFilterActive}
+        isSortActive={relatedCourses.isSortActive}
+        onEnroll={(id) => router.push(`/features/course/enrolled/${id}`)}
+      />
     );
-  };
+
+  // Reviews and rating backed by the shared library organism
+  const renderReviewsSection = () =>
+    renderScrollSection(
+      'reviews',
+      reviewsRef,
+      <CourseReviewsSection
+        summary={courseReviews.summary}
+        reviews={courseReviews.reviews}
+        hasMore={courseReviews.hasMore}
+        onShowMore={courseReviews.showMore}
+        onVote={courseReviews.toggleVote}
+      />
+    );
+
+  // Prerequisites and requirements backed by the shared library organism
+  const renderPrerequisitesSection = () =>
+    renderScrollSection(
+      'prerequisites',
+      prerequisitesRef,
+      <CoursePrerequisitesSection
+        prerequisites={COURSE_PREREQUISITES}
+        requirements={COURSE_REQUIREMENTS}
+        onFindResource={() => router.push('/features/course/my-resources')}
+      />
+    );
+
+  // Course analysis dashboard backed by the shared library organism
+  const renderAnalysisSection = () =>
+    renderScrollSection(
+      'analysis',
+      analysisRef,
+      <CourseAnalysisSection
+        enrollment={analysis.enrollment}
+        onEnrollmentPeriodChange={analysis.setEnrollmentPeriod}
+        completion={analysis.completion}
+        onCompletionPeriodChange={analysis.setCompletionPeriod}
+        rating={analysis.rating}
+        periods={analysis.periods}
+      />
+    );
 
   // ============================================================================
   // BLUEPRINT-ACCURATE DESIGN RECONSTRUCTION FROM IMAGE_A55809.PNG
@@ -622,16 +681,23 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ courseId }) 
         {/* Blueprint-accurate reconstructed information segment view */}
         {renderBlueprintAboutSection()}
         
+        {/* Related-course rail, composed from the shared component library */}
+        {renderRelatedCoursesSection()}
+        
         {/* Supporting continuous informational slots trailing down the scroll sandbox */}
-        {renderGenericFallbackSection('related', relatedRef, 'Related Courses', 'Explore parallel biological workflows, genetics architecture models, biochemistry parameters, and alternative Delta Labs technical tracks.')}
+        {/* Reviews and rating, composed from the shared component library */}
+        {renderReviewsSection()}
         
-        {renderGenericFallbackSection('reviews', reviewsRef, 'Reviews & Rating', 'High-fidelity workspace analytical dashboard processing historical assessment metrics left by verified campus student cohorts.')}
+        {/* Prerequisites and requirements, composed from the shared component library */}
+        {renderPrerequisitesSection()}
         
-        {renderGenericFallbackSection('prerequisites', prerequisitesRef, 'Prerequisites & Requirements', 'Requires foundational familiarity with core scientific method vectors, basic computer processing setups, and compilation terminal environments.')}
+        {/* Course analysis dashboard, composed from the shared component library */}
+        {renderAnalysisSection()}
         
-        {renderGenericFallbackSection('analysis', analysisRef, 'Course Analysis', 'Real-time performance distributions and comparative analytical score metrics calculated across global study cohorts.')}
-        
-        {renderGenericFallbackSection('tutor', tutorRef, 'Hire Tutor', 'Request dedicated technical review tracking hours directly under accredited engineering and pedagogical specialists.')}
+        {/* Hire a tutor request form, composed from the shared component library */}
+        <div ref={tutorRef} data-section-id="tutor" className="w-full scroll-mt-28">
+          <HireTutorSection course={course} />
+        </div>
       </div>
     );
   };
