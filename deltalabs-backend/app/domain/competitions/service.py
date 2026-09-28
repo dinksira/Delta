@@ -2486,6 +2486,31 @@ class Service:
         await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
 
+    async def cancel_topic_battle(
+        self,
+        *,
+        battle_id: str,
+        user_id: str,
+    ) -> TopicBattleResponse:
+        """Owner cancels a battle that has not launched yet (scheduled only).
+
+        A cancelled battle disappears from active play (scheduled and filling
+        lobbies filter it) but stays in the management table so hosts can see
+        what they called off.
+        """
+        await self.bootstrap()
+        from app.core.exceptions import ConflictError
+
+        doc = await self._require_battle_owner(battle_id, user_id)
+        if doc.get("status") != "scheduled":
+            raise ConflictError(
+                "Only scheduled battles can be cancelled.",
+                code="topic_battle_not_scheduled",
+            )
+        updated = await self._repository.patch_topic_battle(battle_id, {"status": "cancelled"})
+        await self._sync_battle_row_after_change(battle_id, user_id)
+        return self._repository.doc_to_response(updated, viewer_user_id=user_id)
+
     async def complete_topic_battle(
         self,
         *,
