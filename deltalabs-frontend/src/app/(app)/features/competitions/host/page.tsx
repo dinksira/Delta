@@ -1,8 +1,8 @@
 import React from "react";
-import { CreateBattleTopicPage } from "@/modules/Competition/views";
+import { HostCompetitionPage } from "@/modules/Competition/views";
 
-const CreateTopicBattlePage: React.FC = () => {
-  return <CreateBattleTopicPage />;
+const HostCompetitionRoute: React.FC = () => {
+  return <HostCompetitionPage />;
 };
 
-export default CreateTopicBattlePage;
+export default HostCompetitionRoute;

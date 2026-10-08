@@ -5,6 +5,7 @@ export { CompetitionDetailPage } from "./CompetitionDetail/CompetitionDetailPage
 export { GamesPage } from "./GamesPage";
 export { GameDetailPage } from "./GameDetailPage";
 export { GameStageDuelPage } from "./GameStageDuelPage";
+export { HostCompetitionPage } from "./HostCompetition/HostCompetitionPage";
 export { PublicCompetitionPage } from "./PublicCompetitionPage";
 export { CreateBattleTopicPage } from "./CreateBattleTopicPage";
 export { CreateChampionshipPage } from "./CreateChampionshipPage";

@@ -12,9 +12,13 @@
 "use client";
 
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   Highlighter,
   Italic,
+  Link,
   List,
   ListOrdered,
   Redo2,
@@ -53,7 +57,10 @@ interface FormatItem {
     | "strikethrough"
     | "highlight"
     | "unorderedList"
-    | "orderedList";
+    | "orderedList"
+    | "alignLeft"
+    | "alignCenter"
+    | "alignRight";
   label: string;
   icon: LucideIcon;
   command: string;
@@ -77,6 +84,9 @@ const FORMAT_ITEMS: FormatItem[] = [
     command: "insertUnorderedList",
   },
   { key: "orderedList", label: "Numbered list", icon: ListOrdered, command: "insertOrderedList" },
+  { key: "alignLeft", label: "Align left", icon: AlignLeft, command: "justifyLeft" },
+  { key: "alignCenter", label: "Align center", icon: AlignCenter, command: "justifyCenter" },
+  { key: "alignRight", label: "Align right", icon: AlignRight, command: "justifyRight" },
 ];
 
 /** The `<mark>` nearest the current selection, or null when outside one. */
@@ -89,7 +99,7 @@ function findClosestMark(root: HTMLElement): HTMLElement | null {
   const anchor =
     selection.anchorNode instanceof Element
       ? selection.anchorNode
-      : selection.anchorNode?.parentElement ?? null;
+      : (selection.anchorNode?.parentElement ?? null);
   if (!anchor || !root.contains(anchor)) return null;
   return anchor instanceof Element ? anchor.closest("mark") : null;
 }
@@ -98,11 +108,8 @@ function findClosestMark(root: HTMLElement): HTMLElement | null {
 function normalizeHighlights(root: HTMLElement): void {
   for (const span of Array.from(root.querySelectorAll("span[style]"))) {
     const style = (span as HTMLElement).style;
-    const hasBackground =
-      Boolean(style.backgroundColor) && style.backgroundColor !== "transparent";
-    const hasOtherStyles = style
-      .cssText.replace(/background-color:[^;]+;?/gi, "")
-      .trim();
+    const hasBackground = Boolean(style.backgroundColor) && style.backgroundColor !== "transparent";
+    const hasOtherStyles = style.cssText.replace(/background-color:[^;]+;?/gi, "").trim();
     if (hasBackground && !hasOtherStyles) {
       const mark = document.createElement("mark");
       mark.innerHTML = span.innerHTML;
@@ -163,9 +170,7 @@ export function RichTextEditor({
           : document.queryCommandState(item.command);
     }
     setActive((prev) =>
-      FORMAT_ITEMS.some((item) => prev[item.key] !== next[item.key])
-        ? next
-        : prev,
+      FORMAT_ITEMS.some((item) => prev[item.key] !== next[item.key]) ? next : prev,
     );
   }, []);
 
@@ -224,6 +229,17 @@ export function RichTextEditor({
     if (!editor) return;
     editor.focus();
     document.execCommand("insertHTML", false, BLANK_SPAN_TAG);
+    handleInput();
+  }, [disabled, handleInput]);
+
+  const insertLink = useCallback(() => {
+    if (disabled) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const url = window.prompt("Link URL", "https://");
+    if (!url) return;
+    editor.focus();
+    document.execCommand("createLink", false, url);
     handleInput();
   }, [disabled, handleInput]);
 
@@ -287,6 +303,11 @@ export function RichTextEditor({
             </ToolbarButton>
           );
         })}
+
+        <div aria-hidden className="mx-1 h-4 w-px bg-border-default" />
+        <ToolbarButton label="Insert link" disabled={disabled} onClick={insertLink}>
+          <Link className="size-4" aria-hidden />
+        </ToolbarButton>
 
         {insertBlankButton && (
           <>

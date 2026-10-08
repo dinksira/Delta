@@ -76,6 +76,10 @@ export function ActiveCompetitionPage() {
     router.push("/features/competitions/host");
   }, [router]);
 
+  const handleCreateNew = useCallback(() => {
+    router.push("/features/competitions/topic-battles/create");
+  }, [router]);
+
   const handleJoinBattle = useCallback(
     (id: string) => {
       const target = battles.find((battle) => battle.id === id);
@@ -131,7 +135,7 @@ export function ActiveCompetitionPage() {
         subjects={subjects}
         activeSubject={activeSubject}
         onSubjectChange={setActiveSubject}
-        onCreateNew={handleUtilityAction}
+        onCreateNew={handleCreateNew}
         battles={filteredBattles}
         onJoinBattle={handleJoinBattle}
         onResumeBattle={handleResumeBattle}
