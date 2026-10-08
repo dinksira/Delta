@@ -1,4 +1,9 @@
-export { buildDuelQuiz, toDuelQuestion } from "./duelQuiz";
+export {
+  buildDuelQuiz,
+  mergeLiveLeaderboard,
+  toDuelQuestion,
+  toDuelLeaderboardEntries,
+} from "./duelQuiz";
 export { TOPIC_CATEGORIES, TOPIC_CATALOG } from "./topicCatalog";
 export {
   buildLiveDuelRoom,

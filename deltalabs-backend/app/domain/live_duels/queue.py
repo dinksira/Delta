@@ -89,4 +89,24 @@ async def remove_online_participant(
         )
 
 
+async def count_online_participants(
+    redis: AsyncRedis,
+    *,
+    room_id: str,
+) -> int:
+    """Live viewer count for a room, from the online-presence set.
+
+    Shows only people actually holding an open socket for the room right now
+    (best-effort: 0 if Redis is unreachable, rather than a fabricated number).
+    """
+    try:
+        return int(await redis.scard(_online_presence_key(room_id)) or 0)
+    except Exception:
+        logger.warning(
+            "live_duel.presence.scard_failed",
+            extra={"room_id": room_id},
+        )
+        return 0
+
+
 # ################################ /PRESENCE ################################

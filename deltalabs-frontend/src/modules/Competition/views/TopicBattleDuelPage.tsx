@@ -33,35 +33,43 @@ import {
   submitTopicBattleAnswer,
 } from "@/modules/Competition/api";
 import { buildDuelQuiz } from "@/modules/Competition/data";
+import { topicBattleQueryKeys, useTopicBattleLeaderboard } from "@/modules/Competition/hooks";
 import { useDuelQuiz } from "@/modules/Competition/hooks/useDuelQuiz";
 import { useIntegrityMonitor } from "@/modules/Competition/hooks/useIntegrityMonitor";
-import { topicBattleQueryKeys } from "@/modules/Competition/hooks/topicBattleQueryKeys";
 import type { ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 
 export function TopicBattleDuelPage() {
   const params = useParams();
   const router = useRouter();
   const battleId = params?.id as string;
-  const { isAuthenticated } = useAuthSession();
+  const { isAuthenticated, session } = useAuthSession();
+  const currentUserId = session?.user?.id ?? null;
   const queryClient = useQueryClient();
 
-  const { data: battle, isPending, error } = useQuery({
+  const {
+    data: battle,
+    isPending,
+    error,
+  } = useQuery({
     queryKey: topicBattleQueryKeys.detail(battleId),
     queryFn: () => fetchTopicBattle(battleId),
   });
 
-  const quiz = useMemo(() => (battle ? buildDuelQuiz(battle) : null), [battle]);
+  const { entries: leaderboardEntries } = useTopicBattleLeaderboard(
+    battle?.id ?? battleId,
+    currentUserId,
+  );
+  const quiz = useMemo(
+    () => (battle ? buildDuelQuiz(battle, leaderboardEntries) : null),
+    [battle, leaderboardEntries],
+  );
   const durationSeconds = battle?.durationMinutes ? battle.durationMinutes * 60 : undefined;
 
   // Server-graded submission. Kept as a mutation factory rather than a hook so
   // the callback identity stays stable across renders; `useDuelQuiz` depends on
   // it and would otherwise re-arm its effect on every question change.
   const answerMutation = useMutation({
-    mutationFn: (input: {
-      questionId: string;
-      answer: ParticipantAnswer;
-      latencyMs: number;
-    }) =>
+    mutationFn: (input: { questionId: string; answer: ParticipantAnswer; latencyMs: number }) =>
       submitTopicBattleAnswer({
         battleId,
         questionId: input.questionId,
@@ -96,6 +104,7 @@ export function TopicBattleDuelPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: topicBattleQueryKeys.list });
       queryClient.invalidateQueries({ queryKey: topicBattleQueryKeys.detail(battleId) });
+      queryClient.invalidateQueries({ queryKey: topicBattleQueryKeys.leaderboard(battleId) });
     },
   });
 
@@ -155,8 +164,8 @@ export function TopicBattleDuelPage() {
         <Settings2 className="size-10 text-primary-600" aria-hidden />
         <h2 className="text-lg font-semibold text-text-primary">You host this battle</h2>
         <p className="max-w-md text-sm text-text-secondary">
-          Manage and track it from the battle page. Only participants can play a duel — you
-          cannot take part in a battle you created.
+          Manage and track it from the battle page. Only participants can play a duel — you cannot
+          take part in a battle you created.
         </p>
         <div className="flex items-center gap-3">
           <Button

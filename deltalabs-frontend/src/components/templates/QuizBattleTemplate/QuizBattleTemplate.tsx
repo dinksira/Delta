@@ -18,17 +18,16 @@
  * ```
  */
 
+import { useMemo } from "react";
+
 import { Button } from "@/components/theme/Button";
 import { LeaderboardPanel } from "@/components/organisms/LeaderboardPanel";
 import { QuizBattleHeader } from "@/components/organisms/QuizBattleHeader";
 import { QuizMetricsRow } from "@/components/organisms/QuizMetricsRow";
 import { QuizQuestionCard } from "@/components/organisms/QuizQuestionCard";
 import { QuizResultsPanel } from "@/components/organisms/QuizResultsPanel";
-import type {
-  DuelQuiz,
-  DuelState,
-  ParticipantAnswer,
-} from "@/modules/Competition/types/duelQuiz";
+import { mergeLiveLeaderboard } from "@/modules/Competition/data";
+import type { DuelQuiz, DuelState, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import { cn } from "@/lib/utils";
 
 export interface QuizBattleTemplateProps {
@@ -61,8 +60,7 @@ export function QuizBattleTemplate({
   onExit,
   className,
 }: Readonly<QuizBattleTemplateProps>) {
-  const finished =
-    state.totalQuestions > 0 && state.currentQuestionIndex >= state.totalQuestions;
+  const finished = state.totalQuestions > 0 && state.currentQuestionIndex >= state.totalQuestions;
   const question = quiz.questions[state.currentQuestionIndex];
   const submit = onSubmit ?? (() => undefined);
   const totalPoints = quiz.questions.reduce((sum, q) => sum + (q.points || 100), 0);
@@ -71,12 +69,16 @@ export function QuizBattleTemplate({
     timeTotalSeconds > 0
       ? Math.min(100, Math.max(0, Math.round((timeLeftSeconds / timeTotalSeconds) * 100)))
       : 0;
-  // The built leaderboard carries no points (see buildDuelQuiz), so the
-  // participant's own row is filled in from the server score as answers are
-  // graded. Opponent rows stay empty until a live leaderboard exists.
-  const leaderboard = quiz.leaderboard.map((entry) =>
-    entry.isCurrentUser ? { ...entry, points: state.score } : entry,
+  // quiz.leaderboard is the real server standings (see buildDuelQuiz); the
+  // participant's own row is overlaid with the live server score and re-ranked
+  // as answers are graded, and appended if they have not finished yet. The rank
+  // shown in the metrics strip and results panel is this derived rank, never a
+  // fabricated number.
+  const leaderboard = useMemo(
+    () => mergeLiveLeaderboard(quiz.leaderboard, state.score),
+    [quiz.leaderboard, state.score],
   );
+  const rank = leaderboard.find((entry) => entry.isCurrentUser)?.rank ?? state.rank;
 
   if (finished) {
     return (
@@ -93,7 +95,7 @@ export function QuizBattleTemplate({
           score={state.score}
           correctCount={state.correctCount}
           total={state.totalQuestions}
-          rank={state.rank}
+          rank={rank}
           onPlayAgain={onPlayAgain}
           onExit={onExit}
         />
@@ -131,7 +133,7 @@ export function QuizBattleTemplate({
           ) : null}
           <QuizMetricsRow
             score={state.score}
-            rank={state.rank}
+            rank={rank}
             correctCount={state.correctCount}
             total={state.totalQuestions}
           />

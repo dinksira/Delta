@@ -135,10 +135,11 @@ class Repository:
         """Register a join. Idempotent per user, and capacity-guarded.
 
         The seat cap is enforced inside the update filter with ``$expr`` so the
-        comparison of ``players_joined`` against ``players_max`` happens under
-        the document's lock. Reading both values in the service and then writing
-        would let two concurrent joiners both observe a free seat and overshoot
-        the cap, because MongoDB cannot compare two fields in a plain query.
+        comparison of the real participant count against ``players_max`` happens
+        under the document's lock. Reading both values in the service and then
+        writing would let two concurrent joiners both observe a free seat and
+        overshoot the cap, because MongoDB cannot compare two fields in a plain
+        query.
 
         Returns ``None`` when the filter matched nothing, which covers three
         cases the caller must disambiguate: the battle is gone, the battle is
@@ -149,7 +150,9 @@ class Repository:
             {
                 "_id": battle_id,
                 "participants": {"$ne": user_id},
-                "$expr": {"$lt": ["$players_joined", "$players_max"]},
+                "$expr": {
+                    "$lt": [{"$size": {"$ifNull": ["$participants", []]}}, "$players_max"]
+                },
             },
             {
                 "$addToSet": {"participants": user_id},
@@ -363,7 +366,9 @@ class Repository:
             {
                 "_id": battle_id,
                 "participants": {"$ne": user_id},
-                "$expr": {"$lt": ["$players_joined", "$players_max"]},
+                "$expr": {
+                    "$lt": [{"$size": {"$ifNull": ["$participants", []]}}, "$players_max"]
+                },
             },
             {
                 "$addToSet": {"participants": user_id},
@@ -741,6 +746,20 @@ class Repository:
             for doc in docs
         ]
 
+    async def championship_rank_and_total(self, points: int) -> tuple[int, int]:
+        """Real ``(rank, total)`` for a points value on the season ladder.
+
+        ``total`` counts every user who actually earned championship points;
+        ``rank`` is standard competition ranking (tied players share a rank).
+        A user with no points is not on the ladder, so their rank is 0.
+        """
+        collection = self._db["competition_user_stats"]
+        total = await collection.count_documents({"championship_points": {"$gt": 0}})
+        if points <= 0:
+            return 0, total
+        higher = await collection.count_documents({"championship_points": {"$gt": points}})
+        return higher + 1, total
+
     async def complete_game_stage_stats(
         self,
         user_id: str,
@@ -1014,7 +1033,7 @@ class Repository:
             ),
             prize_pool=str(doc.get("prize_pool", "0 ETB")),
             entry_fee=str(doc.get("entry_fee", "Free")),
-            players_joined=int(doc.get("players_joined", 0)),
+            players_joined=len(participants),
             players_max=int(doc.get("players_max", 2)),
             format=str(doc.get("format", "mini")),
             duration_minutes=int(doc.get("duration_minutes", 10)),

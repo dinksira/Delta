@@ -131,7 +131,7 @@ class Repository:
         except Exception:
             return None
         result = await self.collection.update_one(
-            {"_id": oid},
+            {"_id": oid, "joined_user_ids": {"$ne": user_id}},
             {
                 "$inc": {"players_joined": 1},
                 "$addToSet": {"joined_user_ids": user_id},
@@ -200,8 +200,19 @@ class Repository:
         return await self.find_by_id(room_id)
 
     @staticmethod
-    def to_entry(doc: dict[str, Any]) -> dict[str, Any]:
-        """Map a stored room doc to the camelCase lobby/room JSON shape."""
+    def to_entry(
+        doc: dict[str, Any],
+        viewer_user_id: str | None = None,
+        viewers: int | None = None,
+    ) -> dict[str, Any]:
+        """Map a stored room doc to the camelCase lobby/room JSON shape.
+
+        ``hasJoined`` and ``playersJoined`` are derived from the real
+        ``joined_user_ids`` roster (the host is in it, so a host is joined), and
+        ``viewers`` is a live count resolved from the online-presence set by the
+        API layer. Nothing here is fabricated.
+        """
+        joined_ids = [str(user_id) for user_id in doc.get("joined_user_ids", [])]
         return {
             "id": str(doc["_id"]),
             "title": doc.get("title", ""),
@@ -211,13 +222,25 @@ class Repository:
             "hostName": doc.get("host_name", ""),
             "hostAvatarUrl": doc.get("host_avatar_url"),
             "hostUserId": doc.get("host_user_id"),
-            "viewers": doc.get("viewers", 0),
-            "playersJoined": doc.get("players_joined", 1),
+            "viewers": (
+                viewers
+                if viewers is not None
+                else int(doc.get("viewers", 0) or 0)
+            ),
+            "playersJoined": (
+                len(set(joined_ids))
+                if joined_ids
+                else int(doc.get("players_joined", 1) or 0)
+            ),
             "playersMax": doc.get("players_max", 16),
             "entryFee": doc.get("entry_fee", "Free"),
             "prizePool": doc.get("prize_pool", "0 ETB"),
             "durationLabel": doc.get("duration_label", "60 min"),
-            "hasJoined": True,
+            "hasJoined": (
+                viewer_user_id is not None
+                and joined_ids
+                and viewer_user_id in joined_ids
+            ),
             "scheduledAt": doc.get("scheduled_at") or None,
             "finalLeaderboard": doc.get("final_leaderboard") or None,
             "finishedAt": doc.get("finished_at") or None,

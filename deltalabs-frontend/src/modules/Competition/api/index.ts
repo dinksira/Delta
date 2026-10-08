@@ -4,7 +4,11 @@ import type { GameMode } from "@/modules/Competition/types/hub";
 import type { ChampionshipApiResponse } from "@/modules/Competition/types/championship";
 import type { CreateChampionshipPayload } from "@/modules/Competition/types/championship";
 import type { CompetitionGamesResponse } from "@/modules/Competition/types/games";
-import type { TopicBattle, TopicBattleList } from "@/modules/Competition/types/topicBattle";
+import type {
+  TopicBattle,
+  TopicBattleLeaderboard,
+  TopicBattleList,
+} from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 import type { DuelLeaderboardEntry, ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 import type {
@@ -94,6 +98,15 @@ export async function fetchTopicBattles() {
 
 export async function fetchTopicBattle(id: string) {
   return apiClient.get<TopicBattle>(`/v1/competitions/topic-battles/${id}`);
+}
+
+/**
+ * Server-computed standings for a battle
+ * (`GET /v1/competitions/topic-battles/{id}/leaderboard`). Ranks and points come
+ * from persisted completion records, never from client-supplied scores.
+ */
+export async function fetchTopicBattleLeaderboard(id: string) {
+  return apiClient.get<TopicBattleLeaderboard>(`/v1/competitions/topic-battles/${id}/leaderboard`);
 }
 
 export async function joinTopicBattle(id: string) {
@@ -233,7 +246,13 @@ export async function submitTopicBattleAnswer(input: {
 }): Promise<TopicBattleAnswerResult> {
   return apiClient.post<TopicBattleAnswerResult>(
     `/v1/competitions/topic-battles/${input.battleId}/answers`,
-    { json: { questionId: input.questionId, answer: toAnswerPayload(input.answer), latencyMs: input.latencyMs } },
+    {
+      json: {
+        questionId: input.questionId,
+        answer: toAnswerPayload(input.answer),
+        latencyMs: input.latencyMs,
+      },
+    },
   );
 }
 
@@ -252,7 +271,13 @@ export async function recordTopicBattleIntegrityEvent(input: {
 }): Promise<IntegrityEventResult> {
   return apiClient.post<IntegrityEventResult>(
     `/v1/competitions/topic-battles/${input.battleId}/integrity-events`,
-    { json: { eventType: input.eventType, questionId: input.questionId ?? "", detail: input.detail ?? {} } },
+    {
+      json: {
+        eventType: input.eventType,
+        questionId: input.questionId ?? "",
+        detail: input.detail ?? {},
+      },
+    },
   );
 }
 

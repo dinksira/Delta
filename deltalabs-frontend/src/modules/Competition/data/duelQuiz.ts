@@ -7,9 +7,9 @@
  * Two things are deliberately absent. There is no subject fallback deck — an
  * invented question cannot be graded by the server, so a battle whose questions
  * fail to map would otherwise be silently graded against nothing. And the
- * leaderboard holds only the participant: opponent rows need a live leaderboard
- * endpoint, and fabricating plausible points for people who are not really
- * competing is worse than showing none.
+ * leaderboard only ever holds the server-derived standings: `buildDuelQuiz`
+ * accepts the real `leaderboard` entries when they are available and otherwise
+ * shows just the participant's own row. Nobody's points are invented.
  */
 
 import type {
@@ -18,7 +18,11 @@ import type {
   DuelQuiz,
 } from "@/modules/Competition/types/duelQuiz";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
-import type { TopicBattle, TopicBattleQuestion } from "@/modules/Competition/types/topicBattle";
+import type {
+  TopicBattle,
+  TopicBattleLeaderboard,
+  TopicBattleQuestion,
+} from "@/modules/Competition/types/topicBattle";
 
 /**
  * A question as the participant is allowed to see it, whichever authoring
@@ -180,7 +184,10 @@ export function toDuelQuestion(q: PublicQuestionView): DuelQuestion | null {
 }
 
 /** Resolve the full participant quiz for the given battle. */
-export function buildDuelQuiz(battle: TopicBattle): DuelQuiz {
+export function buildDuelQuiz(
+  battle: TopicBattle,
+  leaderboard: DuelLeaderboardEntry[] = [],
+): DuelQuiz {
   const questions = (battle.questions ?? [])
     .map(toDuelQuestion)
     .filter((q): q is DuelQuestion => q !== null);
@@ -189,16 +196,59 @@ export function buildDuelQuiz(battle: TopicBattle): DuelQuiz {
     battleId: battle.id,
     battleTitle: battle.title,
     questions,
-    leaderboard: buildLeaderboard(),
+    leaderboard: leaderboard.length > 0 ? leaderboard : buildLeaderboard(),
     playerCount: battle.playersJoined,
   };
 }
 
 /**
- * The participant's own row only, with a zero starting score. The template
- * overlays the live server score onto it as answers are graded, so nothing
- * shown here is ever a made-up number.
+ * The participant's own row only, with a zero starting score. Used until the
+ * real server standings arrive; the template overlays the live server score onto
+ * it as answers are graded, so nothing shown here is ever a made-up number.
  */
 function buildLeaderboard(): DuelLeaderboardEntry[] {
   return [{ rank: 1, name: "You", points: 0, isCurrentUser: true }];
+}
+
+/** Map the backend's server standings onto the duel view's entry shape. */
+export function toDuelLeaderboardEntries(
+  board: TopicBattleLeaderboard | undefined,
+  currentUserId: string | null,
+): DuelLeaderboardEntry[] {
+  return (board?.entries ?? []).map((entry) => ({
+    rank: entry.rank,
+    name: entry.userId === currentUserId ? "You" : entry.name,
+    avatarUrl: entry.avatarUrl ?? undefined,
+    points: entry.points,
+    isCurrentUser: entry.userId === currentUserId,
+    userId: entry.userId,
+  }));
+}
+
+/**
+ * Overlay the participant's live server score onto the standings and re-rank.
+ *
+ * The rows the server reported keep their real points (and their order); the
+ * participant's own row is updated in place, or appended when they have not
+ * finished yet. Ranks are recomputed with the same dense ranking the server
+ * uses, so a provisional row never invents a place out of thin air.
+ */
+export function mergeLiveLeaderboard(
+  entries: DuelLeaderboardEntry[],
+  score: number,
+): DuelLeaderboardEntry[] {
+  const rows = entries.map((entry) => (entry.isCurrentUser ? { ...entry, points: score } : entry));
+  if (!rows.some((entry) => entry.isCurrentUser)) {
+    rows.push({ rank: 0, name: "You", points: score, isCurrentUser: true });
+  }
+  const sorted = [...rows].sort((a, b) => b.points - a.points);
+  let previousPoints: number | null = null;
+  let rank = 0;
+  return sorted.map((row) => {
+    if (row.points !== previousPoints) {
+      rank += 1;
+      previousPoints = row.points;
+    }
+    return { ...row, rank };
+  });
 }

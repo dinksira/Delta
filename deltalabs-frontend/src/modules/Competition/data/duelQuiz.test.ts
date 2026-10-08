@@ -2,8 +2,17 @@
 /** Imports used by this file. */
 import { describe, expect, it } from "vitest";
 
-import { buildDuelQuiz, toDuelQuestion } from "@/modules/Competition/data/duelQuiz";
-import type { TopicBattle, TopicBattleQuestion } from "@/modules/Competition/types/topicBattle";
+import {
+  buildDuelQuiz,
+  mergeLiveLeaderboard,
+  toDuelQuestion,
+  toDuelLeaderboardEntries,
+} from "@/modules/Competition/data/duelQuiz";
+import type {
+  TopicBattle,
+  TopicBattleLeaderboard,
+  TopicBattleQuestion,
+} from "@/modules/Competition/types/topicBattle";
 import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
 
 /** ################################ /IMPORT ############################# */
@@ -325,5 +334,116 @@ describe("buildDuelQuiz", () => {
 
     expect(quiz.battleId).toBe("b1");
     expect(quiz.battleTitle).toBe("Battle");
+  });
+
+  it("uses the real server standings when they are present", () => {
+    const entries = [
+      { rank: 1, name: "Ada", points: 120, isCurrentUser: true, userId: "u1" },
+      { rank: 2, name: "Linus", points: 80, isCurrentUser: false, userId: "u2" },
+    ];
+    const quiz = buildDuelQuiz(battle([publicQuestion()]), entries);
+
+    expect(quiz.leaderboard).toEqual(entries);
+  });
+
+  it("falls back to the participant's own row when no standings exist yet", () => {
+    const quiz = buildDuelQuiz(battle([publicQuestion()]), []);
+
+    expect(quiz.leaderboard).toEqual([{ rank: 1, name: "You", points: 0, isCurrentUser: true }]);
+  });
+});
+
+describe("toDuelLeaderboardEntries — real server standings", () => {
+  function serverBoard(overrides: Partial<TopicBattleLeaderboard> = {}): TopicBattleLeaderboard {
+    return {
+      battleId: "b1",
+      totalCompleted: 2,
+      entries: [
+        {
+          rank: 1,
+          userId: "u1",
+          name: "Ada Lovelace",
+          avatarUrl: "https://example.com/a.png",
+          points: 120,
+          isOwner: true,
+        },
+        { rank: 2, userId: "u2", name: "Linus", avatarUrl: null, points: 80, isOwner: false },
+      ],
+      ...overrides,
+    };
+  }
+
+  it("maps rows exactly as ranked by the server", () => {
+    const entries = toDuelLeaderboardEntries(serverBoard(), null);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({ rank: 1, name: "Ada Lovelace", points: 120, userId: "u1" });
+    expect(entries[1]).toMatchObject({ rank: 2, name: "Linus", points: 80, userId: "u2" });
+  });
+
+  it("labels the current user's row as You and marks it", () => {
+    const entries = toDuelLeaderboardEntries(serverBoard(), "u1");
+
+    expect(entries[0]).toMatchObject({ rank: 1, name: "You", points: 120, isCurrentUser: true });
+    expect(entries[1]).toMatchObject({ isCurrentUser: false });
+  });
+
+  it("returns an empty list when the board is not fetched yet", () => {
+    expect(toDuelLeaderboardEntries(undefined, "u1")).toEqual([]);
+  });
+});
+
+describe("mergeLiveLeaderboard — overlay the live server score", () => {
+  it("keeps server rows and replaces the participant's points in place", () => {
+    const entries = [
+      { rank: 1, name: "Ada", points: 120, isCurrentUser: false, userId: "u1" },
+      { rank: 2, name: "You", points: 40, isCurrentUser: true, userId: "u2" },
+      { rank: 3, name: "Linus", points: 20, isCurrentUser: false, userId: "u3" },
+    ];
+
+    const merged = mergeLiveLeaderboard(entries, 90);
+
+    expect(merged).toHaveLength(3);
+    expect(merged.find((e) => e.userId === "u1")).toMatchObject({ rank: 1, points: 120 });
+    expect(merged.find((e) => e.userId === "u2")).toMatchObject({ rank: 2, points: 90 });
+    expect(merged.find((e) => e.userId === "u3")).toMatchObject({ rank: 3, points: 20 });
+  });
+
+  it("appends the participant as their own row before they finish", () => {
+    const entries = [
+      { rank: 1, name: "Ada", points: 120, isCurrentUser: false, userId: "u1" },
+      { rank: 2, name: "Linus", points: 80, isCurrentUser: false, userId: "u2" },
+    ];
+
+    const merged = mergeLiveLeaderboard(entries, 60);
+
+    expect(merged).toHaveLength(3);
+    expect(merged.find((e) => e.isCurrentUser)).toMatchObject({
+      name: "You",
+      points: 60,
+      rank: 3,
+    });
+  });
+
+  it("re-ranks with the server's dense ranking when points tie", () => {
+    const entries = [
+      { rank: 1, name: "Ada", points: 100, isCurrentUser: false, userId: "u1" },
+      { rank: 2, name: "You", points: 0, isCurrentUser: true, userId: "u2" },
+    ];
+
+    const merged = mergeLiveLeaderboard(entries, 100);
+
+    const ranks = merged.map((e) => e.rank);
+    expect(ranks).toEqual([1, 1]);
+    expect(merged.find((e) => e.isCurrentUser)?.rank).toBe(1);
+  });
+
+  it("keeps server rows even when the participant is not ranked yet", () => {
+    const entries = [{ rank: 1, name: "Ada", points: 100, isCurrentUser: false, userId: "u1" }];
+
+    const merged = mergeLiveLeaderboard(entries, 10);
+
+    expect(merged.map((e) => e.name)).toEqual(["Ada", "You"]);
+    expect(merged[0].points).toBe(100);
   });
 });

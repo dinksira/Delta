@@ -29,13 +29,15 @@ import {
   useChampionship,
   useCompleteChampionshipStage,
   useDuelQuiz,
+  useTopicBattleLeaderboard,
 } from "@/modules/Competition/hooks";
 
 export function ChampionshipStageDuelPage() {
   const params = useParams();
   const router = useRouter();
   const stageId = params?.id as string;
-  const { isAuthenticated } = useAuthSession();
+  const { isAuthenticated, session } = useAuthSession();
+  const currentUserId = session?.user?.id ?? null;
   const queryClient = useQueryClient();
 
   const championshipQuery = useChampionship();
@@ -47,13 +49,21 @@ export function ChampionshipStageDuelPage() {
   );
   const battleId = stage?.battleId;
 
-  const { data: battle, isPending, error } = useQuery({
+  const {
+    data: battle,
+    isPending,
+    error,
+  } = useQuery({
     queryKey: topicBattleQueryKeys.detail(battleId ?? "missing"),
     queryFn: () => fetchTopicBattle(battleId as string),
     enabled: Boolean(battleId),
   });
 
-  const quiz = useMemo(() => (battle ? buildDuelQuiz(battle) : null), [battle]);
+  const { entries: leaderboardEntries } = useTopicBattleLeaderboard(battleId, currentUserId);
+  const quiz = useMemo(
+    () => (battle ? buildDuelQuiz(battle, leaderboardEntries) : null),
+    [battle, leaderboardEntries],
+  );
   const durationSeconds = battle?.durationMinutes ? battle.durationMinutes * 60 : undefined;
   const duel = useDuelQuiz(quiz, durationSeconds);
 

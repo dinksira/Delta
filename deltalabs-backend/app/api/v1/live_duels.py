@@ -265,12 +265,27 @@ async def _ws_client_loop(
 # ################################ HTTP ################################
 @router.get("", response_model=list[dict[str, Any]])
 async def list_live_duels(
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
+    current_user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
 ) -> list[dict[str, Any]]:
     """Lobby catalog: every host-created room on the platform."""
     repository = LiveDuelRepository(db)
+    viewer_user_id = current_user.user_id if current_user is not None else None
     stored = await repository.list_all()
-    return [LiveDuelRepository.to_entry(doc) for doc in stored]
+    entries: list[dict[str, Any]] = []
+    for doc in stored:
+        viewers = await live_duels_queue.count_online_participants(
+            redis, room_id=str(doc["_id"])
+        )
+        entries.append(
+            LiveDuelRepository.to_entry(
+                doc,
+                viewer_user_id=viewer_user_id,
+                viewers=viewers,
+            )
+        )
+    return entries
 
 
 @router.post("", response_model=dict[str, Any], status_code=status.HTTP_201_CREATED)
@@ -296,7 +311,7 @@ async def create_live_duel(
         "host_name": payload.host_name,
         "host_avatar_url": payload.host_avatar_url,
         "host_user_id": current_user.user_id,
-        "viewers": 12,
+        "viewers": 0,
         "players_joined": 1,
         "players_max": payload.players_max,
         "entry_fee": payload.entry_fee,
@@ -310,22 +325,30 @@ async def create_live_duel(
         "created_at": now,
     }
     await repository.insert(doc)
-    return LiveDuelRepository.to_entry(doc)
+    return LiveDuelRepository.to_entry(doc, viewer_user_id=current_user.user_id)
 
 
 @router.get("/history", response_model=list[dict[str, Any]])
 async def get_live_duel_history(
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
 ) -> list[dict[str, Any]]:
     """Past duels: finished rooms with their snapshot final leaderboard."""
     repository = LiveDuelRepository(db)
     stored = await repository.list_finished()
-    return [LiveDuelRepository.to_entry(doc) for doc in stored]
+    entries: list[dict[str, Any]] = []
+    for doc in stored:
+        viewers = await live_duels_queue.count_online_participants(
+            redis, room_id=str(doc["_id"])
+        )
+        entries.append(LiveDuelRepository.to_entry(doc, viewers=viewers))
+    return entries
 
 
 @router.get("/{room_id}", response_model=dict[str, Any])
 async def get_live_duel(
     room_id: str,
+    redis: AsyncRedis = Depends(get_redis),  # noqa: B008
     db: AsyncIOMotorDatabase[dict[str, Any]] = Depends(get_db),  # noqa: B008
     current_user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
 ) -> dict[str, Any]:
@@ -333,8 +356,10 @@ async def get_live_duel(
 
     `hostIsUser` is derived from the authenticated requester so the frontend can
     re-derive host mode after a page reload (the in-memory session registry does
-    not survive a refresh). Finished rooms additionally return their snapshot
-    final leaderboard for the replay view.
+    not survive a refresh). `hasJoined`/`viewers` likewise come from real data:
+    the presence set for watchers, the joined roster for membership. Finished
+    rooms additionally return their snapshot final leaderboard for the replay
+    view.
     """
     repository = LiveDuelRepository(db)
     doc = await repository.find_by_id(room_id)
@@ -343,7 +368,13 @@ async def get_live_duel(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "live_duel_not_found"},
         )
-    entry = LiveDuelRepository.to_entry(doc)
+    viewer_user_id = current_user.user_id if current_user is not None else None
+    viewers = await live_duels_queue.count_online_participants(redis, room_id=room_id)
+    entry = LiveDuelRepository.to_entry(
+        doc,
+        viewer_user_id=viewer_user_id,
+        viewers=viewers,
+    )
     is_host = current_user is not None and doc.get("host_user_id") == current_user.user_id
     return {
         **entry,
@@ -445,7 +476,7 @@ async def finish_live_duel(
         },
     )
     return {
-        **LiveDuelRepository.to_entry(updated_doc),
+        **LiveDuelRepository.to_entry(updated_doc, viewer_user_id=current_user.user_id),
         "finalLeaderboard": final_leaderboard,
         "winnerName": winner_name,
         "finishedAt": updated_doc.get("finished_at") or None,
@@ -499,7 +530,7 @@ async def join_live_duel(
         type="UPDATE_LEADERBOARD",
         payload=_live_leaderboard(roster, doc.get("answers", [])),
     )
-    return LiveDuelRepository.to_entry(doc)
+    return LiveDuelRepository.to_entry(doc, viewer_user_id=current_user.user_id)
 
 
 @router.post("/{room_id}/questions", response_model=dict[str, Any])

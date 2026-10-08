@@ -3,7 +3,10 @@ import type { ComponentProps } from "react";
 import { CalendarClock, Lock, LockOpen, Trophy } from "lucide-react";
 
 import { ProgressBar } from "@/components/atoms/ProgressBar";
-import type { ChampionshipNextSeason, ChampionshipSeason } from "@/modules/Competition/types/championship";
+import type {
+  ChampionshipNextSeason,
+  ChampionshipSeason,
+} from "@/modules/Competition/types/championship";
 import { cn } from "@/lib/utils";
 
 export interface ChampionshipSeasonCardProps extends ComponentProps<"section"> {
@@ -65,7 +68,9 @@ export function ChampionshipSeasonCard({
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Trophy className="size-4 text-warning-500" aria-hidden />
-          Rank #{season.playerRank} of {season.totalPlayers}
+          {season.totalPlayers > 0 && season.playerRank > 0
+            ? `Rank #${season.playerRank} of ${season.totalPlayers}`
+            : "No ranked players yet"}
         </span>
       </div>
 

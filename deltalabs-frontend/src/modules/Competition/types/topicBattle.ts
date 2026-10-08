@@ -170,3 +170,24 @@ export interface TopicBattleList {
   battles: TopicBattle[];
   total: number;
 }
+
+/** One ranked row of a battle's standings (`GET .../topic-battles/{id}/leaderboard`). */
+export interface TopicBattleLeaderboardEntry {
+  rank: number;
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  points: number;
+  isOwner: boolean;
+}
+
+/**
+ * Server-derived standings for a topic battle. Every value is computed from
+ * persisted completion records on the backend, so a client cannot inflate its
+ * own rank. Ranks are dense: tied players share a rank (1, 1, 2).
+ */
+export interface TopicBattleLeaderboard {
+  battleId: string;
+  entries: TopicBattleLeaderboardEntry[];
+  totalCompleted: number;
+}

@@ -199,7 +199,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "demo",
         "prize_pool": "500 ETB",
         "entry_fee": "Free",
-        "players_joined": 1,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -258,7 +257,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "self",
         "prize_pool": "750 ETB",
         "entry_fee": "Free",
-        "players_joined": 1,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -312,7 +310,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "self",
         "prize_pool": "2,500 ETB",
         "entry_fee": "Free",
-        "players_joined": 3,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -372,7 +369,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "self",
         "prize_pool": "5,000 ETB",
         "entry_fee": "50 ETB",
-        "players_joined": 6,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -432,7 +428,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "self",
         "prize_pool": "800 ETB",
         "entry_fee": "10 ETB",
-        "players_joined": 2,
         "players_max": 6,
         "questions": [
             _coding_question(
@@ -469,7 +464,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000001",
         "prize_pool": "500 ETB",
         "entry_fee": "Free",
-        "players_joined": 1,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -525,7 +519,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000001",
         "prize_pool": "1,200 ETB",
         "entry_fee": "Free",
-        "players_joined": 2,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -568,7 +561,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000002",
         "prize_pool": "600 ETB",
         "entry_fee": "Free",
-        "players_joined": 2,
         "players_max": 4,
         "joined_by_self": True,
         "questions": [
@@ -605,7 +597,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000003",
         "prize_pool": "900 ETB",
         "entry_fee": "Free",
-        "players_joined": 3,
         "players_max": 6,
         "questions": [
             _coding_question(
@@ -643,7 +634,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000004",
         "prize_pool": "750 ETB",
         "entry_fee": "Free",
-        "players_joined": 1,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -679,7 +669,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000005",
         "prize_pool": "1,000 ETB",
         "entry_fee": "15 ETB",
-        "players_joined": 4,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -719,7 +708,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000006",
         "prize_pool": "1,400 ETB",
         "entry_fee": "20 ETB",
-        "players_joined": 2,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -759,7 +747,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000007",
         "prize_pool": "3,200 ETB",
         "entry_fee": "Free",
-        "players_joined": 1,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -802,7 +789,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000007",
         "prize_pool": "1,600 ETB",
         "entry_fee": "Free",
-        "players_joined": 3,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -837,7 +823,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000008",
         "prize_pool": "1,800 ETB",
         "entry_fee": "25 ETB",
-        "players_joined": 5,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -891,7 +876,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000009",
         "prize_pool": "500 ETB",
         "entry_fee": "Free",
-        "players_joined": 2,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -927,7 +911,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000001",
         "prize_pool": "4,000 ETB",
         "entry_fee": "75 ETB",
-        "players_joined": 8,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -964,7 +947,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000008",
         "prize_pool": "2,700 ETB",
         "entry_fee": "Free",
-        "players_joined": 7,
         "players_max": 8,
         "questions": [
             _coding_question(
@@ -997,7 +979,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000003",
         "prize_pool": "1,100 ETB",
         "entry_fee": "Free",
-        "players_joined": 4,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -1032,7 +1013,6 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
         "owner": "e0000000-0000-0000-0000-000000000002",
         "prize_pool": "1,500 ETB",
         "entry_fee": "Free",
-        "players_joined": 3,
         "players_max": 4,
         "questions": [
             _coding_question(
@@ -1061,6 +1041,8 @@ _DEMO_BATTLE_SEEDS: list[dict[str, Any]] = [
 # ── Demo championship (local dev) ─────────────────────────────────────────
 # Deterministic "Season 3" snapshot. The active stage is `unlocked`; finishing
 # it and the remaining stages completes the season and unlocks Season 4.
+# `player_rank` / `total_players` are placeholders: `get_championship` always
+# overwrites them with the real ladder computed from stored user stats.
 _DEMO_CHAMPIONSHIP_SEASON: dict[str, object] = {
     "id": "season_demo_3",
     "number": 3,
@@ -1073,8 +1055,8 @@ _DEMO_CHAMPIONSHIP_SEASON: dict[str, object] = {
     "current_stage_order": 3,
     "points_earned": 500,
     "total_points": 1000,
-    "player_rank": 4,
-    "total_players": 128,
+    "player_rank": 0,
+    "total_players": 0,
 }
 
 _DEMO_CHAMPIONSHIP_STAGES: list[dict[str, object]] = [
@@ -1157,16 +1139,6 @@ _DEMO_CHAMPIONSHIP_NEXT_SEASON: dict[str, object] = {
     "is_unlocked": False,
     "unlock_hint": "Complete Season 3 to unlock Season 4 and claim your points.",
 }
-
-_DEMO_CHAMPIONSHIP_STANDINGS: list[dict[str, object]] = [
-    {"rank": 1, "name": "Lina Petrova", "points": 780},
-    {"rank": 2, "name": "Ken Nakamura", "points": 745},
-    {"rank": 3, "name": "Elena Okafor", "points": 690},
-    {"rank": 5, "name": "Omar Farouk", "points": 480},
-    {"rank": 6, "name": "Sara Hailu", "points": 455},
-    {"rank": 7, "name": "Juan Rivera", "points": 430},
-    {"rank": 8, "name": "Grace Adeyemi", "points": 395},
-]
 
 # ── Hosted championship wizard ─────────────────────────────────────────────
 # Stage run templates for the "Create new tournament" flow. Every stage maps
@@ -1602,7 +1574,7 @@ def _mt_battle_cells(columns: list[dict[str, Any]], doc: dict[str, Any]) -> dict
         if field is not None:
             cells[col_id] = doc.get(field, "")
         elif derived == "players_joined":
-            cells[col_id] = int(doc.get("players_joined", 0))
+            cells[col_id] = len(list(doc.get("participants", [])))
         elif derived == "_questions_count":
             cells[col_id] = len(questions)
         elif derived == "_link":
@@ -1763,7 +1735,7 @@ class Service:
                     "creator": {"name": seed["creator_name"]},
                     "prize_pool": seed["prize_pool"],
                     "entry_fee": seed["entry_fee"],
-                    "players_joined": int(seed["players_joined"]),
+                    "players_joined": len(participants),
                     "players_max": int(seed["players_max"]),
                     "owner_user_id": owner_user_id,
                     "participants": participants,
@@ -1906,6 +1878,10 @@ class Service:
         current, and everything after stays locked. Uses the persisted hosted
         season when one exists, otherwise falls back to the deterministic demo
         season (anonymous or pre-launch users).
+
+        Standings and the season's rank badge are always derived from real
+        stored user stats — an empty ladder returns an empty (or self-only)
+        board rather than a canned list of names.
         """
         player_points = 0
         completed: list[int] = []
@@ -1926,12 +1902,14 @@ class Service:
                 dict(s) for s in stored["stages"]
             ]
             next_season = dict(stored["next_season"])
-            db_standings = await self._repository.championship_standings()
         else:
             season = dict(_DEMO_CHAMPIONSHIP_SEASON)
             stages_source = [dict(s) for s in _DEMO_CHAMPIONSHIP_STAGES]
             next_season = dict(_DEMO_CHAMPIONSHIP_NEXT_SEASON)
-            db_standings = []
+        # Always the real ladder: users who actually earned championship
+        # points, never a canned list of names. Without a hosted season there
+        # are no completions, so this reads empty rather than inventing rows.
+        db_standings = await self._repository.championship_standings()
 
         ordered = sorted(stages_source, key=lambda s: int(s["order"]))
         next_unlocked = next(
@@ -1963,8 +1941,16 @@ class Service:
             season_data["completed_stages"] = len(completed)
             season_data["current_stage_order"] = next_unlocked
             season_data["points_earned"] = player_points
+        # The season's rank badge is computed live from the real ladder, so a
+        # demo or freshly created season can never claim a place it has not
+        # earned ("Rank #4 of 128" with nobody on the board).
+        player_rank, total_players = await self._repository.championship_rank_and_total(
+            player_points
+        )
+        season_data["player_rank"] = player_rank
+        season_data["total_players"] = total_players
 
-        if stored is not None and db_standings:
+        if db_standings:
             standings: list[ChampionshipStandingResponse] = []
             inserted_you = False
             for entry in db_standings:
@@ -2000,7 +1986,9 @@ class Service:
                         is_current_user=True,
                     )
                 )
-        elif stored is not None:
+        elif user_id is not None:
+            # Nobody on the ladder yet — the requesting user's own row is the
+            # only entry that actually exists.
             standings = [
                 ChampionshipStandingResponse(
                     rank=1,
@@ -2010,19 +1998,7 @@ class Service:
                 )
             ]
         else:
-            standings = [dict(entry) for entry in _DEMO_CHAMPIONSHIP_STANDINGS]
-            standings.insert(
-                3,
-                {
-                    "rank": 4,
-                    "name": "You",
-                    "points": player_points or 500,
-                    "is_current_user": True,
-                },
-            )
-            standings = [
-                ChampionshipStandingResponse.model_validate(entry) for entry in standings
-            ]
+            standings = []
 
         return ChampionshipResponse(
             season=ChampionshipSeasonResponse.model_validate(season_data),
@@ -2191,7 +2167,9 @@ class Service:
             "current_stage_order": 1,
             "points_earned": 0,
             "total_points": _CHAMPIONSHIP_TOTAL_STAGE_POINTS,
-            "player_rank": 1,
+            # Placeholders: `get_championship` recomputes both from the real
+            # ladder on every read.
+            "player_rank": 0,
             "total_players": 0,
         }
 
@@ -2364,7 +2342,7 @@ class Service:
             if isinstance(battle_id, str):
                 doc = await self._repository.find_topic_battle_by_id(battle_id)
                 if doc is not None:
-                    live["players_count"] = int(doc.get("players_joined", 0))
+                    live["players_count"] = len(doc.get("participants", []))
                     live["players_max"] = int(doc.get("players_max", 0))
             game_dict = {**game, **live}
             if game.get("status") == "open":

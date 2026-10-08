@@ -30,9 +30,7 @@ export function LeaderboardPanel({ entries, className }: Readonly<LeaderboardPan
     >
       <div className="mb-3 flex items-center gap-2">
         <Trophy className="size-4 text-warning-500" aria-hidden />
-        <h3 className="text-sm font-bold uppercase tracking-wide text-text-primary">
-          Leaderboard
-        </h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-text-primary">Leaderboard</h3>
       </div>
       <ol className="divide-y divide-border-subtle">
         {entries.map((entry) => (
@@ -41,6 +39,11 @@ export function LeaderboardPanel({ entries, className }: Readonly<LeaderboardPan
           </li>
         ))}
       </ol>
+      {entries.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-surface-muted px-3 py-2 text-xs text-text-secondary">
+          No standings yet — they appear as players finish.
+        </p>
+      ) : null}
     </aside>
   );
 }
