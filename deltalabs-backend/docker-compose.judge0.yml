@@ -1,0 +1,73 @@
+# Self-hosted Judge0 for local development.
+#
+# The public Judge0 CE instance is rate limited and shared, which makes it a poor
+# fit for local iteration: submissions queue behind other users and the shared
+# sandbox budget is not yours to spend. This stack runs the same engine locally
+# so competition code execution behaves the same way it will in production.
+#
+# Start with:
+#   docker compose -f docker-compose.judge0.yml up -d
+#
+# Then point the backend at it:
+#   JUDGE0_API_BASE=http://localhost:2356
+#   JUDGE0_API_KEY=
+#
+# Leave JUDGE0_API_KEY empty for this stack (no auth). It is only needed for a
+# self-hosted instance behind an API key or the public RapidAPI-protected one.
+services:
+  judge0-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: judge0
+      POSTGRES_DB: judge0
+    volumes:
+      - judge0_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  judge0-redis:
+    image: redis:7-alpine
+    # Judge0 keeps pending jobs in Redis so workers and the API agree on queue
+    # state; losing it loses in-flight submissions on restart.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - judge0_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  judge0:
+    image: judge0/judge0:1.13.0
+    ports:
+      - "2356:2356"
+    depends_on:
+      judge0-db:
+        condition: service_healthy
+      judge0-redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: judge0-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: judge0
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: judge0
+      REDIS_HOST: judge0-redis
+      REDIS_PORT: "6379"
+      # Allow direct polling of submitted tokens. Safe locally; keep this bound to
+      # a private network in any shared deployment.
+      ALLOW_ORIGIN: "*"
+      # Persistent volume keeps submissions readable across container restarts.
+      SUBMISSION_DIR: /var/judge0/submissions
+    volumes:
+      - judge0_submissions:/var/judge0/submissions
+
+volumes:
+  judge0_db:
+  judge0_redis:
+  judge0_submissions:
