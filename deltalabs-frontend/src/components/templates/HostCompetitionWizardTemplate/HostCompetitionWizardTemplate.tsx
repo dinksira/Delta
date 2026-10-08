@@ -4,13 +4,12 @@
  *
  * Page shell for the multi-step "Host Competition" creation wizard:
  * header (back arrow, Layers badge + title, Integrate/Automate/Invite text
- * actions, Draft/Preview outline actions), a progress stepper, a scrolling
- * step card, and a fixed footer with Back (left) / Next-or-Launch (right).
+ * actions, Draft/Preview outline actions), a scrolling step card with its
+ * section label, and a fixed footer with Back (left) / Next-or-Launch (right).
  *
  * @example
  * ```tsx
  * <HostCompetitionWizardTemplate
- *   steps={HOST_COMPETITION_STEPS}
  *   currentStep={step}
  *   totalSteps={5}
  *   stepLabel="Overview"
@@ -33,7 +32,6 @@ import { Bot, Layers, Pencil, Play, Plug, Share2 } from "lucide-react";
 
 import { BackButton } from "@/components/theme/BackButton";
 import { Button } from "@/components/theme/Button";
-import { ProgressStepper } from "@/components/molecules/ProgressStepper/ProgressStepper";
 import { cn } from "@/lib/utils";
 
 import type { HostCompetitionWizardTemplateProps } from "./HostCompetitionWizardTemplate.types";
@@ -68,10 +66,8 @@ export function HostCompetitionWizardTemplate({
   title = "Host Competition",
   currentStep,
   totalSteps,
-  steps,
   stepLabel,
   onBack,
-  onStepClick,
   children,
   onPrevious,
   previousDisabled = false,
@@ -86,7 +82,6 @@ export function HostCompetitionWizardTemplate({
   className,
 }: Readonly<HostCompetitionWizardTemplateProps>) {
   const [copied, setCopied] = useState(false);
-  const currentStepId = steps[currentStep - 1]?.id ?? steps[0]?.id ?? "";
 
   const handleInvite = async () => {
     try {
@@ -148,17 +143,6 @@ export function HostCompetitionWizardTemplate({
           )}
         </div>
       </header>
-
-      {/* Step indicator */}
-      <div className="border-b border-border-default px-4 py-3 md:px-8">
-        <ProgressStepper
-          steps={steps}
-          currentStepId={currentStepId}
-          onStepClick={onStepClick}
-          size="sm"
-          filledCurrent
-        />
-      </div>
 
       {/* Scrolling content region */}
       <main className="flex-1 overflow-y-auto px-4 py-5 md:px-8 md:py-6">

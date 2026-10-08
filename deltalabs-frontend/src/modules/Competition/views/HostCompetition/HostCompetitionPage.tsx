@@ -91,16 +91,6 @@ function HostCompetitionWizard() {
     dispatch({ type: "NEXT_STEP" });
   }, [dispatch, handleLaunch, isLast]);
 
-  const handleStepClick = useCallback(
-    (stepId: string) => {
-      const index = HOST_COMPETITION_STEPS.findIndex((candidate) => candidate.id === stepId);
-      if (index >= 0) {
-        dispatch({ type: "SET_STEP", payload: index + 1 });
-      }
-    },
-    [dispatch],
-  );
-
   if (launched) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-5 p-8">
@@ -145,10 +135,8 @@ function HostCompetitionWizard() {
       <HostCompetitionWizardTemplate
         currentStep={step}
         totalSteps={total}
-        steps={[...HOST_COMPETITION_STEPS]}
         stepLabel={stepDef.label}
         onBack={handleBack}
-        onStepClick={handleStepClick}
         onPrevious={handlePrevious}
         previousLabel={step === 1 ? "Leave" : "Back"}
         onNext={handleNext}

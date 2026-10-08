@@ -5,7 +5,6 @@
  * @example
  * ```tsx
  * <HostCompetitionWizardTemplate
- *   steps={HOST_COMPETITION_STEPS}
  *   currentStep={1}
  *   onNext={handleNext}
  *   onPrevious={handlePrevious}
@@ -17,8 +16,6 @@
 
 import type { ReactNode } from "react";
 
-import type { ProgressStepperStep } from "@/components/molecules/ProgressStepper/ProgressStepper.types";
-
 /** Public props for `HostCompetitionWizardTemplate`. */
 export interface HostCompetitionWizardTemplateProps {
   /** Branding title in the header; defaults to `"Host Competition"`. */
@@ -27,14 +24,10 @@ export interface HostCompetitionWizardTemplateProps {
   currentStep: number;
   /** Total number of wizard steps. */
   totalSteps: number;
-  /** Step list rendered in the indicator; id order must match steps 1..N. */
-  steps: ProgressStepperStep[];
   /** Step header label rendered above the content card. */
   stepLabel: string;
   /** Leaves the wizard (header back). */
   onBack?: () => void;
-  /** Optional step jump from the indicator. */
-  onStepClick?: (stepId: string) => void;
   /** Step body rendered inside the content card. */
   children?: ReactNode;
 

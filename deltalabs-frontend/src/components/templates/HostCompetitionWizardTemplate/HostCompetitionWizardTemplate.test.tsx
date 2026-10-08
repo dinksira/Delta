@@ -9,12 +9,6 @@ import type { HostCompetitionWizardTemplateProps } from "./HostCompetitionWizard
 /** ################################ /IMPORT ############################# */
 
 /** ################################ HELPERS ############################# */
-const STEPS = [
-  { id: "overview", label: "Overview" },
-  { id: "prizes", label: "Prize Details" },
-  { id: "workspace", label: "Competition Workspace" },
-];
-
 function renderTemplate(overrides?: Partial<HostCompetitionWizardTemplateProps>) {
   const onBack = vi.fn();
   const onPrevious = vi.fn();
@@ -24,9 +18,8 @@ function renderTemplate(overrides?: Partial<HostCompetitionWizardTemplateProps>)
 
   render(
     <HostCompetitionWizardTemplate
-      steps={STEPS}
       currentStep={2}
-      totalSteps={STEPS.length}
+      totalSteps={3}
       stepLabel="Prize Details"
       onBack={onBack}
       onPrevious={onPrevious}
