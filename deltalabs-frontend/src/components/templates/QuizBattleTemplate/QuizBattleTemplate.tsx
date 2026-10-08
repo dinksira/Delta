@@ -65,12 +65,18 @@ export function QuizBattleTemplate({
     state.totalQuestions > 0 && state.currentQuestionIndex >= state.totalQuestions;
   const question = quiz.questions[state.currentQuestionIndex];
   const submit = onSubmit ?? (() => undefined);
-  const totalPoints = quiz.questions.reduce((sum) => sum + 100, 0);
+  const totalPoints = quiz.questions.reduce((sum, q) => sum + (q.points || 100), 0);
   const isLastQuestion = state.currentQuestionIndex === state.totalQuestions - 1;
   const timeProgress =
     timeTotalSeconds > 0
       ? Math.min(100, Math.max(0, Math.round((timeLeftSeconds / timeTotalSeconds) * 100)))
       : 0;
+  // The built leaderboard carries no points (see buildDuelQuiz), so the
+  // participant's own row is filled in from the server score as answers are
+  // graded. Opponent rows stay empty until a live leaderboard exists.
+  const leaderboard = quiz.leaderboard.map((entry) =>
+    entry.isCurrentUser ? { ...entry, points: state.score } : entry,
+  );
 
   if (finished) {
     return (
@@ -78,7 +84,7 @@ export function QuizBattleTemplate({
         <QuizBattleHeader
           title={quiz.battleTitle}
           totalPoints={totalPoints}
-          players={quiz.leaderboard.length}
+          players={quiz.playerCount}
           timeProgress={timeProgress}
           timeLeft={timeLeft}
         />
@@ -100,7 +106,7 @@ export function QuizBattleTemplate({
       <QuizBattleHeader
         title={quiz.battleTitle}
         totalPoints={totalPoints}
-        players={quiz.leaderboard.length}
+        players={quiz.playerCount}
         timeProgress={timeProgress}
         timeLeft={timeLeft}
       />
@@ -132,7 +138,7 @@ export function QuizBattleTemplate({
         </div>
 
         <div className="shrink-0 lg:w-80">
-          <LeaderboardPanel entries={quiz.leaderboard} />
+          <LeaderboardPanel entries={leaderboard} />
         </div>
       </div>
     </div>

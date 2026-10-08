@@ -39,6 +39,14 @@ export interface QuizAnswerFormProps {
   revealed: boolean;
   /** Submitted answer (used to reflect the player's disclosure when revealed). */
   answer: ParticipantAnswer | null;
+  /**
+   * Server verdict for the submitted answer: true/false, or `null` when the
+   * kind is subjective or the answer arrived past the deadline.
+   *
+   * Authoritative — the client holds no answer key, so this is the only thing
+   * that can mark an answer right or wrong.
+   */
+  result: boolean | null;
   onSubmit: (answer: ParticipantAnswer) => void;
 }
 
@@ -113,11 +121,14 @@ function MultipleChoiceAnswer({
   question,
   revealed,
   submittedId,
+  result,
   onSubmit,
 }: Readonly<{
   question: Extract<DuelQuestion, { kind: "multiple_choice" }>;
   revealed: boolean;
   submittedId: string | undefined;
+  /** Server verdict: true/false, or null when not auto-graded. */
+  result: boolean | null;
   onSubmit: (answer: ParticipantAnswer) => void;
 }>) {
   return (
@@ -125,8 +136,13 @@ function MultipleChoiceAnswer({
       {question.options.map((option) => {
         let state: "idle" | "selected" | "correct" | "incorrect" = "idle";
         if (revealed) {
-          if (option.id === question.correctId) state = "correct";
-          else if (option.id === submittedId) state = "incorrect";
+          // Driven by the server verdict applied to the player's own choice,
+          // not by comparing against a local answer key — the client no longer
+          // has one. A `null` verdict (subjective or past the deadline) leaves
+          // the row neutral rather than guessing.
+          if (option.id === submittedId) {
+            state = result === true ? "correct" : result === false ? "incorrect" : "idle";
+          }
         } else if (option.id === submittedId) {
           state = "selected";
         }
@@ -146,14 +162,15 @@ function MultipleChoiceAnswer({
 }
 
 function TrueFalseAnswer({
-  question,
   revealed,
   submitted,
+  result,
   onSubmit,
 }: Readonly<{
-  question: Extract<DuelQuestion, { kind: "true_false" }>;
   revealed: boolean;
   submitted: boolean;
+  /** Server verdict: true/false, or null when not auto-graded. */
+  result: boolean | null;
   onSubmit: (answer: ParticipantAnswer) => void;
 }>) {
   const rows: { label: string; value: boolean }[] = [
@@ -165,8 +182,11 @@ function TrueFalseAnswer({
       {rows.map((row) => {
         let state: "idle" | "selected" | "correct" | "incorrect" = "idle";
         if (revealed) {
-          if (row.value === question.correct) state = "correct";
-          else if (row.value === submitted) state = "incorrect";
+          // See MultipleChoiceAnswer: the verdict applies to the player's own
+          // choice, since there is no local key to compare against.
+          if (row.value === submitted) {
+            state = result === true ? "correct" : result === false ? "incorrect" : "idle";
+          }
         } else if (row.value === submitted) {
           state = "selected";
         }
@@ -316,11 +336,13 @@ function FillBlankAnswer({
   revealed: boolean;
   onSubmit: (answer: ParticipantAnswer) => void;
 }>) {
-  // Multi-blank mode: the stem carries `[data-blank]` markers, so participants
-  // fill one input per blank. Legacy mode falls back to a single text box.
-  const multiBlank = question.answers.length > 0;
+  // Multi-blank mode: the stem carries `[data-blank]` markers and the server
+  // reports how many, so the participant gets one input per blank. Zero falls
+  // back to a single text box.
+  const blankCount = question.blankCount;
+  const multiBlank = blankCount > 0;
   const [text, setText] = useState("");
-  const [answers, setAnswers] = useState<string[]>(question.answers.map(() => ""));
+  const [answers, setAnswers] = useState<string[]>(() => Array<string>(blankCount).fill(""));
 
   if (multiBlank) {
     return (
@@ -663,6 +685,7 @@ export function QuizAnswerForm({
   question,
   revealed,
   answer,
+  result,
   onSubmit,
 }: Readonly<QuizAnswerFormProps>) {
   switch (question.kind) {
@@ -673,6 +696,7 @@ export function QuizAnswerForm({
           question={question}
           revealed={revealed}
           submittedId={submittedId}
+          result={result}
           onSubmit={onSubmit}
         />
       );
@@ -681,9 +705,9 @@ export function QuizAnswerForm({
       const submitted = answer?.kind === "true_false" ? answer.value : true;
       return (
         <TrueFalseAnswer
-          question={question}
           revealed={revealed}
           submitted={submitted}
+          result={result}
           onSubmit={onSubmit}
         />
       );

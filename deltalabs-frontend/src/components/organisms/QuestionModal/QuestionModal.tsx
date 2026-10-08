@@ -421,6 +421,7 @@ function InteractiveAnswerBody({
         question={duelQuestion}
         revealed={Boolean(result)}
         answer={result?.answer ?? null}
+        result={result?.correct ?? null}
         onSubmit={onSubmit}
       />
     </div>

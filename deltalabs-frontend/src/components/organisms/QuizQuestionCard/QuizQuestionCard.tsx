@@ -47,7 +47,10 @@ export interface QuizQuestionCardProps {
   index: number;
   total: number;
   revealed: boolean;
-  /** Auto-grade result of the submitted answer, null when not auto-graded. */
+  /**
+   * Server verdict for the submitted answer: true/false, or `null` when the
+   * kind is subjective or the answer arrived past the deadline.
+   */
   result: boolean | null;
   answer: ParticipantAnswer | null;
   onSubmit: (answer: ParticipantAnswer) => void;
@@ -97,6 +100,7 @@ export function QuizQuestionCard({
           question={question}
           revealed={revealed}
           answer={answer}
+          result={result}
           onSubmit={onSubmit}
         />
       </div>

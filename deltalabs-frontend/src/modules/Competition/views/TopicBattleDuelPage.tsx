@@ -1,9 +1,14 @@
 /**
  * TopicBattleDuelPage — duel quiz screen for a joined topic battle.
- * Fetches the battle by route id, builds the MCQ quiz via `buildDuelQuiz`,
- * and drives `QuizBattleTemplate` with `useDuelQuiz` state. When the duel
- * finishes (last question or countdown reaches zero) the completion is
- * recorded on the backend so the battle cannot be taken again.
+ * Fetches the battle by route id, builds the quiz via `buildDuelQuiz`, and
+ * drives `QuizBattleTemplate` with `useDuelQuiz` state. Answers are graded by
+ * the backend: this page submits each answer and renders the returned verdict,
+ * so the client never holds an answer key. Proctoring signals (tab switch,
+ * fullscreen exit, paste) are reported alongside via `useIntegrityMonitor`.
+ *
+ * Completion is recorded only after the last question, and the server now
+ * refuses it unless at least one answer was actually graded — so finishing is
+ * no longer a free action.
  *
  * @example
  * ```tsx
@@ -13,7 +18,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,10 +27,16 @@ import { ArrowLeft, CheckCircle2, Loader2, Settings2 } from "lucide-react";
 import { Button } from "@/components/theme/Button";
 import { QuizBattleTemplate } from "@/components/templates/QuizBattleTemplate";
 import { useAuthSession } from "@/contexts/AuthSession_Context";
-import { completeTopicBattle, fetchTopicBattle } from "@/modules/Competition/api";
+import {
+  completeTopicBattle,
+  fetchTopicBattle,
+  submitTopicBattleAnswer,
+} from "@/modules/Competition/api";
 import { buildDuelQuiz } from "@/modules/Competition/data";
 import { useDuelQuiz } from "@/modules/Competition/hooks/useDuelQuiz";
+import { useIntegrityMonitor } from "@/modules/Competition/hooks/useIntegrityMonitor";
 import { topicBattleQueryKeys } from "@/modules/Competition/hooks/topicBattleQueryKeys";
+import type { ParticipantAnswer } from "@/modules/Competition/types/duelQuiz";
 
 export function TopicBattleDuelPage() {
   const params = useParams();
@@ -41,7 +52,44 @@ export function TopicBattleDuelPage() {
 
   const quiz = useMemo(() => (battle ? buildDuelQuiz(battle) : null), [battle]);
   const durationSeconds = battle?.durationMinutes ? battle.durationMinutes * 60 : undefined;
-  const duel = useDuelQuiz(quiz, durationSeconds);
+
+  // Server-graded submission. Kept as a mutation factory rather than a hook so
+  // the callback identity stays stable across renders; `useDuelQuiz` depends on
+  // it and would otherwise re-arm its effect on every question change.
+  const answerMutation = useMutation({
+    mutationFn: (input: {
+      questionId: string;
+      answer: ParticipantAnswer;
+      latencyMs: number;
+    }) =>
+      submitTopicBattleAnswer({
+        battleId,
+        questionId: input.questionId,
+        answer: input.answer,
+        latencyMs: input.latencyMs,
+      }),
+  });
+
+  const submitToServer = useCallback(
+    async (questionId: string, answer: ParticipantAnswer, latencyMs: number) =>
+      answerMutation.mutateAsync({ questionId, answer, latencyMs }),
+    [answerMutation],
+  );
+
+  const duel = useDuelQuiz(quiz, durationSeconds, isAuthenticated ? submitToServer : undefined);
+
+  // Proctoring signals, active only while an attempt is actually in progress.
+  const finished =
+    Boolean(quiz) &&
+    duel.state.totalQuestions > 0 &&
+    duel.state.currentQuestionIndex >= duel.state.totalQuestions;
+  const currentQuestionId = quiz?.questions[duel.state.currentQuestionIndex]?.id;
+
+  useIntegrityMonitor({
+    battleId,
+    enabled: isAuthenticated && Boolean(quiz) && !finished,
+    questionId: currentQuestionId,
+  });
 
   const completeMutation = useMutation({
     mutationFn: completeTopicBattle,
@@ -51,10 +99,6 @@ export function TopicBattleDuelPage() {
     },
   });
 
-  const finished =
-    Boolean(quiz) &&
-    duel.state.totalQuestions > 0 &&
-    duel.state.currentQuestionIndex >= duel.state.totalQuestions;
   const completionSent = useRef(false);
   useEffect(() => {
     if (finished && isAuthenticated && !completionSent.current) {

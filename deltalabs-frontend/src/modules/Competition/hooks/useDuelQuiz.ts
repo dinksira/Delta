@@ -1,30 +1,48 @@
 /**
  * useDuelQuiz — client state machine for a duel quiz run.
- * Owns the current question index, the submitted answer for the current
- * question, auto-grading of objective kinds, score / correct count / derived
- * rank, and a battle-wide countdown timer. The battle is time-boxed and ends
- * automatically the moment the timer reaches zero, regardless of unanswered
- * questions.
+ *
+ * Owns the current question index, the in-flight/locked answer for the current
+ * question, and a battle-wide countdown timer. It no longer grades: a submitted
+ * answer is sent to the backend and the returned verdict becomes `lastResult`.
+ * The battle is time-boxed and ends the moment the timer reaches zero,
+ * regardless of unanswered questions.
+ *
+ * The deadline is enforced twice on purpose. The timer here is UX — it stops the
+ * player from sitting on a question that no longer counts — but the server
+ * applies its own deadline from the participant's join time, so a client that
+ * lies about its clock simply has its answers rejected.
  *
  * @example
  * ```ts
- * const duel = useDuelQuiz(quiz);
+ * const duel = useDuelQuiz(quiz, durationSeconds, submitAnswer);
  * duel.submitAnswer({ kind: "multiple_choice", optionId: "opt_a" });
- * // graded & revealed -> "Next" auto-advances
+ * // pending -> the server verdict reveals the result
  * ```
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  gradeQuestion,
-  type DuelQuiz,
-  type DuelState,
-  type ParticipantAnswer,
+import type {
+  DuelQuiz,
+  DuelState,
+  ParticipantAnswer,
 } from "@/modules/Competition/types/duelQuiz";
+import type { TopicBattleAnswerResult } from "@/modules/Competition/types/integrity";
 
-const POINTS_PER_QUESTION = 100;
 const SECONDS_PER_QUESTION = 30;
+
+/**
+ * Submits one answer and resolves with the server's verdict.
+ *
+ * Injected rather than imported so this hook stays testable and so the same
+ * state machine can serve topic battles and live duels, which grade through
+ * their own endpoint.
+ */
+export type SubmitAnswerFn = (
+  questionId: string,
+  answer: ParticipantAnswer,
+  latencyMs: number,
+) => Promise<TopicBattleAnswerResult>;
 
 function formatTimeLeft(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
@@ -37,6 +55,7 @@ function emptyState(totalQuestions: number): DuelState {
     currentQuestionIndex: 0,
     answer: null,
     isAnswered: false,
+    isSubmitting: false,
     lastResult: null,
     score: 0,
     rank: 1,
@@ -45,7 +64,11 @@ function emptyState(totalQuestions: number): DuelState {
   };
 }
 
-export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
+export function useDuelQuiz(
+  quiz: DuelQuiz | null,
+  durationSeconds?: number,
+  submitAnswer?: SubmitAnswerFn,
+) {
   const totalQuestions = quiz?.questions.length ?? 0;
   const totalTimeSeconds = useMemo(() => {
     if (durationSeconds && durationSeconds > 0) {
@@ -57,11 +80,23 @@ export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
   const [state, setState] = useState<DuelState>(() => emptyState(totalQuestions));
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(totalTimeSeconds);
 
+  // When the current question was first shown. Reported with the answer as
+  // advisory latency so the server can flag an impossibly fast response; the
+  // server cannot observe this itself and deliberately does not trust it.
+  const questionShownAt = useRef<number>(Date.now());
+  // Guards against a stale verdict landing after the player has moved on, which
+  // would otherwise apply to whatever question happens to be current.
+  const submissionToken = useRef(0);
+  // Ref mirror of `isSubmitting`, so a double-click cannot fire a second submit
+  // before React has re-rendered with the state change.
+  const inFlight = useRef(false);
+
   const finished = state.currentQuestionIndex >= state.totalQuestions;
 
   useEffect(() => {
     setState(emptyState(totalQuestions));
     setTimeLeftSeconds(totalTimeSeconds);
+    questionShownAt.current = Date.now();
   }, [totalQuestions, totalTimeSeconds]);
 
   // Battle countdown: runs continuously until the duel is finished.
@@ -91,39 +126,68 @@ export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
     }
   }, [timeLeftSeconds, quiz, finished, totalQuestions]);
 
-  const submitAnswer = useCallback(
-    (answer: ParticipantAnswer) => {
-      if (!quiz) {
+  const doSubmit = useCallback(
+    async (answer: ParticipantAnswer) => {
+      if (!quiz || !submitAnswer || inFlight.current) {
         return;
       }
-      setState((prev) => {
-        if (prev.isAnswered || prev.currentQuestionIndex >= prev.totalQuestions) {
-          return prev;
+      const question = quiz.questions[state.currentQuestionIndex];
+      if (!question) {
+        return;
+      }
+
+      inFlight.current = true;
+      const token = ++submissionToken.current;
+      const latencyMs = Date.now() - questionShownAt.current;
+
+      setState((prev) => ({ ...prev, answer, isSubmitting: true }));
+
+      try {
+        const result = await submitAnswer(question.id, answer, latencyMs);
+        // The player may have advanced or the run may have been reset while the
+        // request was in flight; drop the verdict rather than misapply it.
+        if (token !== submissionToken.current) {
+          return;
         }
-        const question = quiz.questions[prev.currentQuestionIndex];
-        const result = gradeQuestion(question, answer);
-        const gained = result === true ? POINTS_PER_QUESTION : 0;
-        const nextScore = prev.score + gained;
-        const nextCorrectCount = result === true ? prev.correctCount + 1 : prev.correctCount;
-
-        // Position the player on the leaderboard (best-first) based on points.
-        const rankedAbove = quiz.leaderboard.filter((entry) => entry.points > nextScore).length;
-
-        return {
-          ...prev,
-          answer,
-          isAnswered: true,
-          lastResult: result,
-          score: nextScore,
-          correctCount: nextCorrectCount,
-          rank: rankedAbove + 1,
-        };
-      });
+        setState((prev) => {
+          if (prev.currentQuestionIndex !== state.currentQuestionIndex) {
+            return prev;
+          }
+          return {
+            ...prev,
+            isAnswered: true,
+            isSubmitting: false,
+            lastResult: result.correct,
+            score: result.totalPoints,
+            correctCount: result.correctCount,
+          };
+        });
+      } catch {
+        if (token !== submissionToken.current) {
+          return;
+        }
+        // Leave the answer unlocked so the player can retry. A failed submit is
+        // not a wrong answer, and treating it as one would lose their work.
+        setState((prev) => ({ ...prev, isSubmitting: false }));
+      } finally {
+        if (token === submissionToken.current) {
+          inFlight.current = false;
+        }
+      }
     },
-    [quiz],
+    [quiz, submitAnswer, state.currentQuestionIndex],
+  );
+
+  const submit = useCallback(
+    (answer: ParticipantAnswer) => {
+      void doSubmit(answer);
+    },
+    [doSubmit],
   );
 
   const advance = useCallback(() => {
+    inFlight.current = false;
+    submissionToken.current += 1;
     setState((prev) => {
       if (!prev.isAnswered) {
         return prev;
@@ -137,14 +201,18 @@ export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
         currentQuestionIndex: nextIndex,
         answer: null,
         isAnswered: false,
+        isSubmitting: false,
         lastResult: null,
       };
     });
+    questionShownAt.current = Date.now();
   }, []);
 
   const reset = useCallback(() => {
+    submissionToken.current += 1;
     setState(emptyState(totalQuestions));
     setTimeLeftSeconds(totalTimeSeconds);
+    questionShownAt.current = Date.now();
   }, [totalQuestions, totalTimeSeconds]);
 
   const timeLeft = useMemo(() => formatTimeLeft(timeLeftSeconds), [timeLeftSeconds]);
@@ -154,7 +222,7 @@ export function useDuelQuiz(quiz: DuelQuiz | null, durationSeconds?: number) {
     timeLeft,
     timeLeftSeconds,
     totalTimeSeconds,
-    submitAnswer,
+    submitAnswer: submit,
     advance,
     reset,
   };

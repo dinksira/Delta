@@ -15,14 +15,6 @@ export interface TopicBattleTestCase {
   isHidden: boolean;
 }
 
-export interface TopicBattleTestCase {
-  input: string;
-  expectedOutput: string;
-  explanation: string;
-  isSample: boolean;
-  isHidden: boolean;
-}
-
 export interface TopicBattleOption {
   id: string;
   label: string;
@@ -41,6 +33,16 @@ export interface TopicBattleMatchingPair {
   answerId: string;
 }
 
+/**
+ * Column A of a matching question as the participant receives it: the prompt
+ * without its pairing. Both columns ship to the player; the mapping between
+ * them is the answer key and stays on the server.
+ */
+export interface TopicBattleMatchingPrompt {
+  id: string;
+  prompt: string;
+}
+
 export interface TopicBattleOrderingItem {
   id: string;
   text: string;
@@ -50,6 +52,15 @@ export interface TopicBattleOrderingItem {
 export interface TopicBattleMarkdownPayload {
   source: string;
   rubric: string;
+}
+
+/**
+ * Markdown Pad as delivered to a participant: the document, without the rubric.
+ * The rubric is the grading standard, so shipping it to the player would hand
+ * over the subjective half of the answer.
+ */
+export interface PublicTopicBattleMarkdownPayload {
+  source: string;
 }
 
 export interface TopicBattleMediaAsset {
@@ -68,6 +79,15 @@ export interface TopicBattleDesignPayload {
   rubric: string;
 }
 
+/** Design Canvas as delivered to a participant — the brief without the rubric. */
+export interface PublicTopicBattleDesignPayload {
+  brief: string;
+  cover: TopicBattleMediaAsset | null;
+  canvasWidth: number;
+  canvasHeight: number;
+  deliverables: string[];
+}
+
 export interface TopicBattleQuestion {
   id: string;
   title: string;
@@ -81,22 +101,28 @@ export interface TopicBattleQuestion {
   points: number;
   hintEnabled: boolean;
   hintText: string;
-  testCases: TopicBattleTestCase[];
   /** Authoring surface discriminator (coding / quiz kinds). */
   kind: string;
   mcqOptions: TopicBattleOption[];
-  mcqCorrectId: string;
-  tfAnswer: boolean;
-  fillExpected: string;
-  /** One answer per `[data-blank]` marker in the stem (multi-blank questions). */
-  fillAnswers?: string[];
-  matchingAnswers?: TopicBattleMatchingAnswer[];
-  matchingPairs: TopicBattleMatchingPair[];
   orderingItems: TopicBattleOrderingItem[];
+  /**
+   * Matching, as delivered to a participant.
+   *
+   * This is the redacted projection from the backend: the answer key
+   * (`mcqCorrectId`, `tfAnswer`, `fillExpected`, `fillAnswers`, the `answerId` on
+   * each pair, expected outputs, hidden test cases) is never sent. Grading
+   * happens server-side, so nothing here can mark an answer correct.
+   */
+  matchingAnswers?: TopicBattleMatchingAnswer[];
+  matchingPrompts?: TopicBattleMatchingPrompt[];
+  /** Sample inputs only — expected output is withheld. */
+  sampleInputs?: string[];
+  /** How many `[data-blank]` markers the stem has. Structure, not key. */
+  blankCount?: number;
   /** Markdown Pad payload (present when kind === "markdown"). */
-  markdown?: TopicBattleMarkdownPayload;
+  markdown?: PublicTopicBattleMarkdownPayload;
   /** Design Canvas payload (present when kind === "design"). */
-  design?: TopicBattleDesignPayload;
+  design?: PublicTopicBattleDesignPayload;
 }
 
 export interface TopicBattleCreator {

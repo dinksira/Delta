@@ -1,19 +1,26 @@
-/**
+﻿/**
  * duelQuiz types
  * TypeScript definitions for the post-join topic battle duel.
  *
- * A duel is built from the battle's authored questions (`battle.questions`) or,
- * when a battle has none, from curated subject decks. Each question is tagged
- * with a `kind` that selects the answering UI and the auto-grading rule:
+ * A duel is built from the battle's authored questions (`battle.questions`). Each
+ * question is tagged with a `kind` that selects the answering UI:
  *
  * - `multiple_choice` / `true_false` / `fill_blank` / `matching` / `ordering`
- *   are auto-graded (objective kinds). Matching grades by answer-id so the
- *   Column B pool is the source of truth. A `fill_blank` without an authored
- *   expected answer is not auto-graded.
- * - `writing` / `coding` accept a free-form / code answer that is recorded but
- *   not auto-scored (no code executor / rubric).
- * - `markdown` / `design` render the authored Markdown Pad / Design Canvas brief
- *   to the player; the free-form answer is recorded for human review.
+ *   are auto-graded by the server after submission.
+ * - `writing` / `coding` / `markdown` / `design` accept a free-form / code answer
+ *   that the server records for human review without scoring.
+ *
+ * No question here carries its answer key. Grading moved server-side in Phase 2:
+ * previously the backend shipped `mcqCorrectId`, `tfAnswer`, `fillExpected` and
+ * friends to every participant and `gradeQuestion` decided "correct" in the
+ * browser, which meant a paid competition's result was decided by the client
+ * that wanted to win. Verdicts now arrive from
+ * `POST /v1/competitions/topic-battles/{id}/answers`, and the post-submit reveal
+ * is driven by that boolean plus the player's own choice — see
+ * `types/integrity.ts`.
+ *
+ * Matching grades by answer id, so the Column B pool is the source of truth; only
+ * the `answerId` half of each pair is withheld from the client.
  */
 
 import type { QuestionKind } from "@/modules/Competition/types/createBattle";
@@ -62,21 +69,27 @@ export type DuelQuestion =
   | (DuelQuestionBase & {
       kind: "multiple_choice";
       options: DuelMcqOption[];
-      correctId: string;
     })
-  | (DuelQuestionBase & { kind: "true_false"; correct: boolean })
+  | (DuelQuestionBase & { kind: "true_false" })
   | (DuelQuestionBase & {
       kind: "fill_blank";
-      /** Legacy whole-sentence answer key (no stem blanks authored). */
-      expected: string;
-      /** One answer per blank marker in the stem, in stem order. */
-      answers: string[];
+      /**
+       * Number of `[data-blank]` markers in the stem. Structure, not key — the
+       * participant needs it to know how many inputs to render. The accepted
+       * values per blank are never sent.
+       */
+      blankCount: number;
     })
   | (DuelQuestionBase & {
       kind: "matching";
       /** Column B answer pool the player picks from. */
       answers: DuelMatchingAnswer[];
-      pairs: DuelMatchingPair[];
+      /**
+       * Column A prompts only. The `answerId` half of each pair is the answer
+       * key and is no longer sent to the client, so the reveal is driven by the
+       * server verdict instead of by matching against this list.
+       */
+      pairs: Omit<DuelMatchingPair, "answerId">[];
     })
   | (DuelQuestionBase & { kind: "ordering"; items: DuelOrderingItem[] })
   | (DuelQuestionBase & { kind: "writing" })
@@ -86,15 +99,13 @@ export type DuelQuestion =
       language: string;
       /** LeetCode-style constraints section, shown under the problem text. */
       constraints?: string;
-      /** Sample (non-hidden) test cases shown to the player before coding. */
+      /** Sample test cases shown to the player before coding. */
       testCases: DuelTestCase[];
     })
   | (DuelQuestionBase & {
       kind: "markdown";
       /** Authored markdown source rendered to the player as the question body. */
       source: string;
-      /** Human-grading notes / rubric (not shown to the player). */
-      rubric?: string;
     })
   | (DuelQuestionBase & {
       kind: "design";
@@ -107,8 +118,6 @@ export type DuelQuestion =
       /** Authored canvas dimensions in px the design should match. */
       canvasWidth: number;
       canvasHeight: number;
-      /** Human-grading notes / rubric (not shown to the player). */
-      rubric?: string;
     });
 
 /** The player's answer for a single question, keyed by kind. */
@@ -139,14 +148,23 @@ export interface DuelQuiz {
   battleTitle: string;
   questions: DuelQuestion[];
   leaderboard: DuelLeaderboardEntry[];
+  /** Real joined count from the battle, for the header's player badge. */
+  playerCount: number;
 }
 
 export interface DuelState {
   currentQuestionIndex: number;
   /** The submitted answer for the current question, once locked in. */
   answer: ParticipantAnswer | null;
+  /** `true` once the server has returned a verdict for the current question. */
   isAnswered: boolean;
-  /** Result of the last submitted answer: true/false, or null when not auto-graded. */
+  /** `true` while the answer is awaiting a server verdict. */
+  isSubmitting: boolean;
+  /**
+   * Server verdict for the last submitted answer: true/false, or `null` when
+   * the kind is subjective or the answer arrived past the deadline. Authoritative
+   * — this is what the score is derived from.
+   */
   lastResult: boolean | null;
   score: number;
   rank: number;
@@ -154,67 +172,3 @@ export interface DuelState {
   totalQuestions: number;
 }
 
-/** Normalize a string for forgiving text comparison. */
-export function normalizeText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/**
- * Auto-grade an objective-kind answer. Returns `null` for kinds without an
- * auto-judge (writing / coding).
- */
-export function gradeQuestion(
-  question: DuelQuestion,
-  answer: ParticipantAnswer | null,
-): boolean | null {
-  if (!answer) {
-    return null;
-  }
-  switch (question.kind) {
-    case "multiple_choice": {
-      if (answer.kind !== "multiple_choice") return null;
-      return answer.optionId === question.correctId && question.correctId !== "";
-    }
-    case "true_false": {
-      if (answer.kind !== "true_false") return null;
-      return answer.value === question.correct;
-    }
-    case "fill_blank": {
-      if (answer.kind !== "fill_blank") return null;
-      // Multi-blank mode: the stem carries `[data-blank]` markers and the
-      // author keyed one answer per blank. Every blank must match.
-      if (question.answers.length > 0) {
-        if (!("answers" in answer)) return null;
-        if (question.answers.length !== answer.answers.length) return null;
-        return question.answers.every(
-          (expected, index) => normalizeText(answer.answers[index]) === normalizeText(expected),
-        );
-      }
-      // Legacy whole-sentence mode (no stem blanks authored).
-      const expected = normalizeText(question.expected);
-      // No authored answer key -> not auto-graded (mirrors writing / coding).
-      if (!expected) return null;
-      if (!("text" in answer)) return null;
-      return normalizeText(answer.text) === expected;
-    }
-    case "matching": {
-      if (answer.kind !== "matching") return null;
-      return question.pairs.every((pair) => answer.map[pair.id] === pair.answerId);
-    }
-    case "ordering": {
-      if (answer.kind !== "ordering") return null;
-      const authored = question.items.map((item) => item.id);
-      return (
-        authored.length === answer.itemIds.length &&
-        authored.every((id, index) => id === answer.itemIds[index])
-      );
-    }
-    case "writing":
-    case "coding":
-    case "markdown":
-    case "design":
-      return null;
-    default:
-      return null;
-  }
-}
