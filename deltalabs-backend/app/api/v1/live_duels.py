@@ -31,6 +31,7 @@ from app.api.deps import (
 from app.compat.redis_typing import AsyncRedis
 from app.core.config import get_settings
 from app.core.security import hash_session_token
+from app.domain.competitions.repository import Repository as CompetitionRepository
 from app.domain.identity.repository import Repository as IdentityRepository
 from app.domain.live_duels import queue as live_duels_queue
 from app.domain.live_duels.grading import grade_live_duel_answer
@@ -401,11 +402,13 @@ async def finish_live_duel(
     roster = await _room_participants(db, doc)
     final_leaderboard = _live_leaderboard(roster, doc.get("answers", []))
     winner_name = None
+    winner_user_id = None
     for row in final_leaderboard:
         if int(row.get("points") or 0) > 0:
             winner_name = str(row.get("name") or "Champion")
+            winner_user_id = str(row.get("userId") or "")
             break
-    updated_doc = await repository.mark_finished(
+    updated_doc, transitioned = await repository.mark_finished(
         room_id,
         final_leaderboard=final_leaderboard,
         winner_name=winner_name,
@@ -414,6 +417,21 @@ async def finish_live_duel(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "live_duel_not_found"},
+        )
+    if not transitioned:
+        # Lost a race against another finisher: their snapshot and their
+        # side effects are authoritative, so publish and credit nothing.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "already_finished"},
+        )
+    if winner_user_id:
+        # The freeze is what makes the win real, so the stat is credited only
+        # on the transition. `won` feeds the hub's Champion achievement, which
+        # pays its reward out of the competition wallet on the next read.
+        await CompetitionRepository(db).increment_user_stats(
+            winner_user_id,
+            increments={"won": 1},
         )
     await live_duels_queue.publish_live_duel_update(
         redis,
@@ -448,12 +466,18 @@ async def join_live_duel(
     (`JOIN_LIVE_DUEL` → `ADD_PARTICIPANT`).
     """
     repository = LiveDuelRepository(db)
-    if repository.find_by_id(room_id) is None:
+    if await repository.find_by_id(room_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "live_duel_not_found"},
         )
     doc = await repository.mark_joined(room_id, current_user.user_id)
+    if doc is None:
+        # Room was swept or deleted between the existence check and the seat write.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "live_duel_not_found"},
+        )
 
     identity_repository = IdentityRepository(db)
     user_doc = await identity_repository.find_user_by_id(current_user.user_id)
@@ -627,7 +651,7 @@ async def post_live_duel_chat(
 ) -> dict[str, Any]:
     """Send a chat message to the room; persisted briefly and fanned out live."""
     repository = LiveDuelRepository(db)
-    if repository.find_by_id(room_id) is None:
+    if await repository.find_by_id(room_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "live_duel_not_found"},

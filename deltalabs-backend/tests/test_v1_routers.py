@@ -3,6 +3,9 @@
 from app.main import app
 from fastapi.testclient import TestClient
 
+# Modules whose root route is still a placeholder. `competitions` is deliberately
+# absent: its router is fully implemented and mounting a stub root over it would
+# be a downgrade, so it is covered by its own behavioural tests instead.
 STUB_MODULES = [
     "schools",
     "courses",
@@ -12,7 +15,6 @@ STUB_MODULES = [
     "chatroom",
     "tutorials",
     "research",
-    "competitions",
     "specialization",
     "library",
     "course_support",

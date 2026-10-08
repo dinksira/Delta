@@ -1,15 +1,17 @@
-"""Sandboxed code execution via the Judge0 CE public API.
+"""Sandboxed code execution via the Judge0 CE API.
 
-Judge0 CE (https://ce.judge0.com) is a public, free multi-language execution
-API used here as the code judge backend. `run` compiles+executes a single
-snippet with optional stdin; `submit` grades the authored test cases by running
-the program once per case and comparing trimmed stdout to the expected output.
-Compile/run errors are surfaced with stdout/stderr/compile_output and a
-best-effort 1-based error line parsed from common compiler/runtime traces.
+Judge0 CE is a multi-language execution API used here as the code judge
+backend. `run` compiles+executes a single snippet with optional stdin;
+`submit` grades the authored test cases by running the program once per case
+and comparing trimmed stdout to the expected output. Compile/run errors are
+surfaced with stdout/stderr/compile_output and a best-effort 1-based error line
+parsed from common compiler/runtime traces.
 
-The public endpoint is rate-limited and should not be used for high-volume
-grading in production — point the judge at a self-hosted Judge0 instance by
-replacing `JUDGE0_API_BASE` when one is available.
+The base URL comes from the `JUDGE0_API_BASE` setting and defaults to the public
+Judge0 CE instance. That public endpoint is rate-limited and shared with every
+other consumer, so a single burst here degrades grading for all of them — set
+`JUDGE0_API_BASE` (and `JUDGE0_API_KEY`, for self-hosted instances) to a
+dedicated deployment before serving real traffic.
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import re
 
 import httpx
 
+from app.core.config import get_settings
 from app.core.exceptions import ValidationError
 from app.domain.competitions.schemas import (
     CodeExecuteRequest,
@@ -30,9 +33,6 @@ from app.domain.competitions.schemas import (
 )
 
 # ################################ CONSTANTS ################################
-
-# Public Judge0 CE instance (rate-limited; self-host for production grading).
-JUDGE0_API_BASE = "https://ce.judge0.com"
 
 # UI language label -> Judge0 language id + file extension.
 LANGUAGE_IDS: dict[str, tuple[int, str]] = {
@@ -118,10 +118,20 @@ class CodeExecutor:
     def __init__(
         self,
         client: httpx.AsyncClient | None = None,
-        api_base: str = JUDGE0_API_BASE,
+        api_base: str | None = None,
+        api_key: str | None = None,
     ) -> None:
+        settings = get_settings()
+        base = api_base if api_base is not None else settings.judge0_api_base
         self._client = client
-        self._api_base = api_base.rstrip("/")
+        self._api_base = base.rstrip("/")
+        self._api_key = api_key if api_key is not None else settings.judge0_api_key
+
+    def _headers(self) -> dict[str, str]:
+        """Judge0 ignores the auth header when it is not configured."""
+        if not self._api_key:
+            return {}
+        return {"X-Auth-Token": self._api_key}
 
     async def _execute(
         self,
@@ -136,6 +146,12 @@ class CodeExecutor:
             "stdin": base64.b64encode(stdin.encode("utf-8")).decode("ascii"),
             "cpu_time_limit": 3,
             "memory_limit": 128000,
+            # Participant code is untrusted and runs in a sandbox we do not own:
+            # without this a submission could phone home to a colluding host.
+            # Judge0 ignores unknown fields on older builds, and the compose
+            # stack blocks egress at the container network level regardless, so
+            # this is defence in depth rather than the only control.
+            "enable_network": False,
         }
 
         async def _call(client: httpx.AsyncClient) -> dict[str, object]:
@@ -143,6 +159,7 @@ class CodeExecutor:
                 f"{self._api_base}/submissions/",
                 params={"base64_encoded": "true", "wait": "true"},
                 json=payload,
+                headers=self._headers(),
                 timeout=EXECUTION_TIMEOUT_SECONDS,
             )
             response.raise_for_status()

@@ -23,8 +23,10 @@ from app.domain.competitions.repository import Repository as CompetitionsReposit
 from app.domain.competitions.service import Service as CompetitionsService
 from app.domain.live_duels import queue as live_duels_queue
 from app.domain.live_duels.repository import (
-    Repository as LiveDuelRepository,
     STALE_LIVE_ROOM_TTL_SECONDS,
+)
+from app.domain.live_duels.repository import (
+    Repository as LiveDuelRepository,
 )
 
 logger = logging.getLogger("deltalabs.jobs.launchers")
@@ -63,14 +65,8 @@ async def sweep_stale_filling_battles_once(db) -> int:
     from datetime import UTC, datetime, timedelta
 
     cutoff = datetime.now(UTC) - timedelta(seconds=STALE_FILLING_BATTLE_TTL_SECONDS)
-    repository = CompetitionsRepository(db)
-    stale = await repository.find_stale_filling_battles(cutoff)
-    for doc in stale:
-        battle_id = str(doc.get("_id"))
-        if not battle_id:
-            continue
-        await repository.patch_topic_battle(battle_id, {"status": "cancelled"})
-    return len(stale)
+    service = CompetitionsService(CompetitionsRepository(db))
+    return await service.sweep_stale_filling_battles(cutoff)
 
 
 async def sweep_stale_live_duels_once(db, redis: AsyncRedis) -> int:
@@ -83,8 +79,10 @@ async def sweep_stale_live_duels_once(db, redis: AsyncRedis) -> int:
         room_id = str(doc.get("_id"))
         if not room_id:
             continue
-        updated = await repository.mark_finished(room_id, final_leaderboard=[], winner_name=None)
-        if updated is None:
+        updated, transitioned = await repository.mark_finished(
+            room_id, final_leaderboard=[], winner_name=None
+        )
+        if updated is None or not transitioned:
             continue
         await live_duels_queue.publish_live_duel_update(
             redis,

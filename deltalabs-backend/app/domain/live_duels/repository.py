@@ -93,13 +93,22 @@ class Repository:
         room_id: str,
         final_leaderboard: list[dict[str, Any]],
         winner_name: str | None,
-    ) -> dict[str, Any] | None:
+    ) -> tuple[dict[str, Any] | None, bool]:
+        """Freeze a room as finished. Returns ``(doc, transitioned)``.
+
+        The status filter is the single-shot guard: of every caller racing to
+        finish one room — host retry, concurrent host tabs, the stale-room
+        sweeper — only the one whose update actually flips ``status`` gets
+        ``transitioned=True``. That flag is what the callers key side effects
+        on (publishing ``DUEL_ENDED``, crediting a win), so neither can fire
+        twice. A missing room still reports ``(None, False)``.
+        """
         try:
             oid = ObjectId(room_id)
         except Exception:
-            return None
-        await self.collection.update_one(
-            {"_id": oid},
+            return None, False
+        result = await self.collection.update_one(
+            {"_id": oid, "status": {"$ne": "finished"}},
             {
                 "$set": {
                     "status": "finished",
@@ -110,7 +119,7 @@ class Repository:
                 }
             },
         )
-        return await self.find_by_id(room_id)
+        return await self.find_by_id(room_id), bool(result.modified_count)
 
     async def list_finished(self) -> list[dict[str, Any]]:
         cursor = self.collection.find({"status": "finished"}).sort("finished_at", -1)

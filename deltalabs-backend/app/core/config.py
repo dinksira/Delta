@@ -126,6 +126,76 @@ class Settings(BaseSettings):
         ge=0,
         description="Max POST /v1/auth/* requests per IP per minute (0 disables)",
     )
+    rate_limit_code_runs_per_minute: int = Field(
+        default=30,
+        ge=0,
+        description=(
+            "Max POST /v1/competitions/{execute,submit} requests per user per minute "
+            "(0 disables)"
+        ),
+    )
+    rate_limit_competition_posts_per_minute: int = Field(
+        default=20,
+        ge=0,
+        description=(
+            "Max POST /v1/competitions/topic-battles/* writes per user per minute "
+            "(0 disables)"
+        ),
+    )
+    judge0_api_base: str = Field(
+        default="https://ce.judge0.com",
+        description="Judge0 base URL. The default is the public rate-limited CE instance; "
+        "point this at a self-hosted Judge0 for production grading.",
+    )
+    judge0_api_key: str = Field(
+        default="",
+        description="Optional Judge0 API key sent as X-Auth-Token (self-hosted instances).",
+    )
+    competition_answer_grace_seconds: int = Field(
+        default=5,
+        ge=0,
+        le=300,
+        description=(
+            "Grace period added to the server-side deadline before a late answer is "
+            "rejected. Absorbs network latency and clock skew so a participant who "
+            "genuinely finished in time is not punished."
+        ),
+    )
+    competition_max_integrity_violations: int = Field(
+        default=3,
+        ge=1,
+        le=50,
+        description=(
+            "Client-reported proctoring violations (tab switch, fullscreen exit, paste) "
+            "before a participant is auto-flagged for organizer review. Flagging is "
+            "advisory: it never changes a score on its own."
+        ),
+    )
+    competition_latency_variance_sigma: float = Field(
+        default=3.0,
+        ge=0.1,
+        le=10.0,
+        description=(
+            "Standard deviations below a participant's own median answer latency before "
+            "the submission is flagged as implausibly fast."
+        ),
+    )
+    competition_min_answer_seconds: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=60.0,
+        description=(
+            "Answers reporting a latency under this floor are treated as clock noise and "
+            "excluded from the variance baseline."
+        ),
+    )
+    competition_ip_hash_secret: str = Field(
+        default="",
+        description=(
+            "Secret salt for hashing participant IPs in submissions. Required in "
+            "non-local environments; without it IPs are not recorded."
+        ),
+    )
     trust_x_forwarded_for: bool = Field(
         default=False,
         description="If true, use first X-Forwarded-For hop as client IP for rate limits",

@@ -1,9 +1,10 @@
 """Topic battle API — create, list, hub aggregates, code execution, and management tables."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.deps import CurrentUser, get_current_user, get_current_user_optional, get_db
+from app.core.rate_limit import client_ip_for_rate_limit, enforce_competition_rate_limits
 from app.domain.competitions.executor import CodeExecutor
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.schemas import (
@@ -16,7 +17,12 @@ from app.domain.competitions.schemas import (
     CompetitionGamesResponse,
     CompetitionHubResponse,
     CompetitionModeResponse,
+    IntegrityEventRequest,
+    IntegrityEventResponse,
+    TopicBattleAnswerRequest,
+    TopicBattleAnswerResponse,
     TopicBattleCreateRequest,
+    TopicBattleLeaderboardResponse,
     TopicBattleListResponse,
     TopicBattleResponse,
 )
@@ -164,13 +170,16 @@ async def complete_game_stage(
 
 @router.post("/topic-battles", response_model=TopicBattleResponse)
 async def create_topic_battle(
+    request: Request,
     payload: TopicBattleCreateRequest,
-    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
+    """Host a battle. Requires a session so the battle has a cancellable owner."""
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await service.create_topic_battle(
         payload=payload,
-        user_id=user.user_id if user is not None else None,
+        user_id=user.user_id,
     )
 
 
@@ -198,22 +207,95 @@ async def get_topic_battle(
 
 @router.post("/topic-battles/{battle_id}/join", response_model=TopicBattleResponse)
 async def join_topic_battle(
+    request: Request,
     battle_id: str,
-    user: CurrentUser | None = Depends(get_current_user_optional),  # noqa: B008
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
+    """Take a seat. Requires a session — seat count, points, and completion are
+    all keyed to a real user, so an anonymous join could neither be attributed
+    nor revoked."""
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await service.join_topic_battle(
         battle_id=battle_id,
-        user_id=user.user_id if user is not None else None,
+        user_id=user.user_id,
+    )
+
+
+@router.get(
+    "/topic-battles/{battle_id}/leaderboard",
+    response_model=TopicBattleLeaderboardResponse,
+)
+async def get_topic_battle_leaderboard(
+    battle_id: str,
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> TopicBattleLeaderboardResponse:
+    """Server-computed standings for a battle.
+
+    Readable without a session so the lobby can show ranks, but derived only
+    from persisted completion records — never from client-supplied scores.
+    """
+    return await service.get_topic_battle_leaderboard(battle_id=battle_id)
+
+
+@router.post(
+    "/topic-battles/{battle_id}/answers",
+    response_model=TopicBattleAnswerResponse,
+)
+async def submit_topic_battle_answer(
+    request: Request,
+    battle_id: str,
+    payload: TopicBattleAnswerRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> TopicBattleAnswerResponse:
+    """Submit one answer for server-side grading.
+
+    The response carries a boolean verdict and the points earned, never the
+    answer key. Idempotent per question: a retried request replays the original
+    verdict instead of grading twice, so a flaky connection cannot double-award.
+    """
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
+    return await service.submit_topic_battle_answer(
+        battle_id=battle_id,
+        user_id=user.user_id,
+        payload=payload,
+        client_ip=client_ip_for_rate_limit(request),
+    )
+
+
+@router.post(
+    "/topic-battles/{battle_id}/integrity-events",
+    response_model=IntegrityEventResponse,
+)
+async def record_topic_battle_integrity_event(
+    request: Request,
+    battle_id: str,
+    payload: IntegrityEventRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
+    service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
+) -> IntegrityEventResponse:
+    """Report a proctoring signal (tab switch, fullscreen exit, paste).
+
+    Advisory only. The running tally comes back so the participant UI can warn
+    before an organizer reviews the entry; nothing here changes a score.
+    """
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
+    return await service.record_integrity_event(
+        battle_id=battle_id,
+        user_id=user.user_id,
+        payload=payload,
     )
 
 
 @router.post("/topic-battles/{battle_id}/complete", response_model=TopicBattleResponse)
 async def complete_topic_battle(
+    request: Request,
     battle_id: str,
     user: CurrentUser = Depends(get_current_user),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await service.complete_topic_battle(
         battle_id=battle_id,
         user_id=user.user_id,
@@ -222,11 +304,13 @@ async def complete_topic_battle(
 
 @router.delete("/topic-battles/{battle_id}", response_model=TopicBattleResponse)
 async def cancel_topic_battle(
+    request: Request,
     battle_id: str,
     user: CurrentUser = Depends(get_current_user),  # noqa: B008
     service: CompetitionsService = Depends(_competitions_service),  # noqa: B008
 ) -> TopicBattleResponse:
     """Owner cancels a scheduled topic battle before it launches."""
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await service.cancel_topic_battle(
         battle_id=battle_id,
         user_id=user.user_id,
@@ -240,19 +324,34 @@ async def cancel_topic_battle(
 
 @router.post("/execute", response_model=CodeExecuteResponse)
 async def execute_code(
+    request: Request,
     payload: CodeExecuteRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
     executor: CodeExecutor = Depends(lambda: CodeExecutor()),  # noqa: B008
 ) -> CodeExecuteResponse:
-    """Run a single code snippet (Run action): compile + execute with stdin."""
+    """Run a single code snippet (Run action): compile + execute with stdin.
+
+    Authenticated and rate-limited because each call consumes a Judge0 sandbox;
+    the public instance is shared, so unbounded calls degrade grading for all.
+    """
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await executor.run(payload)
 
 
 @router.post("/submit", response_model=CodeSubmitResponse)
 async def submit_code(
+    request: Request,
     payload: CodeSubmitRequest,
+    user: CurrentUser = Depends(get_current_user),  # noqa: B008
     executor: CodeExecutor = Depends(lambda: CodeExecutor()),  # noqa: B008
 ) -> CodeSubmitResponse:
-    """Grade the authored test cases (Submit action): run per case, compare."""
+    """Grade the authored test cases (Submit action): run per case, compare.
+
+    A submission fans out to one Judge0 call per test case, so a single request
+    can cost many sandbox executions. It shares the `code_run` budget with
+    `/execute`, which keeps the expensive surface under one limiter.
+    """
+    await enforce_competition_rate_limits(request, user_id=user.user_id)
     return await executor.submit(payload)
 
 

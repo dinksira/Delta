@@ -29,6 +29,7 @@ from app.core.rate_limit import enforce_auth_post_rate_limit
 from app.core.readiness import run_readiness_checks
 from app.domain.competitions.repository import Repository as CompetitionsRepository
 from app.domain.competitions.service import Service as CompetitionsService
+from app.domain.competitions.wallet import WalletRepository
 from app.domain.identity.repository import Repository
 from app.domain.live_duels.repository import Repository as LiveDuelRepository
 from app.infra.database import connect_mongodb, disconnect_mongodb, get_database
@@ -56,15 +57,18 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         db = get_database()
         await Repository(db).ensure_indexes()
         await CompetitionsRepository(db).ensure_indexes()
+        await WalletRepository(db).ensure_indexes()
         await LiveDuelRepository(db).ensure_indexes()
         logger.info("startup.indexes_bootstrapped")
     except Exception as exc:
         logger.error("startup.index_bootstrap_failed", extra={"error": str(exc)})
 
-    # Seed demo topic battles (owned + other-owned) once at startup
+    # Seed demo topic battles (owned + other-owned) once at startup.
+    # `seed_demo_battles` is a no-op outside ENV=local — the seeds are referenced
+    # by championship stages and the game ladder, so they must not reach staging.
     try:
         await CompetitionsService(CompetitionsRepository(db)).seed_demo_battles()
-        logger.info("startup.competitions_demo_seeded")
+        logger.info("startup.competitions_demo_seeded", extra={"env": _settings.env})
     except Exception as exc:
         logger.error("startup.competitions_demo_seed_failed", extra={"error": str(exc)})
 

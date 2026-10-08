@@ -9,6 +9,7 @@ would NOT populate the Python attributes without a validation alias.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -56,6 +57,22 @@ class MatchPairSchema(BaseModel):
     answer_id: str = Field(default="", **_alias("answerId"))
 
 
+class PublicMatchPromptSchema(BaseModel):
+    """A matching prompt with its pairing removed.
+
+    The pool (Column B) and the prompts (Column A) are both player-facing
+    content — the participant has to see both to drag anything. What must not
+    ship is which prompt belongs to which pool entry, because that mapping *is*
+    the answer. So the prompt is sent without `answerId`, exactly as the MCQ
+    stem ships without `correctId`.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str = Field(default="")
+    prompt: str = Field(default="")
+
+
 class OrderItemSchema(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -80,6 +97,19 @@ class MarkdownPayloadSchema(BaseModel):
     rubric: str = Field(default="")
 
 
+class PublicMarkdownPayloadSchema(BaseModel):
+    """Participant-facing Markdown prompt: the source, never the rubric.
+
+    `rubric` is the grading criteria. Reusing `MarkdownPayloadSchema` here would
+    serialize the field as an empty string rather than omitting it, which reads as
+    "this question has no rubric" instead of "you are not shown the rubric".
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    source: str = Field(default="", max_length=100_000)
+
+
 class DesignPayloadSchema(BaseModel):
     """Payload authored by the Design Canvas workspace module (kind "design")."""
 
@@ -95,6 +125,27 @@ class DesignPayloadSchema(BaseModel):
     )
     deliverables: list[str] = Field(default_factory=list)
     rubric: str = Field(default="")
+
+
+class PublicDesignPayloadSchema(BaseModel):
+    """Participant-facing Design brief: everything needed to build, minus the rubric.
+
+    Same reasoning as `PublicMarkdownPayloadSchema` — omitting `rubric` rather
+    than blanking it, so the payload cannot imply the participant should grade
+    their own submission against criteria they were never given.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    brief: str = Field(default="", max_length=100_000)
+    cover: MediaAssetSchema | None = Field(default=None)
+    canvas_width: int = Field(
+        default=1080, ge=64, le=4096, **_alias("canvasWidth"),
+    )
+    canvas_height: int = Field(
+        default=1080, ge=64, le=4096, **_alias("canvasHeight"),
+    )
+    deliverables: list[str] = Field(default_factory=list)
 
 
 class CodingQuestionSchema(BaseModel):
@@ -168,6 +219,141 @@ class TopicBattleCreateRequest(BaseModel):
     questions: list[CodingQuestionSchema] = Field(default_factory=list)
 
 
+class PublicQuestionResponse(BaseModel):
+    """A question as delivered to a participant.
+
+    Structurally identical to `QuestionResponse` minus every field that reveals
+    the answer: `mcq_correct_id`, `tf_answer`, `fill_expected`, `fill_answers`,
+    `test_cases[].expected_output`, the hidden test cases, and the `answer_id`
+    on each matching pair.
+
+    The authoring payload (`QuestionResponse`) is only ever returned to the
+    battle owner. Shipping both to every participant meant the browser held the
+    whole answer key, which made server-side scoring decorative and made every
+    client-side "correct/incorrect" reveal forgeable from devtools.
+
+    Matching ships both columns unpaired (`matching_answers` +
+    `matching_prompts`) rather than nothing, so the kind stays playable.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    title: str
+    description: str
+    constraints: str = Field(default="")
+    code_template: str = Field(**_alias("codeTemplate"))
+    language: str
+    difficulty: str
+    time_limit_minutes: int = Field(**_alias("timeLimitMinutes"))
+    points: float
+    hint_enabled: bool = Field(**_alias("hintEnabled"))
+    hint_text: str = Field(**_alias("hintText"))
+    kind: str = Field(**_alias("kind"))
+    mcq_options: list[McqOptionSchema] = Field(default_factory=list, **_alias("mcqOptions"))
+    ordering_items: list[OrderItemSchema] = Field(
+        default_factory=list, **_alias("orderingItems"),
+    )
+    # Matching is playable without the key: Column B ships whole, Column A ships
+    # without its `answerId`. Redacting both would not hide the answer any
+    # better — it would just make matching questions unanswerable and drop them
+    # out of the participant's quiz.
+    matching_answers: list[MatchingAnswerSchema] = Field(
+        default_factory=list, **_alias("matchingAnswers"),
+    )
+    matching_prompts: list[PublicMatchPromptSchema] = Field(
+        default_factory=list, **_alias("matchingPrompts"),
+    )
+    # The *number* of blanks is question structure, not the answer: the
+    # participant has to know how many inputs to render. Only the accepted
+    # values (`fill_answers`) are withheld.
+    blank_count: int = Field(default=0, ge=0, le=50, **_alias("blankCount"))
+    markdown: PublicMarkdownPayloadSchema = Field(
+        default_factory=PublicMarkdownPayloadSchema,
+    )
+    design: PublicDesignPayloadSchema = Field(
+        default_factory=PublicDesignPayloadSchema,
+    )
+    # Sample cases are shown to the participant so they can iterate locally.
+    # Expected stdout is stripped; only the input survives.
+    sample_inputs: list[str] = Field(default_factory=list, **_alias("sampleInputs"))
+
+
+class TopicBattleAnswerRequest(BaseModel):
+    """One participant answer, graded on the server."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_id: str = Field(min_length=1, max_length=100, **_alias("questionId"))
+    answer: dict[str, Any] = Field(default_factory=dict)
+    # Client-measured gap between the question being shown and this answer being
+    # sent. Advisory only: never trusted for scoring, used for latency-variance
+    # flagging. See `Service.record_integrity_event`.
+    latency_ms: int | None = Field(default=None, ge=0, le=600_000, **_alias("latencyMs"))
+
+
+class TopicBattleAnswerResponse(BaseModel):
+    """Server verdict for one answer.
+
+    Returns whether the answer was correct and what it earned, but never the key
+    itself — the reveal is a boolean so the next question stays unguessable.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    question_id: str = Field(**_alias("questionId"))
+    # `None` for subjective kinds (writing/coding/markdown/design) awaiting review.
+    correct: bool | None
+    earned_points: int = Field(**_alias("earnedPoints"))
+    total_points: int = Field(**_alias("totalPoints"))
+    correct_count: int = Field(**_alias("correctCount"))
+    answered_count: int = Field(**_alias("answeredCount"))
+    # `true` when a subjective answer is parked in the judging queue.
+    pending_review: bool = Field(default=False, **_alias("pendingReview"))
+    # `true` when the answer arrived after the battle deadline and was rejected.
+    past_deadline: bool = Field(default=False, **_alias("pastDeadline"))
+
+
+class IntegrityEventType(str, Enum):
+    """The closed vocabulary of proctoring signals a client may report.
+
+    Enforced as an enum rather than a free string so an unbounded caller cannot
+    write arbitrary labels into the evidence table — the collection is review
+    material, and a table that accepts anything is a table nobody reads.
+    """
+
+    TAB_HIDDEN = "tab_hidden"
+    WINDOW_BLUR = "window_blur"
+    FULLSCREEN_EXIT = "fullscreen_exit"
+    ANSWER_PASTED = "answer_pasted"
+    COPY_ATTEMPT = "copy_attempt"
+    FOCUS_GAIN = "focus_gain"
+
+
+class IntegrityEventRequest(BaseModel):
+    """A client-reported proctoring signal (tab switch, fullscreen exit, paste)."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    event_type: IntegrityEventType = Field(**_alias("eventType"))
+    question_id: str = Field(default="", max_length=100, **_alias("questionId"))
+    detail: dict[str, Any] = Field(default_factory=dict)
+
+
+class IntegrityEventResponse(BaseModel):
+    """Acknowledgement plus the running violation tally for this battle.
+
+    The count is returned so the participant UI can warn before the review stage,
+    rather than after an organizer rejects their entry.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    recorded: bool
+    violation_count: int = Field(**_alias("violationCount"))
+    auto_flagged: bool = Field(default=False, **_alias("autoFlagged"))
+
+
 class TopicBattleResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -199,12 +385,50 @@ class TopicBattleResponse(BaseModel):
     medium_pct: int = Field(default=100, **_alias("mediumPct"))
     hard_pct: int = Field(default=0, **_alias("hardPct"))
     created_at: datetime = Field(**_alias("createdAt"))
-    questions: list[QuestionResponse] = Field(default_factory=list)
+    # Always the keyless public shape. There is deliberately no owner variant of
+    # this field: every read path (GET, join, complete, cancel, list) returns
+    # `TopicBattleResponse`, so making the exception here would mean any one of
+    # those routes could re-introduce the leak. Hosts edit their questions
+    # through the owner-only management table instead.
+    questions: list[PublicQuestionResponse] = Field(default_factory=list)
 
 
 class TopicBattleListResponse(BaseModel):
     battles: list[TopicBattleResponse]
     total: int
+
+
+class TopicBattleLeaderboardEntry(BaseModel):
+    """One ranked row of a battle's standings."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    rank: int
+    user_id: str = Field(**_alias("userId"))
+    name: str
+    avatar_url: str | None = Field(default=None, **_alias("avatarUrl"))
+    points: int
+    is_owner: bool = Field(default=False, **_alias("isOwner"))
+    # Server-side tiebreaker (position in `completed_user_ids`). Used only while
+    # ordering rows, so it must not reach the client or become part of the
+    # response contract.
+    finish_order: int = Field(default=0, exclude=True)
+
+
+class TopicBattleLeaderboardResponse(BaseModel):
+    """Server-derived standings for a topic battle.
+
+    Every value here is computed from persisted completion records, so a client
+    cannot inflate its own rank. Rank is 1-based and dense: tied players share
+    a rank and ranks stay contiguous (1, 1, 2), which keeps the ordering stable
+    between recomputes.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    battle_id: str = Field(**_alias("battleId"))
+    entries: list[TopicBattleLeaderboardEntry]
+    total_completed: int = Field(**_alias("totalCompleted"))
 
 
 class CompetitionModeResponse(BaseModel):
@@ -233,7 +457,13 @@ class UserStatusResponse(BaseModel):
 
 
 class AchievementResponse(BaseModel):
-    """A single user achievement with its unlock state."""
+    """A single user achievement with its unlock and reward state.
+
+    ``reward_etb`` is the prize paid into the competition wallet when the
+    achievement unlocks; ``rewarded`` says whether that credit has actually
+    been posted to the ledger, so the client can distinguish "will pay" from
+    "already paid" without guessing.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -241,7 +471,16 @@ class AchievementResponse(BaseModel):
     title: str
     description: str
     unlocked: bool = False
-    unlocked_at: str | None = Field(default=None, **_alias("unlockedAt"))
+    unlocked_at: str | None = Field(
+        default=None, validation_alias="unlockedAt", serialization_alias="unlockedAt"
+    )
+    reward_etb: int = Field(
+        default=0, validation_alias="rewardEtb", serialization_alias="rewardEtb"
+    )
+    rewarded: bool = False
+    rewarded_at: str | None = Field(
+        default=None, validation_alias="rewardedAt", serialization_alias="rewardedAt"
+    )
 
 
 class CompetitionHubResponse(BaseModel):

@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
+import statistics
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from app.core.config import get_settings as _settings
 from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
+from app.domain.competitions.grading import grade_stored_question
 from app.domain.competitions.repository import Repository
 from app.domain.competitions.schemas import (
     AchievementResponse,
@@ -23,12 +27,19 @@ from app.domain.competitions.schemas import (
     CompetitionHubResponse,
     CompetitionModeResponse,
     DesignPayloadSchema,
+    IntegrityEventRequest,
+    IntegrityEventResponse,
     MarkdownPayloadSchema,
+    TopicBattleAnswerRequest,
+    TopicBattleAnswerResponse,
     TopicBattleCreateRequest,
+    TopicBattleLeaderboardEntry,
+    TopicBattleLeaderboardResponse,
     TopicBattleListResponse,
     TopicBattleResponse,
     UserStatusResponse,
 )
+from app.domain.competitions.wallet import WalletRepository
 from app.domain.management_table.schemas import (
     ManagementTableInstanceBundleResponse,
     ManagementTableRowCellsPatchInput,
@@ -38,6 +49,24 @@ from app.domain.management_table.schemas import (
 from app.domain.management_table.service import ManagementTableService
 
 # ################################ CONSTANTS ################################
+
+# Proctoring signals that count toward the auto-flag threshold. Client-reported
+# and therefore forgeable, which is why `record_integrity_event` only ever opens
+# a review entry. `answer_pasted` is listed because pasting a pre-written or
+# model-generated answer is the clearest single signal of an unattended attempt.
+INTEGRITY_VIOLATION_TYPES: frozenset[str] = frozenset(
+    {
+        "tab_hidden",
+        "window_blur",
+        "fullscreen_exit",
+        "answer_pasted",
+        "copy_attempt",
+    },
+)
+
+# Answers needed before a latency baseline is meaningful. With one or two samples
+# there is no spread, so any variance rule would fire on pure noise.
+MIN_LATENCY_BASELINE_SAMPLES = 4
 # Server-side source of truth for the hub's game-mode cards.
 DEFAULT_GAME_MODES: list[dict[str, object]] = [
     {
@@ -1352,30 +1381,41 @@ def _rank_for_level(level: int) -> str:
     return f"{tier} {_ROMAN_NUMERALS[(level - 1) % 5]}"
 
 
-def _achievement_rules() -> list[dict[str, object]]:
+def _achievement_rules() -> list[dict[str, Any]]:
+    """Unlock rules, each carrying the ETB reward paid on first unlock.
+
+    ``reward_etb`` is money out of the competition prize pool, credited to the
+    participant's ledger exactly once (see ``Service.list_achievements``), so
+    these amounts are product commitments, not display values — changing one
+    only affects future unlocks.
+    """
     return [
         {
             "id": "first-battle",
             "title": "First Steps",
             "description": "Joined your first competition",
+            "reward_etb": 10,
             "unlocked_when": lambda s: s["joined"] >= 1,
         },
         {
             "id": "showrunner",
             "title": "Showrunner",
             "description": "Hosted your first competition",
+            "reward_etb": 15,
             "unlocked_when": lambda s: s["hosted"] >= 1,
         },
         {
             "id": "regular-10",
             "title": "Regular",
             "description": "Joined 10 competitions",
+            "reward_etb": 40,
             "unlocked_when": lambda s: s["joined"] >= 10,
         },
         {
             "id": "champion",
             "title": "Champion",
             "description": "Won your first competition",
+            "reward_etb": 100,
             "unlocked_when": lambda s: s["won"] >= 1,
         },
     ]
@@ -1643,12 +1683,17 @@ class Service:
         self,
         repository: Repository,
         management_table_service: ManagementTableService | None = None,
+        wallet_repository: WalletRepository | None = None,
     ) -> None:
         self._repository = repository
         self._management_table_service = management_table_service
+        # Built from the competitions database so existing call sites keep
+        # working unchanged; tests inject a fake instead of standing up MongoDB.
+        self._wallet = wallet_repository or WalletRepository(repository.db)
 
     async def bootstrap(self) -> None:
         await self._repository.ensure_indexes()
+        await self._wallet.ensure_indexes()
         await self._seed_default_modes()
 
     async def _seed_default_modes(self) -> None:
@@ -1667,7 +1712,18 @@ class Service:
 
         Deterministic ``_id``\\ s keep seeding idempotent. Battles are refreshed
         on startup so join counts reset between test runs.
+
+        No-ops unless ``ENV=local``. The seeds reference two fixed email
+        addresses and are the ids that championship stages, the game ladder,
+        and ``_GAME_BATTLE_POOL`` all point at, so letting them run against
+        staging or production puts fabricated battles — and fabricated owners —
+        in front of real users.
         """
+        from app.core.config import get_settings
+
+        if get_settings().env != "local":
+            return
+
         await self.bootstrap()
         now = datetime.now(UTC)
 
@@ -1733,8 +1789,12 @@ class Service:
             stats = await self._repository.get_user_stats(user_id)
 
         points = int(stats.get("points", 0)) if stats else 0
-        earnings_etb = int(stats.get("earnings_etb", 0)) if stats else 0
         won = int(stats.get("won", 0)) if stats else 0
+        # Earned money is whatever the wallet ledger says the participant is
+        # owed, never a counter on the stats document.
+        balance_etb = (
+            0 if user_id is None else await self._wallet.get_participant_balance_etb(user_id)
+        )
 
         level = 1 + points // _POINTS_PER_LEVEL
         band = points % _POINTS_PER_LEVEL
@@ -1745,11 +1805,24 @@ class Service:
             progress_label="Progress",
             progress_value=float(band),
             progress_text=f"{band}/{_POINTS_PER_LEVEL} PTS",
-            earnings=f"{earnings_etb:,} ETB",
+            earnings=f"{balance_etb:,} ETB",
             won=won,
         )
 
     async def list_achievements(self, *, user_id: str | None) -> list[AchievementResponse]:
+        """Evaluate the rules and settle any reward that just became payable.
+
+        Reading this list is also the settlement pass. The first time an
+        unlocked rule has no reward record, its ETB is credited to the
+        participant's wallet ledger (idempotency key derived from user +
+        rule, so a re-read or a race can never pay twice) and only then
+        stamped onto the stats document. Wallet-first ordering mirrors the
+        stage-prize settlement: a crash between the two writes replays into a
+        no-op credit, never a stamp for money that was never owed.
+
+        Guests get the rule catalogue with nothing written. ``unlocked_at``
+        and ``rewarded_at`` both read from that stamp, so they always agree.
+        """
         if user_id is None:
             stats: dict[str, object] = {
                 "joined": 0,
@@ -1762,23 +1835,50 @@ class Service:
 
         responses: list[AchievementResponse] = []
         for rule in _achievement_rules():
+            rule_id = str(rule["id"])
+            reward_etb = int(rule.get("reward_etb", 0))
             unlocked = bool(rule["unlocked_when"](stats))
-            unlocked_at = stats.get("unlocked_at")
+            rewards = stats.get("achievement_rewards")
+            record = rewards.get(rule_id) if isinstance(rewards, dict) else None
+
+            if unlocked and user_id is not None and record is None:
+                await self._wallet.credit_achievement_reward(
+                    user_id=user_id,
+                    rule_id=rule_id,
+                    amount_etb=reward_etb,
+                    metadata={"title": str(rule["title"])},
+                )
+                refreshed = await self._repository.record_achievement_reward(
+                    user_id,
+                    rule_id,
+                    amount_etb=reward_etb,
+                )
+                if refreshed is not None:
+                    stats = refreshed
+                    rewards = stats.get("achievement_rewards")
+                    record = rewards.get(rule_id) if isinstance(rewards, dict) else None
+
+            credited_at = record.get("credited_at") if isinstance(record, dict) else None
             responses.append(
                 AchievementResponse(
-                    id=str(rule["id"]),
+                    id=rule_id,
                     title=str(rule["title"]),
                     description=str(rule["description"]),
                     unlocked=unlocked,
-                    unlocked_at=str(unlocked_at) if unlocked_at else None,
+                    unlocked_at=str(credited_at) if credited_at else None,
+                    reward_etb=reward_etb,
+                    rewarded=record is not None,
+                    rewarded_at=str(credited_at) if credited_at else None,
                 )
             )
         return responses
 
     async def get_hub(self, *, user_id: str | None) -> CompetitionHubResponse:
         modes = await self.list_modes()
-        user_status = await self.get_user_status(user_id=user_id)
+        # Achievements settle before the status read: a reward unlocked by
+        # this very request must already be in the earnings figure below.
         achievements = await self.list_achievements(user_id=user_id)
+        user_status = await self.get_user_status(user_id=user_id)
 
         my_battles: list[TopicBattleResponse] = []
         if user_id is not None:
@@ -1969,11 +2069,26 @@ class Service:
         if next_unlocked is None or stage_order != next_unlocked:
             raise ConflictError("This stage is not unlocked yet")
 
+        season_number = int(((stored or {}).get("season") or {}).get("number", 0) or 0)
+        # The wallet is credited first. If the progress write below then fails,
+        # the retry loses the ledger's idempotency race and moves no money, so
+        # the two writes converge. The reverse order could leave points credited
+        # against a prize that was never owed.
+        await self._wallet.credit_stage_prize(
+            user_id=user_id,
+            amount_etb=int(stage.get("prize_etb", 0) or 0),
+            idempotency_key=f"championship_stage:{season_number}:{stage_order}",
+            source={
+                "type": "championship_stage",
+                "id": str(season_number),
+                "order": stage_order,
+            },
+            metadata={"season": season_number, "stage_order": stage_order},
+        )
         await self._repository.complete_championship_stage_stats(
             user_id=user_id,
             stage_order=stage_order,
             points=int(stage.get("points_to_earn", 0) or 0),
-            prize_etb=int(stage.get("prize_etb", 0) or 0),
         )
         return await self.get_championship(user_id=user_id)
 
@@ -2306,12 +2421,20 @@ class Service:
         total = max(1, int(game.get("points_to_earn", 0) or 0))
         base = max(1, total // count)
         stage_points = base if stage_order < count else total - base * (count - 1)
+        # Wallet before points, for the same convergence reason as the
+        # championship ladder above.
+        await self._wallet.credit_stage_prize(
+            user_id=user_id,
+            amount_etb=_GAME_STAGE_PRIZE_ETB[stage_order - 1],
+            idempotency_key=f"game_stage:{game_id}:{stage_order}",
+            source={"type": "game_stage", "id": game_id, "order": stage_order},
+            metadata={"game_id": game_id, "stage_order": stage_order},
+        )
         await self._repository.complete_game_stage_stats(
             user_id=user_id,
             game_id=game_id,
             stage_order=stage_order,
             points=stage_points,
-            prize_etb=_GAME_STAGE_PRIZE_ETB[stage_order - 1],
         )
         return await self.list_games(user_id=user_id)
 
@@ -2378,6 +2501,18 @@ class Service:
                 user_id,
                 {"hosted": 1, "points": _HOST_POINTS},
             )
+        await self._record_event(
+            entity_type="topic_battle",
+            entity_id=battle_id,
+            event_type="create",
+            actor_user_id=user_id,
+            detail={
+                "status": status,
+                "difficulty": payload.difficulty,
+                "players_max": payload.players_max,
+                "question_count": len(questions),
+            },
+        )
         return self._repository.doc_to_response(doc)
 
     def _build_launch_state(
@@ -2431,6 +2566,13 @@ class Service:
                 battle_id,
                 {"status": "filling", "countdown_ends_at": None},
             )
+            await self._record_event(
+                entity_type="topic_battle",
+                entity_id=battle_id,
+                event_type="scheduled_launch",
+                actor_user_id=str(doc.get("owner_user_id") or ""),
+                detail={"previous_status": "scheduled", "launched_at": now.isoformat()},
+            )
             launched += 1
         return launched
 
@@ -2448,43 +2590,475 @@ class Service:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
         return self._repository.doc_to_response(doc, viewer_user_id=user_id)
 
+    # ========================================================================
+    # Server-authoritative answering + integrity signals
+    # ========================================================================
+
+    def _battle_deadline(self, doc: dict[str, Any], user_id: str) -> datetime:
+        """When this participant's clock runs out.
+
+        Anchored to the participant's own join when available, so a late joiner
+        gets their full duration instead of inheriting time already spent before
+        they arrived. The grace window absorbs network latency and clock skew so
+        a participant who genuinely finished in time is not punished by an
+        in-flight request.
+        """
+        grace = timedelta(seconds=_settings().competition_answer_grace_seconds)
+        joined_at = (doc.get("participant_started_at") or {}).get(user_id)
+        if isinstance(joined_at, datetime):
+            start = joined_at
+        elif isinstance(doc.get("countdown_ends_at"), datetime):
+            start = doc["countdown_ends_at"]
+        else:
+            created = doc.get("created_at")
+            start = created if isinstance(created, datetime) else datetime.now(UTC)
+        return start + timedelta(minutes=int(doc.get("duration_minutes") or 10)) + grace
+
+    def _hash_client_ip(self, client_ip: str | None) -> str | None:
+        """Salted digest of the client IP, or None when unconfigured.
+
+        The raw address is never stored: it is personal data with no analytical
+        value here beyond "same participant, same network". The salt keeps the
+        digest from being reversed against a list of known addresses.
+        """
+        secret = _settings().competition_ip_hash_secret
+        if not secret or not client_ip or client_ip == "unknown":
+            return None
+        return hashlib.sha256(f"{secret}:{client_ip}".encode()).hexdigest()[:32]
+
+    async def _flag_if_implausibly_fast(
+        self,
+        *,
+        battle_id: str,
+        user_id: str,
+        question_id: str,
+        latency_ms: int,
+    ) -> None:
+        """Flag an answer far below the participant's own latency baseline.
+
+        Measured against the participant's own median rather than a global
+        constant, because a fast reader on a slow connection is suspicious
+        *relative to their own history* while looking unremarkable in absolute
+        terms. Two guards keep this from firing on noise: too few samples means
+        there is no baseline to compare against, and a perfectly flat history has
+        no spread to reason about.
+        """
+        settings = _settings()
+        if latency_ms < settings.competition_min_answer_seconds * 1000:
+            return
+
+        latencies = await self._repository.find_user_latencies(
+            battle_id=battle_id,
+            user_id=user_id,
+            exclude_question_id=question_id,
+        )
+        if len(latencies) < MIN_LATENCY_BASELINE_SAMPLES:
+            return
+
+        median = statistics.median(latencies)
+        measured_deviation = statistics.pstdev(latencies) if len(latencies) > 1 else 0.0
+        noise_floor = settings.competition_min_answer_seconds * 1000
+
+        # A perfectly steady history has zero spread, which would put the floor
+        # exactly at the median and flag every faster-than-median answer. Rather
+        # than skip the check entirely (which would also hide a real outlier from
+        # a consistently fast participant), fall back to the noise floor as the
+        # spread estimate so the threshold stays meaningfully wide.
+        deviation = max(measured_deviation, noise_floor)
+        if median <= 0:
+            return
+
+        floor = median - settings.competition_latency_variance_sigma * deviation
+        if latency_ms < floor:
+            await self._repository.insert_integrity_flag(
+                battle_id=battle_id,
+                user_id=user_id,
+                reason="latency_variance",
+                detail={
+                    "question_id": question_id,
+                    "latency_ms": latency_ms,
+                    "median_ms": round(median, 1),
+                    # Both the measured spread and the one actually applied, so a
+                    # reviewer can tell a genuinely flat history from a clamped
+                    # one instead of seeing a spread that was never observed.
+                    "stdev_ms": round(measured_deviation, 1),
+                    "effective_stdev_ms": round(deviation, 1),
+                    "noise_floor_ms": round(noise_floor, 1),
+                    "threshold_ms": round(floor, 1),
+                    "sample_count": len(latencies),
+                },
+            )
+
+    async def _answer_summary(
+        self,
+        *,
+        battle_id: str,
+        user_id: str,
+        question_id: str,
+        correct: bool | None,
+        earned_points: int,
+        past_deadline: bool,
+    ) -> TopicBattleAnswerResponse:
+        """Verdict for one answer plus this participant's running totals.
+
+        Totals are recomputed from stored submissions rather than incremented, so
+        a retried or raced request cannot inflate them.
+        """
+        submissions = await self._repository.find_user_submissions(
+            battle_id=battle_id,
+            user_id=user_id,
+        )
+        graded = [s for s in submissions if s.get("correct") is not None]
+        pending_review = [
+            s
+            for s in submissions
+            if s.get("correct") is None and not s.get("past_deadline")
+        ]
+
+        return TopicBattleAnswerResponse(
+            question_id=question_id,
+            correct=correct,
+            earned_points=earned_points,
+            total_points=sum(int(s.get("earned_points") or 0) for s in submissions),
+            correct_count=sum(1 for s in graded if s.get("correct") is True),
+            answered_count=len(submissions),
+            pending_review=bool(pending_review),
+            past_deadline=past_deadline,
+        )
+
+    async def submit_topic_battle_answer(
+        self,
+        *,
+        battle_id: str,
+        user_id: str,
+        payload: "TopicBattleAnswerRequest",
+        client_ip: str | None = None,
+    ) -> TopicBattleAnswerResponse:
+        """Grade one answer on the server and persist it as the only evidence.
+
+        This replaces a client-side verdict. The participant's browser used to
+        receive the whole answer key and decide "correct" itself, which meant a
+        paid competition's result was decided by the client that wanted to win.
+        Grading server-side is also what makes completion auditable: the score is
+        now derived from stored submissions instead of whatever number arrived
+        with the finish request.
+
+        Idempotent per question. A retried POST replays the original verdict
+        rather than grading again, so points cannot be double-awarded.
+        """
+        await self.bootstrap()
+
+        doc = await self._repository.find_topic_battle_by_id(battle_id)
+        if doc is None:
+            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+
+        if str(doc.get("owner_user_id") or "") == user_id:
+            raise PermissionDeniedError(
+                "You cannot answer a battle you created.",
+                code="host_cannot_answer",
+            )
+        if user_id not in [str(uid) for uid in doc.get("participants", [])]:
+            raise PermissionDeniedError(
+                "Join the battle before answering.",
+                code="battle_not_joined",
+            )
+
+        questions = doc.get("questions", [])
+        question = next(
+            (q for q in questions if str(q.get("id", "")) == payload.question_id),
+            None,
+        )
+        if question is None:
+            raise NotFoundError(
+                "Question not found in this battle.",
+                code="battle_question_not_found",
+            )
+
+        existing = await self._repository.find_submission(
+            battle_id=battle_id,
+            user_id=user_id,
+            question_id=payload.question_id,
+        )
+        if existing is not None:
+            return await self._answer_summary(
+                battle_id=battle_id,
+                user_id=user_id,
+                question_id=payload.question_id,
+                correct=existing.get("correct"),
+                earned_points=int(existing.get("earned_points") or 0),
+                past_deadline=bool(existing.get("past_deadline")),
+            )
+
+        past_deadline = datetime.now(UTC) > self._battle_deadline(doc, user_id)
+
+        # A late answer is recorded as evidence but scores nothing. Dropping it
+        # would let a participant retry the same question for free.
+        if past_deadline:
+            correct: bool | None = None
+            earned = 0
+        else:
+            correct = grade_stored_question(question, payload.answer)
+            earned = int(float(question.get("points") or 0)) if correct is True else 0
+
+        inserted = await self._repository.insert_submission(
+            battle_id=battle_id,
+            user_id=user_id,
+            question_id=payload.question_id,
+            answer=payload.answer,
+            correct=correct,
+            earned_points=earned,
+            ip_hash=self._hash_client_ip(client_ip),
+            latency_ms=payload.latency_ms,
+            question_count=len(questions),
+            past_deadline=past_deadline,
+        )
+
+        if not inserted:
+            # Lost a race with a concurrent retry; replay the stored verdict.
+            replay = await self._repository.find_submission(
+                battle_id=battle_id,
+                user_id=user_id,
+                question_id=payload.question_id,
+            )
+            replay = replay or {}
+            return await self._answer_summary(
+                battle_id=battle_id,
+                user_id=user_id,
+                question_id=payload.question_id,
+                correct=replay.get("correct"),
+                earned_points=int(replay.get("earned_points") or 0),
+                past_deadline=bool(replay.get("past_deadline")),
+            )
+
+        if not past_deadline and payload.latency_ms is not None:
+            await self._flag_if_implausibly_fast(
+                battle_id=battle_id,
+                user_id=user_id,
+                question_id=payload.question_id,
+                latency_ms=payload.latency_ms,
+            )
+
+        return await self._answer_summary(
+            battle_id=battle_id,
+            user_id=user_id,
+            question_id=payload.question_id,
+            correct=correct,
+            earned_points=earned,
+            past_deadline=past_deadline,
+        )
+
+    async def record_integrity_event(
+        self,
+        *,
+        battle_id: str,
+        user_id: str,
+        payload: "IntegrityEventRequest",
+    ) -> IntegrityEventResponse:
+        """Log a client-reported proctoring signal and flag past the threshold.
+
+        `violation` is derived server-side from the event type rather than read
+        from the payload, so a caller cannot relabel a tab-switch as harmless.
+        These signals are advisory and never alter a score; every one of them is
+        individually forgeable by a determined participant, which is why the
+        outcome is a human review queue entry rather than a disqualification.
+        """
+        await self.bootstrap()
+
+        doc = await self._repository.find_topic_battle_by_id(battle_id)
+        if doc is None:
+            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+        if user_id not in [str(uid) for uid in doc.get("participants", [])]:
+            raise PermissionDeniedError(
+                "Only participants can report integrity events.",
+                code="battle_not_joined",
+            )
+
+        violation = payload.event_type in INTEGRITY_VIOLATION_TYPES
+        await self._repository.insert_integrity_event(
+            battle_id=battle_id,
+            user_id=user_id,
+            event_type=payload.event_type.value,
+            question_id=payload.question_id,
+            violation=violation,
+            detail=payload.detail,
+        )
+
+        violation_count = 0
+        auto_flagged = False
+        if violation:
+            violation_count = await self._repository.count_integrity_violations(
+                battle_id=battle_id,
+                user_id=user_id,
+            )
+            threshold = _settings().competition_max_integrity_violations
+            auto_flagged = violation_count >= threshold
+            if auto_flagged:
+                await self._repository.insert_integrity_flag(
+                    battle_id=battle_id,
+                    user_id=user_id,
+                    reason="proctoring_violations",
+                    detail={
+                        "violation_count": violation_count,
+                        "threshold": threshold,
+                    },
+                )
+
+        return IntegrityEventResponse(
+            recorded=True,
+            violation_count=violation_count,
+            auto_flagged=auto_flagged,
+        )
+
     async def join_topic_battle(
         self,
         *,
         battle_id: str,
-        user_id: str | None = None,
+        user_id: str,
     ) -> TopicBattleResponse:
         await self.bootstrap()
-        from app.core.exceptions import NotFoundError, PermissionDeniedError
+        from app.core.exceptions import ConflictError, NotFoundError, PermissionDeniedError
 
         doc = await self._repository.find_topic_battle_by_id(battle_id)
         if doc is None:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
 
         owner_user_id = doc.get("owner_user_id")
-        if user_id is not None and owner_user_id is not None and user_id == owner_user_id:
+        if owner_user_id is not None and user_id == owner_user_id:
             raise PermissionDeniedError(
                 "You cannot join a battle you created. Manage or track it instead.",
                 code="cannot_join_own_battle",
             )
 
         participants = list(doc.get("participants", []))
-        if user_id is not None and user_id in participants:
+        if user_id in participants:
             return self._repository.doc_to_response(doc, viewer_user_id=user_id)
 
-        updated = await self._repository.join_topic_battle(battle_id, user_id)
+        points = _points_for_difficulty(str(doc.get("difficulty", "Intermediate")))
+
+        updated, seated = await self._repository.join_topic_battle_with_stats(
+            battle_id,
+            user_id,
+            increments={"joined": 1, "points": points},
+        )
         if updated is None:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
-        if user_id is not None:
-            points = _points_for_difficulty(
-                str(updated.get("difficulty", "Intermediate")),
+        if not seated:
+            participants = set(updated.get("participants", []))
+            if user_id in participants:
+                return self._repository.doc_to_response(updated, viewer_user_id=user_id)
+            raise ConflictError(
+                "This battle is full.",
+                code="topic_battle_full",
             )
-            await self._repository.increment_user_stats(
-                user_id,
-                {"joined": 1, "points": points},
-            )
+        await self._record_event(
+            entity_type="topic_battle",
+            entity_id=battle_id,
+            event_type="join",
+            actor_user_id=user_id,
+            detail={"points": points, "difficulty": updated.get("difficulty")},
+        )
         await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
+
+    async def get_topic_battle_leaderboard(
+        self,
+        *,
+        battle_id: str,
+    ) -> TopicBattleLeaderboardResponse:
+        """Server-derived standings for a battle.
+
+        Ranks come from persisted completion records and the difficulty points
+        already credited at join time — never from anything the client sends.
+        This replaces the synthetic leaderboard the duel view used to build
+        locally, which invented opponents and scores that no user ever earned.
+
+        Ties share a rank (dense ranking, so ranks stay contiguous) and are ordered
+        by who finished first, so a later finisher cannot displace an earlier
+        one purely by re-reading the board.
+        """
+        await self.bootstrap()
+
+        doc = await self._repository.find_topic_battle_by_id(battle_id)
+        if doc is None:
+            raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+
+        owner_user_id = str(doc.get("owner_user_id") or "")
+        completed = [str(uid) for uid in doc.get("completed_user_ids", [])]
+        if not completed:
+            return TopicBattleLeaderboardResponse(
+                battle_id=battle_id,
+                entries=[],
+                total_completed=0,
+            )
+
+        difficulty = str(doc.get("difficulty", "Intermediate"))
+        points_per_player = _points_for_difficulty(difficulty)
+
+        # De-duplicate while preserving completion order, then let the identity
+        # lookup resolve display names in one round trip.
+        ordered_ids: list[str] = []
+        seen: set[str] = set()
+        for uid in completed:
+            if uid not in seen:
+                seen.add(uid)
+                ordered_ids.append(uid)
+
+        profiles = await self._repository.find_user_profiles(ordered_ids)
+
+        # Rank on points actually earned, summed from stored graded submissions,
+        # so a perfect run outranks a guess and a wrong answer costs something.
+        # The flat difficulty value is only a fallback for battles finished before
+        # submissions were recorded; it is skipped entirely once the battle has
+        # any submission at all, otherwise scoring a new battle by participation
+        # alone would hand out equal points to everyone who just joined and left.
+        earned: dict[str, int] = {}
+        has_submissions = False
+        for uid in ordered_ids:
+            submissions = await self._repository.find_user_submissions(
+                battle_id=battle_id,
+                user_id=uid,
+            )
+            if submissions:
+                has_submissions = True
+            earned[uid] = sum(int(s.get("earned_points") or 0) for s in submissions)
+
+        entries: list[TopicBattleLeaderboardEntry] = []
+        for finish_index, uid in enumerate(ordered_ids):
+            profile = profiles.get(uid, {})
+            points = earned[uid] if has_submissions else points_per_player
+            entries.append(
+                TopicBattleLeaderboardEntry(
+                    rank=0,
+                    user_id=uid,
+                    name=str(profile.get("name") or "Player"),
+                    avatar_url=profile.get("avatar_url"),
+                    points=points,
+                    is_owner=bool(owner_user_id) and uid == owner_user_id,
+                    finish_order=finish_index,
+                )
+            )
+
+        # Highest score first; equal scores keep the order they finished in, so a
+        # later finisher cannot displace an earlier one just by re-reading the
+        # board.
+        entries.sort(key=lambda row: (-row.points, row.finish_order))
+
+        # Dense ranking: tied players share a rank, and the next distinct score
+        # takes the very next number (1, 1, 2, 2, 3). Ranks stay contiguous, so
+        # "rank 2" is never empty and a tie never consumes a place.
+        previous_points: int | None = None
+        rank = 0
+        for row in entries:
+            if row.points != previous_points:
+                rank += 1
+                previous_points = row.points
+            row.rank = rank
+
+        return TopicBattleLeaderboardResponse(
+            battle_id=battle_id,
+            entries=entries,
+            total_completed=len(entries),
+        )
 
     async def cancel_topic_battle(
         self,
@@ -2508,6 +3082,13 @@ class Service:
                 code="topic_battle_not_scheduled",
             )
         updated = await self._repository.patch_topic_battle(battle_id, {"status": "cancelled"})
+        await self._record_event(
+            entity_type="topic_battle",
+            entity_id=battle_id,
+            event_type="cancel",
+            actor_user_id=user_id,
+            detail={"previous_status": "scheduled"},
+        )
         await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
 
@@ -2521,6 +3102,12 @@ class Service:
 
         A battle can only be completed once per user; later calls are
         idempotent and return the current state (no re-take, no re-award).
+
+        Completion requires at least one persisted submission. Previously this
+        endpoint only checked seat membership, so finishing was a free action
+        that could be called without answering anything - it now means "finished
+        an attempt that was actually graded", which is what the leaderboard and
+        prize payouts assume it means.
         """
         await self.bootstrap()
         from app.core.exceptions import NotFoundError, PermissionDeniedError
@@ -2539,9 +3126,26 @@ class Service:
         if user_id in completed_user_ids:
             return self._repository.doc_to_response(doc, viewer_user_id=user_id)
 
+        answered = await self._repository.count_user_submissions(
+            battle_id=battle_id,
+            user_id=user_id,
+        )
+        if answered == 0:
+            raise ConflictError(
+                "Submit at least one answer before finishing the battle.",
+                code="no_submissions",
+            )
+
         updated = await self._repository.mark_topic_battle_completed(battle_id, user_id)
         if updated is None:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
+        await self._record_event(
+            entity_type="topic_battle",
+            entity_id=battle_id,
+            event_type="complete",
+            actor_user_id=user_id,
+            detail={"participants": len(participants) + 1},
+        )
         await self._sync_battle_row_after_change(battle_id, user_id)
         return self._repository.doc_to_response(updated, viewer_user_id=user_id)
 
@@ -2680,6 +3284,70 @@ class Service:
         await mgt.comp_upsert_first_row(
             org_id=_MT_ORG_ID, user_id=user_id,
             instance_id=instance_id, cells=_mt_battle_cells(columns, doc),
+        )
+
+    async def sweep_stale_filling_battles(self, older_than: datetime) -> int:
+        """Cancel `filling` battles idle since `older_than`; returns the count.
+
+        Kept on the service (not the launcher) so the audit row is written in
+        the same place as every other state change. A cancelled no-show looks
+        identical to an owner-initiated cancel without it.
+        """
+        stale = await self._repository.find_stale_filling_battles(older_than)
+        for doc in stale:
+            battle_id = str(doc.get("_id"))
+            if not battle_id:
+                continue
+            await self._repository.patch_topic_battle(battle_id, {"status": "cancelled"})
+            await self._record_event(
+                entity_type="topic_battle",
+                entity_id=battle_id,
+                event_type="cancel",
+                actor_user_id="system:stale-sweep",
+                detail={"previous_status": "filling", "reason": "idle_timeout"},
+            )
+        return len(stale)
+
+    async def record_event(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        event_type: str,
+        actor_user_id: str | None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        """Public audit hook for background jobs that change competition state."""
+        await self._record_event(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            event_type=event_type,
+            actor_user_id=actor_user_id,
+            detail=detail,
+        )
+
+    async def _record_event(
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        event_type: str,
+        actor_user_id: str | None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        """Append an audit row for a state-changing competition action.
+
+        `topic_battles.updated_at` was previously the only forensic trace, which
+        cannot distinguish "cancelled by the owner" from "swept after 24h idle".
+        The repository swallows its own failures so this can be called inline
+        without wrapping every call site in a try/except.
+        """
+        await self._repository.insert_competition_event(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            event_type=event_type,
+            actor_user_id=actor_user_id,
+            detail=detail,
         )
 
     async def _sync_battle_row_after_change(self, battle_id: str, user_id: str) -> None:
