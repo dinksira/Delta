@@ -4,7 +4,7 @@
 /** Imports used by this file. */
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { HelpCircle, LogOut, Settings, UserRound, Users } from "lucide-react";
+import { HelpCircle, LogOut, Settings, UserRound, Users, Wallet } from "lucide-react";
 import Image from "next/image";
 
 import { LandingFeaturesIconSwitch } from "@/components/navigation/LandingFeaturesIconSwitch";
@@ -122,9 +122,14 @@ function MenuRow({ title, subtitle, icon, variant = "default", onClick }: MenuRo
         >
           {title}
         </span>
-        {subtitle ? <span className="block truncate text-xs text-text-secondary">{subtitle}</span> : null}
+        {subtitle ? (
+          <span className="block truncate text-xs text-text-secondary">{subtitle}</span>
+        ) : null}
       </span>
-      <span className="text-text-secondary/70 transition-transform group-hover:translate-x-0.5" aria-hidden>
+      <span
+        className="text-text-secondary/70 transition-transform group-hover:translate-x-0.5"
+        aria-hidden
+      >
         →
       </span>
     </button>
@@ -141,7 +146,13 @@ function ProfileMenuModal({ initials, avatarUrl, onClose, onLogout }: ProfileMen
             <div className="flex items-center gap-3">
               <span className="inline-flex size-11 items-center justify-center overflow-hidden rounded-full border border-amber-200/90 bg-amber-100 text-sm font-semibold text-slate-800 shadow-sm">
                 {avatarUrl ? (
-                  <Image src={avatarUrl} alt="" width={44} height={44} className="size-full object-cover" />
+                  <Image
+                    src={avatarUrl}
+                    alt=""
+                    width={44}
+                    height={44}
+                    className="size-full object-cover"
+                  />
                 ) : (
                   initials
                 )}
@@ -183,6 +194,15 @@ function ProfileMenuModal({ initials, avatarUrl, onClose, onLogout }: ProfileMen
               onClick={() => {
                 onClose();
                 router.push("/settings");
+              }}
+            />
+            <MenuRow
+              title="Wallet"
+              subtitle="Top up, withdraw & payment methods"
+              icon={<Wallet className="size-5" />}
+              onClick={() => {
+                onClose();
+                router.push("/wallet");
               }}
             />
             <MenuRow
@@ -279,10 +299,7 @@ export function TopNavUtilityActions({ profileInitials, avatarUrl }: TopNavUtili
           initials
         )}
       </button>
-      <span
-        className="mx-1 h-7 w-px shrink-0 bg-white/40 sm:mx-1.5"
-        aria-hidden
-      />
+      <span className="mx-1 h-7 w-px shrink-0 bg-white/40 sm:mx-1.5" aria-hidden />
       <LandingFeaturesIconSwitch />
       {menuOpen ? (
         <ProfileMenuModal
@@ -296,10 +313,7 @@ export function TopNavUtilityActions({ profileInitials, avatarUrl }: TopNavUtili
         />
       ) : null}
       {aiModalOpen ? (
-        <AiAssistantModal
-          isOpen={aiModalOpen}
-          onClose={() => setAiModalOpen(false)}
-        />
+        <AiAssistantModal isOpen={aiModalOpen} onClose={() => setAiModalOpen(false)} />
       ) : null}
     </div>
   );
