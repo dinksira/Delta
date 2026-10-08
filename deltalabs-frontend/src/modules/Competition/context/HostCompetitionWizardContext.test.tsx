@@ -6,7 +6,6 @@ import {
   HOST_COMPETITION_STEP_COUNT,
   hostCompetitionInitialState,
   hostCompetitionReducer,
-  QUESTION_CODE_SEED,
 } from "./HostCompetitionWizardContext";
 import type { HostCompetitionAction, HostCompetitionState } from "./HostCompetitionWizardContext";
 /** ################################ /IMPORT ############################# */
@@ -59,25 +58,35 @@ describe("hostCompetitionReducer", () => {
     expect(removed.draft.phases).toHaveLength(1);
   });
 
-  it("adds labelled question tabs and activates them", () => {
+  it("adds, patches, activates, and removes workspace questions", () => {
     const added = run({ type: "ADD_QUESTION" });
     expect(added.draft.questions).toHaveLength(2);
-    expect(added.draft.questions[1].label).toBe("Q2.");
-    expect(added.draft.questions[1].code).toBe(QUESTION_CODE_SEED);
-    expect(added.draft.activeQuestionId).toBe(added.draft.questions[1].id);
+    const newId = added.draft.questions[1].id;
+    expect(newId).not.toBe(added.draft.questions[0].id);
+    expect(added.draft.questions[1].kind).toBe("coding");
+    expect(added.draft.activeQuestionId).toBe(newId);
+
+    const patched = run(
+      { type: "UPDATE_QUESTION", payload: { id: newId, patch: { title: "Two Sum" } } },
+      added,
+    );
+    expect(patched.draft.questions[1].title).toBe("Two Sum");
+
+    const removed = run({ type: "REMOVE_QUESTION", payload: newId }, patched);
+    expect(removed.draft.questions).toHaveLength(1);
+    expect(removed.draft.activeQuestionId).toBe(removed.draft.questions[0].id);
+
+    const emptied = run(
+      { type: "REMOVE_QUESTION", payload: removed.draft.questions[0].id },
+      removed,
+    );
+    expect(emptied.draft.questions).toHaveLength(0);
+    expect(emptied.draft.activeQuestionId).toBeNull();
   });
 
-  it("switches the active module and merges module settings", () => {
-    const withModule = run({ type: "SET_ACTIVE_MODULE", payload: "code-editor" });
-    expect(withModule.draft.activeModule).toBe("code-editor");
-
-    const withSettings = run(
-      { type: "UPDATE_MODULE_SETTINGS", payload: { difficulty: "HARD", points: "25" } },
-      withModule,
-    );
-    expect(withSettings.draft.moduleSettings.difficulty).toBe("HARD");
-    expect(withSettings.draft.moduleSettings.points).toBe("25");
-    expect(withSettings.draft.moduleSettings.language).toBe("HTML");
+  it("switches the active workspace module", () => {
+    const withModule = run({ type: "SET_ACTIVE_MODULE", payload: "question" });
+    expect(withModule.draft.activeModule).toBe("question");
   });
 
   it("records draft saves and launch", () => {

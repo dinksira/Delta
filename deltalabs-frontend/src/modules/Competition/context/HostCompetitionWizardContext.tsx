@@ -2,8 +2,8 @@
  * HostCompetitionWizardContext
  * Context + `useReducer` state for the multi-step "Host Competition" wizard:
  * step navigation plus the draft (overview metadata, prize cards, timeline
- * phases, terms, and the IDE workspace — active module, question tabs, and
- * module settings).
+ * phases, terms, and the workspace — module rail, question tabs, and the
+ * shared question-builder canvases built on the `CodingQuestion` model).
  *
  * @example
  * ```tsx
@@ -17,10 +17,16 @@
 
 import { createContext, useContext, useReducer, type Dispatch, type ReactNode } from "react";
 
+import { createEmptyQuestion } from "@/modules/Competition/types/createBattle";
+import type { CodingQuestion } from "@/modules/Competition/types/createBattle";
+
 // ===== TYPES =====
 
-/** Modules offered in the workspace left rail. */
-export type HostModuleId = "code-editor" | "question-builder" | "markdown-pad" | "design-canvas";
+/**
+ * Modules offered in the workspace left rail. Ids match the shared
+ * `WORKSPACE_MODULES` constant so the rail and canvases reuse the same keys.
+ */
+export type HostModuleId = "code" | "question" | "markdown" | "design";
 
 /** One repeatable prize entry (Step 2). */
 export interface PrizeDraft {
@@ -40,23 +46,6 @@ export interface PhaseDraft {
   endDate: string;
 }
 
-/** One question tab in the workspace code editor (Step 5). */
-export interface WorkspaceQuestion {
-  id: number;
-  label: string;
-  description: string;
-  code: string;
-}
-
-/** Right-rail module settings for the workspace. */
-export interface ModuleSettingsDraft {
-  language: string;
-  difficulty: string;
-  timer: string;
-  points: string;
-  hintEnabled: boolean;
-}
-
 /** Everything the wizard collects before launch. */
 export interface HostCompetitionDraft {
   title: string;
@@ -67,15 +56,15 @@ export interface HostCompetitionDraft {
   termsHtml: string;
   termsConfirmed: boolean;
   activeModule: HostModuleId | null;
-  questions: WorkspaceQuestion[];
-  activeQuestionId: number | null;
-  moduleSettings: ModuleSettingsDraft;
+  /** Workspace questions — same `CodingQuestion` model as the topic-battle and championship builders. */
+  questions: CodingQuestion[];
+  activeQuestionId: string | null;
 }
 
 export interface HostCompetitionState {
   /** 1-based current step. */
   step: number;
-  /** Monotonic id source for prize/phase/question rows (never `Date.now()`). */
+  /** Monotonic id source for prize/phase rows (never `Date.now()`). */
   seq: number;
   draft: HostCompetitionDraft;
   draftSavedAt: string | null;
@@ -95,17 +84,17 @@ export type HostCompetitionAction =
   | { type: "REMOVE_PHASE"; payload: number }
   | { type: "SET_ACTIVE_MODULE"; payload: HostModuleId | null }
   | { type: "ADD_QUESTION" }
-  | { type: "SET_ACTIVE_QUESTION"; payload: number }
-  | { type: "UPDATE_QUESTION"; payload: { id: number; patch: Partial<WorkspaceQuestion> } }
-  | { type: "UPDATE_MODULE_SETTINGS"; payload: Partial<ModuleSettingsDraft> }
+  | { type: "SET_ACTIVE_QUESTION"; payload: string }
+  | {
+      type: "UPDATE_QUESTION";
+      payload: { id: string; patch: Partial<CodingQuestion> };
+    }
+  | { type: "REMOVE_QUESTION"; payload: string }
   | { type: "SAVE_DRAFT" }
   | { type: "LAUNCH" }
   | { type: "RESET" };
 
 // ===== CONSTANTS =====
-
-/** Seed line shown in every new code question tab. */
-export const QUESTION_CODE_SEED = "// Write the code problem here";
 
 /** Wizard steps in order; ids double as route-safe step keys. */
 export const HOST_COMPETITION_STEPS = [
@@ -118,17 +107,8 @@ export const HOST_COMPETITION_STEPS = [
 
 export const HOST_COMPETITION_STEP_COUNT = HOST_COMPETITION_STEPS.length;
 
-const INITIAL_SETTINGS: ModuleSettingsDraft = {
-  language: "HTML",
-  difficulty: "EASY",
-  timer: "",
-  points: "",
-  hintEnabled: false,
-};
-
-function initialQuestion(id: number): WorkspaceQuestion {
-  return { id, label: "Q1.", description: "", code: QUESTION_CODE_SEED };
-}
+/** Seeded on first render so the Code Editor module opens with a live question. */
+const INITIAL_QUESTION = createEmptyQuestion();
 
 export const hostCompetitionInitialState: HostCompetitionState = {
   step: 1,
@@ -142,9 +122,8 @@ export const hostCompetitionInitialState: HostCompetitionState = {
     termsHtml: "",
     termsConfirmed: false,
     activeModule: null,
-    questions: [initialQuestion(3)],
-    activeQuestionId: 3,
-    moduleSettings: { ...INITIAL_SETTINGS },
+    questions: [INITIAL_QUESTION],
+    activeQuestionId: INITIAL_QUESTION.id,
   },
   draftSavedAt: null,
   launched: false,
@@ -154,10 +133,6 @@ export const hostCompetitionInitialState: HostCompetitionState = {
 
 function patchRow<T extends { id: number }>(rows: T[], id: number, patch: Partial<T>): T[] {
   return rows.map((row) => (row.id === id ? { ...row, ...patch } : row));
-}
-
-function nextQuestionLabel(count: number): string {
-  return `Q${count + 1}.`;
 }
 
 // ===== REDUCER =====
@@ -232,15 +207,13 @@ export function hostCompetitionReducer(
     case "SET_ACTIVE_MODULE":
       return { ...state, draft: { ...draft, activeModule: action.payload } };
     case "ADD_QUESTION": {
-      const id = state.seq;
-      const question = { ...initialQuestion(id), label: nextQuestionLabel(draft.questions.length) };
+      const question = createEmptyQuestion();
       return {
         ...state,
-        seq: state.seq + 1,
         draft: {
           ...draft,
           questions: [...draft.questions, question],
-          activeQuestionId: id,
+          activeQuestionId: question.id,
         },
       };
     }
@@ -251,17 +224,22 @@ export function hostCompetitionReducer(
         ...state,
         draft: {
           ...draft,
-          questions: patchRow(draft.questions, action.payload.id, action.payload.patch),
+          questions: draft.questions.map((question) =>
+            question.id === action.payload.id ? { ...question, ...action.payload.patch } : question,
+          ),
         },
       };
-    case "UPDATE_MODULE_SETTINGS":
+    case "REMOVE_QUESTION": {
+      const filtered = draft.questions.filter((question) => question.id !== action.payload);
       return {
         ...state,
         draft: {
           ...draft,
-          moduleSettings: { ...draft.moduleSettings, ...action.payload },
+          questions: filtered,
+          activeQuestionId: filtered.length > 0 ? filtered[filtered.length - 1].id : null,
         },
       };
+    }
     case "SAVE_DRAFT":
       return { ...state, draftSavedAt: new Date().toISOString() };
     case "LAUNCH":

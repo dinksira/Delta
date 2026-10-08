@@ -8,6 +8,7 @@
 
 import { Dialog, DialogSection } from "@/components/theme/Dialog";
 import type { HostCompetitionDraft } from "@/modules/Competition/context/HostCompetitionWizardContext";
+import { WORKSPACE_MODULES } from "@/modules/Competition/views/CreateBattleTopicPage";
 
 export interface PreviewDialogProps {
   isOpen: boolean;
@@ -22,7 +23,8 @@ function summarizeList(values: string[], fallback: string): string {
 
 export function PreviewDialog({ isOpen, onClose, draft }: Readonly<PreviewDialogProps>) {
   const activeModuleLabel = draft.activeModule
-    ? draft.activeModule.replace(/-/g, " ")
+    ? (WORKSPACE_MODULES.find((module) => module.id === draft.activeModule)?.label ??
+      draft.activeModule)
     : "No module selected";
 
   return (
