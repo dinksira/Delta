@@ -3,7 +3,15 @@
 import { useCallback, useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
-import { Banknote, CalendarCheck, Clock, Swords, Trophy } from "lucide-react";
+import {
+  CalendarCheck,
+  Clock,
+  Footprints,
+  Megaphone,
+  Swords,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
 
 import { PublicCompetitionTemplate } from "@/components/templates/PublicCompetitionTemplate/PublicCompetitionTemplate";
 import type { GameModeConfig } from "@/components/templates/PublicCompetitionTemplate/PublicCompetitionTemplate";
@@ -31,7 +39,12 @@ const GAME_MODE_ICONS: Record<string, Pick<GameModeConfig, "icon" | "accentTone"
   },
 };
 
-const ACHIEVEMENT_ICONS = [Trophy, Banknote, CalendarCheck];
+const ACHIEVEMENT_ICONS: Record<string, LucideIcon> = {
+  "first-battle": Footprints,
+  showrunner: Megaphone,
+  "regular-10": CalendarCheck,
+  champion: Trophy,
+};
 
 export function PublicCompetitionPage() {
   const router = useRouter();
@@ -60,8 +73,8 @@ export function PublicCompetitionPage() {
 
   const achievementConfigs = useMemo<AchievementConfig[]>(
     () =>
-      achievements.map((achievement, index) => {
-        const Icon = ACHIEVEMENT_ICONS[index] ?? Trophy;
+      achievements.map((achievement) => {
+        const Icon = ACHIEVEMENT_ICONS[achievement.id] ?? Trophy;
         return { ...achievement, icon: <Icon className="size-5" /> };
       }),
     [achievements],

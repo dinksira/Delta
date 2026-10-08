@@ -32,6 +32,12 @@ export interface Achievement {
   description: string;
   unlocked: boolean;
   unlockedAt: string | null;
+  /** ETB paid into the competition wallet when this achievement unlocks. */
+  rewardEtb: number;
+  /** Whether the reward credit has been posted to the wallet ledger. */
+  rewarded: boolean;
+  /** When the reward was credited; same stamp as `unlockedAt`. */
+  rewardedAt: string | null;
 }
 
 /** Static profile summary rendered by the "Your Status" card. */
