@@ -47,6 +47,7 @@ export interface CompetitionManagementTableGroupDto {
   readonly id: string;
   readonly title: string;
   readonly order: number;
+  readonly color?: string;
 }
 
 export interface CompetitionManagementTableInstanceDto {
@@ -82,4 +83,13 @@ export interface CompetitionManagementTableRowDto {
 export interface CompetitionManagementTableRowListResponseDto {
   readonly items: CompetitionManagementTableRowDto[];
   readonly total: number;
+}
+
+export type CompetitionBoardViewMode = "table" | "kanban";
+
+export interface CompetitionTableFilters {
+  readonly searchQuery: string;
+  readonly statusFilter: string;
+  readonly difficultyFilter: string;
+  readonly viewMode: CompetitionBoardViewMode;
 }

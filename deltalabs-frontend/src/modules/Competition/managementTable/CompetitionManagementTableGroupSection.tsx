@@ -1,8 +1,13 @@
 /**
  * CompetitionManagementTableGroupSection
  *
- * Renders a single group/tab of the competition management table.
- * Simplified from the School module — core CRUD only, no ghost ops / person cells / schedules.
+ * Renders a Monday.com-style group board consistent with the School module:
+ * - Collapsible group with row summary
+ * - Sticky left index + select-all checkbox with indeterminate state
+ * - Sticky right header with "+ Add column" trigger
+ * - Sticky bottom row with "+ Add row"
+ * - Sibling reordering (Move up / Move down)
+ * - Delegation to modular subcomponents to stay strictly under 300 lines.
  *
  * @example
  * ```tsx
@@ -12,14 +17,11 @@
 
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Link2, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 
-import { Button } from "@/components/theme";
-import { ApiError } from "@/lib/apiClient";
 import { useCompetitionHubData } from "@/modules/Competition/hooks/useCompetitionHubData";
 import {
   createCompetitionManagementTableRow,
@@ -28,109 +30,60 @@ import {
   patchCompetitionManagementTableRow,
   patchTopicBattleManagementTableRow,
   populateManagementTableRowFromBattle,
-} from "@/modules/Competition/managementTable/api";
-import type { CompetitionManagementTableRowDto } from "@/modules/Competition/managementTable/types";
-import { competitionQueryKeys } from "@/modules/Competition/managementTable/competitionQueryKeys";
-import { ManagementTableCellEditor } from "@/modules/Competition/managementTable/ManagementTableCellEditor";
-import { ManagementTableColumnHeadCell } from "@/modules/Competition/managementTable/ManagementTableColumnHeadCell";
-import { flattenManagementTableRows } from "@/modules/Competition/managementTable/managementTableRowHierarchy";
+
+} from "./api";
+import type { CompetitionManagementTableRowDto } from "./types";
+import { competitionQueryKeys } from "./competitionQueryKeys";
+import { ManagementTableColumnHeadCell } from "./ManagementTableColumnHeadCell";
+import { flattenManagementTableRows } from "./managementTableRowHierarchy";
+import { CompetitionManagementTableGroupHeader } from "./CompetitionManagementTableGroupHeader";
+import { CompetitionManagementTableGroupSummary } from "./CompetitionManagementTableGroupSummary";
+import { CompetitionManagementTableRow } from "./CompetitionManagementTableRow";
+import { resolveGroupColor } from "./columnTypeMeta";
 
 // ===== TYPES =====
 
-export type CompetitionManagementTableGroupSectionProps = Readonly<{
-  orgId: string;
-  definitionId: string;
-  instanceId: string;
-  groupId: string;
-  columns: readonly { id: string; title: string; type: string; order: number; settings?: Record<string, unknown> }[];
-  parentEnabled: boolean;
-  battleId?: string;
-}>;
+export interface CompetitionManagementTableGroupSectionProps {
+  readonly orgId: string;
+  readonly definitionId: string;
+  readonly instanceId: string;
+  readonly groupId: string;
+  readonly groupTitle?: string;
+  readonly groupColor?: string;
+  readonly columns: readonly { id: string; title: string; type: string; order: number; settings?: Record<string, unknown> }[];
+  readonly parentEnabled: boolean;
+  readonly battleId?: string;
+  readonly selectedRowIds?: ReadonlySet<string>;
+  readonly onToggleSelectRow?: (rowId: string) => void;
+  readonly onSelectAllInGroup?: (rowIds: string[], select: boolean) => void;
+  readonly onOpenAddColumn?: (btn: HTMLButtonElement) => void;
+  readonly onDeleteGroup?: () => void;
+}
 
 // ===== COMPONENT =====
-
-function CompetitionLinkCell({
-  value,
-  open,
-  pending,
-  onToggle,
-  onPick,
-  battles,
-}: Readonly<{
-  value: unknown;
-  open: boolean;
-  pending: boolean;
-  onToggle: () => void;
-  onPick: (battleId: string) => void;
-  battles: readonly { id: string; title: string; status?: string }[];
-}>) {
-  const current = typeof value === "string" && value.trim() ? value.trim() : "";
-  const currentTitle = current
-    ? battles.find((b) => `/features/competitions/${b.id}` === current)?.title ?? current
-    : "";
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={pending}
-        className="flex h-7 w-full min-w-0 items-center gap-1 rounded border border-transparent px-1 text-left text-sm leading-none outline-none hover:border-primary-300 focus:border-primary-300 disabled:opacity-50"
-        title={currentTitle || "Link a hosted competition"}
-      >
-        <span className="min-w-0 flex-1 truncate">
-          {currentTitle ? (
-            <span className="text-primary-600">{currentTitle}</span>
-          ) : (
-            <span className="text-text-tertiary">Link competition\u2026</span>
-          )}
-        </span>
-        <ChevronDown className="size-3.5 shrink-0 text-text-tertiary" aria-hidden />
-      </button>
-      {open ? (
-        <div className="absolute left-0 top-7 z-[200] w-64 rounded-xl border border-border-default bg-surface-default p-2 shadow-xl">
-          {battles.length === 0 ? (
-            <p className="px-2 py-3 text-center text-xs text-text-tertiary">
-              You don&apos;t host any competitions yet.
-            </p>
-          ) : (
-            battles.map((b) => {
-              const isActive = current === `/features/competitions/${b.id}`;
-              return (
-                <button
-                  key={b.id}
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onPick(b.id)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-surface-muted disabled:opacity-50"
-                >
-                  <span className="min-w-0 truncate text-text-primary">{b.title}</span>
-                  {isActive ? (
-                    <span className="shrink-0 text-[10px] font-semibold text-primary-600">LINKED</span>
-                  ) : null}
-                </button>
-              );
-            })
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function CompetitionManagementTableGroupSection({
   orgId,
   definitionId,
   instanceId,
   groupId,
+  groupTitle = "Main Table",
+  groupColor = "primary",
   columns,
   parentEnabled,
   battleId,
-}: CompetitionManagementTableGroupSectionProps) {
+  selectedRowIds = new Set(),
+  onToggleSelectRow,
+  onSelectAllInGroup,
+  onOpenAddColumn,
+  onDeleteGroup,
+}: Readonly<CompetitionManagementTableGroupSectionProps>) {
   const queryClient = useQueryClient();
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const [expandedRowIds, setExpandedRowIds] = useState<Set<string>>(() => new Set());
   const [deleteConfirmRowId, setDeleteConfirmRowId] = useState<string | null>(null);
   const [linkPickerRowId, setLinkPickerRowId] = useState<string | null>(null);
-  const [linkCellRowId, setLinkCellRowId] = useState<string | null>(null);
   const { myBattles } = useCompetitionHubData();
 
   const enabled = parentEnabled && Boolean(groupId);
@@ -153,6 +106,7 @@ export function CompetitionManagementTableGroupSection({
   });
 
   const patchRowMutation = useMutation({
+
     mutationFn: ({ rowId, cells }: { rowId: string; cells: Record<string, unknown> }) =>
       battleId
         ? patchTopicBattleManagementTableRow(battleId, rowId, cells, orgId)
@@ -162,10 +116,7 @@ export function CompetitionManagementTableGroupSection({
         competitionQueryKeys.rows(orgId, instanceId, groupId),
         (prev: { items: CompetitionManagementTableRowDto[] } | undefined) => {
           if (!prev) return prev;
-          return {
-            ...prev,
-            items: prev.items.map((r) => (r.id === updated.id ? updated : r)),
-          };
+          return { ...prev, items: prev.items.map((r) => (r.id === updated.id ? updated : r)) };
         },
       );
     },
@@ -182,20 +133,27 @@ export function CompetitionManagementTableGroupSection({
   const populateRowFromBattleMutation = useMutation({
     mutationFn: ({ rowId, battleId }: { rowId: string; battleId: string }) =>
       populateManagementTableRowFromBattle(instanceId, rowId, battleId, orgId),
-    onSuccess: () => {
-      setLinkPickerRowId(null);
-      setLinkCellRowId(null);
-    },
+    onSuccess: () => setLinkPickerRowId(null),
     onSettled: () => invalidateRows(),
   });
 
   const sortedColumns = useMemo(() => [...columns].sort((a, b) => a.order - b.order), [columns]);
-  const allRows = rowsQuery.data?.items ?? [];
+  const allRows = useMemo(() => rowsQuery.data?.items ?? [], [rowsQuery.data?.items]);
+  const flatRows = useMemo(() => flattenManagementTableRows(allRows, expandedRowIds), [allRows, expandedRowIds]);
 
-  const flatRows = useMemo(
-    () => flattenManagementTableRows(allRows, expandedRowIds),
-    [allRows, expandedRowIds],
-  );
+  // Select all & indeterminate state
+  const visibleRowIds = useMemo(() => flatRows.map((f) => f.row.id), [flatRows]);
+  const allVisibleSelected = visibleRowIds.length > 0 && visibleRowIds.every((id) => selectedRowIds.has(id));
+  const someVisibleSelected = visibleRowIds.some((id) => selectedRowIds.has(id));
+
+  // Sync indeterminate state to checkbox DOM element
+  if (selectAllRef.current) {
+    selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }
+
+  const toggleSelectAll = () => {
+    onSelectAllInGroup?.(visibleRowIds, !allVisibleSelected);
+  };
 
   const toggleRowExpanded = useCallback((rowId: string) => {
     setExpandedRowIds((prev) => {
@@ -214,204 +172,159 @@ export function CompetitionManagementTableGroupSection({
     [patchRowMutation],
   );
 
+  const colorTheme = resolveGroupColor(groupColor);
   const colSpanAll = sortedColumns.length + 2;
 
-  const rowSummary = useMemo(() => {
-    if (rowsQuery.isPending) return "Loading\u2026";
-    if (rowsQuery.isError) return "Could not load rows";
-    if (allRows.length === 0) return "No rows";
-    if (allRows.length === 1) return "1 row";
-    return `${allRows.length} rows`;
-  }, [allRows.length, rowsQuery.isError, rowsQuery.isPending]);
-
   return (
-    <div className="mt-6">
-      <div className="rounded-xl border border-border-default bg-surface-default shadow-sm">
-        <div className="flex items-center gap-2.5 border-b border-border-default px-3 py-2.5">
-          <span className="text-sm font-semibold text-text-primary">{rowSummary}</span>
-        </div>
+    <div className="mt-8">
+      {/* Monday.com Collapsible Group Header */}
+      <CompetitionManagementTableGroupHeader
+        title={groupTitle}
+        count={allRows.length}
+        collapsed={collapsed}
+        colorKey={groupColor}
+        onToggleCollapse={() => setCollapsed((c) => !c)}
+        onAddRow={() => addRowMutation.mutate()}
+        onDeleteGroup={onDeleteGroup}
+        addRowPending={addRowMutation.isPending}
+      />
 
-        <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr className="bg-surface-muted text-left text-text-secondary">
-                <th className="sticky left-0 z-[4] w-10 border-b border-r border-white bg-surface-muted px-1 py-1 shadow-md">
-                  <span className="sr-only">Row</span>
-                </th>
-                {sortedColumns.map((col) => (
-                  <th
-                    key={col.id}
-                    className="group/colhead relative min-w-[120px] border-b border-l border-white p-0 font-medium align-middle"
-                  >
-                    <ManagementTableColumnHeadCell
-                      orgId={orgId}
-                      definitionId={definitionId}
-                      instanceId={instanceId}
-                      column={col}
-                      columnCount={sortedColumns.length}
-                      enabled={enabled}
+      {/* Group Table Surface */}
+      {!collapsed ? (
+        <div className={`overflow-hidden rounded-xl border border-border-default bg-surface-default shadow-sm ${colorTheme.border} border-t-2`}>
+          <div className="overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <table className="min-w-full border-separate border-spacing-0 text-xs">
+              <thead>
+                <tr className="bg-surface-muted text-left font-semibold text-text-secondary">
+                  {/* Select All Checkbox */}
+                  <th className={`sticky left-0 z-[4] w-10 border-b border-r border-border-default bg-surface-muted px-2 py-2 shadow-md ${colorTheme.border} border-l-4`}>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAll}
+                      disabled={!enabled || visibleRowIds.length === 0}
+                      className="size-3.5 rounded border-border-default text-primary-600 focus:ring-primary-500"
+                      aria-label="Select all visible rows in group"
                     />
                   </th>
-                ))}
-                <th className="sticky right-0 z-[4] w-10 border-b border-l border-white bg-surface-muted px-1 py-1 shadow-md">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rowsQuery.isPending ? (
-                <tr>
-                  <td colSpan={colSpanAll} className="px-3 py-6 text-center text-text-tertiary">
-                    Loading rows\u2026
-                  </td>
+                  {sortedColumns.map((col) => (
+                    <th key={col.id} className="min-w-[130px] border-b border-r border-border-default p-0 font-medium">
+                      <ManagementTableColumnHeadCell
+                        orgId={orgId}
+                        definitionId={definitionId}
+                        instanceId={instanceId}
+                        column={col}
+                        columnCount={sortedColumns.length}
+                        enabled={enabled}
+                      />
+                    </th>
+                  ))}
+                  {/* Right Header: + Add Column trigger */}
+                  <th className="sticky right-0 z-[4] min-w-[100px] border-b border-border-default bg-surface-muted px-1 py-1 font-medium shadow-md">
+                    {onOpenAddColumn ? (
+                      <button
+                        type="button"
+                        onClick={(e) => onOpenAddColumn(e.currentTarget)}
+                        disabled={!enabled}
+                        className="inline-flex h-7 w-full items-center gap-1.5 rounded-md px-1.5 text-left text-xs font-medium text-text-secondary transition-colors hover:bg-surface-default"
+                        title="Add column"
+                      >
+                        <span className="inline-flex size-4.5 items-center justify-center rounded border border-border-default bg-surface-default text-text-secondary">
+                          <Plus className="size-3" aria-hidden />
+                        </span>
+                        <span className="truncate">Add column</span>
+                      </button>
+                    ) : (
+                      <span className="sr-only">Actions</span>
+                    )}
+                  </th>
                 </tr>
-              ) : rowsQuery.isError ? (
-                <tr>
-                  <td colSpan={colSpanAll} className="px-3 py-6 text-center text-sm text-red-600">
-                    {rowsQuery.error instanceof ApiError ? rowsQuery.error.message : "Could not load rows."}
-                  </td>
-                </tr>
-              ) : allRows.length === 0 ? (
-                <tr>
-                  <td colSpan={colSpanAll} className="px-3 py-8 text-center text-sm text-text-tertiary">
-                    No rows yet.
-                  </td>
-                </tr>
-              ) : (
-                flatRows.map((flat) => {
-                  const { row, depth, hasChildren } = flat;
-                  const isExpanded = expandedRowIds.has(row.id);
-                  return (
-                    <tr key={row.id} className="group/row hover:bg-surface-muted/30">
-                      <td className="sticky left-0 z-[2] h-9 border-b border-r border-border-default bg-surface-default px-1 align-middle shadow-[2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30">
-                        <div className="flex items-center gap-0.5">
-                          {hasChildren ? (
-                            <button
-                              type="button"
-                              className="inline-flex size-5 shrink-0 items-center justify-center rounded text-text-secondary hover:bg-black/[0.06]"
-                              aria-expanded={isExpanded}
-                              onClick={() => toggleRowExpanded(row.id)}
-                            >
-                              <svg
-                                className={`size-3.5 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
-                                viewBox="0 0 16 16"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <path d="M4 6l4 4 4-4" />
-                              </svg>
-                            </button>
-                          ) : (
-                            <span className="inline-block size-5 shrink-0" aria-hidden />
-                          )}
-                          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary-50 px-1.5 text-[10px] font-bold text-primary-700">
-                            {depth > 0 ? `\u2022` : (flatRows.filter((f) => f.depth === 0).indexOf(flat) + 1)}
-                          </span>
-                        </div>
-                      </td>
-                      {sortedColumns.map((col) => (
-                        <td
-                          key={col.id}
-                          className="h-9 border-b border-l border-border-default px-1 align-middle bg-surface-default group-hover/row:bg-surface-muted/30"
-                          style={{ paddingLeft: depth > 0 ? 12 + depth * 14 : undefined }}
-                        >
-                          <div className="min-w-0 flex-1">
-                            {!battleId &&
-                            ["title", "name", "link"].includes(col.title.trim().toLowerCase()) ? (
-                              <CompetitionLinkCell
-                                value={row.cells[col.id]}
-                                open={linkCellRowId === row.id}
-                                pending={populateRowFromBattleMutation.isPending}
-                                onToggle={() =>
-                                  setLinkCellRowId((prev) => (prev === row.id ? null : row.id))
-                                }
-                                onPick={(battleId) =>
-                                  populateRowFromBattleMutation.mutate({ rowId: row.id, battleId })
-                                }
-                                battles={myBattles}
-                              />
-                            ) : (
-                              <ManagementTableCellEditor
-                                column={col}
-                                value={row.cells[col.id]}
-                                onCommit={(next, imm) => onCellCommit(row, col.id, next, imm)}
-                              />
-                            )}
-                          </div>
-                        </td>
-                      ))}
-                      <td className="sticky right-0 z-[2] h-9 border-b border-l border-border-default bg-surface-default px-1 align-middle shadow-[-2px_0_10px_rgba(2,24,43,0.06)] group-hover/row:bg-surface-muted/30">
-                        <div className="flex items-center justify-end gap-0.5">
-                          <button
-                            type="button"
-                            className="inline-flex size-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-primary-50 hover:text-primary-600"
-                            title="Link competition data"
-                            disabled={populateRowFromBattleMutation.isPending}
-                            onClick={() => setLinkPickerRowId(row.id)}
-                          >
-                            <Link2 className="size-3.5" aria-hidden />
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex size-7 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-red-50 hover:text-red-600"
-                            title="Delete row"
-                            disabled={!enabled || deleteRowMutation.isPending}
-                            onClick={() => setDeleteConfirmRowId(row.id)}
-                          >
-                            <Trash2 className="size-3.5" aria-hidden />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rowsQuery.isPending ? (
+                  <tr>
+                    <td colSpan={colSpanAll} className="py-8 text-center text-xs text-text-tertiary">
+                      Loading competitions…
+                    </td>
+                  </tr>
+                ) : allRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={colSpanAll} className="py-6 text-center text-xs text-text-tertiary">
+                      No competitions in this group yet. Click &quot;+ Add Competition&quot; below.
+                    </td>
+                  </tr>
+                ) : (
+                  flatRows.map((flat) => {
+                    const { row, depth, hasChildren } = flat;
+                    return (
+                      <CompetitionManagementTableRow
+                        key={row.id}
+                        row={row}
+                        columns={sortedColumns}
+                        colorKey={groupColor}
+                        isSelected={selectedRowIds.has(row.id)}
+                        depth={depth}
+                        hasChildren={hasChildren}
+                        isExpanded={expandedRowIds.has(row.id)}
+                        onToggleExpanded={() => toggleRowExpanded(row.id)}
+                        onToggleSelect={() => onToggleSelectRow?.(row.id)}
+                        onCellCommit={(colId, next, imm) => onCellCommit(row, colId, next, imm)}
+                        onOpenLinkPicker={() => setLinkPickerRowId(row.id)}
+                        onDeleteRow={() => setDeleteConfirmRowId(row.id)}
+                        battles={myBattles}
+                      />
+                    );
+                  })
+                )}
 
-          <div className="border-t border-border-default bg-surface-muted/30 px-1.5 py-1.5">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="gap-1 text-xs"
-              disabled={addRowMutation.isPending || !enabled}
-              onClick={() => addRowMutation.mutate()}
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Add row
-            </Button>
+                {/* Monday.com Group Summary Footer */}
+                <CompetitionManagementTableGroupSummary columns={sortedColumns} rows={allRows} colorKey={groupColor} />
+              </tbody>
+            </table>
+
+            {/* Bottom "+ Add Competition" Row */}
+            <div className="flex items-center border-t border-border-default bg-surface-muted/30 px-2 py-1.5">
+              <button
+                type="button"
+                disabled={addRowMutation.isPending || !enabled}
+                onClick={() => addRowMutation.mutate()}
+                className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-semibold transition-colors hover:bg-surface-muted disabled:opacity-50 ${colorTheme.text}`}
+              >
+                <Plus className="size-3.5" aria-hidden />
+                + Add Competition
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
+      {/* Delete confirmation modal */}
       {deleteConfirmRowId && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40">
-              <div className="w-full max-w-sm rounded-xl border border-border-default bg-surface-default p-6 shadow-xl">
-                <h3 className="text-base font-semibold text-text-primary">Delete row?</h3>
-                <p className="mt-2 text-sm text-text-secondary">
-                  This permanently deletes the selected row and its subitems.
+            <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-sm rounded-xl border border-border-default bg-surface-default p-5 shadow-xl">
+                <h3 className="text-base font-semibold text-text-primary">Delete competition?</h3>
+                <p className="mt-1.5 text-xs text-text-secondary">
+                  This will remove this item from your management table.
                 </p>
                 <div className="mt-4 flex justify-end gap-2">
                   <button
                     type="button"
-                    className="rounded-md border border-border-default px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-surface-muted"
-                    disabled={deleteRowMutation.isPending}
+                    className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-muted"
                     onClick={() => setDeleteConfirmRowId(null)}
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                    className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                     disabled={deleteRowMutation.isPending}
                     onClick={() => {
                       if (deleteConfirmRowId) deleteRowMutation.mutate(deleteConfirmRowId);
                     }}
                   >
-                    {deleteRowMutation.isPending ? "Deleting\u2026" : "Delete"}
+                    {deleteRowMutation.isPending ? "Deleting…" : "Delete"}
                   </button>
                 </div>
               </div>
@@ -420,75 +333,44 @@ export function CompetitionManagementTableGroupSection({
           )
         : null}
 
-      {deleteRowMutation.isError ? (
-        <p className="fixed bottom-[7.5rem] left-1/2 z-[190] -translate-x-1/2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 shadow">
-          {deleteRowMutation.error instanceof ApiError
-            ? deleteRowMutation.error.message
-            : "Could not delete row."}
-        </p>
-      ) : null}
-
+      {/* Link battle picker modal */}
       {linkPickerRowId && typeof document !== "undefined"
         ? createPortal(
-            <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40">
-              <div className="w-full max-w-lg rounded-xl border border-border-default bg-surface-default p-6 shadow-xl">
-                <h3 className="text-base font-semibold text-text-primary">
-                  Link competition data
-                </h3>
+            <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/40 p-4">
+              <div className="w-full max-w-md rounded-xl border border-border-default bg-surface-default p-5 shadow-xl">
+                <h3 className="text-base font-semibold text-text-primary">Link Hosted Competition</h3>
                 <p className="mt-1 text-xs text-text-tertiary">
-                  Pick a competition you host to fill this row&apos;s cells with its data.
+                  Select one of your hosted battles to sync its data into this row.
                 </p>
-                <div className="mt-4 max-h-72 space-y-2 overflow-y-auto">
+                <div className="mt-3 max-h-60 space-y-1.5 overflow-y-auto">
                   {myBattles.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-text-tertiary">
+                    <p className="py-6 text-center text-xs text-text-tertiary">
                       You don&apos;t host any competitions yet.
                     </p>
                   ) : (
-                    myBattles.map((battle) => {
-                      const pending =
-                        populateRowFromBattleMutation.isPending &&
-                        populateRowFromBattleMutation.variables?.battleId === battle.id;
-                      return (
-                        <button
-                          key={battle.id}
-                          type="button"
-                          disabled={populateRowFromBattleMutation.isPending}
-                          onClick={() =>
-                            populateRowFromBattleMutation.mutate({
-                              rowId: linkPickerRowId,
-                              battleId: battle.id,
-                            })
-                          }
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-border-default px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-muted disabled:opacity-50"
-                        >
-                          <span className="min-w-0 truncate font-medium text-text-primary">
-                            {battle.title}
-                          </span>
-                          <span className="shrink-0 text-xs text-text-tertiary">
-                            {pending ? "Linking…" : `${battle.status} · ${battle.difficulty}`}
-                          </span>
-                        </button>
-                      );
-                    })
+                    myBattles.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() =>
+                          populateRowFromBattleMutation.mutate({ rowId: linkPickerRowId, battleId: b.id })
+                        }
+                        className="flex w-full items-center justify-between rounded-lg border border-border-default p-2 text-left text-xs transition-colors hover:bg-surface-muted"
+                      >
+                        <span className="font-semibold text-text-primary">{b.title}</span>
+                        <span className="text-[10px] text-text-tertiary">{b.status} · {b.difficulty}</span>
+                      </button>
+                    ))
                   )}
                 </div>
-                {populateRowFromBattleMutation.isError ? (
-                  <p className="mt-3 text-sm text-red-600" role="alert">
-                    {populateRowFromBattleMutation.error instanceof ApiError
-                      ? populateRowFromBattleMutation.error.message
-                      : "Could not link competition data."}
-                  </p>
-                ) : null}
                 <div className="mt-4 flex justify-end">
-                  <Button
+                  <button
                     type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={populateRowFromBattleMutation.isPending}
+                    className="rounded-lg border border-border-default px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-surface-muted"
                     onClick={() => setLinkPickerRowId(null)}
                   >
-                    Done
-                  </Button>
+                    Close
+                  </button>
                 </div>
               </div>
             </div>,
@@ -498,3 +380,5 @@ export function CompetitionManagementTableGroupSection({
     </div>
   );
 }
+
+export default CompetitionManagementTableGroupSection;

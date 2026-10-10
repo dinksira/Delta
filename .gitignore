@@ -32,6 +32,8 @@ __pycache__/
 
 # Misc
 test_write.txt
+*.log
+
 
 # Local Design & Compliance Docs
 Ci.md

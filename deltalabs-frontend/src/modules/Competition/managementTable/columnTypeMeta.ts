@@ -116,6 +116,111 @@ export const COMPETITION_ADD_COLUMN_GROUPS: readonly ManagementTableAddColumnGro
   },
 ];
 
+// ===== MONDAY-STYLE STATUS & GROUP PRESETS =====
+
+export type ManagementTableStatusTone =
+  | "default"
+  | "info"
+  | "live"
+  | "warning"
+  | "success"
+  | "error"
+  | "secondary";
+
+export interface ManagementTableStatusOption {
+  readonly id: string;
+  readonly label: string;
+  readonly tone: ManagementTableStatusTone;
+}
+
+export const DEFAULT_COMPETITION_STATUS_OPTIONS: readonly ManagementTableStatusOption[] = [
+  { id: "opt_draft", label: "Draft", tone: "default" },
+  { id: "opt_upcoming", label: "Upcoming", tone: "info" },
+  { id: "opt_live", label: "Live Now", tone: "live" },
+  { id: "opt_working", label: "Working on it", tone: "warning" },
+  { id: "opt_done", label: "Done", tone: "success" },
+  { id: "opt_stuck", label: "Stuck", tone: "error" },
+];
+
+export const STATUS_TONE_CLASSES: Record<
+  ManagementTableStatusTone,
+  { bg: string; text: string; ring?: string }
+> = {
+  default: { bg: "bg-surface-muted", text: "text-text-secondary" },
+  info: { bg: "bg-info-500", text: "text-white" },
+  live: { bg: "bg-primary-600", text: "text-white", ring: "ring-2 ring-primary-300 ring-offset-1" },
+  warning: { bg: "bg-warning-500", text: "text-white" },
+  success: { bg: "bg-success-500", text: "text-white" },
+  error: { bg: "bg-error-500", text: "text-white" },
+  secondary: { bg: "bg-secondary-600", text: "text-white" },
+};
+
+export const GROUP_COLOR_KEYS = [
+  "primary",
+  "success",
+  "warning",
+  "secondary",
+  "info",
+  "error",
+] as const;
+
+export type GroupColorKey = (typeof GROUP_COLOR_KEYS)[number];
+
+export const GROUP_COLOR_CLASSES: Record<
+  GroupColorKey,
+  { border: string; text: string; bg: string; fill: string; label: string }
+> = {
+  primary: {
+    border: "border-primary-500",
+    text: "text-primary-600",
+    bg: "bg-primary-50",
+    fill: "bg-primary-500",
+    label: "Teal",
+  },
+  success: {
+    border: "border-success-500",
+    text: "text-success-600",
+    bg: "bg-success-50",
+    fill: "bg-success-500",
+    label: "Green",
+  },
+  warning: {
+    border: "border-warning-500",
+    text: "text-warning-600",
+    bg: "bg-warning-50",
+    fill: "bg-warning-500",
+    label: "Amber",
+  },
+  secondary: {
+    border: "border-secondary-500",
+    text: "text-secondary-600",
+    bg: "bg-secondary-50",
+    fill: "bg-secondary-500",
+    label: "Purple",
+  },
+  info: {
+    border: "border-info-500",
+    text: "text-info-600",
+    bg: "bg-info-50",
+    fill: "bg-info-500",
+    label: "Blue",
+  },
+  error: {
+    border: "border-error-500",
+    text: "text-error-600",
+    bg: "bg-error-50",
+    fill: "bg-error-500",
+    label: "Coral",
+  },
+};
+
+export function resolveGroupColor(colorKey?: string): (typeof GROUP_COLOR_CLASSES)[GroupColorKey] {
+  if (colorKey && colorKey in GROUP_COLOR_CLASSES) {
+    return GROUP_COLOR_CLASSES[colorKey as GroupColorKey];
+  }
+  return GROUP_COLOR_CLASSES.primary;
+}
+
 // ===== HELPERS =====
 
 export function filterAddColumnGroups(
@@ -132,11 +237,17 @@ export function filterAddColumnGroups(
 }
 
 export function defaultSettingsForColumnType(type: ManagementTableColumnTypeDto): Record<string, unknown> {
-  if (type === "dropdown" || type === "status") {
+  if (type === "status") {
+    return {
+      options: DEFAULT_COMPETITION_STATUS_OPTIONS,
+    };
+  }
+  if (type === "dropdown") {
     return {
       options: [
-        { id: "opt_a", label: type === "status" ? "Working on it" : "Option A" },
-        { id: "opt_b", label: type === "status" ? "Done" : "Option B" },
+        { id: "opt_easy", label: "Beginner" },
+        { id: "opt_med", label: "Intermediate" },
+        { id: "opt_hard", label: "Advanced" },
       ],
     };
   }
@@ -148,3 +259,4 @@ export function defaultTitleForColumnType(type: ManagementTableColumnTypeDto): s
   if (type === "checkbox") return "Checkbox";
   return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
 }
+

@@ -9,6 +9,13 @@ export {
   CreateLiveDuelPage,
 } from "@/modules/Competition/views";
 export {
+  CompetitionManagementTableView,
+  CompetitionManagementTableGroupSection,
+  CompetitionManagementTableToolbar,
+  CompetitionManagementBoardView,
+} from "@/modules/Competition/managementTable";
+export {
+
   CompetitionFilterProvider,
   useCompetitionFilter,
   CreateBattleWizardProvider,
