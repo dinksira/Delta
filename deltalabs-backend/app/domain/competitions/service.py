@@ -1750,7 +1750,9 @@ class Service:
     # ========================================================================
 
     async def list_modes(self) -> list[CompetitionModeResponse]:
-        await self.bootstrap()
+        # Indexes and the default mode catalogue are seeded once at startup
+        # (see `main.py` lifespan); re-bootstrapping here cost ~20 remote
+        # round-trips on every hub read.
         docs = await self._repository.find_all_modes()
         return [CompetitionModeResponse(**doc) for doc in docs]
 
@@ -2522,7 +2524,6 @@ class Service:
         *,
         user_id: str | None = None,
     ) -> TopicBattleListResponse:
-        await self.bootstrap()
         docs = await self._repository.find_all_topic_battles()
         battles = [self._repository.doc_to_response(doc, viewer_user_id=user_id) for doc in docs]
         return TopicBattleListResponse(battles=battles, total=len(battles))
@@ -2560,7 +2561,6 @@ class Service:
         battle_id: str,
         user_id: str | None = None,
     ) -> TopicBattleResponse:
-        await self.bootstrap()
         doc = await self._repository.find_topic_battle_by_id(battle_id)
         if doc is None:
             from app.core.exceptions import NotFoundError
@@ -2954,8 +2954,6 @@ class Service:
         by who finished first, so a later finisher cannot displace an earlier
         one purely by re-reading the board.
         """
-        await self.bootstrap()
-
         doc = await self._repository.find_topic_battle_by_id(battle_id)
         if doc is None:
             raise NotFoundError("Topic battle not found.", code="topic_battle_not_found")
@@ -3163,7 +3161,6 @@ class Service:
         self, *, battle_id: str, user_id: str,
     ) -> ManagementTableInstanceBundleResponse:
         """Load the management-table bundle for a hosted battle."""
-        await self.bootstrap()
         inst = await self._get_battle_management_instance(battle_id, user_id)
         mgt = self._management_table_service
         assert mgt is not None
@@ -3176,7 +3173,6 @@ class Service:
         group_id: str | None, page: int, page_size: int,
     ) -> ManagementTableRowListResponse:
         """List rows of a hosted battle's management table."""
-        await self.bootstrap()
         inst = await self._get_battle_management_instance(battle_id, user_id)
         mgt = self._management_table_service
         assert mgt is not None

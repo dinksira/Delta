@@ -185,21 +185,17 @@ class WalletRepository:
         now = datetime.now(UTC)
         for leg in legs:
             account = str(leg["account"])
-            # A path cannot appear in both `$inc` and `$setOnInsert`, so a fresh
-            # document is created by `$inc` alone and seeds nothing for it.
-            set_on_insert: dict[str, Any] = {
-                "_id": account,
-                "owner": _account_owner(account),
-                "balance_etb": 0,
-                "created_at": now,
-            }
-            set_on_insert.pop("balance_etb", None)
+            # A path may not be touched by more than one update operator, so each
+            # field is owned by exactly one: `balance_etb` moves via `$inc`,
+            # `owner`/`updated_at` are written by `$set` on every write, and only
+            # `created_at` is seeded on insert. `_id` comes from the equality
+            # filter Mongo copies into an upserted document.
             await self._db["competition_wallets"].update_one(
                 {"_id": account},
                 {
                     "$inc": {"balance_etb": int(leg["delta_etb"])},
                     "$set": {"owner": _account_owner(account), "updated_at": now},
-                    "$setOnInsert": set_on_insert,
+                    "$setOnInsert": {"created_at": now},
                 },
                 upsert=True,
                 session=session,

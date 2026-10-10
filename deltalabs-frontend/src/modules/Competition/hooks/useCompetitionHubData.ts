@@ -10,11 +10,11 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchCompetitionHub } from "@/modules/Competition/api";
+import { DEFAULT_GAME_MODES } from "@/modules/Competition/data/gameModes";
 import { competitionHubQueryKeys } from "@/modules/Competition/hooks/competitionHubQueryKeys";
-import type { Achievement, GameMode, UserStatus } from "@/modules/Competition/types/hub";
+import type { Achievement, UserStatus } from "@/modules/Competition/types/hub";
 import type { TopicBattle } from "@/modules/Competition/types/topicBattle";
 
-const EMPTY_MODES: GameMode[] = [];
 const EMPTY_ACHIEVEMENTS: Achievement[] = [];
 const EMPTY_MY_BATTLES: TopicBattle[] = [];
 
@@ -39,7 +39,7 @@ export function useCompetitionHubData() {
 
   return {
     query,
-    modes: data?.modes ?? EMPTY_MODES,
+    modes: data?.modes.length ? data.modes : DEFAULT_GAME_MODES,
     userStatus: data?.userStatus ?? FALLBACK_USER_STATUS,
     achievements: data?.achievements ?? EMPTY_ACHIEVEMENTS,
     myBattles: data?.myBattles ?? EMPTY_MY_BATTLES,

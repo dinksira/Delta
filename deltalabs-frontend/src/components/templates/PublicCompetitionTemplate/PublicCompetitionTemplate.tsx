@@ -84,7 +84,6 @@ export function PublicCompetitionTemplate({
   achievements,
   upcomingItems,
 
-  myBattles: _myBattles,
   onOpenBattle,
 
   searchValue,

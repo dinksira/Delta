@@ -72,6 +72,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:
         logger.error("startup.competitions_demo_seed_failed", extra={"error": str(exc)})
 
+    # Seed the hub's game-mode catalogue once at startup. `list_modes` no longer
+    # bootstraps per request, so this is what guarantees the three hub cards
+    # exist even where `seed_demo_battles` is a no-op (anything outside ENV=local).
+    try:
+        await CompetitionsService(CompetitionsRepository(db)).bootstrap()
+        logger.info("startup.competitions_bootstrapped")
+    except Exception as exc:
+        logger.error("startup.competitions_bootstrap_failed", extra={"error": str(exc)})
+
     # Run scheduled content launches + abandoned-state cleanup in the background.
     # The Redis client is handed in so the sweep can publish `DUEL_ENDED` fan-out
     # to any tab still connected to a room it is finishing on the host's behalf.
